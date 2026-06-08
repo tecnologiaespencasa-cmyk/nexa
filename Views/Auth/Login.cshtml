@@ -1,0 +1,85 @@
+@model LoginViewModel
+@{
+    ViewData["Title"] = "Iniciar sesi\u00f3n";
+    Layout = "_AuthLayout";
+}
+
+<div class="auth-login-shell">
+    <svg class="auth-ecg-background" viewBox="0 0 1440 320" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <path class="auth-ecg-line" pathLength="1800" fill="none" stroke="#e53935" stroke-linecap="round" stroke-linejoin="round"
+              d="M0 190 H148 L166 112 L188 260 L214 142 L240 190 H1112 L1132 154 L1154 220 L1180 96 L1212 190 H1440" />
+    </svg>
+
+    <div class="auth-soft-shape auth-soft-shape-one" aria-hidden="true"></div>
+    <div class="auth-soft-shape auth-soft-shape-two" aria-hidden="true"></div>
+    <div class="auth-medical-cross auth-medical-cross-one" aria-hidden="true"></div>
+    <div class="auth-medical-cross auth-medical-cross-two" aria-hidden="true"></div>
+    <div class="auth-dot-field" aria-hidden="true"></div>
+
+    <div class="auth-login-card">
+        <div class="auth-card-body">
+            <div class="auth-brand">
+                <img src="~/images/logo.png" alt="Especialistas en Casa" class="auth-logo" />
+            </div>
+
+            <div class="auth-heading">
+                <h1>Intranet Corporativa</h1>
+                <p>Especialistas en Casa</p>
+            </div>
+
+            <form asp-action="Login" method="post" novalidate>
+                <input asp-for="ReturnUrl" type="hidden" />
+                <div asp-validation-summary="ModelOnly" class="auth-validation-summary mb-3"></div>
+
+                <div class="auth-field mb-3">
+                    <label asp-for="Username" class="form-label visually-hidden"></label>
+                    <span class="auth-field-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M20 21a8 8 0 0 0-16 0" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>
+                    </span>
+                    <input asp-for="Username" class="form-control auth-input" autocomplete="username" placeholder="Usuario" />
+                    <span asp-validation-for="Username" class="auth-validation-message"></span>
+                </div>
+
+                <div class="auth-field mb-3">
+                    <label asp-for="Password" class="form-label visually-hidden"></label>
+                    <span class="auth-field-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <rect x="4" y="10" width="16" height="10" rx="2" />
+                            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                        </svg>
+                    </span>
+                    <input asp-for="Password" class="form-control auth-input auth-password-input" autocomplete="current-password" placeholder="Contraseña" />
+                    <button class="auth-password-toggle" type="button" data-password-toggle data-password-input="Password" aria-label="Mostrar contraseña">
+                        <svg class="auth-eye-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        <svg class="auth-eye-off-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M3 3l18 18" />
+                            <path d="M10.6 10.6A3 3 0 0 0 13.4 13.4" />
+                            <path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6 0 9.5 7 9.5 7a15.6 15.6 0 0 1-2.2 3.1" />
+                            <path d="M6.6 6.6C3.9 8.4 2.5 12 2.5 12s3.5 7 9.5 7a10.8 10.8 0 0 0 4.5-.9" />
+                        </svg>
+                    </button>
+                    <span asp-validation-for="Password" class="auth-validation-message"></span>
+                </div>
+
+                <div class="form-check auth-remember mb-4">
+                    <input asp-for="RememberMe" class="form-check-input" />
+                    <label asp-for="RememberMe" class="form-check-label"></label>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn auth-submit-button">Ingresar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

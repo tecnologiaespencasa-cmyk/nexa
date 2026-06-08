@@ -1,0 +1,243 @@
+@using IntranetPrueba.Models.Security
+@using Microsoft.AspNetCore.Authorization
+@using System.Linq
+@using System.Security.Claims
+@inject IAuthorizationService AuthorizationService
+@{
+    var controllerName = ViewContext.RouteData.Values["controller"]?.ToString();
+    var actionName = ViewContext.RouteData.Values["action"]?.ToString();
+    var isCensoView = string.Equals(controllerName, "Censo", System.StringComparison.OrdinalIgnoreCase);
+    var isHomeView = string.Equals(controllerName, "Home", System.StringComparison.OrdinalIgnoreCase)
+        && string.Equals(actionName, "Index", System.StringComparison.OrdinalIgnoreCase);
+    var isLoginPage = string.Equals(controllerName, "Auth", System.StringComparison.OrdinalIgnoreCase)
+        && string.Equals(actionName, "Login", System.StringComparison.OrdinalIgnoreCase);
+    var showNavigation = User.Identity?.IsAuthenticated == true && !isLoginPage;
+    var currentUserName = User.FindFirstValue("full_name") ?? User.Identity?.Name ?? "Usuario";
+    var bodyClasses = string.Join(" ", new[]
+    {
+        isCensoView ? "page-censo" : null,
+        isHomeView ? "page-home" : null
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Intranet</title>
+    <script type="importmap"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/IntranetPrueba.styles.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body class="@bodyClasses">
+    @if (showNavigation)
+    {
+        <header>
+            <nav class="navbar navbar-expand-xl navbar-dark intranet-navbar">
+                <div class="container-fluid">
+                    <a class="navbar-brand intranet-navbar-brand" asp-area="" asp-controller="Home" asp-action="Index" aria-label="Nexa inicio">
+                        <img src="~/images/Nexa_sin_fondo.png" asp-append-version="true" alt="Nexa" class="intranet-navbar-logo" />
+                    </a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav"
+                            aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div id="mainNav" class="collapse navbar-collapse intranet-navbar-collapse">
+                        <ul class="navbar-nav intranet-nav-links">
+                            @{
+                                var canManageUsers = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.UserAdministration)).Succeeded;
+                                var canAudit = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.AuditRead)).Succeeded;
+                                var canCenso = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Censo)).Succeeded;
+                                var canReportes = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Reportes)).Succeeded;
+                                var canInventario = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.InventarioBiomedico)).Succeeded;
+                                var canFarmacia = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Farmacia)).Succeeded;
+                            }
+
+                            <li class="nav-item">
+                                <a class="nav-link intranet-nav-link @(string.Equals(controllerName, "Home", System.StringComparison.OrdinalIgnoreCase) ? "active" : null)"
+                                   asp-controller="Home"
+                                   asp-action="Index">
+                                    <span class="intranet-nav-link__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M3 11.5 12 4l9 7.5"></path>
+                                            <path d="M5 10.5V20h14v-9.5"></path>
+                                            <path d="M9.5 20v-5h5v5"></path>
+                                        </svg>
+                                    </span>
+                                    <span>Inicio</span>
+                                </a>
+                            </li>
+
+                            @if (canManageUsers)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link intranet-nav-link @(string.Equals(controllerName, "UserAdministration", System.StringComparison.OrdinalIgnoreCase) ? "active" : null)"
+                                       asp-controller="UserAdministration"
+                                       asp-action="Index">
+                                        <span class="intranet-nav-link__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="4" y="3" width="16" height="18" rx="3"></rect>
+                                                <path d="M9 8h6"></path>
+                                                <path d="M9 12h6"></path>
+                                                <path d="M10 16h4"></path>
+                                                <path d="M12 6v4"></path>
+                                            </svg>
+                                        </span>
+                                        <span>Administraci&oacute;n</span>
+                                    </a>
+                                </li>
+                            }
+
+                            @if (canAudit)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link intranet-nav-link @(string.Equals(controllerName, "Audit", System.StringComparison.OrdinalIgnoreCase) ? "active" : null)"
+                                       asp-controller="Audit"
+                                       asp-action="Index">
+                                        <span class="intranet-nav-link__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="5" y="4" width="14" height="16" rx="2"></rect>
+                                                <path d="M9 8h6"></path>
+                                                <path d="M9 12h6"></path>
+                                                <path d="M9 16h3"></path>
+                                            </svg>
+                                        </span>
+                                        <span>Auditor&iacute;a</span>
+                                    </a>
+                                </li>
+                            }
+
+                            @if (canCenso)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link intranet-nav-link @(string.Equals(controllerName, "Censo", System.StringComparison.OrdinalIgnoreCase) ? "active" : null)"
+                                       asp-controller="Censo"
+                                       asp-action="Index">
+                                        <span class="intranet-nav-link__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M15 19a6 6 0 0 0-12 0"></path>
+                                                <circle cx="9" cy="8" r="3"></circle>
+                                                <path d="M19 8v6"></path>
+                                                <path d="M16 11h6"></path>
+                                            </svg>
+                                        </span>
+                                        <span>Censo</span>
+                                    </a>
+                                </li>
+                            }
+
+                            @if (canReportes)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link intranet-nav-link @(string.Equals(controllerName, "Reportes", System.StringComparison.OrdinalIgnoreCase) ? "active" : null)"
+                                       asp-controller="Reportes"
+                                       asp-action="Index">
+                                        <span class="intranet-nav-link__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                <path d="M14 3v5h5"></path>
+                                                <path d="M9 13h6"></path>
+                                                <path d="M9 17h4"></path>
+                                            </svg>
+                                        </span>
+                                        <span>Reportes</span>
+                                    </a>
+                                </li>
+                            }
+
+                            @if (canFarmacia)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link intranet-nav-link @(string.Equals(controllerName, "Farmacia", System.StringComparison.OrdinalIgnoreCase) ? "active" : null)"
+                                       asp-controller="Farmacia"
+                                       asp-action="Index">
+                                        <span class="intranet-nav-link__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M9 3h6"></path>
+                                                <path d="M10 3v2"></path>
+                                                <path d="M14 3v2"></path>
+                                                <rect x="5" y="5" width="14" height="16" rx="3"></rect>
+                                                <path d="M8 12h8"></path>
+                                                <path d="M12 8v8"></path>
+                                            </svg>
+                                        </span>
+                                        <span>Farmacia</span>
+                                    </a>
+                                </li>
+                            }
+
+                            @if (canInventario)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link intranet-nav-link @(string.Equals(controllerName, "InventarioBiomedico", System.StringComparison.OrdinalIgnoreCase) ? "active" : null)"
+                                       asp-controller="InventarioBiomedico"
+                                       asp-action="Index">
+                                        <span class="intranet-nav-link__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="6" y="4" width="12" height="16" rx="2"></rect>
+                                                <path d="M9 4V3h6v1"></path>
+                                                <path d="M9 11h6"></path>
+                                                <path d="M12 8v6"></path>
+                                            </svg>
+                                        </span>
+                                        <span>Inventario biom&eacute;dico</span>
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+
+                        <ul class="navbar-nav intranet-navbar-actions">
+                            <li class="nav-item dropdown intranet-profile">
+                                <button class="btn intranet-profile-toggle dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="intranet-profile-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.86 0-7 2.24-7 5v1h14v-1c0-2.76-3.14-5-7-5Z"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="intranet-profile-copy">
+                                        <span class="intranet-profile-name">@currentUserName</span>
+                                        <span class="intranet-profile-role">Administrador</span>
+                                    </span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end intranet-profile-dropdown">
+                                    <li>
+                                        <span class="dropdown-item-text intranet-profile-dropdown-name">@currentUserName</span>
+                                    </li>
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li>
+                                        <form asp-controller="Auth" asp-action="Logout" method="post">
+                                            <button type="submit" class="dropdown-item">Cerrar sesion</button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+        </header>
+    }
+
+    <div class="@((isCensoView || isHomeView) ? "container-fluid px-0" : "container")">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2026 - Especialistas en casa
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

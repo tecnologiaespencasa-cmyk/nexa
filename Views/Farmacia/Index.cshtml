@@ -1,0 +1,543 @@
+@model FarmaciaIndexViewModel
+@{
+    ViewData["Title"] = "Farmacia";
+    var sections = new[]
+    {
+        new { Key = "nuevos", Title = "Nuevos", Hint = "Pendientes de primera visualizacion", Css = "farmacia-section--new", Page = Model.Nuevos },
+        new { Key = "revision", Title = "En revision", Hint = "Ya se abrio uno de los documentos", Css = "farmacia-section--review", Page = Model.EnRevision },
+        new { Key = "vistos", Title = "Vistos", Hint = "Documentos revisados por farmacia", Css = "farmacia-section--seen", Page = Model.Vistos }
+    };
+    string BuildPageUrl(string sectionKey, int targetPage)
+    {
+        var nuevosPagina = Model.Nuevos.CurrentPage;
+        var revisionPagina = Model.EnRevision.CurrentPage;
+        var vistosPagina = Model.Vistos.CurrentPage;
+
+        if (sectionKey == "nuevos")
+        {
+            nuevosPagina = targetPage;
+        }
+        else if (sectionKey == "revision")
+        {
+            revisionPagina = targetPage;
+        }
+        else
+        {
+            vistosPagina = targetPage;
+        }
+
+        return Url.Action("Index", "Farmacia", new
+        {
+            documento = Model.DocumentoFiltro,
+            nuevosPagina,
+            revisionPagina,
+            vistosPagina
+        }) ?? "#";
+    }
+}
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/farmacia.css" asp-append-version="true" />
+}
+
+<section class="farmacia-page" data-last-pedido-id="@Model.UltimoPedidoId">
+    <header class="farmacia-hero">
+        <div>
+            <span class="farmacia-eyebrow">Bandeja de despachos</span>
+            <h1>Farmacia</h1>
+        </div>
+        <form method="get" asp-action="Index" class="farmacia-hero__filter" aria-label="Filtro por documento del paciente">
+            <label for="documento">Documento</label>
+            <div class="farmacia-hero__filter-control">
+                <input id="documento" name="documento" class="form-control" value="@Model.DocumentoFiltro" inputmode="numeric" placeholder="Buscar" />
+                <button type="submit" class="btn btn-primary" title="Filtrar">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <circle cx="11" cy="11" r="6"></circle>
+                        <path d="M16 16l5 5"></path>
+                    </svg>
+                </button>
+                <a class="btn btn-outline-secondary" asp-action="Index" title="Limpiar">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M18 6 6 18"></path>
+                        <path d="m6 6 12 12"></path>
+                    </svg>
+                </a>
+            </div>
+        </form>
+        <div class="farmacia-hero__metrics" aria-label="Resumen de pedidos">
+            <div>
+                <span>Total</span>
+                <strong>@Model.TotalPedidos</strong>
+            </div>
+            <div>
+                <span>Nuevos</span>
+                <strong id="farmaciaNewCount">@Model.PedidosNuevos</strong>
+            </div>
+        </div>
+    </header>
+
+    @if (!Model.HasPedidos)
+    {
+        <div class="farmacia-empty">
+            <strong>No hay pedidos para mostrar</strong>
+            <span>Cuando Censo envie un kardex a farmacia, aparecera en esta bandeja.</span>
+        </div>
+    }
+    else
+    {
+        <div class="farmacia-sections">
+            @foreach (var section in sections)
+            {
+                <section class="farmacia-section @(section.Css)">
+                    <div class="farmacia-section__header">
+                        <div>
+                            <h2>@(section.Title)</h2>
+                            <span>@(section.Hint)</span>
+                        </div>
+                        <strong>@(section.Page.TotalItems)</strong>
+                    </div>
+
+                    @if (section.Page.Items.Count == 0)
+                    {
+                        <div class="farmacia-section__empty">Sin pedidos en esta seccion.</div>
+                    }
+                    else
+                    {
+                        <div class="farmacia-order-list">
+                            @foreach (var item in section.Page.Items)
+                            {
+                                <article class="farmacia-order @(item.EsNuevo ? "is-new" : null)">
+                                    <div class="farmacia-order__identity">
+                                        <span class="farmacia-order__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                <path d="M14 3v5h5"></path>
+                                                <circle cx="11" cy="13" r="2"></circle>
+                                                <path d="M8 18a3 3 0 0 1 6 0"></path>
+                                            </svg>
+                                        </span>
+                                        <div>
+                                            <span class="farmacia-order__arrival">Pedido #@item.Id - @item.FechaEnvioUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                            <h3>@item.NombrePaciente</h3>
+                                            <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
+                                        </div>
+                                        <div class="farmacia-order__actions">
+                                            <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                                <span>Requisici&oacute;n</span>
+                                                <small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
+                                            </a>
+                                            <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                                <span>Kardex</span>
+                                                <small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                            </a>
+                                            <button type="button"
+                                                    class="farmacia-doc-button farmacia-doc-button--signature"
+                                                    data-firma-button
+                                                    data-pedido-id="@item.Id">
+                                                <span>Firma</span>
+                                                <small>@(item.FirmaRegistrada ? "Firmado" : "Pendiente")</small>
+                                            </button>
+                                        </div>
+                                        <span class="farmacia-status @(item.EsNuevo ? "farmacia-status--new" : item.EstaEnRevision ? "farmacia-status--review" : "farmacia-status--seen")">
+                                            @(item.EsNuevo ? "Nuevo" : item.EstaEnRevision ? "En revision" : "Visto")
+                                        </span>
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                        @if (section.Page.TotalPages > 1)
+                        {
+                            <nav class="farmacia-pagination" aria-label="Paginacion @(section.Title)">
+                                <a class="btn btn-outline-secondary @(section.Page.CurrentPage <= 1 ? "disabled" : null)"
+                                   href="@BuildPageUrl(section.Key, section.Page.CurrentPage - 1)">Anterior</a>
+                                <span>Pagina @(section.Page.CurrentPage) de @(section.Page.TotalPages)</span>
+                                <a class="btn btn-outline-secondary @(section.Page.CurrentPage >= section.Page.TotalPages ? "disabled" : null)"
+                                   href="@BuildPageUrl(section.Key, section.Page.CurrentPage + 1)">Siguiente</a>
+                            </nav>
+                        }
+                    }
+                </section>
+            }
+        </div>
+    }
+</section>
+
+<div class="modal fade farmacia-signature-modal" id="farmaciaSignatureModal" tabindex="-1" aria-labelledby="farmaciaSignatureModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <span class="farmacia-eyebrow">Firma electr&oacute;nica</span>
+                    <h5 class="modal-title" id="farmaciaSignatureModalTitle">Recepci&oacute;n del despacho</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="farmaciaSignatureForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Id" id="firmaPedidoId" />
+                <input type="hidden" name="FirmaEntregaDataUrl" id="firmaEntregaDataUrl" />
+                <input type="hidden" name="FirmaRecibeDataUrl" id="firmaRecibeDataUrl" />
+                <div class="modal-body">
+                    <div class="farmacia-signature-status" id="farmaciaSignatureStatus" role="status"></div>
+                    <div class="farmacia-signature-grid">
+                        <div class="farmacia-signature-field">
+                            <label for="firmaNombreRecibe">Nombre de quien recibe</label>
+                            <input id="firmaNombreRecibe" name="NombreRecibe" class="form-control" maxlength="160" autocomplete="off" />
+                        </div>
+                        <div class="farmacia-signature-field">
+                            <label for="firmaFechaHoraRecepcion">Fecha y hora de recepci&oacute;n</label>
+                            <input id="firmaFechaHoraRecepcion" name="FechaHoraRecepcion" class="form-control" type="datetime-local" />
+                        </div>
+                    </div>
+                    <div class="farmacia-signature-pads">
+                        <section class="farmacia-signature-pad" data-signature-pad="entrega">
+                            <div>
+                                <strong>Firma de quien entrega</strong>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-clear-signature="entrega">Limpiar</button>
+                            </div>
+                            <canvas id="firmaEntregaCanvas" width="760" height="260" aria-label="Firma de quien entrega"></canvas>
+                        </section>
+                        <section class="farmacia-signature-pad" data-signature-pad="recibe">
+                            <div>
+                                <strong>Firma de quien recibe</strong>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-clear-signature="recibe">Limpiar</button>
+                            </div>
+                            <canvas id="firmaRecibeCanvas" width="760" height="260" aria-label="Firma de quien recibe"></canvas>
+                        </section>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-primary" id="guardarFirmaBtn">Guardar firmas</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts
+{
+    <script>
+        (() => {
+            const page = document.querySelector(".farmacia-page");
+            const newCount = document.getElementById("farmaciaNewCount");
+            const snapshotUrl = "@Url.Action("PendientesSnapshot", "Farmacia")";
+            const firmaUrl = "@Url.Action("Firma", "Farmacia")";
+            const guardarFirmaUrl = "@Url.Action("GuardarFirma", "Farmacia")";
+            const signatureModalElement = document.getElementById("farmaciaSignatureModal");
+            const signatureForm = document.getElementById("farmaciaSignatureForm");
+            const firmaPedidoId = document.getElementById("firmaPedidoId");
+            const firmaNombreRecibe = document.getElementById("firmaNombreRecibe");
+            const firmaFechaHoraRecepcion = document.getElementById("firmaFechaHoraRecepcion");
+            const firmaEntregaDataUrl = document.getElementById("firmaEntregaDataUrl");
+            const firmaRecibeDataUrl = document.getElementById("firmaRecibeDataUrl");
+            const firmaStatus = document.getElementById("farmaciaSignatureStatus");
+            const guardarFirmaBtn = document.getElementById("guardarFirmaBtn");
+            let lastPedidoId = Number(page?.dataset.lastPedidoId || "0") || 0;
+            let audioContext = null;
+
+            const unlockAudio = () => {
+                const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextConstructor) {
+                    return;
+                }
+
+                audioContext = audioContext || new AudioContextConstructor();
+                audioContext.resume();
+            };
+
+            const playNotification = () => {
+                unlockAudio();
+                if (!audioContext || audioContext.state !== "running") {
+                    return;
+                }
+
+                const oscillator = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                oscillator.type = "sine";
+                oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(660, audioContext.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.18, audioContext.currentTime + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.35);
+                oscillator.connect(gain);
+                gain.connect(audioContext.destination);
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.38);
+            };
+
+            unlockAudio();
+            ["pointerdown", "keydown", "touchstart", "click"].forEach((eventName) => {
+                window.addEventListener(eventName, unlockAudio, { once: true, passive: true });
+            });
+
+            const poll = async () => {
+                try {
+                    const response = await fetch(snapshotUrl, { headers: { "Accept": "application/json" } });
+                    if (!response.ok) {
+                        return;
+                    }
+
+                    const data = await response.json();
+                    const nextLastId = Number(data.lastId || "0") || 0;
+                    if (newCount) {
+                        newCount.textContent = String(data.newCount || 0);
+                    }
+
+                    if (lastPedidoId > 0 && nextLastId > lastPedidoId) {
+                        playNotification();
+                    }
+
+                    lastPedidoId = Math.max(lastPedidoId, nextLastId);
+                } catch {
+                    return;
+                }
+            };
+
+            window.setInterval(poll, 20000);
+
+            const setSignatureStatus = (message, tone = "info") => {
+                if (!firmaStatus) {
+                    return;
+                }
+
+                firmaStatus.textContent = message || "";
+                firmaStatus.className = `farmacia-signature-status ${message ? "is-visible" : ""} farmacia-signature-status--${tone}`;
+            };
+
+            const createSignaturePad = (canvas, hiddenInput) => {
+                const context = canvas.getContext("2d");
+                let isDrawing = false;
+                let hasInk = false;
+
+                const resize = () => {
+                    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                    const rect = canvas.getBoundingClientRect();
+                    const dataUrl = hasInk ? canvas.toDataURL("image/png") : "";
+                    canvas.width = Math.round(rect.width * ratio);
+                    canvas.height = Math.round(rect.height * ratio);
+                    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+                    context.lineWidth = 2.4;
+                    context.lineCap = "round";
+                    context.lineJoin = "round";
+                    context.strokeStyle = "#07111f";
+                    context.fillStyle = "#ffffff";
+                    context.fillRect(0, 0, rect.width, rect.height);
+
+                    if (dataUrl) {
+                        drawImage(dataUrl);
+                    }
+                };
+
+                const pointFromEvent = (event) => {
+                    const rect = canvas.getBoundingClientRect();
+                    return {
+                        x: event.clientX - rect.left,
+                        y: event.clientY - rect.top
+                    };
+                };
+
+                const drawImage = (dataUrl) => {
+                    if (!dataUrl) {
+                        return;
+                    }
+
+                    const image = new Image();
+                    image.onload = () => {
+                        const rect = canvas.getBoundingClientRect();
+                        context.drawImage(image, 0, 0, rect.width, rect.height);
+                        hasInk = true;
+                        hiddenInput.value = canvas.toDataURL("image/png");
+                    };
+                    image.src = dataUrl;
+                };
+
+                canvas.addEventListener("pointerdown", (event) => {
+                    event.preventDefault();
+                    canvas.setPointerCapture(event.pointerId);
+                    const point = pointFromEvent(event);
+                    context.beginPath();
+                    context.moveTo(point.x, point.y);
+                    isDrawing = true;
+                    hasInk = true;
+                });
+
+                canvas.addEventListener("pointermove", (event) => {
+                    if (!isDrawing) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    const point = pointFromEvent(event);
+                    context.lineTo(point.x, point.y);
+                    context.stroke();
+                    hiddenInput.value = canvas.toDataURL("image/png");
+                });
+
+                const stop = () => {
+                    if (!isDrawing) {
+                        return;
+                    }
+
+                    isDrawing = false;
+                    hiddenInput.value = canvas.toDataURL("image/png");
+                };
+
+                canvas.addEventListener("pointerup", stop);
+                canvas.addEventListener("pointercancel", stop);
+                canvas.addEventListener("pointerleave", stop);
+
+                return {
+                    resize,
+                    clear: () => {
+                        const rect = canvas.getBoundingClientRect();
+                        context.clearRect(0, 0, rect.width, rect.height);
+                        context.fillStyle = "#ffffff";
+                        context.fillRect(0, 0, rect.width, rect.height);
+                        hasInk = false;
+                        hiddenInput.value = "";
+                    },
+                    load: (dataUrl) => {
+                        const rect = canvas.getBoundingClientRect();
+                        context.clearRect(0, 0, rect.width, rect.height);
+                        context.fillStyle = "#ffffff";
+                        context.fillRect(0, 0, rect.width, rect.height);
+                        hasInk = false;
+                        hiddenInput.value = "";
+                        if (dataUrl) {
+                            hasInk = true;
+                            hiddenInput.value = dataUrl;
+                            drawImage(dataUrl);
+                        }
+                    },
+                    hasInk: () => hasInk
+                };
+            };
+
+            const entregaPad = document.getElementById("firmaEntregaCanvas") && firmaEntregaDataUrl
+                ? createSignaturePad(document.getElementById("firmaEntregaCanvas"), firmaEntregaDataUrl)
+                : null;
+            const recibePad = document.getElementById("firmaRecibeCanvas") && firmaRecibeDataUrl
+                ? createSignaturePad(document.getElementById("firmaRecibeCanvas"), firmaRecibeDataUrl)
+                : null;
+
+            const resizeSignaturePads = () => {
+                entregaPad?.resize();
+                recibePad?.resize();
+            };
+
+            if (signatureModalElement) {
+                signatureModalElement.addEventListener("shown.bs.modal", resizeSignaturePads);
+            }
+
+            window.addEventListener("resize", resizeSignaturePads);
+
+            document.querySelectorAll("[data-clear-signature]").forEach((button) => {
+                button.addEventListener("click", () => {
+                    const target = button.dataset.clearSignature;
+                    if (target === "entrega") {
+                        entregaPad?.clear();
+                    } else {
+                        recibePad?.clear();
+                    }
+                });
+            });
+
+            const openSignatureModal = async (button) => {
+                const pedidoId = Number(button.dataset.pedidoId || "0") || 0;
+                if (!pedidoId) {
+                    return;
+                }
+
+                setSignatureStatus("Cargando firmas...", "info");
+                firmaPedidoId.value = String(pedidoId);
+                firmaNombreRecibe.value = "";
+                firmaFechaHoraRecepcion.value = "";
+                entregaPad?.clear();
+                recibePad?.clear();
+
+                if (window.bootstrap && signatureModalElement) {
+                    window.bootstrap.Modal.getOrCreateInstance(signatureModalElement).show();
+                }
+
+                try {
+                    const url = new URL(firmaUrl, window.location.origin);
+                    url.searchParams.set("id", String(pedidoId));
+                    const response = await fetch(url.toString(), { headers: { "Accept": "application/json" } });
+                    const data = await response.json();
+                    if (!response.ok) {
+                        setSignatureStatus(data.message || "No se pudieron cargar las firmas.", "danger");
+                        return;
+                    }
+
+                    firmaNombreRecibe.value = data.nombreRecibe || "";
+                    firmaFechaHoraRecepcion.value = data.fechaHoraRecepcion || "";
+                    entregaPad?.load(data.firmaEntregaDataUrl || "");
+                    recibePad?.load(data.firmaRecibeDataUrl || "");
+                    setSignatureStatus(data.estaCompleta ? `Firmado: ${data.fechaHoraRecepcionTexto || ""}` : "Pendiente de firma.", data.estaCompleta ? "success" : "info");
+                } catch {
+                    setSignatureStatus("No se pudieron cargar las firmas.", "danger");
+                }
+            };
+
+            document.querySelectorAll("[data-firma-button]").forEach((button) => {
+                button.addEventListener("click", () => openSignatureModal(button));
+            });
+
+            if (signatureForm) {
+                signatureForm.addEventListener("submit", async (event) => {
+                    event.preventDefault();
+                    setSignatureStatus("", "info");
+
+                    if (!firmaNombreRecibe.value.trim()) {
+                        setSignatureStatus("Ingresa el nombre de quien recibe.", "danger");
+                        return;
+                    }
+
+                    if (!firmaFechaHoraRecepcion.value) {
+                        setSignatureStatus("Ingresa la fecha y hora de recepcion.", "danger");
+                        return;
+                    }
+
+                    if (!entregaPad?.hasInk() || !firmaEntregaDataUrl.value) {
+                        setSignatureStatus("La firma de quien entrega es obligatoria.", "danger");
+                        return;
+                    }
+
+                    if (!recibePad?.hasInk() || !firmaRecibeDataUrl.value) {
+                        setSignatureStatus("La firma de quien recibe es obligatoria.", "danger");
+                        return;
+                    }
+
+                    guardarFirmaBtn.disabled = true;
+                    try {
+                        const formData = new FormData(signatureForm);
+                        const token = signatureForm.querySelector("input[name='__RequestVerificationToken']")?.value || "";
+                        const response = await fetch(guardarFirmaUrl, {
+                            method: "POST",
+                            body: formData,
+                            headers: token ? { "RequestVerificationToken": token } : {}
+                        });
+                        const data = await response.json();
+                        if (!response.ok) {
+                            setSignatureStatus(data.message || "No se pudieron guardar las firmas.", "danger");
+                            return;
+                        }
+
+                        setSignatureStatus(data.message || "Firmas guardadas correctamente.", "success");
+                        const pedidoId = firmaPedidoId.value;
+                        const button = document.querySelector(`[data-firma-button][data-pedido-id='${pedidoId}'] small`);
+                        if (button) {
+                            button.textContent = "Firmado";
+                        }
+                    } catch {
+                        setSignatureStatus("No se pudieron guardar las firmas.", "danger");
+                    } finally {
+                        guardarFirmaBtn.disabled = false;
+                    }
+                });
+            }
+        })();
+    </script>
+}

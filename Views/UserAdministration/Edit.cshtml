@@ -1,0 +1,60 @@
+@model UserEditViewModel
+@{
+    ViewData["Title"] = "Editar usuario";
+}
+
+<h1 class="h3 mb-3">Editar usuario</h1>
+
+<form asp-action="Edit" method="post">
+    <input asp-for="Id" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="Username" class="form-label"></label>
+            <input asp-for="Username" class="form-control" />
+            <span asp-validation-for="Username" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="FirstName" class="form-label"></label>
+            <input asp-for="FirstName" class="form-control" />
+            <span asp-validation-for="FirstName" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="LastName1" class="form-label"></label>
+            <input asp-for="LastName1" class="form-control" />
+            <span asp-validation-for="LastName1" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="LastName2" class="form-label"></label>
+            <input asp-for="LastName2" class="form-control" />
+            <span asp-validation-for="LastName2" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="NationalId" class="form-label"></label>
+            <input asp-for="NationalId" class="form-control" />
+            <span asp-validation-for="NationalId" class="text-danger"></span>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <div class="form-check mb-2">
+                <input asp-for="IsActive" class="form-check-input" disabled />
+                <label asp-for="IsActive" class="form-check-label">Usuario activo</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Volver</a>
+    </div>
+</form>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}

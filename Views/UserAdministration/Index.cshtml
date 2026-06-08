@@ -1,0 +1,231 @@
+@model UserAdministrationIndexViewModel
+@{
+    ViewData["Title"] = "Administracion de usuarios";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Administracion de usuarios</h1>
+    <a class="btn btn-primary" asp-action="Create">Nuevo usuario</a>
+</div>
+
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success">@successMessage</div>
+}
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Usuario</th>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Cedula</th>
+                <th>Estado</th>
+                <th class="text-end">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Users.Any())
+            {
+                <tr>
+                    <td colspan="6" class="text-center text-muted">No hay usuarios registrados.</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var item in Model.Users)
+                {
+                    <tr>
+                        <td>@item.Username</td>
+                        <td>@item.FullName</td>
+                        <td>@item.Email</td>
+                        <td>@item.NationalId</td>
+                        <td>
+                            <span class="badge @(item.IsActive ? "text-bg-success" : "text-bg-secondary")">
+                                @(item.IsActive ? "Activo" : "Inactivo")
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-primary" asp-action="Edit" asp-route-id="@item.Id">Editar</a>
+                            <a class="btn btn-sm btn-outline-warning" asp-action="ResetPassword" asp-route-id="@item.Id">Contrasena</a>
+                            <a class="btn btn-sm btn-outline-info" asp-action="Permissions" asp-route-id="@item.Id">Permisos</a>
+                            <form asp-action="SetStatus" method="post" class="d-inline">
+                                <input type="hidden" name="id" value="@item.Id" />
+                                <input type="hidden" name="isActive" value="@(!item.IsActive)" />
+                                <button type="submit" class="btn btn-sm @(item.IsActive ? "btn-outline-danger" : "btn-outline-success")">
+                                    @(item.IsActive ? "Desactivar" : "Activar")
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h2 class="h5 mb-0">Administracion de auxiliares administrativos de enfermeria</h2>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">Desde aqui administras los auxiliares usados en los campos de recepcion y kardex.</p>
+        <form asp-action="AddNursingAssistant" method="post" class="row g-2 align-items-start">
+            <div class="col-md-8">
+                <label asp-for="NewNursingAssistant.Name" class="form-label"></label>
+                <input asp-for="NewNursingAssistant.Name" class="form-control" />
+                <span asp-validation-for="NewNursingAssistant.Name" class="text-danger"></span>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label d-none d-md-block">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">Agregar auxiliar</button>
+            </div>
+        </form>
+
+        <div class="table-responsive mt-4">
+            <table class="table table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Estado</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.NursingAssistants.Any())
+                    {
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">No hay auxiliares registrados.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var assistant in Model.NursingAssistants)
+                        {
+                            <tr>
+                                <td>@assistant.Name</td>
+                                <td>
+                                    <span class="badge @(assistant.IsActive ? "text-bg-success" : "text-bg-secondary")">
+                                        @(assistant.IsActive ? "Activo" : "Inactivo")
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <form asp-action="SetNursingAssistantStatus" method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@assistant.Id" />
+                                        <input type="hidden" name="isActive" value="@(!assistant.IsActive)" />
+                                        <button type="submit" class="btn btn-sm @(assistant.IsActive ? "btn-outline-danger" : "btn-outline-success")">
+                                            @(assistant.IsActive ? "Desactivar" : "Activar")
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h2 class="h5 mb-0">Administracion de auxiliares OPS</h2>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">Esta lista se lee desde Neon y se usa en el campo "Auxiliar asignado" del plan de manejo. Los datos son de solo lectura.</p>
+
+        <form asp-action="Index" method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-md-8">
+                <label for="opsSearch" class="form-label">Buscar por nombre o cedula</label>
+                <input id="opsSearch" name="opsSearch" value="@Model.OpsSearchTerm" class="form-control" placeholder="Ejemplo: Adriana o 43489960" />
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Buscar</button>
+            </div>
+            <div class="col-md-2">
+                <a asp-action="Index" class="btn btn-outline-secondary w-100">Limpiar</a>
+            </div>
+        </form>
+
+        <div class="d-flex justify-content-between align-items-center mb-3 small text-muted">
+            <span>Resultados: @Model.OpsTotalCount</span>
+            <span>Pagina @Model.OpsCurrentPage de @Model.OpsTotalPages</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Nombres</th>
+                        <th>Primer apellido</th>
+                        <th>Segundo apellido</th>
+                        <th>Correo</th>
+                        <th>Telefono</th>
+                        <th>Cedula</th>
+                        <th>Profesion</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.OpsAssistants.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">No hay auxiliares OPS que coincidan con la busqueda actual.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var assistant in Model.OpsAssistants)
+                        {
+                            <tr>
+                                <td>@assistant.FirstName</td>
+                                <td>@assistant.LastName1</td>
+                                <td>@assistant.LastName2</td>
+                                <td>@assistant.Email</td>
+                                <td>@assistant.Phone</td>
+                                <td>@assistant.NationalId</td>
+                                <td>@assistant.Profession</td>
+                                <td>
+                                    <span class="badge @(assistant.IsActive ? "text-bg-success" : "text-bg-secondary")">
+                                        @(assistant.IsActive ? "Activo" : "Inactivo")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (Model.OpsTotalPages > 1)
+        {
+            <nav aria-label="Paginacion auxiliares OPS" class="mt-3">
+                <ul class="pagination mb-0">
+                    <li class="page-item @(Model.OpsCurrentPage == 1 ? "disabled" : null)">
+                        <a class="page-link" asp-action="Index" asp-route-opsSearch="@Model.OpsSearchTerm" asp-route-opsPage="@(Model.OpsCurrentPage - 1)">Anterior</a>
+                    </li>
+                    @for (var pageNumber = 1; pageNumber <= Model.OpsTotalPages; pageNumber++)
+                    {
+                        <li class="page-item @(pageNumber == Model.OpsCurrentPage ? "active" : null)">
+                            <a class="page-link" asp-action="Index" asp-route-opsSearch="@Model.OpsSearchTerm" asp-route-opsPage="@pageNumber">@pageNumber</a>
+                        </li>
+                    }
+                    <li class="page-item @(Model.OpsCurrentPage == Model.OpsTotalPages ? "disabled" : null)">
+                        <a class="page-link" asp-action="Index" asp-route-opsSearch="@Model.OpsSearchTerm" asp-route-opsPage="@(Model.OpsCurrentPage + 1)">Siguiente</a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+</div>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,508 @@
+.reportes-shell {
+  margin-inline: auto;
+  max-width: 1280px;
+  padding-inline: clamp(1rem, 2.2vw, 2rem);
+}
+
+.reportes-hero {
+  align-items: end;
+  background:
+    radial-gradient(circle at 12% 16%, rgba(14, 165, 233, 0.22), transparent 36%),
+    radial-gradient(circle at 88% 82%, rgba(249, 115, 22, 0.22), transparent 34%),
+    linear-gradient(135deg, #0b1f3a 0%, #0f2f5f 54%, #123f7a 100%);
+  border-radius: 1.25rem;
+  box-shadow: 0 20px 48px rgba(5, 17, 35, 0.32);
+  color: #ffffff;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.6fr) minmax(250px, 0.8fr);
+  margin-bottom: 1.15rem;
+  overflow: hidden;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  position: relative;
+}
+
+.reportes-hero h1 {
+  font-size: clamp(1.8rem, 3.8vw, 2.8rem);
+  font-weight: 800;
+  line-height: 1.05;
+  margin: 0;
+  max-width: 20ch;
+}
+
+.reportes-hero p {
+  color: rgba(232, 244, 255, 0.92);
+  margin: 0.85rem 0 0;
+  max-width: 54ch;
+}
+
+.reportes-kicker {
+  color: #7dd3fc;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reportes-generated-at {
+  align-items: start;
+  background: rgba(5, 17, 35, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 1rem;
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+  padding: 0.95rem 1rem;
+}
+
+.reportes-generated-at span {
+  color: rgba(226, 240, 255, 0.76);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reportes-generated-at strong {
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.reportes-kpi-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 1rem;
+}
+
+.reportes-kpi-card,
+.reportes-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 1rem;
+  box-shadow: 0 16px 32px rgba(23, 37, 84, 0.08);
+}
+
+.reportes-kpi-card {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 136px;
+  padding: 1rem;
+}
+
+.reportes-kpi-title {
+  color: #5b6474;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.reportes-kpi-value {
+  color: #0f2b53;
+  font-size: clamp(1.45rem, 2.4vw, 2rem);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.reportes-kpi-caption {
+  color: #677386;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.reportes-main-grid,
+.reportes-secondary-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.reportes-main-grid {
+  margin-bottom: 1rem;
+}
+
+.reportes-card {
+  padding: 1.1rem;
+}
+
+.reportes-card-header h2 {
+  color: #102746;
+  font-size: clamp(1.1rem, 2vw, 1.4rem);
+  font-weight: 800;
+  margin: 0;
+}
+
+.reportes-card-header p {
+  color: #627083;
+  margin: 0.45rem 0 0.95rem;
+}
+
+.reportes-empty {
+  color: #627083;
+  margin: 0.4rem 0 0;
+}
+
+.reportes-donut-layout {
+  align-items: center;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(210px, 0.95fr) minmax(0, 1fr);
+}
+
+.reportes-donut {
+  aspect-ratio: 1 / 1;
+  background: var(--donut-gradient);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08), 0 12px 30px rgba(11, 26, 53, 0.14);
+  display: grid;
+  isolation: isolate;
+  margin: 0 auto;
+  max-width: 260px;
+  padding: 1.05rem;
+  place-items: center;
+  position: relative;
+}
+
+.reportes-donut::after {
+  background: #f7fbff;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.1);
+  content: "";
+  inset: 24%;
+  position: absolute;
+  z-index: 1;
+}
+
+.reportes-donut-center {
+  align-items: center;
+  display: grid;
+  height: 52%;
+  justify-items: center;
+  position: relative;
+  text-align: center;
+  width: 52%;
+  z-index: 2;
+}
+
+.reportes-donut-center span {
+  color: #5b6474;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  margin-bottom: 0.14rem;
+  text-transform: uppercase;
+}
+
+.reportes-donut-center strong {
+  color: #0f2b53;
+  font-size: clamp(1.2rem, 2.4vw, 1.8rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.reportes-donut-legend {
+  display: grid;
+  gap: 0.55rem;
+  list-style: none;
+  margin: 0;
+  max-height: 315px;
+  overflow: auto;
+  padding: 0;
+}
+
+.reportes-donut-legend li {
+  align-items: center;
+  background: #f8fbff;
+  border: 1px solid #e3edf9;
+  border-radius: 0.8rem;
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 0.5rem 0.65rem;
+}
+
+.reportes-legend-color {
+  background: var(--legend-color);
+  border-radius: 0.42rem;
+  box-shadow: 0 6px 14px rgba(14, 165, 233, 0.24);
+  display: inline-flex;
+  height: 1rem;
+  width: 1rem;
+}
+
+.reportes-donut-legend strong {
+  color: #122a4f;
+  display: block;
+  font-size: 0.92rem;
+}
+
+.reportes-donut-legend small {
+  color: #667487;
+  display: block;
+}
+
+.reportes-legend-tag {
+  background: #ecfeff;
+  border: 1px solid #a5f3fc;
+  border-radius: 999px;
+  color: #0e7490;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.18rem 0.55rem;
+}
+
+.reportes-progress-track {
+  background: #e2e8f5;
+  border-radius: 999px;
+  display: flex;
+  height: 15px;
+  overflow: hidden;
+}
+
+.reportes-progress-segment {
+  display: block;
+  height: 100%;
+}
+
+.reportes-progress-segment--pending {
+  background: linear-gradient(90deg, #ef4444, #fb7185);
+}
+
+.reportes-progress-segment--complete {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.reportes-progress-metrics {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0.95rem;
+}
+
+.reportes-progress-metrics strong {
+  color: #102746;
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.reportes-progress-metrics span {
+  color: #5f6f83;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.reportes-mini-insight {
+  background: linear-gradient(140deg, #f0f9ff, #fff7ed);
+  border: 1px solid #dceaf8;
+  border-radius: 0.8rem;
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 1rem;
+  padding: 0.75rem 0.85rem;
+}
+
+.reportes-mini-insight span {
+  color: #0f766e;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.reportes-mini-insight p {
+  color: #234164;
+  margin: 0;
+}
+
+.reportes-ranking-list,
+.reportes-municipio-list {
+  display: grid;
+  gap: 0.65rem;
+  list-style: none;
+  margin: 0;
+  max-height: 360px;
+  overflow: auto;
+  padding: 0;
+}
+
+.reportes-ranking-list li {
+  align-items: center;
+  background: #f9fbff;
+  border: 1px solid #e4ecf7;
+  border-radius: 0.8rem;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.9fr) auto;
+  padding: 0.6rem 0.75rem;
+}
+
+.reportes-ranking-copy strong {
+  color: #122a4f;
+  display: block;
+  font-size: 0.92rem;
+}
+
+.reportes-ranking-copy small {
+  color: #647286;
+  display: block;
+}
+
+.reportes-ranking-bar,
+.reportes-municipio-bar {
+  background: #dbe5f4;
+  border-radius: 999px;
+  height: 0.56rem;
+  overflow: hidden;
+}
+
+.reportes-ranking-bar span,
+.reportes-municipio-bar span {
+  background: linear-gradient(90deg, #0ea5e9, #3b82f6);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+
+.reportes-ranking-value {
+  color: #1a365d;
+  font-weight: 800;
+}
+
+.reportes-trend {
+  background: #f8fbff;
+  border: 1px solid #e3edf9;
+  border-radius: 0.9rem;
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin-bottom: 0.95rem;
+  min-height: 214px;
+  padding: 0.85rem 0.7rem;
+}
+
+.reportes-trend-column {
+  align-items: center;
+  display: grid;
+  gap: 0.3rem;
+  justify-items: center;
+}
+
+.reportes-trend-bar-track {
+  align-items: end;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.06) 0%, rgba(59, 130, 246, 0.14) 100%);
+  border-radius: 0.7rem;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.12);
+  display: flex;
+  height: 118px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0.22rem;
+  width: 74%;
+}
+
+.reportes-trend-bar {
+  background: linear-gradient(180deg, #f97316 0%, #fb7185 100%);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 22px rgba(249, 115, 22, 0.26);
+  display: block;
+  height: 0;
+  transition: height 0.35s ease;
+  width: 100%;
+}
+
+.reportes-trend-bar.is-zero {
+  background: transparent;
+  box-shadow: none;
+}
+
+.reportes-trend-column strong {
+  color: #102746;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.reportes-trend-column small {
+  color: #647286;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.reportes-subtitle {
+  color: #102746;
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 0 0 0.55rem;
+}
+
+.reportes-municipio-list li {
+  background: #f9fbff;
+  border: 1px solid #e4ecf7;
+  border-radius: 0.8rem;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.58rem 0.72rem;
+}
+
+.reportes-municipio-title {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.reportes-municipio-title strong {
+  color: #122a4f;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.reportes-municipio-title span {
+  color: #1a365d;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+@media (max-width: 1199.98px) {
+  .reportes-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reportes-main-grid,
+  .reportes-secondary-grid,
+  .reportes-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .reportes-donut-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .reportes-generated-at {
+    justify-self: start;
+    width: 100%;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .reportes-shell {
+    padding-inline: 0.75rem;
+  }
+
+  .reportes-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reportes-progress-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .reportes-ranking-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .reportes-ranking-value {
+    justify-self: end;
+  }
+}

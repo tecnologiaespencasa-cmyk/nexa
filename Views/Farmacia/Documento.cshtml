@@ -1,0 +1,247 @@
+@model FarmaciaDocumentViewModel
+@{
+    var isRequisicion = string.Equals(Model.TipoDocumento, "requisicion", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isRequisicion ? "Requisicion farmacia" : "Kardex farmacia";
+}
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/farmacia.css" asp-append-version="true" />
+}
+
+<section class="farmacia-document-page">
+    <header class="farmacia-document-toolbar">
+        <a class="btn btn-outline-secondary" asp-action="Index">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M19 12H5"></path>
+                <path d="m12 19-7-7 7-7"></path>
+            </svg>
+            <span>Volver</span>
+        </a>
+        <div>
+            <span class="farmacia-eyebrow">Pedido #@Model.Id</span>
+            <h1>@(isRequisicion ? "Requisicion" : "Kardex")</h1>
+            <p>@Model.NombrePaciente - @Model.TipoIdentificacion @Model.NumeroIdentificacion</p>
+        </div>
+        <div class="farmacia-document-toolbar__switch">
+            <a class="btn @(isRequisicion ? "btn-primary" : "btn-outline-primary")" asp-action="Documento" asp-route-id="@Model.Id" asp-route-tipo="requisicion">Requisici&oacute;n</a>
+            <a class="btn @(!isRequisicion ? "btn-primary" : "btn-outline-primary")" asp-action="Documento" asp-route-id="@Model.Id" asp-route-tipo="kardex">Kardex</a>
+        </div>
+    </header>
+
+    @if (isRequisicion)
+    {
+        <div class="farmacia-kardex-wrap">
+            <div class="farmacia-requisition-sheet" aria-label="Requisicion aplicacion de medicamentos">
+                <div class="farmacia-requisition-sheet__head">
+                    <div class="farmacia-requisition-sheet__logo">
+                        <img src="~/images/logo.png" asp-append-version="true" alt="Especialistas En Casa" />
+                    </div>
+                    <div class="farmacia-requisition-sheet__title">REQUISICI&Oacute;N APLICACI&Oacute;N DE MEDICAMENTOS</div>
+                    <div class="farmacia-requisition-sheet__meta">
+                        <label>C&oacute;digo:<span>FO-SEF-07</span></label>
+                        <label>Versi&oacute;n:<span>03</span></label>
+                        <label>pagina:<span>1 de 1</span></label>
+                        <label>Fecha:<span>01/05/2026</span></label>
+                    </div>
+                </div>
+
+                <div class="farmacia-requisition-section-title">RESPONSABLES</div>
+                <div class="farmacia-requisition-responsibles">
+                    <label>AUXILIAR ENCARGADO</label>
+                    <span>@Model.AuxiliarAsignado</span>
+                    <label>REALIZADO POR</label>
+                    <span>@Model.NombreRealizaKardex</span>
+                </div>
+
+                <div class="farmacia-requisition-section-title">DATOS DEL PACIENTE</div>
+                <div class="farmacia-requisition-patient">
+                    <label>Paciente:</label>
+                    <span>@Model.NombrePaciente</span>
+                    <label>AUTORIZACION</label>
+                    <span>@Model.Autorizacion</span>
+
+                    <label>Documento identidad:</label>
+                    <span>@Model.NumeroIdentificacion</span>
+                    <label>Fecha de solicitud:</label>
+                    <span>@Model.FechaSolicitudRequisicion</span>
+
+                    <label>Direccion:</label>
+                    <span>@Model.Direccion</span>
+                    <label>telefonos:</label>
+                    <span>@Model.Telefonos</span>
+
+                    <label>Diagnostico</label>
+                    <span class="farmacia-requisition-patient__diagnosis">@($"{Model.CodigoCie10} {Model.DiagnosticoDescriptivo}".Trim())</span>
+                </div>
+
+                <div class="farmacia-requisition-section-title farmacia-requisition-section-title--center">DETALLE DE LA REQUISICI&Oacute;N</div>
+                <div class="farmacia-requisition-detail" role="table" aria-label="Detalle de la requisicion">
+                    <div class="farmacia-requisition-detail__header" role="row">
+                        <span>Item</span>
+                        <span>DESCRIPCION</span>
+                        <span>DETALLE</span>
+                        <span>CANTIDAD</span>
+                        <span>Fecha de inicio</span>
+                        <span>Fecha de finalizaci&oacute;n</span>
+                    </div>
+                    @foreach (var row in Model.RequisicionItems)
+                    {
+                        <div class="farmacia-requisition-detail__row" role="row">
+                            <span>@row.Item</span>
+                            <span>@row.Descripcion</span>
+                            <span>@row.Detalle</span>
+                            <span>@row.Cantidad</span>
+                            <span>@row.FechaInicio</span>
+                            <span>@row.FechaFin</span>
+                        </div>
+                    }
+                </div>
+                <div class="farmacia-document-signatures">
+                    <div class="farmacia-document-signatures__title">FIRMAS DE RECEPCI&Oacute;N</div>
+                    <div class="farmacia-document-signatures__meta">
+                        <label>Nombre de quien recibe</label>
+                        <span>@Model.Firma.NombreRecibe</span>
+                        <label>Fecha y hora de recepci&oacute;n</label>
+                        <span>@Model.Firma.FechaHoraRecepcionTexto</span>
+                    </div>
+                    <div class="farmacia-document-signatures__grid">
+                        <div>
+                            <strong>Firma de quien entrega</strong>
+                            @if (!string.IsNullOrWhiteSpace(Model.Firma.FirmaEntregaDataUrl))
+                            {
+                                <img src="@Model.Firma.FirmaEntregaDataUrl" alt="Firma de quien entrega" />
+                            }
+                        </div>
+                        <div>
+                            <strong>Firma de quien recibe</strong>
+                            @if (!string.IsNullOrWhiteSpace(Model.Firma.FirmaRecibeDataUrl))
+                            {
+                                <img src="@Model.Firma.FirmaRecibeDataUrl" alt="Firma de quien recibe" />
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="farmacia-kardex-wrap">
+            <div class="farmacia-kardex-sheet" aria-label="Kardex aplicacion de medicamentos">
+                <div class="farmacia-kardex-sheet__head">
+                    <div class="farmacia-kardex-sheet__logo">
+                        <img src="~/images/logo.png" asp-append-version="true" alt="Especialistas En Casa" />
+                    </div>
+                    <div class="farmacia-kardex-sheet__title">KARDEX APLICACI&Oacute;N DE MEDICAMENTOS</div>
+                    <div class="farmacia-kardex-sheet__meta">
+                        <label>C&oacute;digo:<span>FO-SEF-07</span></label>
+                        <label>Versi&oacute;n:<span>04</span></label>
+                        <label>pagina:<span>1 de 1</span></label>
+                        <label>Fecha:<span>01/05/2026</span></label>
+                    </div>
+                </div>
+
+                <div class="farmacia-kardex-patient-table">
+                    <div class="farmacia-kardex-section-title farmacia-kardex-section-title--patient">Datos del paciente</div>
+                    <div class="farmacia-kardex-section-title farmacia-kardex-section-title--payer">Asegurador</div>
+                    <div class="farmacia-kardex-section-title farmacia-kardex-section-title--diagnosis">Diagn&oacute;stico descriptivo</div>
+
+                    <label class="farmacia-kardex-cell farmacia-kardex-label">Paciente:</label>
+                    <span class="farmacia-kardex-cell">@Model.NombrePaciente</span>
+                    <label class="farmacia-kardex-cell farmacia-kardex-label">Asegurador:</label>
+                    <span class="farmacia-kardex-cell">@Model.Asegurador</span>
+                    <span class="farmacia-kardex-cell farmacia-kardex-diagnosis">@Model.DiagnosticoDescriptivo</span>
+
+                    <label class="farmacia-kardex-cell farmacia-kardex-label">Documento de identidad:</label>
+                    <span class="farmacia-kardex-cell">@Model.TipoIdentificacion @Model.NumeroIdentificacion</span>
+                    <label class="farmacia-kardex-cell farmacia-kardex-label">Peso:</label>
+                    <span class="farmacia-kardex-cell"></span>
+
+                    <label class="farmacia-kardex-cell farmacia-kardex-label">Direccion:</label>
+                    <span class="farmacia-kardex-cell">@Model.Direccion</span>
+                    <label class="farmacia-kardex-cell farmacia-kardex-label">Edad:</label>
+                    <span class="farmacia-kardex-cell">@Model.Edad</span>
+
+                    <label class="farmacia-kardex-cell farmacia-kardex-label">telefonos:</label>
+                    <span class="farmacia-kardex-cell">@Model.Telefonos</span>
+                    <label class="farmacia-kardex-cell farmacia-kardex-label">CIE10</label>
+                    <span class="farmacia-kardex-cell">@Model.CodigoCie10</span>
+                </div>
+
+                <div class="farmacia-kardex-section-title farmacia-kardex-section-title--full">Registro de aplicaci&oacute;n de medicamentos</div>
+                <div class="farmacia-kardex-med-table" role="table" aria-label="Medicamentos kardex">
+                    <div class="farmacia-kardex-med-table__header" role="row">
+                        <span>PRESENTACION<br />MEDICAMENTOS</span>
+                        <span>DOSIS Y FRECUENCIA</span>
+                        <span>VEHICULO DE RECONSTITUCION</span>
+                        <span>VOLUMEN DE DILUCI&Oacute;N</span>
+                        <span>TIEMPO DE INFUSI&Oacute;N</span>
+                        <span>ES FOTOSENSIBLE</span>
+                        <span>CADENA DE FRIO</span>
+                        <span>Aislamiento</span>
+                        <span>ESTABILIDAD</span>
+                        <span>BOMBA DE INFUSI&Oacute;N</span>
+                        <span>FECHA INICIO</span>
+                        <span>FECHA FIN</span>
+                    </div>
+                    @foreach (var row in Model.Medicamentos)
+                    {
+                        <div class="farmacia-kardex-med-table__row" role="row">
+                            <span>@row.Presentacion</span>
+                            <span>@row.DosisFrecuencia</span>
+                            <span>@row.VehiculoReconstitucion</span>
+                            <span>@row.VolumenDilucion</span>
+                            <span>@row.TiempoInfusion</span>
+                            <span>@row.Fotosensible</span>
+                            <span>@row.CadenaFrio</span>
+                            <span>@row.Aislamiento</span>
+                            <span>@row.Estabilidad</span>
+                            <span>@row.BombaInfusion</span>
+                            <span>@row.FechaInicio</span>
+                            <span>@row.FechaFin</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="farmacia-kardex-footer-table">
+                    <label>OBSERVACI&Oacute;N:</label>
+                    <span>@Model.Observaciones</span>
+                    <label>Cambio de equipo:</label>
+                    <span>CADA 3 DIAS</span>
+                    <label>MEDICO TRATANTE</label>
+                    <span></span>
+                    <label>PROGRAMADOR:</label>
+                    <span>@Model.ResponsableLlamadaBienvenida</span>
+                    <label>AUXILIAR ASIGNADO</label>
+                    <span>@Model.AuxiliarAsignado</span>
+                </div>
+                <div class="farmacia-document-signatures">
+                    <div class="farmacia-document-signatures__title">FIRMAS DE RECEPCI&Oacute;N</div>
+                    <div class="farmacia-document-signatures__meta">
+                        <label>Nombre de quien recibe</label>
+                        <span>@Model.Firma.NombreRecibe</span>
+                        <label>Fecha y hora de recepci&oacute;n</label>
+                        <span>@Model.Firma.FechaHoraRecepcionTexto</span>
+                    </div>
+                    <div class="farmacia-document-signatures__grid">
+                        <div>
+                            <strong>Firma de quien entrega</strong>
+                            @if (!string.IsNullOrWhiteSpace(Model.Firma.FirmaEntregaDataUrl))
+                            {
+                                <img src="@Model.Firma.FirmaEntregaDataUrl" alt="Firma de quien entrega" />
+                            }
+                        </div>
+                        <div>
+                            <strong>Firma de quien recibe</strong>
+                            @if (!string.IsNullOrWhiteSpace(Model.Firma.FirmaRecibeDataUrl))
+                            {
+                                <img src="@Model.Firma.FirmaRecibeDataUrl" alt="Firma de quien recibe" />
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</section>

@@ -1,0 +1,20 @@
+# .NET
+bin/
+obj/
+.dotnet/
+*.user
+*.suo
+.vs/
+
+# NuGet packages
+packages/
+*.nupkg
+.nuget/
+
+# Publicación
+publish/
+out/
+
+# Variables de entorno
+.env
+appsettings.Development.json

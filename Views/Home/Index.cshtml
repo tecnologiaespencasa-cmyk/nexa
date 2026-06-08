@@ -1,0 +1,219 @@
+@using System.Globalization
+@using System.Linq
+@using System.Security.Claims
+@using IntranetPrueba.Models.Security
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService AuthorizationService
+@{
+    ViewData["Title"] = "Inicio";
+
+    var fullName = User.FindFirstValue("full_name") ?? User.Identity?.Name ?? "Usuario";
+    var firstName = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? fullName;
+    var serverNow = DateTime.Now;
+    var culture = CultureInfo.GetCultureInfo("es-CO");
+
+    var modules = new[]
+    {
+        new
+        {
+            Allowed = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Censo)).Succeeded,
+            Controller = "Censo",
+            Title = "Censo",
+            Description = "Gestiona ingresos, seguimiento y plan de manejo del paciente.",
+            IconPath = "M7 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9.83A2 2 0 0 0 18.41 8L14 3.59A2 2 0 0 0 12.59 3Zm5 1.5L17.5 10H14a2 2 0 0 1-2-2Z"
+        },
+        new
+        {
+            Allowed = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Reportes)).Succeeded,
+            Controller = "Reportes",
+            Title = "Reportes",
+            Description = "Consulta resultados, consolidados y vistas de seguimiento.",
+            IconPath = "M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 18.5Zm3 10.5h2v-5H8Zm3 0h2V8h-2Zm3 0h2v-3h-2Z"
+        },
+        new
+        {
+            Allowed = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Farmacia)).Succeeded,
+            Controller = "Farmacia",
+            Title = "Farmacia",
+            Description = "Recibe kardex y requisiciones enviados desde censo para despacho.",
+            IconPath = "M9 3h6v2h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h3Zm1 6v3H7v2h3v3h2v-3h3v-2h-3V9Z"
+        },
+        new
+        {
+            Allowed = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.AuditRead)).Succeeded,
+            Controller = "Audit",
+            Title = "Auditoria",
+            Description = "Revisa eventos, trazabilidad y actividad reciente del sistema.",
+            IconPath = "M12 3 4 6v6c0 5.25 3.44 9.74 8 11 4.56-1.26 8-5.75 8-11V6Zm0 4a3 3 0 1 1-3 3 3 3 0 0 1 3-3Zm0 11a7.3 7.3 0 0 1-4.52-1.62A5.61 5.61 0 0 1 12 14a5.61 5.61 0 0 1 4.52 2.38A7.3 7.3 0 0 1 12 18Z"
+        },
+        new
+        {
+            Allowed = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.InventarioBiomedico)).Succeeded,
+            Controller = "InventarioBiomedico",
+            Title = "Inventario biomedico",
+            Description = "Controla equipos, disponibilidad y movimiento de activos.",
+            IconPath = "M7 4h10a2 2 0 0 1 2 2v3h-2V6H7v12h4v2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm8 6 4 4-4 4v-3h-5v-2h5Z"
+        },
+        new
+        {
+            Allowed = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.UserAdministration)).Succeeded,
+            Controller = "UserAdministration",
+            Title = "Administracion",
+            Description = "Administra usuarios, permisos y seguridad operativa.",
+            IconPath = "M9 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm7.5.5 1.09-2.18 1.8.7.61 2.36 2 .72v1.8l-2 .72-.61 2.36-1.8.7-1.09-2.18H15l-1.09 2.18-1.8-.7-.61-2.36-2-.72v-1.8l2-.72.61-2.36 1.8-.7L15 11.5Zm-7.5 1.5c3.31 0 6 1.79 6 4v1H3v-1c0-2.21 2.69-4 6-4Zm8 1.25a1.75 1.75 0 1 0 1.75 1.75A1.75 1.75 0 0 0 17 14.25Z"
+        }
+    }.Where(module => module.Allowed).ToArray();
+}
+
+<section class="home-hero">
+    <img class="home-hero-banner"
+         src="~/images/oficina-banner.jpeg"
+         asp-append-version="true"
+         alt="Equipo de Especialistas en Casa en la oficina" />
+    <div class="home-hero-backdrop"></div>
+
+    <div class="home-hero-content">
+        <div class="home-shell home-hero-grid">
+            <div class="home-hero-copy">
+                <span class="home-kicker">Sistema Nexa</span>
+                <h1 class="home-hero-title">Bienvenido, @fullName</h1>
+                <p class="home-hero-subtitle">Especialistas en casa</p>
+                <p class="home-hero-description">
+                    Tu punto de entrada para iniciar la jornada con contexto claro, accesos directos y la
+                    informacion clave siempre visible.
+                </p>
+            </div>
+
+            <div class="home-hero-side">
+                <img class="home-brand-logo"
+                     src="~/images/especialistas-en-casa-logo.png"
+                     asp-append-version="true"
+                     alt="Especialistas en Casa" />
+
+                <div class="home-clock-panel" aria-live="polite">
+                    <span class="home-clock-label">Fecha y hora actual</span>
+                    <strong id="home-current-time">@serverNow.ToString("hh:mm:ss tt", culture)</strong>
+                    <span id="home-current-date">@culture.TextInfo.ToTitleCase(serverNow.ToString("dddd, dd 'de' MMMM 'de' yyyy", culture))</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="home-hero-ribbon">
+        <div class="home-shell home-hero-ribbon-grid">
+            <div class="home-ribbon-item">
+                <span>Usuario activo</span>
+                <strong>@fullName</strong>
+            </div>
+            <div class="home-ribbon-item">
+                <span>Plataforma</span>
+                <strong>Nexa</strong>
+            </div>
+            <div class="home-ribbon-item">
+                <span>Operacion</span>
+                <strong>Especialistas en Casa</strong>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="home-overview">
+    <div class="home-shell">
+        <div class="home-section-heading">
+            <div>
+                <span class="home-section-kicker">Centro de ayuda</span>
+                <h2>Manual de uso, guias y documentacion</h2>
+            </div>
+            <p>Muy pronto encontraras aqui el material de apoyo para navegar la intranet con mayor facilidad.</p>
+        </div>
+
+        <div class="home-resource-grid">
+            <article class="home-resource-card">
+                <span class="home-resource-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M7 3h7.59A2 2 0 0 1 16 3.59l3.41 3.41A2 2 0 0 1 20 8.41V19a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm7 1.5V8h3.5Z"></path>
+                    </svg>
+                </span>
+                <div class="home-resource-content">
+                    <strong>Manual de uso</strong>
+                    <span>Instrucciones claras para conocer el funcionamiento general del sistema y sus modulos principales.</span>
+                </div>
+            </article>
+
+            <article class="home-resource-card">
+                <span class="home-resource-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M4 5a2 2 0 0 1 2-2h4v18H6a2 2 0 0 1-2-2Zm8-2h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6Zm1.5 4v2h4V7Zm0 4v2h4v-2Z"></path>
+                    </svg>
+                </span>
+                <div class="home-resource-content">
+                    <strong>Guias</strong>
+                    <span>Recorridos practicos paso a paso para tareas frecuentes, procesos internos y buenas practicas de uso.</span>
+                </div>
+            </article>
+
+            <article class="home-resource-card">
+                <span class="home-resource-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M12 2 2 7l10 5 8.18-4.09V17H22V7ZM6 11.91V16l6 3 6-3v-4.09l-6 3Z"></path>
+                    </svg>
+                </span>
+                <div class="home-resource-content">
+                    <strong>Documentacion</strong>
+                    <span>Espacio pensado para reunir politicas, novedades, referencias operativas y contenido institucional.</span>
+                </div>
+            </article>
+        </div>
+
+        <div class="home-coming-soon">
+            <div class="home-coming-soon-copy">
+                <span class="home-coming-soon-kicker">Proximamente</span>
+                <h3>Estamos preparando una base de conocimiento para Nexa</h3>
+                <p>
+                    Aqui se publicaran tutoriales, preguntas frecuentes, actualizaciones del sistema y material de consulta
+                    para que cada usuario tenga apoyo rapido en su trabajo diario.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        (() => {
+            const timeElement = document.getElementById("home-current-time");
+            const dateElement = document.getElementById("home-current-date");
+
+            if (!timeElement || !dateElement) {
+                return;
+            }
+
+            const timeFormatter = new Intl.DateTimeFormat("es-CO", {
+                timeZone: "America/Bogota",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true
+            });
+
+            const dateFormatter = new Intl.DateTimeFormat("es-CO", {
+                timeZone: "America/Bogota",
+                weekday: "long",
+                day: "2-digit",
+                month: "long",
+                year: "numeric"
+            });
+
+            const capitalize = (value) => value.charAt(0).toUpperCase() + value.slice(1);
+
+            const updateClock = () => {
+                const now = new Date();
+                timeElement.textContent = timeFormatter.format(now);
+                dateElement.textContent = capitalize(dateFormatter.format(now));
+            };
+
+            updateClock();
+            window.setInterval(updateClock, 1000);
+        })();
+    </script>
+}

@@ -1,0 +1,202 @@
+@model IntranetPrueba.Models.ViewModels.ReportesDashboardViewModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Reportes";
+
+    var culture = new CultureInfo("es-CO");
+    var maxAuxiliarValue = Model.EventosPendientesPorAuxiliar.Count == 0 ? 1 : Model.EventosPendientesPorAuxiliar.Max(x => x.Value);
+    var maxMunicipioValue = Model.GestionPendientePorMunicipio.Count == 0 ? 1 : Model.GestionPendientePorMunicipio.Max(x => x.Value);
+    var maxTrendValue = Model.TendenciaIngresos7Dias.Count == 0 ? 1 : Math.Max(1, Model.TendenciaIngresos7Dias.Max(x => x.Value));
+    var gestionTotal = Model.TotalGestionesPendientes + Model.TotalGestionesCompletas;
+    var gestionPendienteShare = gestionTotal == 0 ? 0 : Math.Round((double)Model.TotalGestionesPendientes * 100d / gestionTotal, 2);
+    var gestionCompletaShare = gestionTotal == 0 ? 0 : Math.Round((double)Model.TotalGestionesCompletas * 100d / gestionTotal, 2);
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/reportes.css" asp-append-version="true" />
+}
+
+<div class="reportes-shell mt-4 mb-5">
+    <section class="reportes-hero">
+        <div>
+            <span class="reportes-kicker">Centro de mando</span>
+            <h1>Panel de reportes del censo</h1>
+            <p>Visualiza alertas operativas en tiempo real para priorizar gestiones, acompañar auxiliares y reducir atrasos.</p>
+        </div>
+        <div class="reportes-generated-at">
+            <span>Actualizado</span>
+            <strong>@Model.GeneratedAtLocal.ToString("dd 'de' MMMM yyyy, hh:mm tt", culture)</strong>
+        </div>
+    </section>
+
+    <section class="reportes-kpi-grid">
+        <article class="reportes-kpi-card">
+            <span class="reportes-kpi-title">Eventos pendientes sin autorización</span>
+            <strong class="reportes-kpi-value">@Model.TotalEventosPendientesSinAutorizacion.ToString("N0", culture)</strong>
+            <span class="reportes-kpi-caption">Carga directa sobre kardex</span>
+        </article>
+        <article class="reportes-kpi-card">
+            <span class="reportes-kpi-title">Casos en gestión pendiente</span>
+            <strong class="reportes-kpi-value">@Model.TotalGestionesPendientes.ToString("N0", culture)</strong>
+            <span class="reportes-kpi-caption">@Model.PorcentajeGestionPendiente.ToString("0.##", culture)% del censo total</span>
+        </article>
+        <article class="reportes-kpi-card">
+            <span class="reportes-kpi-title">Pendientes críticos</span>
+            <strong class="reportes-kpi-value">@Model.TotalPendientesCriticos.ToString("N0", culture)</strong>
+            <span class="reportes-kpi-caption">Sin autorización y aún pendientes</span>
+        </article>
+        <article class="reportes-kpi-card">
+            <span class="reportes-kpi-title">Registros analizados</span>
+            <strong class="reportes-kpi-value">@Model.TotalRegistrosCenso.ToString("N0", culture)</strong>
+            <span class="reportes-kpi-caption">Base activa del tablero</span>
+        </article>
+    </section>
+
+    <section class="reportes-main-grid">
+        <article class="reportes-card">
+            <div class="reportes-card-header">
+                <h2>Eventos pendientes por auxiliar</h2>
+                <p>Distribución de casos con <em>Autorización evento</em> vacía.</p>
+            </div>
+
+            @if (Model.PendientesDonutSlices.Count == 0)
+            {
+                <p class="reportes-empty">No hay eventos pendientes sin autorización para mostrar.</p>
+            }
+            else
+            {
+                <div class="reportes-donut-layout">
+                    <div class="reportes-donut" style="--donut-gradient:@Model.PendientesDonutGradient">
+                        <div class="reportes-donut-center">
+                            <span>Total</span>
+                            <strong>@Model.TotalEventosPendientesSinAutorizacion.ToString("N0", culture)</strong>
+                        </div>
+                    </div>
+
+                    <ul class="reportes-donut-legend">
+                        @foreach (var slice in Model.PendientesDonutSlices)
+                        {
+                            <li>
+                                <span class="reportes-legend-color" style="--legend-color:@slice.Color"></span>
+                                <div>
+                                    <strong>@slice.Label</strong>
+                                    <small>@slice.Value.ToString("N0", culture) casos (@slice.Percentage.ToString("0.##", culture)%)</small>
+                                </div>
+                                @if (slice.IsTopPerformer)
+                                {
+                                    <span class="reportes-legend-tag">Mayor carga</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        </article>
+
+        <article class="reportes-card">
+            <div class="reportes-card-header">
+                <h2>Gestión pendiente vs completa</h2>
+                <p>Control de avance operativo por estado de gestión.</p>
+            </div>
+
+            <div class="reportes-progress-track">
+                <span class="reportes-progress-segment reportes-progress-segment--pending" style="width:@gestionPendienteShare.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
+                <span class="reportes-progress-segment reportes-progress-segment--complete" style="width:@gestionCompletaShare.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
+            </div>
+
+            <div class="reportes-progress-metrics">
+                <div>
+                    <strong>@Model.TotalGestionesPendientes.ToString("N0", culture)</strong>
+                    <span>Pendiente (@gestionPendienteShare.ToString("0.##", culture)%)</span>
+                </div>
+                <div>
+                    <strong>@Model.TotalGestionesCompletas.ToString("N0", culture)</strong>
+                    <span>Completa (@gestionCompletaShare.ToString("0.##", culture)%)</span>
+                </div>
+            </div>
+
+            <div class="reportes-mini-insight">
+                <span>Meta sugerida:</span>
+                <p>Mantener gestión pendiente por debajo del 20% para reducir acumulados en operación.</p>
+            </div>
+        </article>
+    </section>
+
+    <section class="reportes-secondary-grid">
+        <article class="reportes-card">
+            <div class="reportes-card-header">
+                <h2>Ranking completo de auxiliares</h2>
+                <p>Quiénes concentran más eventos sin autorización.</p>
+            </div>
+
+            @if (Model.EventosPendientesPorAuxiliar.Count == 0)
+            {
+                <p class="reportes-empty">Sin datos de auxiliares pendientes.</p>
+            }
+            else
+            {
+                <ul class="reportes-ranking-list">
+                    @foreach (var item in Model.EventosPendientesPorAuxiliar)
+                    {
+                        var width = Math.Max(8, (int)Math.Round((double)item.Value * 100d / maxAuxiliarValue));
+                        <li>
+                            <div class="reportes-ranking-copy">
+                                <strong>@item.Label</strong>
+                                <small>@item.Value.ToString("N0", culture) pendientes</small>
+                            </div>
+                            <div class="reportes-ranking-bar">
+                                <span style="width:@width%"></span>
+                            </div>
+                            <span class="reportes-ranking-value">@item.Value.ToString("N0", culture)</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </article>
+
+        <article class="reportes-card">
+            <div class="reportes-card-header">
+                <h2>Ingresos por día</h2>
+                <p>Conteo diario de ingresos del censo según <em>FechaIngreso</em>.</p>
+            </div>
+
+            <div class="reportes-trend">
+                @foreach (var point in Model.TendenciaIngresos7Dias)
+                {
+                    var height = Math.Round((double)point.Value * 100d / maxTrendValue, 2);
+                    <div class="reportes-trend-column">
+                        <div class="reportes-trend-bar-track">
+                            <span class="reportes-trend-bar @(point.Value == 0 ? "is-zero" : null)" style="height:@height.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
+                        </div>
+                        <strong>@point.Value</strong>
+                        <small>@point.Date.ToString("dd/MM")</small>
+                    </div>
+                }
+            </div>
+
+            <h3 class="reportes-subtitle">Municipios con más gestión pendiente</h3>
+            @if (Model.GestionPendientePorMunicipio.Count == 0)
+            {
+                <p class="reportes-empty">No hay municipios con gestión pendiente en este momento.</p>
+            }
+            else
+            {
+                <ul class="reportes-municipio-list">
+                    @foreach (var municipio in Model.GestionPendientePorMunicipio)
+                    {
+                        var width = Math.Max(12, (int)Math.Round((double)municipio.Value * 100d / maxMunicipioValue));
+                        <li>
+                            <div class="reportes-municipio-title">
+                                <strong>@municipio.Label</strong>
+                                <span>@municipio.Value.ToString("N0", culture)</span>
+                            </div>
+                            <div class="reportes-municipio-bar">
+                                <span style="width:@width%"></span>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </article>
+    </section>
+</div>

@@ -1,0 +1,90 @@
+@model AuditIndexViewModel
+@{
+    ViewData["Title"] = "Auditoria";
+}
+
+<h1 class="h3 mb-3">Bitacora de auditoria</h1>
+
+<form method="get" class="card card-body mb-3">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label asp-for="Filter.FromDate" class="form-label"></label>
+            <input asp-for="Filter.FromDate" type="date" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Filter.ToDate" class="form-label"></label>
+            <input asp-for="Filter.ToDate" type="date" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Filter.Username" class="form-label"></label>
+            <input asp-for="Filter.Username" class="form-control" placeholder="Usuario ejecutor" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Filter.Action" class="form-label"></label>
+            <select asp-for="Filter.Action" class="form-select">
+                <option value="">Todas</option>
+                @foreach (var action in Model.AvailableActions)
+                {
+                    <option value="@action">@action</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Fecha (UTC)</th>
+                <th>Usuario</th>
+                <th>Accion</th>
+                <th>Entidad</th>
+                <th>Detalle</th>
+                <th>IP</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Logs.Any())
+            {
+                <tr>
+                    <td colspan="6" class="text-center text-muted">No se encontraron registros para el filtro aplicado.</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var log in Model.Logs)
+                {
+                    <tr>
+                        <td>@log.PerformedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td>
+                            @if (string.IsNullOrWhiteSpace(log.Username))
+                            {
+                                <span class="text-muted">Sistema</span>
+                            }
+                            else
+                            {
+                                <span>@log.Username</span>
+                                @if (!string.IsNullOrWhiteSpace(log.FullName))
+                                {
+                                    <div class="small text-muted">@log.FullName</div>
+                                }
+                            }
+                        </td>
+                        <td><code>@log.Action</code></td>
+                        <td>@log.Entity</td>
+                        <td>@log.Details</td>
+                        <td>@log.IpAddress</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
