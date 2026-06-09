@@ -297,6 +297,122 @@ public class CensoController : Controller
 
     private static readonly string[] AreaValues = ["Urbana", "Rural"];
 
+    private static readonly string[] IpsQueRemiteValues =
+    [
+        "CIS COMFAMA ARANJUEZ",
+        "CIS COMFAMA BELLO",
+        "CIS COMFAMA BUENOS AIRES",
+        "CIS COMFAMA CALASANZ",
+        "CIS COMFAMA CALDAS",
+        "CIS COMFAMA CITY PLAZA",
+        "CIS COMFAMA COPACABANA",
+        "CIS COMFAMA CORDOBA",
+        "CIS COMFAMA CRISTO REY",
+        "CIS COMFAMA EL PORVENIR - RIONEGRO",
+        "CIS COMFAMA EL RETIRO LOS ROBLES",
+        "CIS COMFAMA ENVIGADO",
+        "CIS COMFAMA GIRARDOTA",
+        "CIS COMFAMA ITAGUI",
+        "CIS COMFAMA LA CEJA",
+        "CIS COMFAMA LA ESTRELLA",
+        "CIS COMFAMA LA UNION",
+        "CIS COMFAMA LOPEZ DE MESA",
+        "CIS COMFAMA LOS COLORES",
+        "CIS COMFAMA MANRIQUE",
+        "CIS COMFAMA MONTERREY",
+        "CIS COMFAMA PARQUE FABRICATO",
+        "CIS COMFAMA RIONEGRO",
+        "CIS COMFAMA SABANETA",
+        "CIS COMFAMA SAMAN",
+        "CIS COMFAMA SAN ANTONIO DE PRADO",
+        "CIS COMFAMA SAN CRISTOBAL",
+        "CIS COMFAMA SAN IGNACIO",
+        "CIS COMFAMA SANTA MARIA - ITAGUI",
+        "CLINICA ANTIOQUIA SEDE NORTE",
+        "CLINICA ANTIOQUIA SEDE SUR",
+        "CLINICA ASTORGA",
+        "CLINICA CARDIOVASCULAR SANTA MARIA",
+        "CLÍNICA CENTRAL FUNDADORES",
+        "CLINICA CES",
+        "CLINICA DEL PRADO",
+        "CLINICA LAS AMERICAS",
+        "CLINICA LAS VEGAS",
+        "CLINICA MEDELLIN OCCIDENTE",
+        "CLINICA MEDELLIN POBLADO",
+        "CLINICA PLASTICA Y ESTETICA NOVA",
+        "CLINICA RENACER",
+        "CLINICA ROSARIO CENTRO",
+        "CLINICA ROSARIO TESORO",
+        "CLINICA SAGRADO CORAZON",
+        "CLINICA SAN JUAN DE DIOS LA CEJA",
+        "CLINICA SOMA",
+        "CLINICA SOMER",
+        "CLINICA UNIVERSITARIA BOLIVARIANA",
+        "CLINICA VICTORIANA",
+        "CLINICA VIDA",
+        "CLINIQ DERMOESTETICA Y LASER S.A.",
+        "COOMSOCIAL BELLO",
+        "COOMSOCIAL ESTADIO",
+        "COOPSANA - CENTRO",
+        "COOPSANA AVENIDA ORIENTAL",
+        "COOPSANA CALASANZ",
+        "COOPSANA -CENTRO DE ESPECIALISTAS",
+        "COOPSANA NORTE",
+        "ESE HOSPITAL LA MARIA",
+        "ESPECIALISTAS ASESORES PROFESIONALES",
+        "FUNDACION CLINICA DEL NORTE",
+        "GRUPO MEDICO ESPECIALIZADO MEDELLIN",
+        "HOME GROUP SAS",
+        "HOSPITAL ALMA MATER DE ANTIOQUIA",
+        "HOSPITAL CONCEJO DE MEDELLIN",
+        "HOSPITAL GENERAL DE MEDELIN",
+        "HOSPITAL INFANTIL SANTA ANA",
+        "HOSPITAL MANUEL URIBE ANGEL",
+        "HOSPITAL MARCO FIDEL SUAREZ",
+        "HOSPITAL PABLO TOBON URIBE",
+        "HOSPITAL SAN JUAN DE DIOS DE RIONEGRO",
+        "HOSPITAL SAN VICENTE DE PAUL MEDELLIN",
+        "HOSPITAL VENANCIO DIAZ",
+        "HUMANITAS - ITAGUI",
+        "INSTITUTO COLOMBIANO DE DOLOR",
+        "INSTITUTO DE CANCEROLOGIA",
+        "INSTITUTO DEL TORAX - LA PAZ",
+        "INSTITUTO NEUROLOGICO DE COLOMBIA",
+        "IPS DARIEM",
+        "IPS ESPECIALIZADA SURA - DIABETES",
+        "IPS HOSPITAL LA CEJA",
+        "IPS PAC COOPSANA SURAMERICANA",
+        "IPS QUIRUSTETIC",
+        "IPS SALUD EN CASA",
+        "IPS SURA ATEL CITY MEDICA RIONEGRO",
+        "IPS SURA BELLO",
+        "IPS SURA CENTRO",
+        "IPS SURA ERC MEDELLIN",
+        "IPS SURA ERC RIONEGRO",
+        "IPS SURA LAS VEGAS MEDELLIN",
+        "IPS SURA LOS MOLINOS",
+        "IPS SURA MAYORCA",
+        "IPS SURA OLAYA",
+        "IPS SURA PROGRAMA CUIDADO Y VIDA",
+        "IPS SURA ROBLEDO",
+        "IPS SURA VIRTUAL",
+        "MULTICLINIC S.A.S.",
+        "PAC ACCESO DIRECTO",
+        "PROSALCO BARBOSA",
+        "PROSALCO CARMEN DE VIBORAL",
+        "PROSALCO GUARNE",
+        "PROSALCO MARINILLA",
+        "PROSALCO SAN JUAN",
+        "SALUD EN CASA MEDELLIN",
+        "SALUD EN CASA RIONEGRO",
+        "SALUD TRECC",
+        "SAN VICENTE FUNDACION RIONEGRO",
+        "UROCLIN",
+        "URGENCIAS IPS SURA LOS MOLINOS",
+        "URGENCIAS IPS SURA LOS ROBLEDO",
+        "URGENCIAS IPS SURA LOS VEGAS",
+    ];
+
     private static readonly string[] MunicipiosResidenciaValues =
     [
         "MEDELLIN",
@@ -374,7 +490,6 @@ public class CensoController : Controller
     private readonly IUserAdministrationService _userAdministrationService;
     private readonly IAddressValidationService _addressValidationService;
     private readonly IFarmaciaDispatchNotificationService _farmaciaDispatchNotificationService;
-    private readonly IReadOnlyList<string> _ipsQueRemiteValues;
     private readonly IReadOnlyList<string> _medicamentoFallbackValues;
     private readonly IReadOnlyDictionary<string, string> _cie10Catalog;
     private readonly IReadOnlyDictionary<string, string> _medellinNeighborhoodZoneMap;
@@ -390,7 +505,6 @@ public class CensoController : Controller
         _userAdministrationService = userAdministrationService;
         _addressValidationService = addressValidationService;
         _farmaciaDispatchNotificationService = farmaciaDispatchNotificationService;
-        _ipsQueRemiteValues = LoadIpsQueRemiteValues(webHostEnvironment.ContentRootPath);
         _medicamentoFallbackValues = LoadMedicamentoPrincipalValues(webHostEnvironment.ContentRootPath);
         _cie10Catalog = LoadCie10Catalog(webHostEnvironment.ContentRootPath);
         _medellinNeighborhoodZoneMap = LoadMedellinNeighborhoodZoneMap(webHostEnvironment.ContentRootPath);
@@ -1541,7 +1655,7 @@ public class CensoController : Controller
         model.MunicipioResidenciaOptions = BuildOptions(MunicipiosResidenciaValues);
         model.ZonaDireccionOptions = BuildOptions(ZonaDireccionValues);
         model.AreaOptions = BuildOptions(AreaValues);
-        model.IpsQueRemiteOptions = BuildOptions(_ipsQueRemiteValues);
+        model.IpsQueRemiteOptions = BuildOptions(IpsQueRemiteValues);
         model.VistoBuenoOptions = BuildOptions(VistoBuenoValues);
         model.ClasificacionRiesgoOptions = BuildOptions(ClasificacionRiesgoValues);
         model.AdministracionMedicamentosOptions = BuildOptions(AdministracionMedicamentosValues);
@@ -1599,7 +1713,7 @@ public class CensoController : Controller
         }
 
         if (!string.IsNullOrWhiteSpace(model.IpsQueRemite)
-            && !_ipsQueRemiteValues.Contains(model.IpsQueRemite, StringComparer.OrdinalIgnoreCase))
+            && !IpsQueRemiteValues.Contains(model.IpsQueRemite, StringComparer.OrdinalIgnoreCase))
         {
             model.IpsQueRemiteOptions = model.IpsQueRemiteOptions
                 .Append(new SelectListItem { Text = model.IpsQueRemite, Value = model.IpsQueRemite })
@@ -1882,7 +1996,7 @@ public class CensoController : Controller
             ModelState.AddModelError(nameof(model.Area), "Selecciona un area valida.");
         }
 
-        if (!_ipsQueRemiteValues.Contains(model.IpsQueRemite, StringComparer.OrdinalIgnoreCase))
+        if (!IpsQueRemiteValues.Contains(model.IpsQueRemite, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.IpsQueRemite), "Selecciona una IPS que remite valida.");
         }
@@ -3464,12 +3578,6 @@ public class CensoController : Controller
         {
             return new Dictionary<string, string>(StringComparer.Ordinal);
         }
-    }
-
-    private static IReadOnlyList<string> LoadIpsQueRemiteValues(string contentRootPath)
-    {
-        var path = Path.Combine(contentRootPath, "Data", "Seed", "ips_que_remite.txt");
-        return LoadTextCatalogValues(path);
     }
 
     private static IReadOnlyList<string> LoadMedicamentoPrincipalValues(string contentRootPath)
