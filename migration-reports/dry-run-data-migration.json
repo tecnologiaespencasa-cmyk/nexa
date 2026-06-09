@@ -1,0 +1,69 @@
+﻿{
+  "StartedAtUtc": "2026-04-27T19:45:51.6475655+00:00",
+  "CompletedAtUtc": null,
+  "SourceServer": "sql-espencasa.database.windows.net",
+  "SourceDatabase": "espencasa-intranet",
+  "TargetServer": "pg-espencasa-intranet",
+  "TargetDatabase": "espencasa_intranet",
+  "TruncateDestination": false,
+  "DryRun": true,
+  "SourceTables": [
+    "dbo.AuditLogs",
+    "dbo.censo",
+    "dbo.NursingAssistants",
+    "dbo.OpsAssistants",
+    "dbo.Permissions",
+    "dbo.RolePermissions",
+    "dbo.Roles",
+    "dbo.UserPermissions",
+    "dbo.UserRoles",
+    "dbo.Users",
+    "dbo.__EFMigrationsHistory"
+  ],
+  "TargetTables": [
+    "AuditLogs",
+    "NursingAssistants",
+    "OpsAssistants",
+    "Permissions",
+    "RolePermissions",
+    "Roles",
+    "UserPermissions",
+    "UserRoles",
+    "Users",
+    "__EFMigrationsHistory",
+    "censo"
+  ],
+  "SourceCounts": {
+    "AuditLogs": 213,
+    "censo": 2,
+    "NursingAssistants": 5,
+    "OpsAssistants": 10,
+    "Permissions": 7,
+    "RolePermissions": 9,
+    "Roles": 3,
+    "UserPermissions": 5,
+    "UserRoles": 1,
+    "Users": 1,
+    "__EFMigrationsHistory": 26
+  },
+  "TargetCountsBefore": {
+    "AuditLogs": 1,
+    "NursingAssistants": 0,
+    "OpsAssistants": 0,
+    "Permissions": 7,
+    "RolePermissions": 5,
+    "Roles": 3,
+    "UserPermissions": 5,
+    "UserRoles": 1,
+    "Users": 1,
+    "censo": 0
+  },
+  "TargetCountsAfter": {},
+  "LargeTables": [],
+  "SourceTablesNotInTarget": [],
+  "TargetTablesNotInSource": [],
+  "Tables": [],
+  "Errors": [
+    "El destino ya tiene datos. Ejecute nuevamente con --truncate-destination si desea reemplazar el seed/datos de prueba en PostgreSQL."
+  ]
+}
