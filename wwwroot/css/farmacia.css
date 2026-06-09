@@ -823,6 +823,55 @@
   object-fit: contain;
 }
 
+/* ── Nuevos estados de farmacia ── */
+.farmacia-status--recepcionado { background: #e8f2ff; color: #0b63ce; }
+.farmacia-status--facturado    { background: #f0e8ff; color: #6a29c8; }
+.farmacia-status--empacado     { background: #e8fff6; color: #087f5b; }
+.farmacia-status--alert        { background: #fff0f0; color: #b42318; }
+
+.farmacia-section--recepcionado .farmacia-section__header strong { background: #e8f2ff; color: #0b63ce; }
+.farmacia-section--facturado    .farmacia-section__header strong { background: #f0e8ff; color: #6a29c8; }
+.farmacia-section--empacado     .farmacia-section__header strong { background: #e8fff6; color: #087f5b; }
+.farmacia-section--desempacar   .farmacia-section__header strong { background: #fff0f0; color: #b42318; }
+.farmacia-section--despachado   .farmacia-section__header strong { background: #f6fef9; color: #087f5b; }
+
+.farmacia-doc-button--ok-kardex  { background: #e07b00; }
+.farmacia-doc-button--facturar   { background: #6a29c8; }
+.farmacia-doc-button--empacar    { background: #087f5b; }
+
+.farmacia-order--alert { border-left: 3px solid #b42318; }
+
+.farmacia-entrega-badge { color: #0b63ce; font-size: 0.82rem; font-weight: 700; margin: 0; }
+.farmacia-timer         { color: #087f5b; font-size: 0.8rem; font-weight: 700; margin: 0; }
+.farmacia-timer--urgent { color: #b42318; }
+
+.farmacia-entrega-parcial-panel {
+  border-top: 1px solid var(--farmacia-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  grid-column: 1 / -1;
+  padding-top: 0.5rem;
+}
+
+.farmacia-parcial-label {
+  align-items: center;
+  display: flex;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 0.4rem;
+}
+
+.farmacia-parcial-cantidad {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.farmacia-parcial-cantidad input[type="number"] {
+  max-width: 7rem;
+}
+
 @media (max-width: 991.98px) {
   .farmacia-hero,
   .farmacia-document-toolbar {

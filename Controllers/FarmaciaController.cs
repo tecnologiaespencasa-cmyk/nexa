@@ -5,6 +5,7 @@ using IntranetPrueba.Data;
 using IntranetPrueba.Data.Entities;
 using IntranetPrueba.Models.Security;
 using IntranetPrueba.Models.ViewModels;
+using IntranetPrueba.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,21 +19,29 @@ public class FarmaciaController : Controller
     private const string DocumentoRequisicion = "requisicion";
     private const string ValorNoAplicaMedicamentoAdicional = "No";
     private const int PageSize = 25;
+    private static readonly TimeSpan TiempoLimiteEmpacado = TimeSpan.FromHours(72);
     private readonly ApplicationDbContext _context;
+    private readonly IFarmaciaDispatchNotificationService _notificationService;
 
-    public FarmaciaController(ApplicationDbContext context)
+    public FarmaciaController(ApplicationDbContext context, IFarmaciaDispatchNotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     [HttpGet]
     public async Task<IActionResult> Index(
         string? documento,
         int nuevosPagina = 1,
-        int revisionPagina = 1,
-        int vistosPagina = 1,
+        int recepcionadosPagina = 1,
+        int facturadosPagina = 1,
+        int empacadosPagina = 1,
+        int porDesempacarPagina = 1,
+        int despachadosPagina = 1,
         CancellationToken cancellationToken = default)
     {
+        await ApplyEmpacadoTimeoutAsync(cancellationToken);
+
         var filtro = documento?.Trim();
         var query = _context.Censos
             .AsNoTracking()
@@ -44,14 +53,7 @@ public class FarmaciaController : Controller
         }
 
         var totalPedidos = await query.CountAsync(cancellationToken);
-        var pedidosNuevos = await query.CountAsync(
-            x => x.FarmaciaKardexVistoAtUtc == null
-                && x.FarmaciaRequisicionVistoAtUtc == null
-                && x.FarmaciaNombreRecibe == null
-                && x.FarmaciaFirmaEntregaDataUrl == null
-                && x.FarmaciaFirmaRecibeDataUrl == null
-                && x.FarmaciaFechaHoraRecepcionUtc == null,
-            cancellationToken);
+        var pedidosNuevos = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
         var ultimoPedidoId = await query
             .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
             .ThenByDescending(x => x.Id)
@@ -65,42 +67,12 @@ public class FarmaciaController : Controller
             PedidosNuevos = pedidosNuevos,
             UltimoPedidoId = ultimoPedidoId,
             PageSize = PageSize,
-            Nuevos = await BuildSectionPageAsync(
-                query.Where(x =>
-                    x.FarmaciaKardexVistoAtUtc == null
-                    && x.FarmaciaRequisicionVistoAtUtc == null
-                    && x.FarmaciaNombreRecibe == null
-                    && x.FarmaciaFirmaEntregaDataUrl == null
-                    && x.FarmaciaFirmaRecibeDataUrl == null
-                    && x.FarmaciaFechaHoraRecepcionUtc == null),
-                nuevosPagina,
-                cancellationToken),
-            EnRevision = await BuildSectionPageAsync(
-                query.Where(x =>
-                    (x.FarmaciaKardexVistoAtUtc != null
-                        || x.FarmaciaRequisicionVistoAtUtc != null
-                        || x.FarmaciaNombreRecibe != null
-                        || x.FarmaciaFirmaEntregaDataUrl != null
-                        || x.FarmaciaFirmaRecibeDataUrl != null
-                        || x.FarmaciaFechaHoraRecepcionUtc != null)
-                    && (x.FarmaciaKardexVistoAtUtc == null
-                        || x.FarmaciaRequisicionVistoAtUtc == null
-                        || x.FarmaciaNombreRecibe == null
-                        || x.FarmaciaFirmaEntregaDataUrl == null
-                        || x.FarmaciaFirmaRecibeDataUrl == null
-                        || x.FarmaciaFechaHoraRecepcionUtc == null)),
-                revisionPagina,
-                cancellationToken),
-            Vistos = await BuildSectionPageAsync(
-                query.Where(x =>
-                    x.FarmaciaKardexVistoAtUtc != null
-                    && x.FarmaciaRequisicionVistoAtUtc != null
-                    && x.FarmaciaNombreRecibe != null
-                    && x.FarmaciaFirmaEntregaDataUrl != null
-                    && x.FarmaciaFirmaRecibeDataUrl != null
-                    && x.FarmaciaFechaHoraRecepcionUtc != null),
-                vistosPagina,
-                cancellationToken)
+            Nuevos = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo), nuevosPagina, cancellationToken),
+            Recepcionados = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.Recepcionado), recepcionadosPagina, cancellationToken),
+            Facturados = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.Facturado), facturadosPagina, cancellationToken),
+            Empacados = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.Empacado), empacadosPagina, cancellationToken),
+            PorDesempacar = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.PorDesempacar), porDesempacarPagina, cancellationToken),
+            Despachados = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.Despachado), despachadosPagina, cancellationToken),
         };
 
         return View(model);
@@ -142,19 +114,13 @@ public class FarmaciaController : Controller
     [HttpGet]
     public async Task<IActionResult> PendientesSnapshot(CancellationToken cancellationToken)
     {
+        await ApplyEmpacadoTimeoutAsync(cancellationToken);
+
         var query = _context.Censos
             .AsNoTracking()
             .Where(x => x.FarmaciaEnviadoAtUtc != null);
 
-        var newCount = await query
-            .CountAsync(x =>
-                x.FarmaciaKardexVistoAtUtc == null
-                && x.FarmaciaRequisicionVistoAtUtc == null
-                && x.FarmaciaNombreRecibe == null
-                && x.FarmaciaFirmaEntregaDataUrl == null
-                && x.FarmaciaFirmaRecibeDataUrl == null
-                && x.FarmaciaFechaHoraRecepcionUtc == null,
-                cancellationToken);
+        var newCount = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
         var lastId = await query
             .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
             .ThenByDescending(x => x.Id)
@@ -174,6 +140,11 @@ public class FarmaciaController : Controller
         if (record is null)
         {
             return NotFound(new { message = "No se encontro el despacho de farmacia." });
+        }
+
+        if (record.FarmaciaEstado != FarmaciaEstados.Empacado)
+        {
+            return BadRequest(new { message = "La firma solo esta disponible en estado Empacado." });
         }
 
         var firma = BuildSignatureModel(record);
@@ -228,22 +199,172 @@ public class FarmaciaController : Controller
             return NotFound(new { message = "No se encontro el despacho de farmacia." });
         }
 
+        if (record.FarmaciaEstado != FarmaciaEstados.Empacado)
+        {
+            return BadRequest(new { message = "La firma solo esta disponible en estado Empacado." });
+        }
+
         record.FarmaciaNombreRecibe = nombreRecibe;
         record.FarmaciaFirmaEntregaDataUrl = model.FirmaEntregaDataUrl.Trim();
         record.FarmaciaFirmaRecibeDataUrl = model.FirmaRecibeDataUrl.Trim();
         record.FarmaciaFechaHoraRecepcionUtc = DateTime.SpecifyKind(model.FechaHoraRecepcion, DateTimeKind.Local).ToUniversalTime();
         record.FarmaciaFirmaActualizadaAtUtc = DateTime.UtcNow;
+        record.FarmaciaEstado = FarmaciaEstados.Despachado;
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        var firma = BuildSignatureModel(record);
+        _ = Task.Run(() => _notificationService.NotifyDespachadoAsync(record, CancellationToken.None), CancellationToken.None);
+
         return Json(new
         {
-            message = "Firmas guardadas correctamente.",
-            estaCompleta = firma.EstaCompleta,
-            nombreRecibe = firma.NombreRecibe,
-            fechaHoraRecepcionTexto = firma.FechaHoraRecepcionTexto
+            message = "Firmas guardadas. Paciente pasado a Despachado.",
+            estaCompleta = true,
+            nombreRecibe = record.FarmaciaNombreRecibe,
+            fechaHoraRecepcionTexto = record.FarmaciaFechaHoraRecepcionUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
         });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetOkKardex(long id, CancellationToken cancellationToken)
+    {
+        var record = await _context.Censos.FirstOrDefaultAsync(
+            x => x.Id == id && x.FarmaciaEnviadoAtUtc != null && x.FarmaciaEstado == FarmaciaEstados.Nuevo,
+            cancellationToken);
+
+        if (record is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado o no esta en estado Nuevo." });
+        }
+
+        record.FarmaciaOkKardex = true;
+        record.FarmaciaEstado = FarmaciaEstados.Recepcionado;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new { message = "Kardex aprobado. Paciente en estado Recepcionado." });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetEntregaParcial(
+        [FromBody] FarmaciaEntregaParcialInputModel model,
+        CancellationToken cancellationToken)
+    {
+        var record = await _context.Censos.FirstOrDefaultAsync(
+            x => x.Id == model.Id && x.FarmaciaEnviadoAtUtc != null && x.FarmaciaEstado == FarmaciaEstados.Recepcionado,
+            cancellationToken);
+
+        if (record is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado o no esta en estado Recepcionado." });
+        }
+
+        if (model.EsEntregaParcial && (model.CantidadEntregas is null or < 2))
+        {
+            return BadRequest(new { message = "La cantidad de entregas debe ser al menos 2." });
+        }
+
+        record.FarmaciaEsEntregaParcial = model.EsEntregaParcial;
+        record.FarmaciaCantidadEntregas = model.EsEntregaParcial ? model.CantidadEntregas : null;
+        record.FarmaciaEntregaActual = 1;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new { message = "Configuracion de entrega guardada." });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AvanzarEntrega(long id, CancellationToken cancellationToken)
+    {
+        var record = await _context.Censos.FirstOrDefaultAsync(
+            x => x.Id == id && x.FarmaciaEnviadoAtUtc != null
+                && (x.FarmaciaEstado == FarmaciaEstados.Recepcionado || x.FarmaciaEstado == FarmaciaEstados.Facturado || x.FarmaciaEstado == FarmaciaEstados.Empacado),
+            cancellationToken);
+
+        if (record is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado." });
+        }
+
+        if (record.FarmaciaEsEntregaParcial != true || !record.FarmaciaCantidadEntregas.HasValue)
+        {
+            return BadRequest(new { message = "El pedido no tiene entrega parcial configurada." });
+        }
+
+        if (record.FarmaciaEntregaActual >= record.FarmaciaCantidadEntregas.Value)
+        {
+            return BadRequest(new { message = "Ya se alcanzo la ultima entrega." });
+        }
+
+        record.FarmaciaEntregaActual++;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new
+        {
+            message = $"Avanzado a entrega {record.FarmaciaEntregaActual} de {record.FarmaciaCantidadEntregas}.",
+            entregaActual = record.FarmaciaEntregaActual,
+            cantidadEntregas = record.FarmaciaCantidadEntregas
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetFacturado(long id, CancellationToken cancellationToken)
+    {
+        var record = await _context.Censos.FirstOrDefaultAsync(
+            x => x.Id == id && x.FarmaciaEnviadoAtUtc != null && x.FarmaciaEstado == FarmaciaEstados.Recepcionado,
+            cancellationToken);
+
+        if (record is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado o no esta en estado Recepcionado." });
+        }
+
+        record.FarmaciaFacturado = true;
+        record.FarmaciaEstado = FarmaciaEstados.Facturado;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new { message = "Pedido marcado como Facturado." });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetEmpacado(long id, CancellationToken cancellationToken)
+    {
+        var record = await _context.Censos.FirstOrDefaultAsync(
+            x => x.Id == id && x.FarmaciaEnviadoAtUtc != null && x.FarmaciaEstado == FarmaciaEstados.Facturado,
+            cancellationToken);
+
+        if (record is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado o no esta en estado Facturado." });
+        }
+
+        record.FarmaciaEstado = FarmaciaEstados.Empacado;
+        record.FarmaciaEmpacadoAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new { message = "Pedido en estado Empacado. Tiene 72 horas para firmar." });
+    }
+
+    private async Task ApplyEmpacadoTimeoutAsync(CancellationToken cancellationToken)
+    {
+        var cutoff = DateTime.UtcNow - TiempoLimiteEmpacado;
+        var vencidos = await _context.Censos
+            .Where(x => x.FarmaciaEstado == FarmaciaEstados.Empacado
+                && x.FarmaciaEmpacadoAtUtc != null
+                && x.FarmaciaEmpacadoAtUtc < cutoff)
+            .ToListAsync(cancellationToken);
+
+        if (vencidos.Count > 0)
+        {
+            foreach (var r in vencidos)
+            {
+                r.FarmaciaEstado = FarmaciaEstados.PorDesempacar;
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
     }
 
     private static FarmaciaPedidoViewModel MapPedido(CensoRecord record)
@@ -264,7 +385,14 @@ public class FarmaciaController : Controller
             RequisicionVisto = record.FarmaciaRequisicionVistoAtUtc.HasValue,
             FirmaRegistrada = BuildSignatureModel(record).EstaCompleta,
             NombreRecibe = record.FarmaciaNombreRecibe,
-            FechaHoraRecepcionUtc = record.FarmaciaFechaHoraRecepcionUtc
+            FechaHoraRecepcionUtc = record.FarmaciaFechaHoraRecepcionUtc,
+            FarmaciaEstado = record.FarmaciaEstado,
+            FarmaciaOkKardex = record.FarmaciaOkKardex,
+            FarmaciaEsEntregaParcial = record.FarmaciaEsEntregaParcial,
+            FarmaciaCantidadEntregas = record.FarmaciaCantidadEntregas,
+            FarmaciaEntregaActual = record.FarmaciaEntregaActual,
+            FarmaciaFacturado = record.FarmaciaFacturado,
+            FarmaciaEmpacadoAtUtc = record.FarmaciaEmpacadoAtUtc,
         };
     }
 
@@ -333,6 +461,9 @@ public class FarmaciaController : Controller
             AuxiliarAsignado = record.AuxiliarAsignado,
             NombreRealizaKardex = record.NombreRealizaKardex,
             Autorizacion = record.AutorizacionEvento,
+            EsEntregaParcial = record.FarmaciaEsEntregaParcial == true,
+            CantidadEntregas = record.FarmaciaCantidadEntregas,
+            EntregaActual = record.FarmaciaEntregaActual,
             Firma = BuildSignatureModel(record),
             Medicamentos = rows,
             RequisicionItems = requisicionRows
@@ -341,9 +472,38 @@ public class FarmaciaController : Controller
         if (tipoDocumento == DocumentoRequisicion)
         {
             ApplyStoredRequisition(model, record.RequisicionFarmaciaJson);
+            if (model.EsEntregaParcial && model.CantidadEntregas is > 1)
+            {
+                ApplyEntregaParcialDivision(model);
+            }
         }
 
         return model;
+    }
+
+    private static void ApplyEntregaParcialDivision(FarmaciaDocumentViewModel model)
+    {
+        var divisor = model.CantidadEntregas!.Value;
+        model.RequisicionItems = model.RequisicionItems
+            .Select(item =>
+            {
+                if (!decimal.TryParse(item.Cantidad, NumberStyles.Number, CultureInfo.InvariantCulture, out var qty) || qty <= 0)
+                {
+                    return item;
+                }
+
+                var divided = Math.Ceiling(qty / divisor);
+                return new FarmaciaRequisicionItemViewModel
+                {
+                    Item = item.Item,
+                    Descripcion = item.Descripcion,
+                    Detalle = item.Detalle,
+                    Cantidad = divided.ToString("0.##", CultureInfo.InvariantCulture),
+                    FechaInicio = item.FechaInicio,
+                    FechaFin = item.FechaFin
+                };
+            })
+            .ToList();
     }
 
     private static FarmaciaKardexMedicationViewModel BuildMedicationRow(
@@ -494,41 +654,11 @@ public class FarmaciaController : Controller
         }
 
         var treatmentDays = ParseDecimal(record.DiasTratamientoIv);
-        rows.Add(new FarmaciaRequisicionItemViewModel
-        {
-            Descripcion = "JELCO #22",
-            Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays, true)),
-            FechaInicio = fechaInicio,
-            FechaFin = fechaFin
-        });
-        rows.Add(new FarmaciaRequisicionItemViewModel
-        {
-            Descripcion = "ATI",
-            Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)),
-            FechaInicio = fechaInicio,
-            FechaFin = fechaFin
-        });
-        rows.Add(new FarmaciaRequisicionItemViewModel
-        {
-            Descripcion = "MACROGOTERO",
-            Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)),
-            FechaInicio = fechaInicio,
-            FechaFin = fechaFin
-        });
-        rows.Add(new FarmaciaRequisicionItemViewModel
-        {
-            Descripcion = "BURETRA",
-            Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)),
-            FechaInicio = fechaInicio,
-            FechaFin = fechaFin
-        });
-        rows.Add(new FarmaciaRequisicionItemViewModel
-        {
-            Descripcion = "GUANTES (PAR)",
-            Cantidad = FormatQuantity(totalApplications),
-            FechaInicio = fechaInicio,
-            FechaFin = fechaFin
-        });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "JELCO #22", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays, true)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "ATI", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "MACROGOTERO", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "BURETRA", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "GUANTES (PAR)", Cantidad = FormatQuantity(totalApplications), FechaInicio = fechaInicio, FechaFin = fechaFin });
 
         for (var i = 0; i < rows.Count; i++)
         {
@@ -707,30 +837,11 @@ public class FarmaciaController : Controller
             .Where(value => value > 0)
             .ToList();
 
-        if (normalized.Contains("24") && normalized.Contains("HORA"))
-        {
-            return 1;
-        }
-
-        if (normalized.Contains("12") && normalized.Contains("HORA"))
-        {
-            return 2;
-        }
-
-        if (normalized.Contains("8") && normalized.Contains("HORA"))
-        {
-            return 3;
-        }
-
-        if (normalized.Contains("6") && normalized.Contains("HORA"))
-        {
-            return 4;
-        }
-
-        if (normalized.Contains("4") && normalized.Contains("HORA"))
-        {
-            return 6;
-        }
+        if (normalized.Contains("24") && normalized.Contains("HORA")) return 1;
+        if (normalized.Contains("12") && normalized.Contains("HORA")) return 2;
+        if (normalized.Contains("8") && normalized.Contains("HORA")) return 3;
+        if (normalized.Contains("6") && normalized.Contains("HORA")) return 4;
+        if (normalized.Contains("4") && normalized.Contains("HORA")) return 6;
 
         if (numbers.Count > 0 && normalized.Contains("HORA"))
         {

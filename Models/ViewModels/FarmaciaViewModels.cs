@@ -1,5 +1,15 @@
 namespace IntranetPrueba.Models.ViewModels;
 
+public static class FarmaciaEstados
+{
+    public const string Nuevo = "Nuevo";
+    public const string Recepcionado = "Recepcionado";
+    public const string Facturado = "Facturado";
+    public const string Empacado = "Empacado";
+    public const string PorDesempacar = "PorDesempacar";
+    public const string Despachado = "Despachado";
+}
+
 public class FarmaciaIndexViewModel
 {
     public string? DocumentoFiltro { get; set; }
@@ -14,11 +24,19 @@ public class FarmaciaIndexViewModel
 
     public FarmaciaSectionPageViewModel Nuevos { get; set; } = new();
 
-    public FarmaciaSectionPageViewModel EnRevision { get; set; } = new();
+    public FarmaciaSectionPageViewModel Recepcionados { get; set; } = new();
 
-    public FarmaciaSectionPageViewModel Vistos { get; set; } = new();
+    public FarmaciaSectionPageViewModel Facturados { get; set; } = new();
 
-    public bool HasPedidos => Nuevos.TotalItems > 0 || EnRevision.TotalItems > 0 || Vistos.TotalItems > 0;
+    public FarmaciaSectionPageViewModel Empacados { get; set; } = new();
+
+    public FarmaciaSectionPageViewModel PorDesempacar { get; set; } = new();
+
+    public FarmaciaSectionPageViewModel Despachados { get; set; } = new();
+
+    public bool HasPedidos =>
+        Nuevos.TotalItems > 0 || Recepcionados.TotalItems > 0 || Facturados.TotalItems > 0
+        || Empacados.TotalItems > 0 || PorDesempacar.TotalItems > 0 || Despachados.TotalItems > 0;
 }
 
 public class FarmaciaSectionPageViewModel
@@ -64,9 +82,29 @@ public class FarmaciaPedidoViewModel
 
     public DateTime? FechaHoraRecepcionUtc { get; set; }
 
-    public bool EsNuevo => !KardexVisto && !RequisicionVisto && !FirmaRegistrada;
+    public string FarmaciaEstado { get; set; } = FarmaciaEstados.Nuevo;
 
-    public bool EstaEnRevision => !EsNuevo && (!KardexVisto || !RequisicionVisto || !FirmaRegistrada);
+    public bool FarmaciaOkKardex { get; set; }
+
+    public bool? FarmaciaEsEntregaParcial { get; set; }
+
+    public int? FarmaciaCantidadEntregas { get; set; }
+
+    public int FarmaciaEntregaActual { get; set; } = 1;
+
+    public bool FarmaciaFacturado { get; set; }
+
+    public DateTime? FarmaciaEmpacadoAtUtc { get; set; }
+
+    public TimeSpan? TiempoEnEmpacado => FarmaciaEmpacadoAtUtc.HasValue
+        ? DateTime.UtcNow - FarmaciaEmpacadoAtUtc.Value
+        : null;
+
+    public bool EmpacadoVencido => TiempoEnEmpacado.HasValue && TiempoEnEmpacado.Value.TotalHours >= 72;
+
+    public double HorasRestantesEmpacado => FarmaciaEmpacadoAtUtc.HasValue
+        ? Math.Max(0, 72 - (DateTime.UtcNow - FarmaciaEmpacadoAtUtc.Value).TotalHours)
+        : 72;
 }
 
 public class FarmaciaDocumentViewModel
@@ -104,6 +142,12 @@ public class FarmaciaDocumentViewModel
     public string? Autorizacion { get; set; }
 
     public string? FechaSolicitudRequisicion { get; set; }
+
+    public bool EsEntregaParcial { get; set; }
+
+    public int? CantidadEntregas { get; set; }
+
+    public int EntregaActual { get; set; } = 1;
 
     public FarmaciaSignatureViewModel Firma { get; set; } = new();
 
@@ -190,4 +234,13 @@ public class FarmaciaSignatureInputModel
     public string FirmaRecibeDataUrl { get; set; } = string.Empty;
 
     public DateTime FechaHoraRecepcion { get; set; }
+}
+
+public class FarmaciaEntregaParcialInputModel
+{
+    public long Id { get; set; }
+
+    public bool EsEntregaParcial { get; set; }
+
+    public int? CantidadEntregas { get; set; }
 }

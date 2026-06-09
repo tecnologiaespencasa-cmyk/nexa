@@ -499,15 +499,13 @@ public class CensoReceptionViewModel
     [Display(Name = "Documento del paciente")]
     public string? DocumentoProrrogaBusqueda { get; set; }
 
-    [Required(ErrorMessage = "La fecha de gestión farmacia es obligatoria.")]
     [DataType(DataType.Date)]
     [Display(Name = "Fecha y hora de gestión farmacia")]
-    public DateTime FechaGestionFarmacia { get; set; } = DateTime.Today;
+    public DateTime? FechaGestionFarmacia { get; set; }
 
-    [Required(ErrorMessage = "La hora de gestión farmacia es obligatoria.")]
     [DataType(DataType.Time)]
     [Display(Name = "Hora de gestión farmacia")]
-    public TimeSpan HoraGestionFarmacia { get; set; }
+    public TimeSpan? HoraGestionFarmacia { get; set; }
 
     public bool GestionCompleta { get; set; }
 

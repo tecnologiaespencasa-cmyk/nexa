@@ -1,37 +1,17 @@
 @model FarmaciaIndexViewModel
 @{
     ViewData["Title"] = "Farmacia";
-    var sections = new[]
-    {
-        new { Key = "nuevos", Title = "Nuevos", Hint = "Pendientes de primera visualizacion", Css = "farmacia-section--new", Page = Model.Nuevos },
-        new { Key = "revision", Title = "En revision", Hint = "Ya se abrio uno de los documentos", Css = "farmacia-section--review", Page = Model.EnRevision },
-        new { Key = "vistos", Title = "Vistos", Hint = "Documentos revisados por farmacia", Css = "farmacia-section--seen", Page = Model.Vistos }
-    };
     string BuildPageUrl(string sectionKey, int targetPage)
     {
-        var nuevosPagina = Model.Nuevos.CurrentPage;
-        var revisionPagina = Model.EnRevision.CurrentPage;
-        var vistosPagina = Model.Vistos.CurrentPage;
-
-        if (sectionKey == "nuevos")
-        {
-            nuevosPagina = targetPage;
-        }
-        else if (sectionKey == "revision")
-        {
-            revisionPagina = targetPage;
-        }
-        else
-        {
-            vistosPagina = targetPage;
-        }
-
         return Url.Action("Index", "Farmacia", new
         {
             documento = Model.DocumentoFiltro,
-            nuevosPagina,
-            revisionPagina,
-            vistosPagina
+            nuevosPagina = sectionKey == "nuevos" ? targetPage : Model.Nuevos.CurrentPage,
+            recepcionadosPagina = sectionKey == "recepcionados" ? targetPage : Model.Recepcionados.CurrentPage,
+            facturadosPagina = sectionKey == "facturados" ? targetPage : Model.Facturados.CurrentPage,
+            empacadosPagina = sectionKey == "empacados" ? targetPage : Model.Empacados.CurrentPage,
+            porDesempacarPagina = sectionKey == "porDesempacar" ? targetPage : Model.PorDesempacar.CurrentPage,
+            despachadosPagina = sectionKey == "despachados" ? targetPage : Model.Despachados.CurrentPage,
         }) ?? "#";
     }
 }
@@ -52,28 +32,16 @@
             <div class="farmacia-hero__filter-control">
                 <input id="documento" name="documento" class="form-control" value="@Model.DocumentoFiltro" inputmode="numeric" placeholder="Buscar" />
                 <button type="submit" class="btn btn-primary" title="Filtrar">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <circle cx="11" cy="11" r="6"></circle>
-                        <path d="M16 16l5 5"></path>
-                    </svg>
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="M16 16l5 5"></path></svg>
                 </button>
                 <a class="btn btn-outline-secondary" asp-action="Index" title="Limpiar">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M18 6 6 18"></path>
-                        <path d="m6 6 12 12"></path>
-                    </svg>
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
                 </a>
             </div>
         </form>
         <div class="farmacia-hero__metrics" aria-label="Resumen de pedidos">
-            <div>
-                <span>Total</span>
-                <strong>@Model.TotalPedidos</strong>
-            </div>
-            <div>
-                <span>Nuevos</span>
-                <strong id="farmaciaNewCount">@Model.PedidosNuevos</strong>
-            </div>
+            <div><span>Total</span><strong>@Model.TotalPedidos</strong></div>
+            <div><span>Nuevos</span><strong id="farmaciaNewCount">@Model.PedidosNuevos</strong></div>
         </div>
     </header>
 
@@ -87,78 +55,334 @@
     else
     {
         <div class="farmacia-sections">
-            @foreach (var section in sections)
-            {
-                <section class="farmacia-section @(section.Css)">
-                    <div class="farmacia-section__header">
-                        <div>
-                            <h2>@(section.Title)</h2>
-                            <span>@(section.Hint)</span>
-                        </div>
-                        <strong>@(section.Page.TotalItems)</strong>
-                    </div>
 
-                    @if (section.Page.Items.Count == 0)
-                    {
-                        <div class="farmacia-section__empty">Sin pedidos en esta seccion.</div>
-                    }
-                    else
-                    {
-                        <div class="farmacia-order-list">
-                            @foreach (var item in section.Page.Items)
-                            {
-                                <article class="farmacia-order @(item.EsNuevo ? "is-new" : null)">
-                                    <div class="farmacia-order__identity">
-                                        <span class="farmacia-order__icon" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" focusable="false">
-                                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
-                                                <path d="M14 3v5h5"></path>
-                                                <circle cx="11" cy="13" r="2"></circle>
-                                                <path d="M8 18a3 3 0 0 1 6 0"></path>
-                                            </svg>
-                                        </span>
-                                        <div>
-                                            <span class="farmacia-order__arrival">Pedido #@item.Id - @item.FechaEnvioUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
-                                            <h3>@item.NombrePaciente</h3>
-                                            <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
-                                        </div>
-                                        <div class="farmacia-order__actions">
-                                            <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
-                                                <span>Requisici&oacute;n</span>
-                                                <small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
-                                            </a>
-                                            <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
-                                                <span>Kardex</span>
-                                                <small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
-                                            </a>
-                                            <button type="button"
-                                                    class="farmacia-doc-button farmacia-doc-button--signature"
-                                                    data-firma-button
-                                                    data-pedido-id="@item.Id">
-                                                <span>Firma</span>
-                                                <small>@(item.FirmaRegistrada ? "Firmado" : "Pendiente")</small>
-                                            </button>
-                                        </div>
-                                        <span class="farmacia-status @(item.EsNuevo ? "farmacia-status--new" : item.EstaEnRevision ? "farmacia-status--review" : "farmacia-status--seen")">
-                                            @(item.EsNuevo ? "Nuevo" : item.EstaEnRevision ? "En revision" : "Visto")
-                                        </span>
-                                    </div>
-                                </article>
-                            }
-                        </div>
-                        @if (section.Page.TotalPages > 1)
+            @* ── NUEVOS ── *@
+            <section class="farmacia-section farmacia-section--new">
+                <div class="farmacia-section__header">
+                    <div><h2>Nuevos</h2><span>Pendientes de primera visualizacion</span></div>
+                    <strong>@Model.Nuevos.TotalItems</strong>
+                </div>
+                @if (Model.Nuevos.Items.Count == 0)
+                {
+                    <div class="farmacia-section__empty">Sin pedidos en esta seccion.</div>
+                }
+                else
+                {
+                    <div class="farmacia-order-list">
+                        @foreach (var item in Model.Nuevos.Items)
                         {
-                            <nav class="farmacia-pagination" aria-label="Paginacion @(section.Title)">
-                                <a class="btn btn-outline-secondary @(section.Page.CurrentPage <= 1 ? "disabled" : null)"
-                                   href="@BuildPageUrl(section.Key, section.Page.CurrentPage - 1)">Anterior</a>
-                                <span>Pagina @(section.Page.CurrentPage) de @(section.Page.TotalPages)</span>
-                                <a class="btn btn-outline-secondary @(section.Page.CurrentPage >= section.Page.TotalPages ? "disabled" : null)"
-                                   href="@BuildPageUrl(section.Key, section.Page.CurrentPage + 1)">Siguiente</a>
-                            </nav>
+                            <article class="farmacia-order is-new" data-pedido-id="@item.Id">
+                                <div class="farmacia-order__identity">
+                                    <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
+                                    <div>
+                                        <span class="farmacia-order__arrival">Pedido #@item.Id - @item.FechaEnvioUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                        <h3>@item.NombrePaciente</h3>
+                                        <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
+                                    </div>
+                                    <div class="farmacia-order__actions">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                            <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
+                                        </a>
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                            <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                        </a>
+                                        <button type="button" class="farmacia-doc-button farmacia-doc-button--ok-kardex"
+                                                data-action-button="ok-kardex" data-pedido-id="@item.Id">
+                                            <span>OK Kardex</span><small>Recepcion</small>
+                                        </button>
+                                    </div>
+                                    <span class="farmacia-status farmacia-status--new">Nuevo</span>
+                                </div>
+                            </article>
                         }
+                    </div>
+                    @if (Model.Nuevos.TotalPages > 1)
+                    {
+                        <nav class="farmacia-pagination" aria-label="Paginacion Nuevos">
+                            <a class="btn btn-outline-secondary @(Model.Nuevos.CurrentPage <= 1 ? "disabled" : null)" href="@BuildPageUrl("nuevos", Model.Nuevos.CurrentPage - 1)">Anterior</a>
+                            <span>Pagina @Model.Nuevos.CurrentPage de @Model.Nuevos.TotalPages</span>
+                            <a class="btn btn-outline-secondary @(Model.Nuevos.CurrentPage >= Model.Nuevos.TotalPages ? "disabled" : null)" href="@BuildPageUrl("nuevos", Model.Nuevos.CurrentPage + 1)">Siguiente</a>
+                        </nav>
                     }
+                }
+            </section>
+
+            @* ── RECEPCIONADOS ── *@
+            <section class="farmacia-section farmacia-section--recepcionado">
+                <div class="farmacia-section__header">
+                    <div><h2>Recepcionado</h2><span>Kardex aprobado — configurar entrega</span></div>
+                    <strong>@Model.Recepcionados.TotalItems</strong>
+                </div>
+                @if (Model.Recepcionados.Items.Count == 0)
+                {
+                    <div class="farmacia-section__empty">Sin pedidos en esta seccion.</div>
+                }
+                else
+                {
+                    <div class="farmacia-order-list">
+                        @foreach (var item in Model.Recepcionados.Items)
+                        {
+                            var esParcial = item.FarmaciaEsEntregaParcial == true;
+                            <article class="farmacia-order" data-pedido-id="@item.Id">
+                                <div class="farmacia-order__identity">
+                                    <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
+                                    <div>
+                                        <span class="farmacia-order__arrival">Pedido #@item.Id - @item.FechaEnvioUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                        <h3>@item.NombrePaciente</h3>
+                                        <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
+                                        @if (esParcial && item.FarmaciaCantidadEntregas.HasValue)
+                                        {
+                                            <p class="farmacia-entrega-badge">Entrega <strong>@item.FarmaciaEntregaActual</strong> de <strong>@item.FarmaciaCantidadEntregas</strong></p>
+                                        }
+                                    </div>
+                                    <div class="farmacia-order__actions">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                            <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
+                                        </a>
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                            <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                        </a>
+                                        <div class="farmacia-entrega-parcial-panel" data-pedido-id="@item.Id">
+                                            <label class="farmacia-parcial-label">
+                                                <input type="checkbox" class="form-check-input" data-parcial-check="@item.Id" @(esParcial ? "checked" : null) />
+                                                &iquest;Entrega parcial?
+                                            </label>
+                                            <div class="farmacia-parcial-cantidad @(!esParcial ? "d-none" : null)" id="parcialCantidad_@item.Id">
+                                                <input type="number" min="2" max="99" class="form-control form-control-sm"
+                                                       placeholder="N entregas" value="@(item.FarmaciaCantidadEntregas?.ToString() ?? "")"
+                                                       data-parcial-cantidad="@item.Id" />
+                                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                        data-action-button="guardar-parcial" data-pedido-id="@item.Id">Guardar</button>
+                                            </div>
+                                            @if (esParcial && item.FarmaciaCantidadEntregas.HasValue && item.FarmaciaEntregaActual < item.FarmaciaCantidadEntregas.Value)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary mt-1"
+                                                        data-action-button="avanzar-entrega" data-pedido-id="@item.Id">
+                                                    Avanzar entrega (@item.FarmaciaEntregaActual &rarr; @(item.FarmaciaEntregaActual + 1))
+                                                </button>
+                                            }
+                                        </div>
+                                        <button type="button" class="farmacia-doc-button farmacia-doc-button--facturar"
+                                                data-action-button="facturar" data-pedido-id="@item.Id">
+                                            <span>Facturado</span><small>Marcar</small>
+                                        </button>
+                                    </div>
+                                    <span class="farmacia-status farmacia-status--recepcionado">Recepcionado</span>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                    @if (Model.Recepcionados.TotalPages > 1)
+                    {
+                        <nav class="farmacia-pagination" aria-label="Paginacion Recepcionado">
+                            <a class="btn btn-outline-secondary @(Model.Recepcionados.CurrentPage <= 1 ? "disabled" : null)" href="@BuildPageUrl("recepcionados", Model.Recepcionados.CurrentPage - 1)">Anterior</a>
+                            <span>Pagina @Model.Recepcionados.CurrentPage de @Model.Recepcionados.TotalPages</span>
+                            <a class="btn btn-outline-secondary @(Model.Recepcionados.CurrentPage >= Model.Recepcionados.TotalPages ? "disabled" : null)" href="@BuildPageUrl("recepcionados", Model.Recepcionados.CurrentPage + 1)">Siguiente</a>
+                        </nav>
+                    }
+                }
+            </section>
+
+            @* ── FACTURADOS ── *@
+            <section class="farmacia-section farmacia-section--facturado">
+                <div class="farmacia-section__header">
+                    <div><h2>Facturado</h2><span>Pendiente de empacar</span></div>
+                    <strong>@Model.Facturados.TotalItems</strong>
+                </div>
+                @if (Model.Facturados.Items.Count == 0)
+                {
+                    <div class="farmacia-section__empty">Sin pedidos en esta seccion.</div>
+                }
+                else
+                {
+                    <div class="farmacia-order-list">
+                        @foreach (var item in Model.Facturados.Items)
+                        {
+                            <article class="farmacia-order" data-pedido-id="@item.Id">
+                                <div class="farmacia-order__identity">
+                                    <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
+                                    <div>
+                                        <span class="farmacia-order__arrival">Pedido #@item.Id - @item.FechaEnvioUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                        <h3>@item.NombrePaciente</h3>
+                                        <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
+                                        @if (item.FarmaciaEsEntregaParcial == true && item.FarmaciaCantidadEntregas.HasValue)
+                                        {
+                                            <p class="farmacia-entrega-badge">Entrega <strong>@item.FarmaciaEntregaActual</strong> de <strong>@item.FarmaciaCantidadEntregas</strong></p>
+                                        }
+                                    </div>
+                                    <div class="farmacia-order__actions">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                            <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
+                                        </a>
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                            <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                        </a>
+                                        <button type="button" class="farmacia-doc-button farmacia-doc-button--empacar"
+                                                data-action-button="empacar" data-pedido-id="@item.Id">
+                                            <span>Listo para empacar</span><small>Mover a Empacado</small>
+                                        </button>
+                                    </div>
+                                    <span class="farmacia-status farmacia-status--facturado">Facturado</span>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                    @if (Model.Facturados.TotalPages > 1)
+                    {
+                        <nav class="farmacia-pagination" aria-label="Paginacion Facturado">
+                            <a class="btn btn-outline-secondary @(Model.Facturados.CurrentPage <= 1 ? "disabled" : null)" href="@BuildPageUrl("facturados", Model.Facturados.CurrentPage - 1)">Anterior</a>
+                            <span>Pagina @Model.Facturados.CurrentPage de @Model.Facturados.TotalPages</span>
+                            <a class="btn btn-outline-secondary @(Model.Facturados.CurrentPage >= Model.Facturados.TotalPages ? "disabled" : null)" href="@BuildPageUrl("facturados", Model.Facturados.CurrentPage + 1)">Siguiente</a>
+                        </nav>
+                    }
+                }
+            </section>
+
+            @* ── EMPACADOS ── *@
+            <section class="farmacia-section farmacia-section--empacado">
+                <div class="farmacia-section__header">
+                    <div><h2>Empacado</h2><span>Listo para firma y despacho (72 h)</span></div>
+                    <strong>@Model.Empacados.TotalItems</strong>
+                </div>
+                @if (Model.Empacados.Items.Count == 0)
+                {
+                    <div class="farmacia-section__empty">Sin pedidos en esta seccion.</div>
+                }
+                else
+                {
+                    <div class="farmacia-order-list">
+                        @foreach (var item in Model.Empacados.Items)
+                        {
+                            <article class="farmacia-order" data-pedido-id="@item.Id">
+                                <div class="farmacia-order__identity">
+                                    <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
+                                    <div>
+                                        <span class="farmacia-order__arrival">Pedido #@item.Id - @item.FechaEnvioUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                        <h3>@item.NombrePaciente</h3>
+                                        <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
+                                        @if (item.FarmaciaEmpacadoAtUtc.HasValue)
+                                        {
+                                            var horas = Math.Round(item.HorasRestantesEmpacado, 1);
+                                            <p class="farmacia-timer @(horas < 12 ? "farmacia-timer--urgent" : null)">
+                                                Tiempo restante: <strong>@horas h</strong>
+                                            </p>
+                                        }
+                                    </div>
+                                    <div class="farmacia-order__actions">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                            <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
+                                        </a>
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                            <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                        </a>
+                                        <button type="button" class="farmacia-doc-button farmacia-doc-button--signature"
+                                                data-firma-button data-pedido-id="@item.Id">
+                                            <span>Firma</span>
+                                            <small>@(item.FirmaRegistrada ? "Firmado" : "Pendiente")</small>
+                                        </button>
+                                    </div>
+                                    <span class="farmacia-status farmacia-status--empacado">Empacado</span>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                    @if (Model.Empacados.TotalPages > 1)
+                    {
+                        <nav class="farmacia-pagination" aria-label="Paginacion Empacado">
+                            <a class="btn btn-outline-secondary @(Model.Empacados.CurrentPage <= 1 ? "disabled" : null)" href="@BuildPageUrl("empacados", Model.Empacados.CurrentPage - 1)">Anterior</a>
+                            <span>Pagina @Model.Empacados.CurrentPage de @Model.Empacados.TotalPages</span>
+                            <a class="btn btn-outline-secondary @(Model.Empacados.CurrentPage >= Model.Empacados.TotalPages ? "disabled" : null)" href="@BuildPageUrl("empacados", Model.Empacados.CurrentPage + 1)">Siguiente</a>
+                        </nav>
+                    }
+                }
+            </section>
+
+            @* ── POR DESEMPACAR ── *@
+            @if (Model.PorDesempacar.TotalItems > 0)
+            {
+                <section class="farmacia-section farmacia-section--desempacar">
+                    <div class="farmacia-section__header">
+                        <div><h2>Por desempacar</h2><span>Expiraron 72 h sin firma</span></div>
+                        <strong>@Model.PorDesempacar.TotalItems</strong>
+                    </div>
+                    <div class="farmacia-order-list">
+                        @foreach (var item in Model.PorDesempacar.Items)
+                        {
+                            <article class="farmacia-order farmacia-order--alert" data-pedido-id="@item.Id">
+                                <div class="farmacia-order__identity">
+                                    <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
+                                    <div>
+                                        <span class="farmacia-order__arrival">Pedido #@item.Id - @item.FechaEnvioUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                        <h3>@item.NombrePaciente</h3>
+                                        <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
+                                    </div>
+                                    <div class="farmacia-order__actions">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                            <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
+                                        </a>
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                            <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                        </a>
+                                    </div>
+                                    <span class="farmacia-status farmacia-status--alert">Por desempacar</span>
+                                </div>
+                            </article>
+                        }
+                    </div>
                 </section>
             }
+
+            @* ── DESPACHADOS ── *@
+            <section class="farmacia-section farmacia-section--despachado">
+                <div class="farmacia-section__header">
+                    <div><h2>Despachado</h2><span>Gestion completada</span></div>
+                    <strong>@Model.Despachados.TotalItems</strong>
+                </div>
+                @if (Model.Despachados.Items.Count == 0)
+                {
+                    <div class="farmacia-section__empty">Sin pedidos en esta seccion.</div>
+                }
+                else
+                {
+                    <div class="farmacia-order-list">
+                        @foreach (var item in Model.Despachados.Items)
+                        {
+                            <article class="farmacia-order" data-pedido-id="@item.Id">
+                                <div class="farmacia-order__identity">
+                                    <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
+                                    <div>
+                                        <span class="farmacia-order__arrival">Pedido #@item.Id - @item.FechaEnvioUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                        <h3>@item.NombrePaciente</h3>
+                                        <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
+                                        @if (!string.IsNullOrWhiteSpace(item.NombreRecibe))
+                                        {
+                                            <p class="small text-muted">Recibido por @item.NombreRecibe</p>
+                                        }
+                                    </div>
+                                    <div class="farmacia-order__actions">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                            <span>Requisici&oacute;n</span><small>Visto</small>
+                                        </a>
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                            <span>Kardex</span><small>Visto</small>
+                                        </a>
+                                    </div>
+                                    <span class="farmacia-status farmacia-status--seen">Despachado</span>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                    @if (Model.Despachados.TotalPages > 1)
+                    {
+                        <nav class="farmacia-pagination" aria-label="Paginacion Despachado">
+                            <a class="btn btn-outline-secondary @(Model.Despachados.CurrentPage <= 1 ? "disabled" : null)" href="@BuildPageUrl("despachados", Model.Despachados.CurrentPage - 1)">Anterior</a>
+                            <span>Pagina @Model.Despachados.CurrentPage de @Model.Despachados.TotalPages</span>
+                            <a class="btn btn-outline-secondary @(Model.Despachados.CurrentPage >= Model.Despachados.TotalPages ? "disabled" : null)" href="@BuildPageUrl("despachados", Model.Despachados.CurrentPage + 1)">Siguiente</a>
+                        </nav>
+                    }
+                }
+            </section>
+
         </div>
     }
 </section>
@@ -216,6 +440,17 @@
     </div>
 </div>
 
+<div class="modal fade" id="farmaciaActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <p id="farmaciaActionMsg" class="mb-3"></p>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts
 {
     <script>
@@ -225,6 +460,11 @@
             const snapshotUrl = "@Url.Action("PendientesSnapshot", "Farmacia")";
             const firmaUrl = "@Url.Action("Firma", "Farmacia")";
             const guardarFirmaUrl = "@Url.Action("GuardarFirma", "Farmacia")";
+            const okKardexUrl = "@Url.Action("SetOkKardex", "Farmacia")";
+            const facturarUrl = "@Url.Action("SetFacturado", "Farmacia")";
+            const empacarUrl = "@Url.Action("SetEmpacado", "Farmacia")";
+            const entregaParcialUrl = "@Url.Action("SetEntregaParcial", "Farmacia")";
+            const avanzarEntregaUrl = "@Url.Action("AvanzarEntrega", "Farmacia")";
             const signatureModalElement = document.getElementById("farmaciaSignatureModal");
             const signatureForm = document.getElementById("farmaciaSignatureForm");
             const firmaPedidoId = document.getElementById("firmaPedidoId");
@@ -234,25 +474,41 @@
             const firmaRecibeDataUrl = document.getElementById("firmaRecibeDataUrl");
             const firmaStatus = document.getElementById("farmaciaSignatureStatus");
             const guardarFirmaBtn = document.getElementById("guardarFirmaBtn");
+            const actionModal = document.getElementById("farmaciaActionModal");
+            const actionMsg = document.getElementById("farmaciaActionMsg");
             let lastPedidoId = Number(page?.dataset.lastPedidoId || "0") || 0;
             let audioContext = null;
 
+            const getToken = () =>
+                document.querySelector("input[name='__RequestVerificationToken']")?.value || "";
+
+            const showActionMsg = (msg) => {
+                if (actionMsg) actionMsg.textContent = msg || "";
+                if (actionModal && window.bootstrap) {
+                    window.bootstrap.Modal.getOrCreateInstance(actionModal).show();
+                }
+            };
+
+            const postForm = async (url, id) => {
+                const body = new URLSearchParams({ id: String(id) });
+                const resp = await fetch(url, {
+                    method: "POST",
+                    headers: { "RequestVerificationToken": getToken(), "Content-Type": "application/x-www-form-urlencoded" },
+                    body: body.toString()
+                });
+                return resp;
+            };
+
             const unlockAudio = () => {
                 const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContextConstructor) {
-                    return;
-                }
-
+                if (!AudioContextConstructor) return;
                 audioContext = audioContext || new AudioContextConstructor();
                 audioContext.resume();
             };
 
             const playNotification = () => {
                 unlockAudio();
-                if (!audioContext || audioContext.state !== "running") {
-                    return;
-                }
-
+                if (!audioContext || audioContext.state !== "running") return;
                 const oscillator = audioContext.createOscillator();
                 const gain = audioContext.createGain();
                 oscillator.type = "sine";
@@ -268,40 +524,84 @@
             };
 
             unlockAudio();
-            ["pointerdown", "keydown", "touchstart", "click"].forEach((eventName) => {
-                window.addEventListener(eventName, unlockAudio, { once: true, passive: true });
-            });
+            ["pointerdown", "keydown", "touchstart", "click"].forEach(e =>
+                window.addEventListener(e, unlockAudio, { once: true, passive: true }));
 
             const poll = async () => {
                 try {
                     const response = await fetch(snapshotUrl, { headers: { "Accept": "application/json" } });
-                    if (!response.ok) {
-                        return;
-                    }
-
+                    if (!response.ok) return;
                     const data = await response.json();
                     const nextLastId = Number(data.lastId || "0") || 0;
-                    if (newCount) {
-                        newCount.textContent = String(data.newCount || 0);
-                    }
-
-                    if (lastPedidoId > 0 && nextLastId > lastPedidoId) {
-                        playNotification();
-                    }
-
+                    if (newCount) newCount.textContent = String(data.newCount || 0);
+                    if (lastPedidoId > 0 && nextLastId > lastPedidoId) playNotification();
                     lastPedidoId = Math.max(lastPedidoId, nextLastId);
-                } catch {
-                    return;
-                }
+                } catch { }
             };
 
             window.setInterval(poll, 20000);
 
-            const setSignatureStatus = (message, tone = "info") => {
-                if (!firmaStatus) {
-                    return;
-                }
+            // Action buttons
+            document.addEventListener("click", async (e) => {
+                const btn = e.target.closest("[data-action-button]");
+                if (!btn) return;
+                const action = btn.dataset.actionButton;
+                const id = Number(btn.dataset.pedidoId || "0");
+                if (!id) return;
+                btn.disabled = true;
+                try {
+                    if (action === "ok-kardex") {
+                        const resp = await postForm(okKardexUrl, id);
+                        const data = await resp.json();
+                        if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
+                    } else if (action === "facturar") {
+                        const resp = await postForm(facturarUrl, id);
+                        const data = await resp.json();
+                        if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
+                    } else if (action === "empacar") {
+                        const resp = await postForm(empacarUrl, id);
+                        const data = await resp.json();
+                        if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
+                    } else if (action === "avanzar-entrega") {
+                        const resp = await postForm(avanzarEntregaUrl, id);
+                        const data = await resp.json();
+                        if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
+                    } else if (action === "guardar-parcial") {
+                        const cantidadInput = document.querySelector(`[data-parcial-cantidad='${id}']`);
+                        const check = document.querySelector(`[data-parcial-check='${id}']`);
+                        const esParcial = check?.checked ?? false;
+                        const cantidad = esParcial ? Number(cantidadInput?.value || "0") : null;
+                        if (esParcial && (!cantidad || cantidad < 2)) {
+                            showActionMsg("La cantidad de entregas debe ser al menos 2.");
+                            return;
+                        }
+                        const resp = await fetch(entregaParcialUrl, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "RequestVerificationToken": getToken()
+                            },
+                            body: JSON.stringify({ id, esEntregaParcial: esParcial, cantidadEntregas: cantidad })
+                        });
+                        const data = await resp.json();
+                        if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
+                    }
+                } catch { showActionMsg("Error de conexion."); }
+                finally { btn.disabled = false; }
+            });
 
+            // Toggle entrega parcial panel
+            document.querySelectorAll("[data-parcial-check]").forEach(check => {
+                const id = check.dataset.parcialCheck;
+                const cantidadDiv = document.getElementById(`parcialCantidad_${id}`);
+                check.addEventListener("change", () => {
+                    cantidadDiv?.classList.toggle("d-none", !check.checked);
+                });
+            });
+
+            // Signature pad
+            const setSignatureStatus = (message, tone = "info") => {
+                if (!firmaStatus) return;
                 firmaStatus.textContent = message || "";
                 firmaStatus.className = `farmacia-signature-status ${message ? "is-visible" : ""} farmacia-signature-status--${tone}`;
             };
@@ -324,25 +624,16 @@
                     context.strokeStyle = "#07111f";
                     context.fillStyle = "#ffffff";
                     context.fillRect(0, 0, rect.width, rect.height);
-
-                    if (dataUrl) {
-                        drawImage(dataUrl);
-                    }
+                    if (dataUrl) drawImage(dataUrl);
                 };
 
                 const pointFromEvent = (event) => {
                     const rect = canvas.getBoundingClientRect();
-                    return {
-                        x: event.clientX - rect.left,
-                        y: event.clientY - rect.top
-                    };
+                    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
                 };
 
                 const drawImage = (dataUrl) => {
-                    if (!dataUrl) {
-                        return;
-                    }
-
+                    if (!dataUrl) return;
                     const image = new Image();
                     image.onload = () => {
                         const rect = canvas.getBoundingClientRect();
@@ -353,33 +644,27 @@
                     image.src = dataUrl;
                 };
 
-                canvas.addEventListener("pointerdown", (event) => {
-                    event.preventDefault();
-                    canvas.setPointerCapture(event.pointerId);
-                    const point = pointFromEvent(event);
+                canvas.addEventListener("pointerdown", (e) => {
+                    e.preventDefault();
+                    canvas.setPointerCapture(e.pointerId);
+                    const p = pointFromEvent(e);
                     context.beginPath();
-                    context.moveTo(point.x, point.y);
+                    context.moveTo(p.x, p.y);
                     isDrawing = true;
                     hasInk = true;
                 });
 
-                canvas.addEventListener("pointermove", (event) => {
-                    if (!isDrawing) {
-                        return;
-                    }
-
-                    event.preventDefault();
-                    const point = pointFromEvent(event);
-                    context.lineTo(point.x, point.y);
+                canvas.addEventListener("pointermove", (e) => {
+                    if (!isDrawing) return;
+                    e.preventDefault();
+                    const p = pointFromEvent(e);
+                    context.lineTo(p.x, p.y);
                     context.stroke();
                     hiddenInput.value = canvas.toDataURL("image/png");
                 });
 
                 const stop = () => {
-                    if (!isDrawing) {
-                        return;
-                    }
-
+                    if (!isDrawing) return;
                     isDrawing = false;
                     hiddenInput.value = canvas.toDataURL("image/png");
                 };
@@ -405,11 +690,7 @@
                         context.fillRect(0, 0, rect.width, rect.height);
                         hasInk = false;
                         hiddenInput.value = "";
-                        if (dataUrl) {
-                            hasInk = true;
-                            hiddenInput.value = dataUrl;
-                            drawImage(dataUrl);
-                        }
+                        if (dataUrl) { hasInk = true; hiddenInput.value = dataUrl; drawImage(dataUrl); }
                     },
                     hasInk: () => hasInk
                 };
@@ -422,10 +703,7 @@
                 ? createSignaturePad(document.getElementById("firmaRecibeCanvas"), firmaRecibeDataUrl)
                 : null;
 
-            const resizeSignaturePads = () => {
-                entregaPad?.resize();
-                recibePad?.resize();
-            };
+            const resizeSignaturePads = () => { entregaPad?.resize(); recibePad?.resize(); };
 
             if (signatureModalElement) {
                 signatureModalElement.addEventListener("shown.bs.modal", resizeSignaturePads);
@@ -436,31 +714,23 @@
             document.querySelectorAll("[data-clear-signature]").forEach((button) => {
                 button.addEventListener("click", () => {
                     const target = button.dataset.clearSignature;
-                    if (target === "entrega") {
-                        entregaPad?.clear();
-                    } else {
-                        recibePad?.clear();
-                    }
+                    if (target === "entrega") entregaPad?.clear();
+                    else recibePad?.clear();
                 });
             });
 
             const openSignatureModal = async (button) => {
                 const pedidoId = Number(button.dataset.pedidoId || "0") || 0;
-                if (!pedidoId) {
-                    return;
-                }
-
+                if (!pedidoId) return;
                 setSignatureStatus("Cargando firmas...", "info");
                 firmaPedidoId.value = String(pedidoId);
                 firmaNombreRecibe.value = "";
                 firmaFechaHoraRecepcion.value = "";
                 entregaPad?.clear();
                 recibePad?.clear();
-
                 if (window.bootstrap && signatureModalElement) {
                     window.bootstrap.Modal.getOrCreateInstance(signatureModalElement).show();
                 }
-
                 try {
                     const url = new URL(firmaUrl, window.location.origin);
                     url.searchParams.set("id", String(pedidoId));
@@ -470,12 +740,13 @@
                         setSignatureStatus(data.message || "No se pudieron cargar las firmas.", "danger");
                         return;
                     }
-
                     firmaNombreRecibe.value = data.nombreRecibe || "";
                     firmaFechaHoraRecepcion.value = data.fechaHoraRecepcion || "";
                     entregaPad?.load(data.firmaEntregaDataUrl || "");
                     recibePad?.load(data.firmaRecibeDataUrl || "");
-                    setSignatureStatus(data.estaCompleta ? `Firmado: ${data.fechaHoraRecepcionTexto || ""}` : "Pendiente de firma.", data.estaCompleta ? "success" : "info");
+                    setSignatureStatus(
+                        data.estaCompleta ? `Firmado: ${data.fechaHoraRecepcionTexto || ""}` : "Pendiente de firma.",
+                        data.estaCompleta ? "success" : "info");
                 } catch {
                     setSignatureStatus("No se pudieron cargar las firmas.", "danger");
                 }
@@ -489,27 +760,22 @@
                 signatureForm.addEventListener("submit", async (event) => {
                     event.preventDefault();
                     setSignatureStatus("", "info");
-
                     if (!firmaNombreRecibe.value.trim()) {
                         setSignatureStatus("Ingresa el nombre de quien recibe.", "danger");
                         return;
                     }
-
                     if (!firmaFechaHoraRecepcion.value) {
                         setSignatureStatus("Ingresa la fecha y hora de recepcion.", "danger");
                         return;
                     }
-
                     if (!entregaPad?.hasInk() || !firmaEntregaDataUrl.value) {
                         setSignatureStatus("La firma de quien entrega es obligatoria.", "danger");
                         return;
                     }
-
                     if (!recibePad?.hasInk() || !firmaRecibeDataUrl.value) {
                         setSignatureStatus("La firma de quien recibe es obligatoria.", "danger");
                         return;
                     }
-
                     guardarFirmaBtn.disabled = true;
                     try {
                         const formData = new FormData(signatureForm);
@@ -524,13 +790,8 @@
                             setSignatureStatus(data.message || "No se pudieron guardar las firmas.", "danger");
                             return;
                         }
-
-                        setSignatureStatus(data.message || "Firmas guardadas correctamente.", "success");
-                        const pedidoId = firmaPedidoId.value;
-                        const button = document.querySelector(`[data-firma-button][data-pedido-id='${pedidoId}'] small`);
-                        if (button) {
-                            button.textContent = "Firmado";
-                        }
+                        setSignatureStatus(data.message || "Firmas guardadas.", "success");
+                        setTimeout(() => window.location.reload(), 1200);
                     } catch {
                         setSignatureStatus("No se pudieron guardar las firmas.", "danger");
                     } finally {

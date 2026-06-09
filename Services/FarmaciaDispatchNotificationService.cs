@@ -650,6 +650,36 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
         return string.IsNullOrWhiteSpace(safe) ? "paciente" : safe;
     }
 
+    public async Task<IReadOnlyList<string>> NotifyDespachadoAsync(CensoRecord record, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(record.AuxiliarAsignado))
+        {
+            return [];
+        }
+
+        var assistantEmail = await GetAssignedAssistantEmailAsync(record.AuxiliarAsignado, cancellationToken);
+        if (string.IsNullOrWhiteSpace(assistantEmail))
+        {
+            return ["No se encontro correo del auxiliar para notificar despacho."];
+        }
+
+        var result = await _emailService.SendAsync(new EmailMessage
+        {
+            To = [assistantEmail],
+            Subject = $"Bolsa lista para reclamar - {record.TipoIdentificacion} {record.NumeroIdentificacion} - {record.NombrePaciente}",
+            HtmlBody = $"""
+                <p>Hola,</p>
+                <p>La bolsa de insumos del paciente <strong>{HtmlEncode(record.NombrePaciente)}</strong> ({HtmlEncode(record.TipoIdentificacion)} {HtmlEncode(record.NumeroIdentificacion)}) esta lista para ser reclamada.</p>
+                <p><strong>Auxiliar asignado:</strong> {HtmlEncode(record.AuxiliarAsignado)}</p>
+                <p>Por favor acercarse a farmacia para retirar la bolsa.</p>
+                """
+        }, cancellationToken);
+
+        return result.Succeeded
+            ? []
+            : [$"No se pudo notificar al auxiliar sobre despacho: {result.ErrorMessage}"];
+    }
+
     private sealed record DispatchDocumentModels(
         FarmaciaDocumentViewModel Kardex,
         FarmaciaDocumentViewModel Requisition);

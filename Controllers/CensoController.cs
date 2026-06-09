@@ -50,8 +50,6 @@ public class CensoController : Controller
         [nameof(CensoReceptionViewModel.HoraRespuesta)] = 1,
         [nameof(CensoReceptionViewModel.NombreRecepcionaCaso)] = 1,
         [nameof(CensoReceptionViewModel.NombreRealizaKardex)] = 1,
-        [nameof(CensoReceptionViewModel.FechaGestionFarmacia)] = 1,
-        [nameof(CensoReceptionViewModel.HoraGestionFarmacia)] = 1,
 
         [nameof(CensoReceptionViewModel.NombrePaciente)] = 2,
         [nameof(CensoReceptionViewModel.TipoIdentificacion)] = 2,
@@ -547,8 +545,6 @@ public class CensoController : Controller
             HoraRespuesta = new TimeSpan(now.Hour, now.Minute, 0),
             FechaNacimiento = now.Date,
             Edad = 0,
-            FechaGestionFarmacia = now.Date,
-            HoraGestionFarmacia = new TimeSpan(now.Hour, now.Minute, 0),
             DireccionEsValida = false,
             MunicipioResidencia = MunicipioNoParametrizado,
             ClasificacionZonaSura = InferClasificacionZonaSura(MunicipioNoParametrizado),
@@ -928,6 +924,7 @@ public class CensoController : Controller
         var fechaHoraRespuesta = record.FechaRespuesta.Date + record.HoraRespuesta;
         var fechaHoraGestionFarmacia = colombiaNow.Date + colombiaNow.TimeOfDay;
         record.FarmaciaEnviadoAtUtc = nowUtc;
+        record.FarmaciaEstado = "Nuevo";
         record.FechaGestionFarmacia = colombiaNow.Date;
         record.HoraGestionFarmacia = colombiaNow.TimeOfDay;
         record.IndicadorTiempoGestionMinutos = (int)Math.Round((fechaHoraGestionFarmacia - fechaHoraRespuesta).TotalMinutes, MidpointRounding.AwayFromZero);
@@ -1599,8 +1596,8 @@ public class CensoController : Controller
         model.FechaReporteNovedadDocumentos = record.FechaReporteNovedadDocumentos;
         model.HoraReporteNovedadDocumentos = record.HoraReporteNovedadDocumentos;
         model.HoraGestionSolucionNovedadDocumentos = record.HoraGestionSolucionNovedadDocumentos;
-        model.FechaGestionFarmacia = record.FechaGestionFarmacia.Date;
-        model.HoraGestionFarmacia = record.HoraGestionFarmacia;
+        model.FechaGestionFarmacia = record.FechaGestionFarmacia != default ? record.FechaGestionFarmacia.Date : null;
+        model.HoraGestionFarmacia = record.HoraGestionFarmacia != default ? record.HoraGestionFarmacia : null;
         model.GestionCompleta = string.Equals(record.GestionCompletaPendiente, GestionCompleta, StringComparison.OrdinalIgnoreCase);
         model.AsumirDireccionErrada = false;
         model.DireccionEsValida = true;
@@ -1735,11 +1732,7 @@ public class CensoController : Controller
         censoRecord.FechaReporteNovedadDocumentos = model.FechaReporteNovedadDocumentos?.Date;
         censoRecord.HoraReporteNovedadDocumentos = model.HoraReporteNovedadDocumentos;
         censoRecord.HoraGestionSolucionNovedadDocumentos = model.HoraGestionSolucionNovedadDocumentos;
-        if (censoRecord.Id == 0 && censoRecord.FechaGestionFarmacia == default)
-        {
-            censoRecord.FechaGestionFarmacia = model.FechaGestionFarmacia.Date;
-            censoRecord.HoraGestionFarmacia = model.HoraGestionFarmacia;
-        }
+        // FechaGestionFarmacia/HoraGestionFarmacia are auto-set when sending to farmacia, not on regular save
 
         censoRecord.IndicadorTiempoGestionMinutos = indicadorTiempoGestionMinutos;
         censoRecord.GestionCompletaPendiente = model.GestionCompleta ? GestionCompleta : GestionPendiente;

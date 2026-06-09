@@ -384,6 +384,21 @@ public class CensoRecord
 
     public DateTime? FarmaciaFirmaActualizadaAtUtc { get; set; }
 
+    [StringLength(30)]
+    public string FarmaciaEstado { get; set; } = "Nuevo";
+
+    public bool FarmaciaOkKardex { get; set; }
+
+    public bool? FarmaciaEsEntregaParcial { get; set; }
+
+    public int? FarmaciaCantidadEntregas { get; set; }
+
+    public int FarmaciaEntregaActual { get; set; } = 1;
+
+    public bool FarmaciaFacturado { get; set; }
+
+    public DateTime? FarmaciaEmpacadoAtUtc { get; set; }
+
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public ICollection<CensoAdjunto> Adjuntos { get; set; } = [];
