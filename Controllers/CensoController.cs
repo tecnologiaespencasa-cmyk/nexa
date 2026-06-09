@@ -905,8 +905,35 @@ public class CensoController : Controller
         });
     }
 
+    [HttpGet]
+    public async Task<IActionResult> ObtenerDocumentos(long id, CancellationToken cancellationToken)
+    {
+        if (id <= 0) return BadRequest();
+        var record = await _context.Censos
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => new { x.KardexEdicionJson, x.RequisicionFarmaciaJson })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (record is null) return NotFound();
+        return Json(new { kardexJson = record.KardexEdicionJson, requisicionJson = record.RequisicionFarmaciaJson });
+    }
+
     [HttpPost]
-    public async Task<IActionResult> EnviarAFarmacia(long id, string? requisicionJson, CancellationToken cancellationToken)
+    public async Task<IActionResult> GuardarDocumentos(long id, string? kardexJson, string? requisicionJson, CancellationToken cancellationToken)
+    {
+        if (id <= 0) return BadRequest(new { message = "ID de registro inválido." });
+        var record = await _context.Censos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (record is null) return NotFound(new { message = "Registro no encontrado." });
+
+        record.KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
+        record.RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return Json(new { message = "Documentos guardados correctamente." });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EnviarAFarmacia(long id, string? kardexJson, string? requisicionJson, CancellationToken cancellationToken)
     {
         if (id <= 0)
         {
@@ -930,9 +957,8 @@ public class CensoController : Controller
         record.IndicadorTiempoGestionMinutos = (int)Math.Round((fechaHoraGestionFarmacia - fechaHoraRespuesta).TotalMinutes, MidpointRounding.AwayFromZero);
         record.FarmaciaKardexVistoAtUtc = null;
         record.FarmaciaRequisicionVistoAtUtc = null;
-        record.RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson)
-            ? null
-            : requisicionJson.Trim();
+        record.KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
+        record.RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
 
         await _context.SaveChangesAsync(cancellationToken);
         var notificationWarnings = await _farmaciaDispatchNotificationService.NotifyDispatchSentAsync(record, cancellationToken);

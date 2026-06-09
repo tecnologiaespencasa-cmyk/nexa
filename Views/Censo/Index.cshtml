@@ -1868,6 +1868,10 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-outline-success" id="guardarDocumentosBtn">
+                    <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    <span>Guardar</span>
+                </button>
                 <button type="button" class="btn btn-primary censo-kardex-send-button" id="enviarFarmaciaKardexBtn">
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                         <path d="M21 3L3 10.2l6.7 2.6 2.7 8.2 3.2-5.1 5.4 4.1L21 3z"></path>
@@ -1906,6 +1910,8 @@
             const buscarDiagnosticoCie10Url = "@Url.Action("BuscarDiagnosticoCie10", "Censo")";
             const buscarDatosPacienteProrrogaUrl = "@Url.Action("BuscarDatosPacienteProrroga", "Censo")";
             const enviarFarmaciaUrl = "@Url.Action("EnviarAFarmacia", "Censo")";
+            const guardarDocumentosUrl = "@Url.Action("GuardarDocumentos", "Censo")";
+            const obtenerDocumentosUrl = "@Url.Action("ObtenerDocumentos", "Censo")";
             const indexUrl = "@Url.Action("Index", "Censo")";
             const subirAdjuntoUrl = "@Url.Action("SubirAdjunto", "Censo")";
             const eliminarAdjuntoUrl = "@Url.Action("EliminarAdjunto", "Censo")";
@@ -2598,12 +2604,79 @@
                 });
             }
 
+            const collectKardexPayload = () => {
+                const fields = {};
+                document.querySelectorAll("#censoKardexModal [data-kardex-field]").forEach((control) => {
+                    fields[control.dataset.kardexField] = control.value || "";
+                });
+                const medRows = Array.from(document.querySelectorAll("#censoKardexModal [data-kardex-med-row]"))
+                    .map((rowElement) => {
+                        const rowData = { row: rowElement.dataset.kardexMedRow };
+                        rowElement.querySelectorAll("[data-kardex-med-field]").forEach((control) => {
+                            rowData[control.dataset.kardexMedField] = control.value || "";
+                        });
+                        return rowData;
+                    });
+                return { fields, medRows };
+            };
+
+            const loadKardexPayload = (payload) => {
+                if (!payload) return;
+                if (payload.fields) {
+                    Object.entries(payload.fields).forEach(([key, value]) => {
+                        const control = document.querySelector(`#censoKardexModal [data-kardex-field='${key}']`);
+                        if (control) control.value = value || "";
+                    });
+                }
+                if (Array.isArray(payload.medRows)) {
+                    payload.medRows.forEach((rowData) => {
+                        const row = rowData.row;
+                        Object.entries(rowData).forEach(([field, value]) => {
+                            if (field === "row") return;
+                            const control = document.querySelector(`#censoKardexModal [data-kardex-med-row='${row}'] [data-kardex-med-field='${field}']`);
+                            if (control) control.value = value || "";
+                        });
+                    });
+                }
+            };
+
+            const loadRequisitionPayload = (payload) => {
+                if (!payload) return;
+                if (payload.fields) {
+                    Object.entries(payload.fields).forEach(([key, value]) => {
+                        const control = document.querySelector(`#censoKardexModal [data-requisition-field='${key}']`);
+                        if (control) control.value = value || "";
+                    });
+                }
+                if (Array.isArray(payload.rows)) {
+                    payload.rows.forEach((rowData, index) => {
+                        const rowNum = index + 1;
+                        Object.entries(rowData).forEach(([field, value]) => {
+                            const control = document.querySelector(`#censoKardexModal [data-requisition-row='${rowNum}'] [data-requisition-item-field='${field}']`);
+                            if (control) control.value = value || "";
+                        });
+                    });
+                }
+            };
+
             const kardexModal = document.getElementById("censoKardexModal");
             if (kardexModal) {
-                kardexModal.addEventListener("show.bs.modal", () => {
-                    syncKardexSheet();
-                    syncRequisitionSheet();
+                kardexModal.addEventListener("show.bs.modal", async () => {
                     const recordId = Number(editingRecordIdInput?.value || "0") || 0;
+                    let savedKardex = null;
+                    let savedRequisicion = null;
+                    if (recordId > 0) {
+                        try {
+                            const resp = await fetch(`${obtenerDocumentosUrl}?id=${recordId}`);
+                            if (resp.ok) {
+                                const saved = await resp.json();
+                                savedKardex = saved.kardexJson ? JSON.parse(saved.kardexJson) : null;
+                                savedRequisicion = saved.requisicionJson ? JSON.parse(saved.requisicionJson) : null;
+                            }
+                        } catch { /* fallback to form sync */ }
+                    }
+                    if (savedKardex) loadKardexPayload(savedKardex); else syncKardexSheet();
+                    if (savedRequisicion) loadRequisitionPayload(savedRequisicion); else syncRequisitionSheet();
                     loadAdjuntos(recordId);
                     if (adjuntoUploadStatus) adjuntoUploadStatus.textContent = "";
                 });
@@ -2617,7 +2690,6 @@
                     button.classList.toggle("active", isActive);
                     button.setAttribute("aria-selected", isActive ? "true" : "false");
                 });
-
                 documentPanes.forEach((pane) => {
                     pane.classList.toggle("active", pane.dataset.censoDocumentPane === target);
                 });
@@ -2625,16 +2697,40 @@
 
             documentSwitchButtons.forEach((button) => {
                 button.addEventListener("click", () => {
-                    const target = button.dataset.censoDocumentTarget || "kardex";
-                    if (target === "requisicion") {
-                        syncRequisitionSheet();
-                    } else {
-                        syncKardexSheet();
-                    }
-
-                    switchCensoDocumentPane(target);
+                    switchCensoDocumentPane(button.dataset.censoDocumentTarget || "kardex");
                 });
             });
+
+            const guardarDocumentosBtn = document.getElementById("guardarDocumentosBtn");
+            if (guardarDocumentosBtn) {
+                guardarDocumentosBtn.addEventListener("click", async () => {
+                    const recordId = Number(editingRecordIdInput?.value || "0") || 0;
+                    if (recordId <= 0) {
+                        showFeedbackModal("Guarda el censo primero", "<p class=\"mb-0\">Necesitas guardar el registro antes de poder guardar los documentos.</p>", "warning");
+                        return;
+                    }
+                    guardarDocumentosBtn.disabled = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append("id", String(recordId));
+                        formData.append("kardexJson", JSON.stringify(collectKardexPayload()));
+                        formData.append("requisicionJson", JSON.stringify(collectRequisitionPayload()));
+                        const response = await fetch(guardarDocumentosUrl, {
+                            method: "POST",
+                            body: formData,
+                            headers: csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {}
+                        });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            showFeedbackModal("Error al guardar", `<p class="mb-0">${escapeHtml(data.message || "No se pudo guardar.")}</p>`, "danger");
+                            return;
+                        }
+                        showFeedbackModal("Guardado", `<p class="mb-0">${escapeHtml(data.message || "Documentos guardados correctamente.")}</p>`, "success");
+                    } finally {
+                        guardarDocumentosBtn.disabled = false;
+                    }
+                });
+            }
 
             const syncSelectPlaceholderState = (select) => {
                 if (!select) {
@@ -2767,6 +2863,7 @@
                     try {
                         const formData = new FormData();
                         formData.append("id", String(recordId));
+                        formData.append("kardexJson", JSON.stringify(collectKardexPayload()));
                         formData.append("requisicionJson", JSON.stringify(collectRequisitionPayload()));
                         const response = await fetch(enviarFarmaciaUrl, {
                             method: "POST",

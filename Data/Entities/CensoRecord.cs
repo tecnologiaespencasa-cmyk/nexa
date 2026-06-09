@@ -373,6 +373,8 @@ public class CensoRecord
 
     public string? RequisicionFarmaciaJson { get; set; }
 
+    public string? KardexEdicionJson { get; set; }
+
     [StringLength(160)]
     public string? FarmaciaNombreRecibe { get; set; }
 
