@@ -1637,6 +1637,7 @@
 {
                         <th scope="col">@column.Name</th>
 }
+                        <th scope="col">Adjuntos</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1669,6 +1670,7 @@
     }
                         <td>@displayValue</td>
 }
+                        <td>@(Model.RecordIdsConAdjuntos.Contains(record.Id) ? "Sí" : "No")</td>
                     </tr>
 }
                 </tbody>
@@ -1852,6 +1854,18 @@
                     </div>
                 </section>
             </div>
+            <div class="censo-adjuntos-panel px-3 pb-2 border-top pt-2">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <strong class="small">Adjuntos PDF</strong>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="subirAdjuntoBtn" title="Subir adjunto PDF">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Subir PDF
+                    </button>
+                    <input type="file" id="adjuntoFileInput" accept=".pdf,application/pdf" class="d-none" aria-label="Seleccionar archivo PDF" />
+                    <span id="adjuntoUploadStatus" class="small text-muted"></span>
+                </div>
+                <ul class="list-group list-group-flush censo-adjuntos-list" id="adjuntosList" style="max-height:140px;overflow-y:auto;"></ul>
+            </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
                 <button type="button" class="btn btn-primary censo-kardex-send-button" id="enviarFarmaciaKardexBtn">
@@ -1893,6 +1907,10 @@
             const buscarDatosPacienteProrrogaUrl = "@Url.Action("BuscarDatosPacienteProrroga", "Censo")";
             const enviarFarmaciaUrl = "@Url.Action("EnviarAFarmacia", "Censo")";
             const indexUrl = "@Url.Action("Index", "Censo")";
+            const subirAdjuntoUrl = "@Url.Action("SubirAdjunto", "Censo")";
+            const eliminarAdjuntoUrl = "@Url.Action("EliminarAdjunto", "Censo")";
+            const descargarAdjuntoUrl = "@Url.Action("DescargarAdjunto", "Censo")";
+            const obtenerAdjuntosUrl = "@Url.Action("ObtenerAdjuntos", "Censo")";
             const medicamentoCatalog = @Html.Raw(medicamentoCatalogJson);
             const direccionInput = document.getElementById("direccionInput");
             const validarDireccionBtn = document.getElementById("validarDireccionBtn");
@@ -2472,11 +2490,122 @@
                 });
             };
 
+            const adjuntosListEl = document.getElementById("adjuntosList");
+            const adjuntoFileInput = document.getElementById("adjuntoFileInput");
+            const subirAdjuntoBtn = document.getElementById("subirAdjuntoBtn");
+            const adjuntoUploadStatus = document.getElementById("adjuntoUploadStatus");
+
+            const renderAdjuntos = (adjuntos) => {
+                if (!adjuntosListEl) return;
+                adjuntosListEl.innerHTML = "";
+                if (!adjuntos || adjuntos.length === 0) {
+                    adjuntosListEl.innerHTML = `<li class="list-group-item py-1 small text-muted">Sin adjuntos</li>`;
+                    return;
+                }
+                adjuntos.forEach((adj) => {
+                    const li = document.createElement("li");
+                    li.className = "list-group-item d-flex align-items-center justify-content-between py-1 px-2 small";
+                    li.innerHTML = `
+                        <a href="${descargarAdjuntoUrl}?adjuntoId=${adj.id}" target="_blank" class="text-truncate me-2" style="max-width:260px" title="${escapeHtml(adj.fileName)}">${escapeHtml(adj.fileName)}</a>
+                        <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 censo-adjunto-delete-btn" data-adjunto-id="${adj.id}" title="Eliminar adjunto" aria-label="Eliminar ${escapeHtml(adj.fileName)}">
+                            <svg viewBox="0 0 24 24" width="14" height="14" focusable="false" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                        </button>`;
+                    adjuntosListEl.appendChild(li);
+                });
+            };
+
+            const loadAdjuntos = async (recordId) => {
+                if (!recordId || recordId <= 0 || !adjuntosListEl) return;
+                try {
+                    const resp = await fetch(`${obtenerAdjuntosUrl}?id=${recordId}`);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        renderAdjuntos(data);
+                    }
+                } catch { /* sin adjuntos cargados */ }
+            };
+
+            if (adjuntosListEl) {
+                adjuntosListEl.addEventListener("click", async (e) => {
+                    const btn = e.target.closest(".censo-adjunto-delete-btn");
+                    if (!btn) return;
+                    const adjuntoId = btn.dataset.adjuntoId;
+                    if (!adjuntoId) return;
+                    btn.disabled = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append("adjuntoId", adjuntoId);
+                        const resp = await fetch(eliminarAdjuntoUrl, {
+                            method: "POST",
+                            body: formData,
+                            headers: csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {}
+                        });
+                        if (resp.ok) {
+                            btn.closest("li")?.remove();
+                            if (adjuntosListEl.children.length === 0) {
+                                adjuntosListEl.innerHTML = `<li class="list-group-item py-1 small text-muted">Sin adjuntos</li>`;
+                            }
+                        }
+                    } catch { btn.disabled = false; }
+                });
+            }
+
+            if (subirAdjuntoBtn && adjuntoFileInput) {
+                subirAdjuntoBtn.addEventListener("click", () => adjuntoFileInput.click());
+                adjuntoFileInput.addEventListener("change", async () => {
+                    const file = adjuntoFileInput.files?.[0];
+                    if (!file) return;
+                    const recordId = Number(editingRecordIdInput?.value || "0") || 0;
+                    if (recordId <= 0) {
+                        if (adjuntoUploadStatus) adjuntoUploadStatus.textContent = "Guarda el censo primero.";
+                        adjuntoFileInput.value = "";
+                        return;
+                    }
+                    if (adjuntoUploadStatus) adjuntoUploadStatus.textContent = "Subiendo…";
+                    subirAdjuntoBtn.disabled = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append("id", String(recordId));
+                        formData.append("file", file);
+                        const resp = await fetch(subirAdjuntoUrl, {
+                            method: "POST",
+                            body: formData,
+                            headers: csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {}
+                        });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            const emptyMsg = adjuntosListEl?.querySelector(".text-muted");
+                            emptyMsg?.remove();
+                            const li = document.createElement("li");
+                            li.className = "list-group-item d-flex align-items-center justify-content-between py-1 px-2 small";
+                            li.innerHTML = `
+                                <a href="${descargarAdjuntoUrl}?adjuntoId=${data.adjuntoId}" target="_blank" class="text-truncate me-2" style="max-width:260px" title="${escapeHtml(data.fileName)}">${escapeHtml(data.fileName)}</a>
+                                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 censo-adjunto-delete-btn" data-adjunto-id="${data.adjuntoId}" title="Eliminar adjunto" aria-label="Eliminar ${escapeHtml(data.fileName)}">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" focusable="false" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                                </button>`;
+                            adjuntosListEl?.appendChild(li);
+                            if (adjuntoUploadStatus) adjuntoUploadStatus.textContent = "Adjunto subido.";
+                        } else {
+                            const err = await resp.json().catch(() => ({}));
+                            if (adjuntoUploadStatus) adjuntoUploadStatus.textContent = err.message || "Error al subir.";
+                        }
+                    } catch {
+                        if (adjuntoUploadStatus) adjuntoUploadStatus.textContent = "Error de conexión.";
+                    } finally {
+                        subirAdjuntoBtn.disabled = false;
+                        adjuntoFileInput.value = "";
+                    }
+                });
+            }
+
             const kardexModal = document.getElementById("censoKardexModal");
             if (kardexModal) {
                 kardexModal.addEventListener("show.bs.modal", () => {
                     syncKardexSheet();
                     syncRequisitionSheet();
+                    const recordId = Number(editingRecordIdInput?.value || "0") || 0;
+                    loadAdjuntos(recordId);
+                    if (adjuntoUploadStatus) adjuntoUploadStatus.textContent = "";
                 });
             }
 

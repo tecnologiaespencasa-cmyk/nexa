@@ -34,6 +34,23 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
         var warnings = new List<string>();
         var documents = await BuildDocumentModelsAsync(record, cancellationToken);
 
+        var adjuntos = await _context.CensoAdjuntos
+            .AsNoTracking()
+            .Where(a => a.CensoRecordId == record.Id)
+            .OrderBy(a => a.UploadedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        var doctorsAttachments = new List<EmailAttachment> { BuildKardexAttachment(record, documents.Kardex) };
+        foreach (var adj in adjuntos)
+        {
+            doctorsAttachments.Add(new EmailAttachment
+            {
+                FileName = adj.FileName,
+                ContentType = "application/pdf",
+                Content = adj.FileData
+            });
+        }
+
         var doctorsResult = await _emailService.SendAsync(new EmailMessage
         {
             To = [MedicosKardexEmail],
@@ -43,10 +60,7 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
                 <p>Se deja adjunto el Kardex del paciente <strong>{HtmlEncode(record.NombrePaciente)}</strong>.</p>
                 <p>Documento: {HtmlEncode(record.TipoIdentificacion)} {HtmlEncode(record.NumeroIdentificacion)}</p>
                 """,
-            Attachments =
-            [
-                BuildKardexAttachment(record, documents.Kardex)
-            ]
+            Attachments = doctorsAttachments
         }, cancellationToken);
 
         if (!doctorsResult.Succeeded)
@@ -59,7 +73,7 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
             return warnings;
         }
 
-        var assistantWarnings = await SendAssistantDocumentsAsync(record, documents, cancellationToken);
+        var assistantWarnings = await SendAssistantDocumentsAsync(record, documents, adjuntos, cancellationToken);
         warnings.AddRange(assistantWarnings);
         return warnings;
     }
@@ -72,12 +86,18 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
         }
 
         var documents = await BuildDocumentModelsAsync(record, cancellationToken);
-        return await SendAssistantDocumentsAsync(record, documents, cancellationToken);
+        var adjuntos = await _context.CensoAdjuntos
+            .AsNoTracking()
+            .Where(a => a.CensoRecordId == record.Id)
+            .OrderBy(a => a.UploadedAtUtc)
+            .ToListAsync(cancellationToken);
+        return await SendAssistantDocumentsAsync(record, documents, adjuntos, cancellationToken);
     }
 
     private async Task<IReadOnlyList<string>> SendAssistantDocumentsAsync(
         CensoRecord record,
         DispatchDocumentModels documents,
+        IReadOnlyList<Data.Entities.CensoAdjunto> adjuntos,
         CancellationToken cancellationToken)
     {
         var assistantEmail = await GetAssignedAssistantEmailAsync(record.AuxiliarAsignado, cancellationToken);
@@ -86,16 +106,28 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
             return ["No se encontro correo del auxiliar asignado."];
         }
 
+        var attachments = new List<EmailAttachment>
+        {
+            BuildKardexAttachment(record, documents.Kardex),
+            BuildRequisitionAttachment(record, documents.Requisition)
+        };
+
+        foreach (var adj in adjuntos)
+        {
+            attachments.Add(new EmailAttachment
+            {
+                FileName = adj.FileName,
+                ContentType = "application/pdf",
+                Content = adj.FileData
+            });
+        }
+
         var result = await _emailService.SendAsync(new EmailMessage
         {
             To = [assistantEmail],
             Subject = BuildAssistantEmailSubject(record),
             HtmlBody = BuildAssistantEmailBody(record),
-            Attachments =
-            [
-                BuildKardexAttachment(record, documents.Kardex),
-                BuildRequisitionAttachment(record, documents.Requisition)
-            ]
+            Attachments = attachments
         }, cancellationToken);
 
         return result.Succeeded

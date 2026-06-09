@@ -861,6 +861,36 @@ namespace IntranetPrueba.Data.Migrations
                     b.ToTable("censo", (string)null);
                 });
 
+            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoAdjunto", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("CensoRecordId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("FileData")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CensoRecordId");
+
+                    b.ToTable("censo_adjuntos", (string)null);
+                });
+
             modelBuilder.Entity("IntranetPrueba.Data.Entities.Medicamento", b =>
                 {
                     b.Property<long>("Id")
@@ -1072,6 +1102,17 @@ namespace IntranetPrueba.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoAdjunto", b =>
+                {
+                    b.HasOne("IntranetPrueba.Data.Entities.CensoRecord", "CensoRecord")
+                        .WithMany("Adjuntos")
+                        .HasForeignKey("CensoRecordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CensoRecord");
+                });
+
             modelBuilder.Entity("IntranetPrueba.Data.Entities.AuditLog", b =>
                 {
                     b.HasOne("IntranetPrueba.Data.Entities.AppUser", "PerformedByUser")
@@ -1080,6 +1121,11 @@ namespace IntranetPrueba.Data.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("PerformedByUser");
+                });
+
+            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoRecord", b =>
+                {
+                    b.Navigation("Adjuntos");
                 });
 
             modelBuilder.Entity("IntranetPrueba.Data.Entities.AppPermission", b =>

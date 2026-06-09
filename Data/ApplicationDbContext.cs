@@ -15,6 +15,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<AppUserPermission> UserPermissions => Set<AppUserPermission>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<CensoRecord> Censos => Set<CensoRecord>();
+    public DbSet<CensoAdjunto> CensoAdjuntos => Set<CensoAdjunto>();
     public DbSet<Medicamento> Medicamentos => Set<Medicamento>();
     public DbSet<NursingAssistant> NursingAssistants => Set<NursingAssistant>();
     public DbSet<OpsAssistant> OpsAssistants => Set<OpsAssistant>();
@@ -241,6 +242,20 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(x => x.FechaIngreso);
             entity.HasIndex(x => x.FarmaciaEnviadoAtUtc);
             entity.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<CensoAdjunto>(entity =>
+        {
+            entity.ToTable("censo_adjuntos");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.FileName).HasMaxLength(260).IsRequired();
+            entity.Property(x => x.FileData).IsRequired();
+            entity.Property(x => x.UploadedAtUtc).HasColumnType("timestamp with time zone");
+            entity.HasOne(x => x.CensoRecord)
+                .WithMany(x => x.Adjuntos)
+                .HasForeignKey(x => x.CensoRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => x.CensoRecordId);
         });
 
         modelBuilder.Entity<Medicamento>(entity =>

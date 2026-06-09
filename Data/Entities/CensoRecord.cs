@@ -385,4 +385,6 @@ public class CensoRecord
     public DateTime? FarmaciaFirmaActualizadaAtUtc { get; set; }
 
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+
+    public ICollection<CensoAdjunto> Adjuntos { get; set; } = [];
 }

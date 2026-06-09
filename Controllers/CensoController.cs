@@ -954,6 +954,102 @@ public class CensoController : Controller
     }
 
     [HttpPost]
+    public async Task<IActionResult> SubirAdjunto(long id, IFormFile? file, CancellationToken cancellationToken)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new { message = "Guarda el censo antes de subir adjuntos." });
+        }
+
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new { message = "No se proporcionó ningún archivo." });
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+        if (!string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(file.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "Solo se permiten archivos PDF." });
+        }
+
+        const long maxBytes = 10L * 1024 * 1024;
+        if (file.Length > maxBytes)
+        {
+            return BadRequest(new { message = "El archivo no puede superar 10 MB." });
+        }
+
+        var record = await _context.Censos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (record is null)
+        {
+            return NotFound(new { message = "No se encontró el registro de censo." });
+        }
+
+        byte[] bytes;
+        using (var ms = new MemoryStream())
+        {
+            await file.CopyToAsync(ms, cancellationToken);
+            bytes = ms.ToArray();
+        }
+
+        var adjunto = new Data.Entities.CensoAdjunto
+        {
+            CensoRecordId = id,
+            FileName = Path.GetFileName(file.FileName),
+            FileData = bytes,
+            UploadedAtUtc = DateTime.UtcNow
+        };
+
+        _context.CensoAdjuntos.Add(adjunto);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new { adjuntoId = adjunto.Id, fileName = adjunto.FileName });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EliminarAdjunto(long adjuntoId, CancellationToken cancellationToken)
+    {
+        var adjunto = await _context.CensoAdjuntos.FirstOrDefaultAsync(x => x.Id == adjuntoId, cancellationToken);
+        if (adjunto is null)
+        {
+            return NotFound(new { message = "Adjunto no encontrado." });
+        }
+
+        _context.CensoAdjuntos.Remove(adjunto);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new { success = true });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DescargarAdjunto(long adjuntoId, CancellationToken cancellationToken)
+    {
+        var adjunto = await _context.CensoAdjuntos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == adjuntoId, cancellationToken);
+
+        if (adjunto is null)
+        {
+            return NotFound();
+        }
+
+        return File(adjunto.FileData, "application/pdf", adjunto.FileName);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ObtenerAdjuntos(long id, CancellationToken cancellationToken)
+    {
+        var adjuntos = await _context.CensoAdjuntos
+            .AsNoTracking()
+            .Where(x => x.CensoRecordId == id)
+            .OrderBy(x => x.UploadedAtUtc)
+            .Select(x => new { x.Id, x.FileName })
+            .ToListAsync(cancellationToken);
+
+        return Json(adjuntos);
+    }
+
+    [HttpPost]
     public async Task<IActionResult> ValidarDireccion([FromBody] ValidateAddressRequest request, CancellationToken cancellationToken)
     {
         var direccion = request?.Direccion?.Trim() ?? string.Empty;
@@ -1133,7 +1229,8 @@ public class CensoController : Controller
             .OrderBy(x => x.Id)
             .ToListAsync(cancellationToken);
 
-        var content = BuildExcelXml(records);
+        var idsConAdjuntos = await BuildIdsConAdjuntosSetAsync(records, cancellationToken);
+        var content = BuildExcelXml(records, idsConAdjuntos);
         var bytes = Encoding.UTF8.GetBytes(content);
         var fileName = $"censo_{DateTime.Now:yyyyMMdd_HHmmss}.xls";
         return File(bytes, "application/vnd.ms-excel", fileName);
@@ -1162,10 +1259,30 @@ public class CensoController : Controller
             .ThenByDescending(x => x.Id)
             .ToListAsync(cancellationToken);
 
-        var content = BuildExcelXml(records);
+        var idsConAdjuntos = await BuildIdsConAdjuntosSetAsync(records, cancellationToken);
+        var content = BuildExcelXml(records, idsConAdjuntos);
         var bytes = Encoding.UTF8.GetBytes(content);
         var fileName = BuildFilteredExcelFileName(fechaDesde, fechaHasta);
         return File(bytes, "application/vnd.ms-excel", fileName);
+    }
+
+    private async Task<HashSet<long>> BuildIdsConAdjuntosSetAsync(
+        IReadOnlyList<CensoRecord> records,
+        CancellationToken cancellationToken)
+    {
+        if (records.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = records.Select(r => r.Id).ToList();
+        var idsConAdjuntos = await _context.CensoAdjuntos
+            .Where(a => ids.Contains(a.CensoRecordId))
+            .Select(a => a.CensoRecordId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return [.. idsConAdjuntos];
     }
 
     private async Task PopulateCensoListAndLatestRecordAsync(
@@ -1231,6 +1348,17 @@ public class CensoController : Controller
             })
             .ToList();
         model.CensoTableRecords = records;
+
+        var tableRecordIds = records.Select(r => r.Id).ToList();
+        if (tableRecordIds.Count > 0)
+        {
+            var idsConAdjuntos = await _context.CensoAdjuntos
+                .Where(a => tableRecordIds.Contains(a.CensoRecordId))
+                .Select(a => a.CensoRecordId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            model.RecordIdsConAdjuntos = idsConAdjuntos;
+        }
 
         if (!loadLatestRecordIntoForm)
         {
@@ -3059,7 +3187,7 @@ public class CensoController : Controller
         return !string.IsNullOrWhiteSpace(fullName) ? fullName : User.Identity?.Name ?? "Usuario sin nombre";
     }
 
-    private static string BuildExcelXml(IReadOnlyList<CensoRecord> records)
+    private static string BuildExcelXml(IReadOnlyList<CensoRecord> records, HashSet<long>? idsConAdjuntos = null)
     {
         var sb = new StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\"?>");
@@ -3199,6 +3327,7 @@ public class CensoController : Controller
         AppendHeaderCell(sb, "HoraReporteNovedadDocumentos");
         AppendHeaderCell(sb, "HoraGestionSolucionNovedadDocumentos");
         AppendHeaderCell(sb, "CreatedAtUtc");
+        AppendHeaderCell(sb, "Adjuntos");
         sb.AppendLine("   </Row>");
 
         foreach (var item in records)
@@ -3331,6 +3460,7 @@ public class CensoController : Controller
             AppendDataCell(sb, item.HoraReporteNovedadDocumentos?.ToString(@"hh\:mm") ?? string.Empty);
             AppendDataCell(sb, item.HoraGestionSolucionNovedadDocumentos?.ToString(@"hh\:mm") ?? string.Empty);
             AppendDataCell(sb, item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"));
+            AppendDataCell(sb, idsConAdjuntos?.Contains(item.Id) == true ? "Sí" : "No");
             sb.AppendLine("   </Row>");
         }
 

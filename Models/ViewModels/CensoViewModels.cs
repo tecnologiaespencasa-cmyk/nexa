@@ -543,6 +543,7 @@ public class CensoReceptionViewModel
     public IReadOnlyList<string> BarrioOptions { get; set; } = [];
     public IReadOnlyList<CensoListItemViewModel> CensoListItems { get; set; } = [];
     public IReadOnlyList<CensoRecord> CensoTableRecords { get; set; } = [];
+    public IReadOnlyCollection<long> RecordIdsConAdjuntos { get; set; } = [];
 }
 
 public class MedicamentoCatalogItemViewModel
