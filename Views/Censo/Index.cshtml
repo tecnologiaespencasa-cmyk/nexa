@@ -374,6 +374,38 @@
                         <span class="censo-nav__description">Hallazgos, tiempos de reporte y gestión.</span>
                     </span>
                 </button>
+
+                <button class="list-group-item list-group-item-action censo-nav__item @(!Model.EditingRecordId.HasValue ? "censo-nav__item--locked" : null)"
+                        id="tab-prorroga-link"
+                        data-bs-toggle="@(Model.EditingRecordId.HasValue ? "list" : null)"
+                        data-bs-target="@(Model.EditingRecordId.HasValue ? "#tab-prorroga" : null)"
+                        type="button"
+                        role="tab"
+                        aria-controls="tab-prorroga"
+                        aria-selected="false"
+                        title="@(!Model.EditingRecordId.HasValue ? "Guarda el paciente (secciones 1, 2 y 3) para acceder a esta sección" : null)">
+                    <span class="censo-nav__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M9 3h6l2 4H7z"></path>
+                            <rect x="3" y="7" width="18" height="13" rx="2"></rect>
+                            <path d="M9 13h6"></path>
+                            <path d="M9 17h4"></path>
+                        </svg>
+                    </span>
+                    <span class="censo-nav__content">
+                        <span class="censo-nav__eyebrow">Pr&oacute;rroga</span>
+                        <span class="censo-nav__title">Pr&oacute;rroga o cambio</span>
+                        <span class="censo-nav__description">Medicamentos, fechas y auxiliar de la pr&oacute;rroga.</span>
+                        @if (!Model.EditingRecordId.HasValue)
+                        {
+                            <span class="censo-nav__lock-hint">Disponible al guardar el paciente</span>
+                        }
+                        @if (Model.EsProrroga)
+                        {
+                            <span class="censo-nav__badge">Pr&oacute;rroga activa</span>
+                        }
+                    </span>
+                </button>
                 </div>
             </div>
             <div class="censo-section-strip__tools">
@@ -498,7 +530,6 @@
             <input type="hidden" name="CedulaFiltro" value="@Model.CedulaFiltro" />
             <input asp-for="FechaIngresoFiltroDesde" type="hidden" />
             <input asp-for="FechaIngresoFiltroHasta" type="hidden" />
-            <input asp-for="EsProrroga" type="hidden" id="esProrrogaHidden" />
 
             <div class="tab-content">
                     <div class="tab-pane fade show active" id="tab-recepcion" role="tabpanel" aria-labelledby="tab-recepcion-link" data-section-title="Recepción del paciente" data-section-description="Registra tiempos de ingreso, respuesta y responsables del caso con una lectura clara y ordenada.">
@@ -516,25 +547,6 @@
                                         No hay auxiliares de enfermería activos. Debes registrarlos en Administración de usuarios.
                                     </div>
                                 }
-
-                                <section class="censo-ingreso-mode" aria-label="Tipo de ingreso">
-                                    <div class="censo-ingreso-mode__switch">
-                                        <span id="ingresoNuevoLabel">Paciente nuevo</span>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" role="switch" id="esProrrogaSwitch" @(Model.EsProrroga ? "checked" : null) aria-describedby="ingresoNuevoLabel ingresoProrrogaLabel" />
-                                        </div>
-                                        <span id="ingresoProrrogaLabel">Ordenamiento interno (Prórroga)</span>
-                                    </div>
-                                    <div class="censo-prorroga-search @(Model.EsProrroga ? null : "d-none")" id="prorrogaSearchPanel">
-                                        <label asp-for="DocumentoProrrogaBusqueda" class="form-label"></label>
-                                        <div class="input-group">
-                                            <input asp-for="DocumentoProrrogaBusqueda" class="form-control" id="documentoProrrogaInput" inputmode="numeric" maxlength="20" placeholder="Ingrese documento" />
-                                            <button type="button" class="btn btn-primary" id="buscarProrrogaBtn">Buscar datos</button>
-                                        </div>
-                                        <span asp-validation-for="DocumentoProrrogaBusqueda" class="text-danger"></span>
-                                        <div class="form-text">Se cargarán solo los datos del módulo 2 desde la última atención registrada.</div>
-                                    </div>
-                                </section>
 
                                 <div class="censo-recepcion-layout">
                                     <section class="censo-recepcion-panel censo-recepcion-panel--timing">
@@ -771,6 +783,11 @@
                                                 Asumir dirección errada y continuar
                                             </label>
                                         </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="DetalleDireccion" class="form-label"></label>
+                                        <input asp-for="DetalleDireccion" class="form-control" placeholder="Ej: Apartamento 501 torre 2 (opcional)" />
+                                        <span asp-validation-for="DetalleDireccion" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="ClasificacionZonaSura" class="form-label"></label>
@@ -1525,6 +1542,223 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="tab-pane fade" id="tab-prorroga" role="tabpanel" aria-labelledby="tab-prorroga-link" data-section-title="Prórroga o cambio" data-section-description="Registra el tratamiento de la prórroga o cambio de forma independiente al censo principal.">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="censo-card-heading">
+                                    <span class="censo-card-heading__eyebrow">Pr&oacute;rroga</span>
+                                    <h2 class="h5 mb-0">Pr&oacute;rroga o cambio</h2>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold">&iquest;Es extensi&oacute;n o adici&oacute;n de tratamiento?</label>
+                                        <div role="radiogroup" aria-label="Tipo de prórroga">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="prorroga-tipo" id="prorrogaTipoExtension" value="extension" />
+                                                <label class="form-check-label" for="prorrogaTipoExtension">Extensi&oacute;n</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="prorroga-tipo" id="prorrogaTipoAdicion" value="adicion" />
+                                                <label class="form-check-label" for="prorrogaTipoAdicion">Adici&oacute;n de tratamiento</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 d-none" id="prorrogaExtensionContainer">
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-lg-3">
+                                                <label class="form-label" for="prorrogaNumeroDiasExtension">N&uacute;mero de d&iacute;as</label>
+                                                <input class="form-control" id="prorrogaNumeroDiasExtension" type="number" min="1" max="9999" step="1" inputmode="numeric" />
+                                            </div>
+                                            <div class="col-lg-9">
+                                                <div class="form-check pb-1">
+                                                    <input class="form-check-input" type="checkbox" id="prorrogaNotificadoAsegurador" />
+                                                    <label class="form-check-label" for="prorrogaNotificadoAsegurador">Notificado al asegurador</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4">
+                                        <label class="form-label" for="prorrogaNombreMedPrincipal">Nombre medicamento principal / Principio activo</label>
+                                        <input class="form-control" id="prorrogaNombreMedPrincipal" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                    </div>
+                                    <div class="col-lg-1">
+                                        <label class="form-label" for="prorrogaDosisMedPrincipal">Dosis</label>
+                                        <input class="form-control" id="prorrogaDosisMedPrincipal" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label" for="prorrogaMedidaMedPrincipal">Medida</label>
+                                        <select class="form-select" id="prorrogaMedidaMedPrincipal">
+                                            <option value="">Selecciona...</option>
+                                            @foreach (var opt in Model.MedidaMedicamentoOptions)
+                                            {
+                                                <option value="@opt.Value">@opt.Text</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label" for="prorrogaViaMedPrincipal">V&iacute;a de administraci&oacute;n</label>
+                                        <select class="form-select" id="prorrogaViaMedPrincipal">
+                                            <option value="">Selecciona...</option>
+                                            @foreach (var opt in Model.ViaAdministracionMedicamentoOptions)
+                                            {
+                                                <option value="@opt.Value">@opt.Text</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label" for="prorrogaFrecuenciaMedPrincipal">Frecuencia</label>
+                                        <select class="form-select" id="prorrogaFrecuenciaMedPrincipal">
+                                            <option value="">Selecciona...</option>
+                                            @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions)
+                                            {
+                                                <option value="@opt.Value">@opt.Text</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-1">
+                                        <label class="form-label" for="prorrogaDiasMedPrincipal">D&iacute;as</label>
+                                        <input class="form-control" id="prorrogaDiasMedPrincipal" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                    </div>
+
+                                    <div class="col-12">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="prorrogaTieneSegundoMed" />
+                                            <label class="form-check-label" for="prorrogaTieneSegundoMed">Tiene segundo medicamento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 d-none" id="prorrogaMed2Container">
+                                        <div class="row g-3">
+                                            <div class="col-lg-4">
+                                                <label class="form-label" for="prorrogaNombreMed2">Nombre medicamento 2 / Principio activo</label>
+                                                <input class="form-control" id="prorrogaNombreMed2" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                            </div>
+                                            <div class="col-lg-1">
+                                                <label class="form-label" for="prorrogaDosisMed2">Dosis</label>
+                                                <input class="form-control" id="prorrogaDosisMed2" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label class="form-label" for="prorrogaMedidaMed2">Medida</label>
+                                                <select class="form-select" id="prorrogaMedidaMed2">
+                                                    <option value="">Selecciona...</option>
+                                                    @foreach (var opt in Model.MedidaMedicamentoOptions)
+                                                    {
+                                                        <option value="@opt.Value">@opt.Text</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label class="form-label" for="prorrogaViaMed2">V&iacute;a de administraci&oacute;n</label>
+                                                <select class="form-select" id="prorrogaViaMed2">
+                                                    <option value="">Selecciona...</option>
+                                                    @foreach (var opt in Model.ViaAdministracionMedicamentoOptions)
+                                                    {
+                                                        <option value="@opt.Value">@opt.Text</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label class="form-label" for="prorrogaFrecuenciaMed2">Frecuencia</label>
+                                                <select class="form-select" id="prorrogaFrecuenciaMed2">
+                                                    <option value="">Selecciona...</option>
+                                                    @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions)
+                                                    {
+                                                        <option value="@opt.Value">@opt.Text</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="col-lg-1">
+                                                <label class="form-label" for="prorrogaDiasMed2">D&iacute;as</label>
+                                                <input class="form-control" id="prorrogaDiasMed2" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-6">
+                                        <label class="form-label" for="prorrogaAplicacionesTotales">Aplicaciones totales</label>
+                                        <input class="form-control" id="prorrogaAplicacionesTotales" readonly />
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label class="form-label" for="prorrogaDiasTratamientoIv">D&iacute;as de tratamiento IV</label>
+                                        <input class="form-control" id="prorrogaDiasTratamientoIv" readonly />
+                                    </div>
+
+                                    <div class="col-lg-4">
+                                        <label class="form-label" for="prorrogaFechaInicio">Fecha de inicio de tratamiento</label>
+                                        <input class="form-control" id="prorrogaFechaInicio" type="date" />
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label class="form-label" for="prorrogaFechaFin">Fecha fin de tratamiento</label>
+                                        <input class="form-control" id="prorrogaFechaFin" type="date" readonly />
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label class="form-label" for="prorrogaFechaPromesa">Fecha promesa de inicio de TTO</label>
+                                        <input class="form-control" id="prorrogaFechaPromesa" type="date" />
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label">Hora promesa de inicio de TTO</label>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label" for="prorrogaHoraDesde">Entre</label>
+                                                <select class="form-select" id="prorrogaHoraDesde">
+                                                    <option value="">Selecciona...</option>
+                                                    @for (var hour = 1; hour <= 12; hour++) { <option value="@hour">@hour</option> }
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label" for="prorrogaHoraHasta">Y</label>
+                                                <select class="form-select" id="prorrogaHoraHasta">
+                                                    <option value="">Selecciona...</option>
+                                                    @for (var hour = 1; hour <= 12; hour++) { <option value="@hour">@hour</option> }
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6 censo-promise-meridian-field">
+                                                <label class="form-label d-block">Jornada</label>
+                                                <div class="censo-promise-meridian" role="radiogroup" aria-label="Jornada prórroga">
+                                                    <div class="form-check censo-promise-meridian__option">
+                                                        <input class="form-check-input" type="radio" name="prorroga-meridiano" id="prorrogaMeridianoAm" value="AM" />
+                                                        <label class="form-check-label" for="prorrogaMeridianoAm">AM</label>
+                                                    </div>
+                                                    <div class="form-check censo-promise-meridian__option">
+                                                        <input class="form-check-input" type="radio" name="prorroga-meridiano" id="prorrogaMeridianoPm" value="PM" />
+                                                        <label class="form-check-label" for="prorrogaMeridianoPm">PM</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label" for="prorrogaAuxiliarAsignado">Auxiliar asignado</label>
+                                        <select class="form-select" id="prorrogaAuxiliarAsignado">
+                                            <option value="">Selecciona...</option>
+                                            @foreach (var opt in Model.OpsAssistantOptions)
+                                            {
+                                                <option value="@opt.Value">@opt.Text</option>
+                                            }
+                                        </select>
+                                        <div class="form-text">Selecciona un auxiliar OPS activo.</div>
+                                    </div>
+                                </div>
+
+                                <div class="censo-prorroga-actions mt-4">
+                                    <button type="button" class="btn btn-primary" id="guardarProrrogaBtn">
+                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true" style="width:1rem;height:1rem;margin-right:.4rem;vertical-align:-.15em">
+                                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                            <polyline points="7 3 7 8 15 8"></polyline>
+                                        </svg>
+                                        <span>Guardar pr&oacute;rroga</span>
+                                    </button>
+                                    <span class="censo-prorroga-actions__status ms-3 text-muted small" id="prorrogaGuardadoStatus"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="censo-form-actions">
@@ -1911,7 +2145,7 @@
             const buscarBarriosUrl = "@Url.Action("BuscarBarrios", "Censo")";
             const defaultsMunicipioUrl = "@Url.Action("ObtenerDefaultsMunicipio", "Censo")";
             const buscarDiagnosticoCie10Url = "@Url.Action("BuscarDiagnosticoCie10", "Censo")";
-            const buscarDatosPacienteProrrogaUrl = "@Url.Action("BuscarDatosPacienteProrroga", "Censo")";
+            const guardarProrrogaUrl = "@Url.Action("GuardarProrroga", "Censo")";
             const enviarFarmaciaUrl = "@Url.Action("EnviarAFarmacia", "Censo")";
             const guardarDocumentosUrl = "@Url.Action("GuardarDocumentos", "Censo")";
             const obtenerDocumentosUrl = "@Url.Action("ObtenerDocumentos", "Censo")";
@@ -1929,11 +2163,6 @@
             const asumirDireccionCheck = document.getElementById("asumirDireccionErradaCheck");
             const form = document.getElementById("censoForm");
             const editingRecordIdInput = form ? form.querySelector("input[name='EditingRecordId']") : null;
-            const esProrrogaHidden = document.getElementById("esProrrogaHidden");
-            const esProrrogaSwitch = document.getElementById("esProrrogaSwitch");
-            const prorrogaSearchPanel = document.getElementById("prorrogaSearchPanel");
-            const documentoProrrogaInput = document.getElementById("documentoProrrogaInput");
-            const buscarProrrogaBtn = document.getElementById("buscarProrrogaBtn");
             const enviarFarmaciaKardexBtn = document.getElementById("enviarFarmaciaKardexBtn");
             const cedulaFiltroInput = document.getElementById("cedulaFiltroInput");
             const buscarCedulaBtn = document.getElementById("buscarCedulaBtn");
@@ -3342,125 +3571,6 @@
                 }
             };
 
-            const syncProrrogaMode = () => {
-                const isProrroga = !!(esProrrogaSwitch && esProrrogaSwitch.checked);
-                if (esProrrogaHidden) {
-                    esProrrogaHidden.value = isProrroga ? "true" : "false";
-                }
-
-                if (prorrogaSearchPanel) {
-                    prorrogaSearchPanel.classList.toggle("d-none", !isProrroga);
-                }
-
-                if (!isProrroga && documentoProrrogaInput) {
-                    documentoProrrogaInput.value = "";
-                }
-            };
-
-            const applyProrrogaPatientData = async (data) => {
-                if (!data) {
-                    return;
-                }
-
-                if (editingRecordIdInput) {
-                    editingRecordIdInput.value = "";
-                }
-
-                const saveButtonText = document.querySelector(".censo-save-button span");
-                if (saveButtonText) {
-                    saveButtonText.textContent = "Guardar y continuar";
-                }
-
-                setFormValueByName("NombrePaciente", data.nombrePaciente);
-                setFormValueByName("TipoIdentificacion", data.tipoIdentificacion);
-                setFormValueByName("NumeroIdentificacion", data.numeroIdentificacion);
-                setFormValueByName("CodigoCie10", data.codigoCie10);
-                setFormValueByName("DiagnosticoDescriptivo", data.diagnosticoDescriptivo);
-                setFormValueByName("FechaNacimiento", data.fechaNacimiento);
-                setFormValueByName("Edad", data.edad);
-                setFormValueByName("CorreoElectronico", data.correoElectronico);
-                setFormValueByName("Direccion", data.direccion);
-                setFormValueByName("ClasificacionZonaSura", data.clasificacionZonaSura);
-                setFormValueByName("MunicipioResidencia", data.municipioResidencia);
-                await loadBarriosByMunicipio(data.municipioResidencia || "", data.barrio || "a", data.barrio || "", false);
-                setFormValueByName("Barrio", data.barrio);
-                setFormValueByName("ZonaDireccionSegunMunicipio", data.zonaDireccionSegunMunicipio);
-                setFormValueByName("Area", data.area);
-                setFormValueByName("IpsQueRemite", data.ipsQueRemite);
-                setFormValueByName("VistoBuenoRangoFueraAnexo", data.vistoBuenoRangoFueraAnexo);
-                setFormValueByName("Telefono1", data.telefono1);
-                setFormValueByName("Telefono2", data.telefono2);
-                setFormValueByName("Telefono3", data.telefono3);
-
-                direccionValidada = true;
-                clearDireccionMessage();
-                clearServerDireccionMessage();
-                syncPhoneVisibility();
-                syncKardexSheet();
-                syncRequisitionSheet();
-            };
-
-            if (esProrrogaSwitch) {
-                esProrrogaSwitch.addEventListener("change", syncProrrogaMode);
-                syncProrrogaMode();
-            }
-
-            if (documentoProrrogaInput) {
-                documentoProrrogaInput.value = normalizeCedulaFilter(documentoProrrogaInput.value);
-                documentoProrrogaInput.addEventListener("input", () => {
-                    documentoProrrogaInput.value = normalizeCedulaFilter(documentoProrrogaInput.value);
-                });
-                documentoProrrogaInput.addEventListener("keydown", (event) => {
-                    if (event.key === "Enter" && buscarProrrogaBtn) {
-                        event.preventDefault();
-                        buscarProrrogaBtn.click();
-                    }
-                });
-            }
-
-            if (buscarProrrogaBtn) {
-                buscarProrrogaBtn.addEventListener("click", async () => {
-                    const documento = normalizeCedulaFilter(documentoProrrogaInput ? documentoProrrogaInput.value : "");
-                    if (documentoProrrogaInput) {
-                        documentoProrrogaInput.value = documento;
-                    }
-
-                    if (!documento) {
-                        showFeedbackModal("Documento requerido", "<p class=\"mb-0\">Ingresa el documento del paciente para buscar la última atención.</p>", "warning");
-                        return;
-                    }
-
-                    buscarProrrogaBtn.disabled = true;
-                    try {
-                        const url = new URL(buscarDatosPacienteProrrogaUrl, window.location.origin);
-                        url.searchParams.set("documento", documento);
-                        const response = await fetch(url);
-                        const data = await response.json().catch(() => ({}));
-
-                        if (!response.ok) {
-                            showFeedbackModal("No se pudo buscar", `<p class="mb-0">${escapeHtml(data.message || "No fue posible consultar el documento.")}</p>`, "danger");
-                            return;
-                        }
-
-                        if (!data.found) {
-                            if (esProrrogaSwitch) {
-                                esProrrogaSwitch.checked = false;
-                                syncProrrogaMode();
-                            }
-                            showFeedbackModal("Documento no encontrado", "<p class=\"mb-0\">Documento no encontrado, proceder como un nuevo ingreso.</p>", "warning");
-                            return;
-                        }
-
-                        await applyProrrogaPatientData(data.data);
-                        showFeedbackModal("Datos cargados", "<p class=\"mb-0\">Se cargaron los datos del paciente desde la última atención. Completa nuevamente las demás secciones para crear una nueva atención.</p>", "success");
-                    } catch {
-                        showFeedbackModal("No se pudo buscar", "<p class=\"mb-0\">Ocurrió un error de conexión consultando el documento.</p>", "danger");
-                    } finally {
-                        buscarProrrogaBtn.disabled = false;
-                    }
-                });
-            }
-
             if (usarSugerenciaServerBtn && direccionInput) {
                 usarSugerenciaServerBtn.addEventListener("click", (event) => {
                     event.preventDefault();
@@ -4654,6 +4764,202 @@
                     `<p class="mb-0">${escapeHtml(serverSuccessMessage)}</p>`,
                     "success");
             }
+
+            // ── Prorroga section ──────────────────────────────────────────
+            {
+                const prorrogaTabLink = document.getElementById("tab-prorroga-link");
+                const prorrogaMed2Toggle = document.getElementById("prorrogaTieneSegundoMed");
+                const prorrogaMed2Container = document.getElementById("prorrogaMed2Container");
+                const prorrogaAplicacionesInput = document.getElementById("prorrogaAplicacionesTotales");
+                const prorrogaDiasIvInput = document.getElementById("prorrogaDiasTratamientoIv");
+                const prorrogaFechaInicioInput = document.getElementById("prorrogaFechaInicio");
+                const prorrogaFechaFinInput = document.getElementById("prorrogaFechaFin");
+                const prorrogaGuardadoStatus = document.getElementById("prorrogaGuardadoStatus");
+                const guardarProrrogaBtn = document.getElementById("guardarProrrogaBtn");
+                let prorrogaDataLoaded = false;
+
+                const getProrrogaInputValue = (id) => (document.getElementById(id)?.value || "").trim();
+
+                const syncProrrogaDiasIv = () => {
+                    if (!prorrogaDiasIvInput) return;
+                    const d1 = getMedicationDaysValue(document.getElementById("prorrogaDiasMedPrincipal"));
+                    const d2 = (prorrogaMed2Toggle?.checked)
+                        ? getMedicationDaysValue(document.getElementById("prorrogaDiasMed2")) : 0;
+                    const max = Math.max(d1, d2);
+                    prorrogaDiasIvInput.value = max > 0 ? String(max) : "";
+                };
+
+                const syncProrrogaFechaFin = () => {
+                    if (!prorrogaFechaInicioInput || !prorrogaFechaFinInput || !prorrogaDiasIvInput) return;
+                    const startDate = parseIsoDateInputValue(prorrogaFechaInicioInput.value);
+                    const days = Number.parseInt(prorrogaDiasIvInput.value || "0", 10);
+                    if (!startDate || !Number.isFinite(days) || days < 1) {
+                        prorrogaFechaFinInput.value = "";
+                        return;
+                    }
+                    const endDate = new Date(startDate);
+                    endDate.setDate(endDate.getDate() + days - 1);
+                    prorrogaFechaFinInput.value = endDate.toISOString().slice(0, 10);
+                };
+
+                const syncProrrogaAplicaciones = () => {
+                    if (!prorrogaAplicacionesInput) return;
+                    const freq1 = getProrrogaInputValue("prorrogaFrecuenciaMedPrincipal");
+                    const a1 = calculateMedicationApplicationsByFrequency(freq1, document.getElementById("prorrogaDiasMedPrincipal"));
+                    let total = a1;
+                    if (prorrogaMed2Toggle?.checked) {
+                        const freq2 = getProrrogaInputValue("prorrogaFrecuenciaMed2");
+                        total += calculateMedicationApplicationsByFrequency(freq2, document.getElementById("prorrogaDiasMed2"));
+                    }
+                    prorrogaAplicacionesInput.value = total > 0 ? String(total) : "";
+                    syncProrrogaDiasIv();
+                    syncProrrogaFechaFin();
+                };
+
+                const collectProrrogaPayload = () => ({
+                    tipoProrroga: (document.querySelector("input[name='prorroga-tipo']:checked")?.value || ""),
+                    nombreMedicamentoPrincipal: getProrrogaInputValue("prorrogaNombreMedPrincipal"),
+                    dosisMedicamentoPrincipal: getProrrogaInputValue("prorrogaDosisMedPrincipal"),
+                    medidaMedicamentoPrincipal: getProrrogaInputValue("prorrogaMedidaMedPrincipal"),
+                    viaAdministracionMedicamentoPrincipal: getProrrogaInputValue("prorrogaViaMedPrincipal"),
+                    frecuenciaAdministracionMxPrincipal: getProrrogaInputValue("prorrogaFrecuenciaMedPrincipal"),
+                    diasMedicamentoPrincipal: getProrrogaInputValue("prorrogaDiasMedPrincipal"),
+                    tieneSegundoMedicamento: !!(prorrogaMed2Toggle?.checked),
+                    nombreMedicamentoNumero2: getProrrogaInputValue("prorrogaNombreMed2"),
+                    dosisMedicamento2: getProrrogaInputValue("prorrogaDosisMed2"),
+                    medidaMedicamento2: getProrrogaInputValue("prorrogaMedidaMed2"),
+                    viaAdministracionMedicamento2: getProrrogaInputValue("prorrogaViaMed2"),
+                    frecuenciaAdministracionMedicamento2: getProrrogaInputValue("prorrogaFrecuenciaMed2"),
+                    diasMedicamento2: getProrrogaInputValue("prorrogaDiasMed2"),
+                    aplicacionesTotales: getProrrogaInputValue("prorrogaAplicacionesTotales"),
+                    diasTratamientoIv: getProrrogaInputValue("prorrogaDiasTratamientoIv"),
+                    fechaInicioTratamiento: getProrrogaInputValue("prorrogaFechaInicio"),
+                    fechaFinTratamiento: getProrrogaInputValue("prorrogaFechaFin"),
+                    fechaPromesaInicioTto: getProrrogaInputValue("prorrogaFechaPromesa"),
+                    horaPromesaDesde: getProrrogaInputValue("prorrogaHoraDesde"),
+                    horaPromesaHasta: getProrrogaInputValue("prorrogaHoraHasta"),
+                    horaPromesaMeridiano: (document.querySelector("input[name='prorroga-meridiano']:checked")?.value || ""),
+                    auxiliarAsignado: getProrrogaInputValue("prorrogaAuxiliarAsignado"),
+                    numeroDiasExtension: getProrrogaInputValue("prorrogaNumeroDiasExtension"),
+                    notificadoAsegurador: !!(document.getElementById("prorrogaNotificadoAsegurador")?.checked),
+                });
+
+                const loadProrrogaPayload = (data) => {
+                    if (!data) return;
+                    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
+                    set("prorrogaNombreMedPrincipal", data.nombreMedicamentoPrincipal);
+                    set("prorrogaDosisMedPrincipal", data.dosisMedicamentoPrincipal);
+                    set("prorrogaMedidaMedPrincipal", data.medidaMedicamentoPrincipal);
+                    set("prorrogaViaMedPrincipal", data.viaAdministracionMedicamentoPrincipal);
+                    set("prorrogaFrecuenciaMedPrincipal", data.frecuenciaAdministracionMxPrincipal);
+                    set("prorrogaDiasMedPrincipal", data.diasMedicamentoPrincipal);
+                    if (prorrogaMed2Toggle) {
+                        prorrogaMed2Toggle.checked = !!data.tieneSegundoMedicamento;
+                        prorrogaMed2Container?.classList.toggle("d-none", !data.tieneSegundoMedicamento);
+                    }
+                    set("prorrogaNombreMed2", data.nombreMedicamentoNumero2);
+                    set("prorrogaDosisMed2", data.dosisMedicamento2);
+                    set("prorrogaMedidaMed2", data.medidaMedicamento2);
+                    set("prorrogaViaMed2", data.viaAdministracionMedicamento2);
+                    set("prorrogaFrecuenciaMed2", data.frecuenciaAdministracionMedicamento2);
+                    set("prorrogaDiasMed2", data.diasMedicamento2);
+                    set("prorrogaAplicacionesTotales", data.aplicacionesTotales);
+                    set("prorrogaDiasTratamientoIv", data.diasTratamientoIv);
+                    set("prorrogaFechaInicio", data.fechaInicioTratamiento);
+                    set("prorrogaFechaFin", data.fechaFinTratamiento);
+                    set("prorrogaFechaPromesa", data.fechaPromesaInicioTto);
+                    set("prorrogaHoraDesde", data.horaPromesaDesde);
+                    set("prorrogaHoraHasta", data.horaPromesaHasta);
+                    if (data.horaPromesaMeridiano) {
+                        const radio = document.querySelector(`input[name='prorroga-meridiano'][value='${data.horaPromesaMeridiano}']`);
+                        if (radio) radio.checked = true;
+                    }
+                    set("prorrogaAuxiliarAsignado", data.auxiliarAsignado);
+                    if (data.tipoProrroga) {
+                        const tipoRadio = document.querySelector(`input[name='prorroga-tipo'][value='${data.tipoProrroga}']`);
+                        if (tipoRadio) tipoRadio.checked = true;
+                    }
+                    document.getElementById("prorrogaExtensionContainer")?.classList.toggle("d-none", data.tipoProrroga !== "extension");
+                    set("prorrogaNumeroDiasExtension", data.numeroDiasExtension);
+                    const notifEl = document.getElementById("prorrogaNotificadoAsegurador");
+                    if (notifEl) notifEl.checked = !!data.notificadoAsegurador;
+                };
+
+                document.querySelectorAll("input[name='prorroga-tipo']").forEach((radio) => {
+                    radio.addEventListener("change", () => {
+                        const isExtension = document.querySelector("input[name='prorroga-tipo']:checked")?.value === "extension";
+                        document.getElementById("prorrogaExtensionContainer")?.classList.toggle("d-none", !isExtension);
+                    });
+                });
+
+                if (prorrogaMed2Toggle) {
+                    prorrogaMed2Toggle.addEventListener("change", () => {
+                        prorrogaMed2Container?.classList.toggle("d-none", !prorrogaMed2Toggle.checked);
+                        syncProrrogaAplicaciones();
+                    });
+                }
+
+                ["prorrogaFrecuenciaMedPrincipal", "prorrogaDiasMedPrincipal",
+                 "prorrogaFrecuenciaMed2", "prorrogaDiasMed2"].forEach((id) => {
+                    document.getElementById(id)?.addEventListener("change", syncProrrogaAplicaciones);
+                    document.getElementById(id)?.addEventListener("input", syncProrrogaAplicaciones);
+                });
+
+                if (prorrogaFechaInicioInput) {
+                    prorrogaFechaInicioInput.addEventListener("change", syncProrrogaFechaFin);
+                }
+
+                if (prorrogaTabLink) {
+                    prorrogaTabLink.addEventListener("show.bs.tab", async () => {
+                        if (prorrogaDataLoaded) return;
+                        prorrogaDataLoaded = true;
+                        const recordId = Number(editingRecordIdInput?.value || "0") || 0;
+                        if (recordId <= 0) return;
+                        try {
+                            const resp = await fetch(`${obtenerDocumentosUrl}?id=${recordId}`);
+                            if (resp.ok) {
+                                const saved = await resp.json();
+                                if (saved.prorrogaJson) {
+                                    loadProrrogaPayload(JSON.parse(saved.prorrogaJson));
+                                }
+                            }
+                        } catch { }
+                    });
+                }
+
+                if (guardarProrrogaBtn) {
+                    guardarProrrogaBtn.addEventListener("click", async () => {
+                        const recordId = Number(editingRecordIdInput?.value || "0") || 0;
+                        if (recordId <= 0) {
+                            showFeedbackModal("Sin paciente activo", "<p class=\"mb-0\">Primero guarda el paciente antes de guardar la prórroga.</p>", "warning");
+                            return;
+                        }
+                        guardarProrrogaBtn.disabled = true;
+                        if (prorrogaGuardadoStatus) prorrogaGuardadoStatus.textContent = "Guardando...";
+                        try {
+                            const formData = new FormData();
+                            formData.append("id", String(recordId));
+                            formData.append("prorrogaJson", JSON.stringify(collectProrrogaPayload()));
+                            if (csrfTokenInput) formData.append("__RequestVerificationToken", csrfTokenInput.value);
+                            const resp = await fetch(guardarProrrogaUrl, { method: "POST", body: formData });
+                            const result = await resp.json().catch(() => ({}));
+                            if (!resp.ok) {
+                                showFeedbackModal("No se pudo guardar", `<p class="mb-0">${escapeHtml(result.message || "Error al guardar la prórroga.")}</p>`, "danger");
+                                if (prorrogaGuardadoStatus) prorrogaGuardadoStatus.textContent = "";
+                                return;
+                            }
+                            if (prorrogaGuardadoStatus) prorrogaGuardadoStatus.textContent = "Guardado ✓";
+                            window.setTimeout(() => { if (prorrogaGuardadoStatus) prorrogaGuardadoStatus.textContent = ""; }, 3000);
+                        } catch {
+                            showFeedbackModal("Error de conexión", "<p class=\"mb-0\">No se pudo conectar al servidor.</p>", "danger");
+                            if (prorrogaGuardadoStatus) prorrogaGuardadoStatus.textContent = "";
+                        } finally {
+                            guardarProrrogaBtn.disabled = false;
+                        }
+                    });
+                }
+            }
+            // ── End prorroga section ──────────────────────────────────────
 
             if (shouldShowSaveErrorModal) {
                 const normalizedErrors = Array.from(new Set((serverErrorMessages || [])

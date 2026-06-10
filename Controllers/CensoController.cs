@@ -912,10 +912,10 @@ public class CensoController : Controller
         var record = await _context.Censos
             .AsNoTracking()
             .Where(x => x.Id == id)
-            .Select(x => new { x.KardexEdicionJson, x.RequisicionFarmaciaJson })
+            .Select(x => new { x.KardexEdicionJson, x.RequisicionFarmaciaJson, x.ProrrogaJson })
             .FirstOrDefaultAsync(cancellationToken);
         if (record is null) return NotFound();
-        return Json(new { kardexJson = record.KardexEdicionJson, requisicionJson = record.RequisicionFarmaciaJson });
+        return Json(new { kardexJson = record.KardexEdicionJson, requisicionJson = record.RequisicionFarmaciaJson, prorrogaJson = record.ProrrogaJson });
     }
 
     [HttpPost]
@@ -930,6 +930,18 @@ public class CensoController : Controller
 
         await _context.SaveChangesAsync(cancellationToken);
         return Json(new { message = "Documentos guardados correctamente." });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> GuardarProrroga(long id, string? prorrogaJson, CancellationToken cancellationToken)
+    {
+        if (id <= 0) return BadRequest(new { message = "ID de registro inválido." });
+        var record = await _context.Censos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (record is null) return NotFound(new { message = "Registro no encontrado." });
+        record.ProrrogaJson = string.IsNullOrWhiteSpace(prorrogaJson) ? null : prorrogaJson.Trim();
+        record.EsProrroga = record.ProrrogaJson != null;
+        await _context.SaveChangesAsync(cancellationToken);
+        return Json(new { message = "Prórroga guardada correctamente." });
     }
 
     [HttpPost]
@@ -1500,6 +1512,7 @@ public class CensoController : Controller
         model.Edad = record.Edad;
         model.CorreoElectronico = record.CorreoElectronico;
         model.Direccion = record.Direccion;
+        model.DetalleDireccion = record.DetalleDireccion;
         model.ClasificacionZonaSura = record.ClasificacionZonaSura;
         model.MunicipioResidencia = record.MunicipioResidencia;
         model.Barrio = record.Barrio;
@@ -1639,7 +1652,7 @@ public class CensoController : Controller
         int indicadorTiempoGestionMinutos)
     {
         censoRecord.Asegurador = AseguradorSuraEps;
-        censoRecord.EsProrroga = model.EsProrroga;
+        // EsProrroga is managed exclusively via GuardarProrroga; never overwrite from main form
         censoRecord.FechaIngreso = model.FechaIngreso.Date;
         censoRecord.HoraIngreso = model.HoraIngreso;
         censoRecord.FechaRespuesta = model.FechaRespuesta.Date;
@@ -1657,6 +1670,7 @@ public class CensoController : Controller
         censoRecord.Edad = model.Edad;
         censoRecord.CorreoElectronico = model.CorreoElectronico;
         censoRecord.Direccion = direccionParaGuardar.Trim();
+        censoRecord.DetalleDireccion = string.IsNullOrWhiteSpace(model.DetalleDireccion) ? null : model.DetalleDireccion.Trim();
         censoRecord.ClasificacionZonaSura = model.ClasificacionZonaSura;
         censoRecord.MunicipioResidencia = model.MunicipioResidencia;
         censoRecord.Barrio = model.Barrio;
@@ -3243,6 +3257,7 @@ public class CensoController : Controller
         AppendHeaderCell(sb, "Edad");
         AppendHeaderCell(sb, "CorreoElectronico");
         AppendHeaderCell(sb, "Direccion");
+        AppendHeaderCell(sb, "DetalleDireccion");
         AppendHeaderCell(sb, "ClasificacionZonaSura");
         AppendHeaderCell(sb, "MunicipioResidencia");
         AppendHeaderCell(sb, "Barrio");
@@ -3347,6 +3362,29 @@ public class CensoController : Controller
         AppendHeaderCell(sb, "HoraGestionSolucionNovedadDocumentos");
         AppendHeaderCell(sb, "CreatedAtUtc");
         AppendHeaderCell(sb, "Adjuntos");
+        AppendHeaderCell(sb, "Prorroga_Tipo");
+        AppendHeaderCell(sb, "Prorroga_MedicamentoPrincipal");
+        AppendHeaderCell(sb, "Prorroga_Dosis");
+        AppendHeaderCell(sb, "Prorroga_Medida");
+        AppendHeaderCell(sb, "Prorroga_Via");
+        AppendHeaderCell(sb, "Prorroga_Frecuencia");
+        AppendHeaderCell(sb, "Prorroga_Dias");
+        AppendHeaderCell(sb, "Prorroga_SegundoMedicamento");
+        AppendHeaderCell(sb, "Prorroga_Medicamento2");
+        AppendHeaderCell(sb, "Prorroga_Dosis2");
+        AppendHeaderCell(sb, "Prorroga_Medida2");
+        AppendHeaderCell(sb, "Prorroga_Via2");
+        AppendHeaderCell(sb, "Prorroga_Frecuencia2");
+        AppendHeaderCell(sb, "Prorroga_Dias2");
+        AppendHeaderCell(sb, "Prorroga_AplicacionesTotales");
+        AppendHeaderCell(sb, "Prorroga_DiasTratamientoIv");
+        AppendHeaderCell(sb, "Prorroga_FechaInicio");
+        AppendHeaderCell(sb, "Prorroga_FechaFin");
+        AppendHeaderCell(sb, "Prorroga_FechaPromesa");
+        AppendHeaderCell(sb, "Prorroga_HoraPromesa");
+        AppendHeaderCell(sb, "Prorroga_AuxiliarAsignado");
+        AppendHeaderCell(sb, "Prorroga_NumeroDiasExtension");
+        AppendHeaderCell(sb, "Prorroga_NotificadoAsegurador");
         sb.AppendLine("   </Row>");
 
         foreach (var item in records)
@@ -3376,6 +3414,7 @@ public class CensoController : Controller
             AppendDataCell(sb, item.Edad.ToString());
             AppendDataCell(sb, item.CorreoElectronico);
             AppendDataCell(sb, item.Direccion);
+            AppendDataCell(sb, item.DetalleDireccion ?? "");
             AppendDataCell(sb, item.ClasificacionZonaSura);
             AppendDataCell(sb, item.MunicipioResidencia);
             AppendDataCell(sb, item.Barrio);
@@ -3480,6 +3519,37 @@ public class CensoController : Controller
             AppendDataCell(sb, item.HoraGestionSolucionNovedadDocumentos?.ToString(@"hh\:mm") ?? string.Empty);
             AppendDataCell(sb, item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"));
             AppendDataCell(sb, idsConAdjuntos?.Contains(item.Id) == true ? "Sí" : "No");
+            ProrrogaExportDto? prorroga = null;
+            if (!string.IsNullOrWhiteSpace(item.ProrrogaJson))
+            {
+                try { prorroga = JsonSerializer.Deserialize<ProrrogaExportDto>(item.ProrrogaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); } catch { }
+            }
+            AppendDataCell(sb, prorroga?.TipoProrroga ?? "");
+            AppendDataCell(sb, prorroga?.NombreMedicamentoPrincipal ?? "");
+            AppendDataCell(sb, prorroga?.DosisMedicamentoPrincipal ?? "");
+            AppendDataCell(sb, prorroga?.MedidaMedicamentoPrincipal ?? "");
+            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamentoPrincipal ?? "");
+            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMxPrincipal ?? "");
+            AppendDataCell(sb, prorroga?.DiasMedicamentoPrincipal ?? "");
+            AppendDataCell(sb, prorroga?.TieneSegundoMedicamento == true ? "Sí" : "No");
+            AppendDataCell(sb, prorroga?.NombreMedicamentoNumero2 ?? "");
+            AppendDataCell(sb, prorroga?.DosisMedicamento2 ?? "");
+            AppendDataCell(sb, prorroga?.MedidaMedicamento2 ?? "");
+            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamento2 ?? "");
+            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMedicamento2 ?? "");
+            AppendDataCell(sb, prorroga?.DiasMedicamento2 ?? "");
+            AppendDataCell(sb, prorroga?.AplicacionesTotales ?? "");
+            AppendDataCell(sb, prorroga?.DiasTratamientoIv ?? "");
+            AppendDataCell(sb, prorroga?.FechaInicioTratamiento ?? "");
+            AppendDataCell(sb, prorroga?.FechaFinTratamiento ?? "");
+            AppendDataCell(sb, prorroga?.FechaPromesaInicioTto ?? "");
+            var prorrogaHoraParts = new[] { prorroga?.HoraPromesaDesde, prorroga?.HoraPromesaHasta, prorroga?.HoraPromesaMeridiano }
+                .Select((x, i) => string.IsNullOrWhiteSpace(x) ? null : (i == 1 ? $"- {x}" : x))
+                .Where(x => x != null);
+            AppendDataCell(sb, string.Join(" ", prorrogaHoraParts));
+            AppendDataCell(sb, prorroga?.AuxiliarAsignado ?? "");
+            AppendDataCell(sb, prorroga?.NumeroDiasExtension ?? "");
+            AppendDataCell(sb, prorroga?.NotificadoAsegurador == true ? "Sí" : "No");
             sb.AppendLine("   </Row>");
         }
 
@@ -3783,5 +3853,34 @@ public class CensoController : Controller
     public class ValidateAddressRequest
     {
         public string Direccion { get; set; } = string.Empty;
+    }
+
+    private sealed class ProrrogaExportDto
+    {
+        public string? TipoProrroga { get; set; }
+        public string? NombreMedicamentoPrincipal { get; set; }
+        public string? DosisMedicamentoPrincipal { get; set; }
+        public string? MedidaMedicamentoPrincipal { get; set; }
+        public string? ViaAdministracionMedicamentoPrincipal { get; set; }
+        public string? FrecuenciaAdministracionMxPrincipal { get; set; }
+        public string? DiasMedicamentoPrincipal { get; set; }
+        public bool? TieneSegundoMedicamento { get; set; }
+        public string? NombreMedicamentoNumero2 { get; set; }
+        public string? DosisMedicamento2 { get; set; }
+        public string? MedidaMedicamento2 { get; set; }
+        public string? ViaAdministracionMedicamento2 { get; set; }
+        public string? FrecuenciaAdministracionMedicamento2 { get; set; }
+        public string? DiasMedicamento2 { get; set; }
+        public string? AplicacionesTotales { get; set; }
+        public string? DiasTratamientoIv { get; set; }
+        public string? FechaInicioTratamiento { get; set; }
+        public string? FechaFinTratamiento { get; set; }
+        public string? FechaPromesaInicioTto { get; set; }
+        public string? HoraPromesaDesde { get; set; }
+        public string? HoraPromesaHasta { get; set; }
+        public string? HoraPromesaMeridiano { get; set; }
+        public string? AuxiliarAsignado { get; set; }
+        public string? NumeroDiasExtension { get; set; }
+        public bool? NotificadoAsegurador { get; set; }
     }
 }

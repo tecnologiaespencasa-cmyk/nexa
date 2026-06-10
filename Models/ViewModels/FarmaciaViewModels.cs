@@ -129,6 +129,8 @@ public class FarmaciaDocumentViewModel
 
     public string Direccion { get; set; } = string.Empty;
 
+    public string? DetalleDireccion { get; set; }
+
     public string Telefonos { get; set; } = string.Empty;
 
     public string? Observaciones { get; set; }
@@ -142,6 +144,12 @@ public class FarmaciaDocumentViewModel
     public string? Autorizacion { get; set; }
 
     public string? FechaSolicitudRequisicion { get; set; }
+
+    public string? PesoKardex { get; set; }
+
+    public string CambioEquipoKardex { get; set; } = "CADA 3 DIAS";
+
+    public string? MedicoTratanteKardex { get; set; }
 
     public bool EsEntregaParcial { get; set; }
 

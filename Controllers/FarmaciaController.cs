@@ -458,6 +458,7 @@ public class FarmaciaController : Controller
             CodigoCie10 = record.CodigoCie10,
             Edad = record.Edad,
             Direccion = record.Direccion,
+            DetalleDireccion = record.DetalleDireccion,
             Telefonos = string.Join(" / ", new[] { record.Telefono1, record.Telefono2, record.Telefono3 }.Where(x => !string.IsNullOrWhiteSpace(x))),
             Observaciones = record.ObservacionesPlanManejo,
             ResponsableLlamadaBienvenida = record.ResponsableLlamadaBienvenida,
@@ -479,6 +480,10 @@ public class FarmaciaController : Controller
             {
                 ApplyEntregaParcialDivision(model);
             }
+        }
+        else
+        {
+            ApplyStoredKardex(model, record.KardexEdicionJson);
         }
 
         return model;
@@ -884,6 +889,60 @@ public class FarmaciaController : Controller
         string? DailyDoses,
         int? Days);
 
+    private static void ApplyStoredKardex(FarmaciaDocumentViewModel model, string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return;
+
+        KardexPayload? payload;
+        try
+        {
+            payload = JsonSerializer.Deserialize<KardexPayload>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (JsonException) { return; }
+
+        if (payload is null) return;
+
+        var f = payload.Fields;
+        if (f.TryGetValue("paciente", out var p) && !string.IsNullOrWhiteSpace(p)) model.NombrePaciente = p;
+        if (f.TryGetValue("asegurador", out var a) && !string.IsNullOrWhiteSpace(a)) model.Asegurador = a;
+        if (f.TryGetValue("documento", out var doc) && !string.IsNullOrWhiteSpace(doc)) model.NumeroIdentificacion = doc;
+        if (f.TryGetValue("direccion", out var dir)) model.Direccion = dir ?? string.Empty;
+        if (f.TryGetValue("telefonos", out var tel)) model.Telefonos = tel ?? string.Empty;
+        if (f.TryGetValue("diagnostico", out var diag)) { model.CodigoCie10 = string.Empty; model.DiagnosticoDescriptivo = diag ?? string.Empty; }
+        if (f.TryGetValue("observaciones", out var obs)) model.Observaciones = obs;
+        if (f.TryGetValue("auxiliarAsignado", out var aux)) model.AuxiliarAsignado = aux;
+        if (f.TryGetValue("programador", out var prog)) model.ResponsableLlamadaBienvenida = prog;
+        if (f.TryGetValue("peso", out var peso)) model.PesoKardex = peso;
+        if (f.TryGetValue("cambioEquipo", out var cambio) && !string.IsNullOrWhiteSpace(cambio)) model.CambioEquipoKardex = cambio;
+        if (f.TryGetValue("medicoTratante", out var medico)) model.MedicoTratanteKardex = medico;
+
+        if (payload.MedRows is not { Count: > 0 }) return;
+
+        var medList = model.Medicamentos.ToList();
+        foreach (var sr in payload.MedRows)
+        {
+            if (!int.TryParse(sr.Row, out var rowNum)) continue;
+            var existing = medList.FirstOrDefault(m => m.Row == rowNum);
+            if (existing is null) continue;
+
+            if (sr.Presentacion is not null) existing.Presentacion = sr.Presentacion;
+            if (sr.DosisFrecuencia is not null) existing.DosisFrecuencia = sr.DosisFrecuencia;
+            existing.VehiculoReconstitucion = sr.VehiculoReconstitucion ?? existing.VehiculoReconstitucion;
+            existing.VolumenDilucion = sr.VolumenDilucion ?? existing.VolumenDilucion;
+            existing.TiempoInfusion = sr.TiempoInfusion ?? existing.TiempoInfusion;
+            existing.Fotosensible = sr.Fotosensible ?? existing.Fotosensible;
+            existing.CadenaFrio = sr.CadenaFrio ?? existing.CadenaFrio;
+            existing.Aislamiento = sr.Aislamiento ?? existing.Aislamiento;
+            existing.Estabilidad = sr.Estabilidad ?? existing.Estabilidad;
+            existing.BombaInfusion = sr.BombaInfusion ?? existing.BombaInfusion;
+            if (sr.FechaInicio is not null) existing.FechaInicio = sr.FechaInicio;
+            if (sr.FechaFin is not null) existing.FechaFin = sr.FechaFin;
+        }
+        model.Medicamentos = medList;
+    }
+
     private sealed class RequisitionPayload
     {
         public Dictionary<string, string?> Fields { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -903,6 +962,30 @@ public class FarmaciaController : Controller
 
         public string? FechaInicio { get; set; }
 
+        public string? FechaFin { get; set; }
+    }
+
+    private sealed class KardexPayload
+    {
+        public Dictionary<string, string?> Fields { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public List<KardexPayloadMedRow> MedRows { get; set; } = [];
+    }
+
+    private sealed class KardexPayloadMedRow
+    {
+        public string? Row { get; set; }
+        public string? Presentacion { get; set; }
+        public string? DosisFrecuencia { get; set; }
+        public string? VehiculoReconstitucion { get; set; }
+        public string? VolumenDilucion { get; set; }
+        public string? TiempoInfusion { get; set; }
+        public string? Fotosensible { get; set; }
+        public string? CadenaFrio { get; set; }
+        public string? Aislamiento { get; set; }
+        public string? Estabilidad { get; set; }
+        public string? BombaInfusion { get; set; }
+        public string? FechaInicio { get; set; }
         public string? FechaFin { get; set; }
     }
 

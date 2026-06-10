@@ -2971,3 +2971,36 @@
     width: 100%;
   }
 }
+
+/* Prorroga nav item – locked state */
+.censo-nav__item--locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.censo-nav__lock-hint {
+  display: block;
+  font-size: 0.68rem;
+  color: #78849a;
+  margin-top: 0.1rem;
+}
+
+.censo-nav__badge {
+  display: inline-block;
+  margin-top: 0.25rem;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.censo-prorroga-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

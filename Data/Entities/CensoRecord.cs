@@ -67,6 +67,9 @@ public class CensoRecord
     [StringLength(300)]
     public string Direccion { get; set; } = string.Empty;
 
+    [StringLength(200)]
+    public string? DetalleDireccion { get; set; }
+
     [Required]
     [StringLength(30)]
     public string ClasificacionZonaSura { get; set; } = string.Empty;
@@ -374,6 +377,8 @@ public class CensoRecord
     public string? RequisicionFarmaciaJson { get; set; }
 
     public string? KardexEdicionJson { get; set; }
+
+    public string? ProrrogaJson { get; set; }
 
     [StringLength(160)]
     public string? FarmaciaNombreRecibe { get; set; }

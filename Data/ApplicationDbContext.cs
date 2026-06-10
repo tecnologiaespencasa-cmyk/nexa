@@ -42,7 +42,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.LastLoginAtUtc).HasColumnType("timestamp with time zone");
-            entity.HasIndex(x => x.NormalizedEmail).IsUnique();
+            entity.HasIndex(x => x.NormalizedEmail);
             entity.HasIndex(x => x.NormalizedUsername).IsUnique();
             entity.HasIndex(x => x.NormalizedNationalId).IsUnique();
         });

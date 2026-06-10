@@ -67,7 +67,7 @@
                     <span>@Model.FechaSolicitudRequisicion</span>
 
                     <label>Direccion:</label>
-                    <span>@Model.Direccion</span>
+                    <span>@Model.Direccion@(!string.IsNullOrWhiteSpace(Model.DetalleDireccion) ? $", {Model.DetalleDireccion}" : "")</span>
                     <label>telefonos:</label>
                     <span>@Model.Telefonos</span>
 
@@ -156,10 +156,10 @@
                     <label class="farmacia-kardex-cell farmacia-kardex-label">Documento de identidad:</label>
                     <span class="farmacia-kardex-cell">@Model.TipoIdentificacion @Model.NumeroIdentificacion</span>
                     <label class="farmacia-kardex-cell farmacia-kardex-label">Peso:</label>
-                    <span class="farmacia-kardex-cell"></span>
+                    <span class="farmacia-kardex-cell">@Model.PesoKardex</span>
 
                     <label class="farmacia-kardex-cell farmacia-kardex-label">Direccion:</label>
-                    <span class="farmacia-kardex-cell">@Model.Direccion</span>
+                    <span class="farmacia-kardex-cell">@Model.Direccion@(!string.IsNullOrWhiteSpace(Model.DetalleDireccion) ? $", {Model.DetalleDireccion}" : "")</span>
                     <label class="farmacia-kardex-cell farmacia-kardex-label">Edad:</label>
                     <span class="farmacia-kardex-cell">@Model.Edad</span>
 
@@ -208,9 +208,9 @@
                     <label>OBSERVACI&Oacute;N:</label>
                     <span>@Model.Observaciones</span>
                     <label>Cambio de equipo:</label>
-                    <span>CADA 3 DIAS</span>
+                    <span>@Model.CambioEquipoKardex</span>
                     <label>MEDICO TRATANTE</label>
-                    <span></span>
+                    <span>@Model.MedicoTratanteKardex</span>
                     <label>PROGRAMADOR:</label>
                     <span>@Model.ResponsableLlamadaBienvenida</span>
                     <label>AUXILIAR ASIGNADO</label>

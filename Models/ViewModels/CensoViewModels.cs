@@ -80,6 +80,10 @@ public class CensoReceptionViewModel
     [Display(Name = "Dirección")]
     public string Direccion { get; set; } = string.Empty;
 
+    [StringLength(200, ErrorMessage = "El detalle de dirección no puede superar 200 caracteres.")]
+    [Display(Name = "Detalle de dirección")]
+    public string? DetalleDireccion { get; set; }
+
     [Required(ErrorMessage = "Selecciona la clasificación zona Sura.")]
     [Display(Name = "Clasificación zona Sura")]
     public string ClasificacionZonaSura { get; set; } = string.Empty;

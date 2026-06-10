@@ -451,11 +451,6 @@ public class UserAdministrationService : IUserAdministrationService
             return ServiceResult.Failure("El nombre de usuario ya esta registrado.");
         }
 
-        if (await _repository.ExistsByNormalizedEmailAsync(normalizedEmail, excludeUserId, cancellationToken))
-        {
-            return ServiceResult.Failure("El correo electronico ya esta registrado.");
-        }
-
         if (await _repository.ExistsByNormalizedNationalIdAsync(normalizedNationalId, excludeUserId, cancellationToken))
         {
             return ServiceResult.Failure("La cedula ya esta registrada.");
