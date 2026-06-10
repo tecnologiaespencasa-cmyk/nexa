@@ -347,7 +347,9 @@
                     <div class="farmacia-order-list">
                         @foreach (var item in Model.Despachados.Items)
                         {
-                            <article class="farmacia-order" data-pedido-id="@item.Id">
+                            var esParcialDesp = item.FarmaciaEsEntregaParcial == true && item.FarmaciaCantidadEntregas.HasValue;
+                            var entregaCompleta = esParcialDesp && item.FarmaciaEntregaActual >= item.FarmaciaCantidadEntregas!.Value;
+                            <article class="farmacia-order @(esParcialDesp && !entregaCompleta ? "farmacia-order--alert" : null)" data-pedido-id="@item.Id">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
@@ -358,6 +360,13 @@
                                         {
                                             <p class="small text-muted">Recibido por @item.NombreRecibe</p>
                                         }
+                                        @if (esParcialDesp)
+                                        {
+                                            <p class="farmacia-entrega-badge @(entregaCompleta ? "farmacia-entrega-badge--completa" : null)">
+                                                Entrega <strong>@item.FarmaciaEntregaActual</strong> de <strong>@item.FarmaciaCantidadEntregas</strong>
+                                                @if (entregaCompleta) { <span>&nbsp;✓ Completa</span> }
+                                            </p>
+                                        }
                                     </div>
                                     <div class="farmacia-order__actions">
                                         <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
@@ -366,6 +375,13 @@
                                         <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
                                             <span>Kardex</span><small>Visto</small>
                                         </a>
+                                        @if (esParcialDesp && !entregaCompleta)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary farmacia-avanzar-btn"
+                                                    data-action-button="avanzar-entrega" data-pedido-id="@item.Id">
+                                                Avanzar entrega (@item.FarmaciaEntregaActual &rarr; @(item.FarmaciaEntregaActual + 1))
+                                            </button>
+                                        }
                                     </div>
                                     <span class="farmacia-status farmacia-status--seen">Despachado</span>
                                 </div>

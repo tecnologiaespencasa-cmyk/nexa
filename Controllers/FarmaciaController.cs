@@ -213,8 +213,6 @@ public class FarmaciaController : Controller
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        _ = Task.Run(() => _notificationService.NotifyDespachadoAsync(record, CancellationToken.None), CancellationToken.None);
-
         return Json(new
         {
             message = "Firmas guardadas. Paciente pasado a Despachado.",
@@ -278,12 +276,15 @@ public class FarmaciaController : Controller
     {
         var record = await _context.Censos.FirstOrDefaultAsync(
             x => x.Id == id && x.FarmaciaEnviadoAtUtc != null
-                && (x.FarmaciaEstado == FarmaciaEstados.Recepcionado || x.FarmaciaEstado == FarmaciaEstados.Facturado || x.FarmaciaEstado == FarmaciaEstados.Empacado),
+                && (x.FarmaciaEstado == FarmaciaEstados.Recepcionado
+                    || x.FarmaciaEstado == FarmaciaEstados.Facturado
+                    || x.FarmaciaEstado == FarmaciaEstados.Empacado
+                    || (x.FarmaciaEstado == FarmaciaEstados.Despachado && x.FarmaciaEsEntregaParcial == true)),
             cancellationToken);
 
         if (record is null)
         {
-            return NotFound(new { message = "Pedido no encontrado." });
+            return NotFound(new { message = "Pedido no encontrado o no tiene entrega parcial activa." });
         }
 
         if (record.FarmaciaEsEntregaParcial != true || !record.FarmaciaCantidadEntregas.HasValue)
@@ -323,6 +324,8 @@ public class FarmaciaController : Controller
         record.FarmaciaFacturado = true;
         record.FarmaciaEstado = FarmaciaEstados.Facturado;
         await _context.SaveChangesAsync(cancellationToken);
+
+        _ = Task.Run(() => _notificationService.NotifyDespachadoAsync(record, CancellationToken.None), CancellationToken.None);
 
         return Json(new { message = "Pedido marcado como Facturado." });
     }

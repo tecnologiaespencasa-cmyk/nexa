@@ -1643,7 +1643,10 @@
                 <tbody>
 @foreach (var record in Model.CensoTableRecords)
 {
-                    <tr>
+    var alertaFarmacia = record.FarmaciaEnviadoAtUtc.HasValue
+        && record.FarmaciaEstado == "Nuevo"
+        && (DateTime.UtcNow - record.FarmaciaEnviadoAtUtc.Value).TotalMinutes > 15;
+                    <tr class="@(alertaFarmacia ? "censo-row--alerta-farmacia" : null)">
                         <td>
                             <a class="censo-history-table__open" asp-action="Index" asp-route-recordId="@record.Id" asp-route-cedulaPaciente="@Model.CedulaFiltro" asp-route-fechaIngresoDesde="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")" asp-route-fechaIngresoHasta="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")" title="Cargar registro @record.Id para editar" aria-label="Cargar registro @record.Id para editar">
                                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">

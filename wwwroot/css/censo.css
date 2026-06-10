@@ -1512,6 +1512,26 @@
     #fff;
 }
 
+/* Fila en alerta: paciente en farmacia estado Nuevo > 15 min sin OK Kardex */
+.censo-history-table tbody tr.censo-row--alerta-farmacia td,
+.censo-history-table tbody tr.censo-row--alerta-farmacia:nth-child(even) td {
+  background: #fee2e2 !important;
+  color: #7f1d1d;
+  border-color: #fca5a5;
+}
+
+.censo-history-table tbody tr.censo-row--alerta-farmacia td:first-child {
+  background: #fecaca !important;
+}
+
+.censo-history-table tbody tr.censo-row--alerta-farmacia:hover td {
+  background: #fecaca !important;
+}
+
+.censo-history-table tbody tr.censo-row--alerta-farmacia:hover td:first-child {
+  background: #fca5a5 !important;
+}
+
 .censo-history-table__open {
   display: inline-flex;
   align-items: center;

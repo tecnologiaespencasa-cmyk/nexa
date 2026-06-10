@@ -841,9 +841,15 @@
 
 .farmacia-order--alert { border-left: 3px solid #b42318; }
 
-.farmacia-entrega-badge { color: #0b63ce; font-size: 0.82rem; font-weight: 700; margin: 0; }
-.farmacia-timer         { color: #087f5b; font-size: 0.8rem; font-weight: 700; margin: 0; }
-.farmacia-timer--urgent { color: #b42318; }
+.farmacia-entrega-badge            { color: #0b63ce; font-size: 0.82rem; font-weight: 700; margin: 0; }
+.farmacia-entrega-badge--completa  { color: #087f5b; }
+.farmacia-timer                    { color: #087f5b; font-size: 0.8rem; font-weight: 700; margin: 0; }
+.farmacia-timer--urgent            { color: #b42318; }
+
+.farmacia-avanzar-btn {
+  font-size: 0.78rem;
+  margin-top: 0.4rem;
+}
 
 .farmacia-entrega-parcial-panel {
   border-top: 1px solid var(--farmacia-border);
