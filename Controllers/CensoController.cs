@@ -97,6 +97,30 @@ public class CensoController : Controller
         [nameof(CensoReceptionViewModel.FrecuenciaAdministracionMedicamento3)] = 3,
         [nameof(CensoReceptionViewModel.DiasMedicamento3)] = 3,
         [nameof(CensoReceptionViewModel.NumeroDosisMedicamento3)] = 3,
+        [nameof(CensoReceptionViewModel.TieneCuartoMedicamento)] = 3,
+        [nameof(CensoReceptionViewModel.NombreMedicamentoNumero4)] = 3,
+        [nameof(CensoReceptionViewModel.DosisMedicamento4)] = 3,
+        [nameof(CensoReceptionViewModel.MedidaMedicamento4)] = 3,
+        [nameof(CensoReceptionViewModel.ViaAdministracionMedicamento4)] = 3,
+        [nameof(CensoReceptionViewModel.FrecuenciaAdministracionMedicamento4)] = 3,
+        [nameof(CensoReceptionViewModel.DiasMedicamento4)] = 3,
+        [nameof(CensoReceptionViewModel.NumeroDosisMedicamento4)] = 3,
+        [nameof(CensoReceptionViewModel.TieneQuintoMedicamento)] = 3,
+        [nameof(CensoReceptionViewModel.NombreMedicamentoNumero5)] = 3,
+        [nameof(CensoReceptionViewModel.DosisMedicamento5)] = 3,
+        [nameof(CensoReceptionViewModel.MedidaMedicamento5)] = 3,
+        [nameof(CensoReceptionViewModel.ViaAdministracionMedicamento5)] = 3,
+        [nameof(CensoReceptionViewModel.FrecuenciaAdministracionMedicamento5)] = 3,
+        [nameof(CensoReceptionViewModel.DiasMedicamento5)] = 3,
+        [nameof(CensoReceptionViewModel.NumeroDosisMedicamento5)] = 3,
+        [nameof(CensoReceptionViewModel.TieneSextoMedicamento)] = 3,
+        [nameof(CensoReceptionViewModel.NombreMedicamentoNumero6)] = 3,
+        [nameof(CensoReceptionViewModel.DosisMedicamento6)] = 3,
+        [nameof(CensoReceptionViewModel.MedidaMedicamento6)] = 3,
+        [nameof(CensoReceptionViewModel.ViaAdministracionMedicamento6)] = 3,
+        [nameof(CensoReceptionViewModel.FrecuenciaAdministracionMedicamento6)] = 3,
+        [nameof(CensoReceptionViewModel.DiasMedicamento6)] = 3,
+        [nameof(CensoReceptionViewModel.NumeroDosisMedicamento6)] = 3,
         [nameof(CensoReceptionViewModel.AplicacionesTotales)] = 3,
         [nameof(CensoReceptionViewModel.DiasTratamientoIv)] = 3,
         [nameof(CensoReceptionViewModel.CambioFrecuenciaAdministracionTto)] = 3,
@@ -598,6 +622,21 @@ public class CensoController : Controller
         model.ViaAdministracionMedicamento3 = model.ViaAdministracionMedicamento3?.Trim();
         model.FrecuenciaAdministracionMedicamento3 = model.FrecuenciaAdministracionMedicamento3?.Trim();
         model.NumeroDosisMedicamento3 = model.NumeroDosisMedicamento3?.Trim();
+        model.NombreMedicamentoNumero4 = model.NombreMedicamentoNumero4?.Trim();
+        model.MedidaMedicamento4 = model.MedidaMedicamento4?.Trim();
+        model.ViaAdministracionMedicamento4 = model.ViaAdministracionMedicamento4?.Trim();
+        model.FrecuenciaAdministracionMedicamento4 = model.FrecuenciaAdministracionMedicamento4?.Trim();
+        model.NumeroDosisMedicamento4 = model.NumeroDosisMedicamento4?.Trim();
+        model.NombreMedicamentoNumero5 = model.NombreMedicamentoNumero5?.Trim();
+        model.MedidaMedicamento5 = model.MedidaMedicamento5?.Trim();
+        model.ViaAdministracionMedicamento5 = model.ViaAdministracionMedicamento5?.Trim();
+        model.FrecuenciaAdministracionMedicamento5 = model.FrecuenciaAdministracionMedicamento5?.Trim();
+        model.NumeroDosisMedicamento5 = model.NumeroDosisMedicamento5?.Trim();
+        model.NombreMedicamentoNumero6 = model.NombreMedicamentoNumero6?.Trim();
+        model.MedidaMedicamento6 = model.MedidaMedicamento6?.Trim();
+        model.ViaAdministracionMedicamento6 = model.ViaAdministracionMedicamento6?.Trim();
+        model.FrecuenciaAdministracionMedicamento6 = model.FrecuenciaAdministracionMedicamento6?.Trim();
+        model.NumeroDosisMedicamento6 = model.NumeroDosisMedicamento6?.Trim();
         model.AplicacionesTotales = model.AplicacionesTotales?.Trim();
         model.DiasTratamientoIv = model.DiasTratamientoIv?.Trim();
         model.CambioFrecuenciaAdministracionTto = model.CambioFrecuenciaAdministracionTto?.Trim();
@@ -669,20 +708,24 @@ public class CensoController : Controller
             ModelState.Remove(nameof(model.DiasMedicamentoPrincipal));
             model.TieneSegundoMedicamento = false;
             model.TieneTercerMedicamento = false;
-            model.NombreMedicamentoNumero2 = null;
-            model.DosisMedicamento2 = null;
-            model.MedidaMedicamento2 = null;
-            model.ViaAdministracionMedicamento2 = null;
-            model.FrecuenciaAdministracionMedicamento2 = null;
-            model.DiasMedicamento2 = null;
-            model.NumeroDosisMedicamento2 = null;
-            model.NombreMedicamentoNumero3 = null;
-            model.DosisMedicamento3 = null;
-            model.MedidaMedicamento3 = null;
-            model.ViaAdministracionMedicamento3 = null;
-            model.FrecuenciaAdministracionMedicamento3 = null;
-            model.DiasMedicamento3 = null;
-            model.NumeroDosisMedicamento3 = null;
+            model.TieneCuartoMedicamento = false;
+            model.TieneQuintoMedicamento = false;
+            model.TieneSextoMedicamento = false;
+            model.NombreMedicamentoNumero2 = null; model.DosisMedicamento2 = null; model.MedidaMedicamento2 = null;
+            model.ViaAdministracionMedicamento2 = null; model.FrecuenciaAdministracionMedicamento2 = null;
+            model.DiasMedicamento2 = null; model.NumeroDosisMedicamento2 = null;
+            model.NombreMedicamentoNumero3 = null; model.DosisMedicamento3 = null; model.MedidaMedicamento3 = null;
+            model.ViaAdministracionMedicamento3 = null; model.FrecuenciaAdministracionMedicamento3 = null;
+            model.DiasMedicamento3 = null; model.NumeroDosisMedicamento3 = null;
+            model.NombreMedicamentoNumero4 = null; model.DosisMedicamento4 = null; model.MedidaMedicamento4 = null;
+            model.ViaAdministracionMedicamento4 = null; model.FrecuenciaAdministracionMedicamento4 = null;
+            model.DiasMedicamento4 = null; model.NumeroDosisMedicamento4 = null;
+            model.NombreMedicamentoNumero5 = null; model.DosisMedicamento5 = null; model.MedidaMedicamento5 = null;
+            model.ViaAdministracionMedicamento5 = null; model.FrecuenciaAdministracionMedicamento5 = null;
+            model.DiasMedicamento5 = null; model.NumeroDosisMedicamento5 = null;
+            model.NombreMedicamentoNumero6 = null; model.DosisMedicamento6 = null; model.MedidaMedicamento6 = null;
+            model.ViaAdministracionMedicamento6 = null; model.FrecuenciaAdministracionMedicamento6 = null;
+            model.DiasMedicamento6 = null; model.NumeroDosisMedicamento6 = null;
             model.AplicacionesTotales = string.Empty;
             model.DiasTratamientoIv = null;
             model.CambioFrecuenciaAdministracionTto = null;
@@ -695,49 +738,95 @@ public class CensoController : Controller
                 || HasMedicationData(model.NombreMedicamentoNumero2, model.FrecuenciaAdministracionMedicamento2, model.NumeroDosisMedicamento2, model.DosisMedicamento2, model.MedidaMedicamento2, model.ViaAdministracionMedicamento2);
             model.TieneTercerMedicamento = model.TieneTercerMedicamento
                 || HasMedicationData(model.NombreMedicamentoNumero3, model.FrecuenciaAdministracionMedicamento3, model.NumeroDosisMedicamento3, model.DosisMedicamento3, model.MedidaMedicamento3, model.ViaAdministracionMedicamento3);
+            model.TieneCuartoMedicamento = model.TieneCuartoMedicamento
+                || HasMedicationData(model.NombreMedicamentoNumero4, model.FrecuenciaAdministracionMedicamento4, model.NumeroDosisMedicamento4, model.DosisMedicamento4, model.MedidaMedicamento4, model.ViaAdministracionMedicamento4);
+            model.TieneQuintoMedicamento = model.TieneQuintoMedicamento
+                || HasMedicationData(model.NombreMedicamentoNumero5, model.FrecuenciaAdministracionMedicamento5, model.NumeroDosisMedicamento5, model.DosisMedicamento5, model.MedidaMedicamento5, model.ViaAdministracionMedicamento5);
+            model.TieneSextoMedicamento = model.TieneSextoMedicamento
+                || HasMedicationData(model.NombreMedicamentoNumero6, model.FrecuenciaAdministracionMedicamento6, model.NumeroDosisMedicamento6, model.DosisMedicamento6, model.MedidaMedicamento6, model.ViaAdministracionMedicamento6);
 
-            if (model.TieneTercerMedicamento)
-            {
-                model.TieneSegundoMedicamento = true;
-            }
+            // Enforce hierarchy: each toggle requires the previous ones
+            if (model.TieneSextoMedicamento) { model.TieneQuintoMedicamento = true; }
+            if (model.TieneQuintoMedicamento) { model.TieneCuartoMedicamento = true; }
+            if (model.TieneCuartoMedicamento) { model.TieneTercerMedicamento = true; }
+            if (model.TieneTercerMedicamento) { model.TieneSegundoMedicamento = true; }
 
             if (!model.TieneSegundoMedicamento)
             {
                 model.TieneTercerMedicamento = false;
-                model.NombreMedicamentoNumero2 = null;
-                model.DosisMedicamento2 = null;
-                model.MedidaMedicamento2 = null;
-                model.ViaAdministracionMedicamento2 = null;
-                model.FrecuenciaAdministracionMedicamento2 = null;
-                model.DiasMedicamento2 = null;
-                model.NumeroDosisMedicamento2 = null;
-                model.NombreMedicamentoNumero3 = null;
-                model.DosisMedicamento3 = null;
-                model.MedidaMedicamento3 = null;
-                model.ViaAdministracionMedicamento3 = null;
-                model.FrecuenciaAdministracionMedicamento3 = null;
-                model.DiasMedicamento3 = null;
-                model.NumeroDosisMedicamento3 = null;
-
-                if (model.MedicamentoFrecuenciaAjustada is "2" or "3")
-                {
+                model.TieneCuartoMedicamento = false;
+                model.TieneQuintoMedicamento = false;
+                model.TieneSextoMedicamento = false;
+                model.NombreMedicamentoNumero2 = null; model.DosisMedicamento2 = null; model.MedidaMedicamento2 = null;
+                model.ViaAdministracionMedicamento2 = null; model.FrecuenciaAdministracionMedicamento2 = null;
+                model.DiasMedicamento2 = null; model.NumeroDosisMedicamento2 = null;
+                model.NombreMedicamentoNumero3 = null; model.DosisMedicamento3 = null; model.MedidaMedicamento3 = null;
+                model.ViaAdministracionMedicamento3 = null; model.FrecuenciaAdministracionMedicamento3 = null;
+                model.DiasMedicamento3 = null; model.NumeroDosisMedicamento3 = null;
+                model.NombreMedicamentoNumero4 = null; model.DosisMedicamento4 = null; model.MedidaMedicamento4 = null;
+                model.ViaAdministracionMedicamento4 = null; model.FrecuenciaAdministracionMedicamento4 = null;
+                model.DiasMedicamento4 = null; model.NumeroDosisMedicamento4 = null;
+                model.NombreMedicamentoNumero5 = null; model.DosisMedicamento5 = null; model.MedidaMedicamento5 = null;
+                model.ViaAdministracionMedicamento5 = null; model.FrecuenciaAdministracionMedicamento5 = null;
+                model.DiasMedicamento5 = null; model.NumeroDosisMedicamento5 = null;
+                model.NombreMedicamentoNumero6 = null; model.DosisMedicamento6 = null; model.MedidaMedicamento6 = null;
+                model.ViaAdministracionMedicamento6 = null; model.FrecuenciaAdministracionMedicamento6 = null;
+                model.DiasMedicamento6 = null; model.NumeroDosisMedicamento6 = null;
+                if (model.MedicamentoFrecuenciaAjustada is "2" or "3" or "4" or "5" or "6")
                     model.MedicamentoFrecuenciaAjustada = null;
-                }
             }
             else if (!model.TieneTercerMedicamento)
             {
-                model.NombreMedicamentoNumero3 = null;
-                model.DosisMedicamento3 = null;
-                model.MedidaMedicamento3 = null;
-                model.ViaAdministracionMedicamento3 = null;
-                model.FrecuenciaAdministracionMedicamento3 = null;
-                model.DiasMedicamento3 = null;
-                model.NumeroDosisMedicamento3 = null;
-
-                if (model.MedicamentoFrecuenciaAjustada == "3")
-                {
+                model.TieneCuartoMedicamento = false; model.TieneQuintoMedicamento = false; model.TieneSextoMedicamento = false;
+                model.NombreMedicamentoNumero3 = null; model.DosisMedicamento3 = null; model.MedidaMedicamento3 = null;
+                model.ViaAdministracionMedicamento3 = null; model.FrecuenciaAdministracionMedicamento3 = null;
+                model.DiasMedicamento3 = null; model.NumeroDosisMedicamento3 = null;
+                model.NombreMedicamentoNumero4 = null; model.DosisMedicamento4 = null; model.MedidaMedicamento4 = null;
+                model.ViaAdministracionMedicamento4 = null; model.FrecuenciaAdministracionMedicamento4 = null;
+                model.DiasMedicamento4 = null; model.NumeroDosisMedicamento4 = null;
+                model.NombreMedicamentoNumero5 = null; model.DosisMedicamento5 = null; model.MedidaMedicamento5 = null;
+                model.ViaAdministracionMedicamento5 = null; model.FrecuenciaAdministracionMedicamento5 = null;
+                model.DiasMedicamento5 = null; model.NumeroDosisMedicamento5 = null;
+                model.NombreMedicamentoNumero6 = null; model.DosisMedicamento6 = null; model.MedidaMedicamento6 = null;
+                model.ViaAdministracionMedicamento6 = null; model.FrecuenciaAdministracionMedicamento6 = null;
+                model.DiasMedicamento6 = null; model.NumeroDosisMedicamento6 = null;
+                if (model.MedicamentoFrecuenciaAjustada is "3" or "4" or "5" or "6")
                     model.MedicamentoFrecuenciaAjustada = null;
-                }
+            }
+            else if (!model.TieneCuartoMedicamento)
+            {
+                model.TieneQuintoMedicamento = false; model.TieneSextoMedicamento = false;
+                model.NombreMedicamentoNumero4 = null; model.DosisMedicamento4 = null; model.MedidaMedicamento4 = null;
+                model.ViaAdministracionMedicamento4 = null; model.FrecuenciaAdministracionMedicamento4 = null;
+                model.DiasMedicamento4 = null; model.NumeroDosisMedicamento4 = null;
+                model.NombreMedicamentoNumero5 = null; model.DosisMedicamento5 = null; model.MedidaMedicamento5 = null;
+                model.ViaAdministracionMedicamento5 = null; model.FrecuenciaAdministracionMedicamento5 = null;
+                model.DiasMedicamento5 = null; model.NumeroDosisMedicamento5 = null;
+                model.NombreMedicamentoNumero6 = null; model.DosisMedicamento6 = null; model.MedidaMedicamento6 = null;
+                model.ViaAdministracionMedicamento6 = null; model.FrecuenciaAdministracionMedicamento6 = null;
+                model.DiasMedicamento6 = null; model.NumeroDosisMedicamento6 = null;
+                if (model.MedicamentoFrecuenciaAjustada is "4" or "5" or "6")
+                    model.MedicamentoFrecuenciaAjustada = null;
+            }
+            else if (!model.TieneQuintoMedicamento)
+            {
+                model.TieneSextoMedicamento = false;
+                model.NombreMedicamentoNumero5 = null; model.DosisMedicamento5 = null; model.MedidaMedicamento5 = null;
+                model.ViaAdministracionMedicamento5 = null; model.FrecuenciaAdministracionMedicamento5 = null;
+                model.DiasMedicamento5 = null; model.NumeroDosisMedicamento5 = null;
+                model.NombreMedicamentoNumero6 = null; model.DosisMedicamento6 = null; model.MedidaMedicamento6 = null;
+                model.ViaAdministracionMedicamento6 = null; model.FrecuenciaAdministracionMedicamento6 = null;
+                model.DiasMedicamento6 = null; model.NumeroDosisMedicamento6 = null;
+                if (model.MedicamentoFrecuenciaAjustada is "5" or "6")
+                    model.MedicamentoFrecuenciaAjustada = null;
+            }
+            else if (!model.TieneSextoMedicamento)
+            {
+                model.NombreMedicamentoNumero6 = null; model.DosisMedicamento6 = null; model.MedidaMedicamento6 = null;
+                model.ViaAdministracionMedicamento6 = null; model.FrecuenciaAdministracionMedicamento6 = null;
+                model.DiasMedicamento6 = null; model.NumeroDosisMedicamento6 = null;
+                if (model.MedicamentoFrecuenciaAjustada == "6")
+                    model.MedicamentoFrecuenciaAjustada = null;
             }
 
             if (model.TieneSegundoMedicamento)
@@ -749,6 +838,24 @@ public class CensoController : Controller
                 {
                     model.NumeroDosisMedicamento3 = CalculateNumeroDosisDiaMedicamentoPrincipal(model.FrecuenciaAdministracionMedicamento3);
                     ModelState.Remove(nameof(model.NumeroDosisMedicamento3));
+
+                    if (model.TieneCuartoMedicamento)
+                    {
+                        model.NumeroDosisMedicamento4 = CalculateNumeroDosisDiaMedicamentoPrincipal(model.FrecuenciaAdministracionMedicamento4);
+                        ModelState.Remove(nameof(model.NumeroDosisMedicamento4));
+
+                        if (model.TieneQuintoMedicamento)
+                        {
+                            model.NumeroDosisMedicamento5 = CalculateNumeroDosisDiaMedicamentoPrincipal(model.FrecuenciaAdministracionMedicamento5);
+                            ModelState.Remove(nameof(model.NumeroDosisMedicamento5));
+
+                            if (model.TieneSextoMedicamento)
+                            {
+                                model.NumeroDosisMedicamento6 = CalculateNumeroDosisDiaMedicamentoPrincipal(model.FrecuenciaAdministracionMedicamento6);
+                                ModelState.Remove(nameof(model.NumeroDosisMedicamento6));
+                            }
+                        }
+                    }
                 }
             }
 
@@ -832,6 +939,7 @@ public class CensoController : Controller
         var fechaHoraRespuesta = model.FechaRespuesta.Date + model.HoraRespuesta;
         var indicadorTiempoRespuestaMinutos = (int)Math.Round((fechaHoraRespuesta - fechaHoraIngreso).TotalMinutes, MidpointRounding.AwayFromZero);
         CensoRecord? recordToNotifyAssistant = null;
+        long? newRecordId = null;
         if (model.EditingRecordId is long editingRecordId)
         {
             var existingRecord = await _context.Censos.FirstOrDefaultAsync(x => x.Id == editingRecordId, cancellationToken);
@@ -881,6 +989,7 @@ public class CensoController : Controller
 
             await _context.Censos.AddAsync(censoRecord, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
+            newRecordId = censoRecord.Id;
             TempData["SuccessMessage"] = "Registro de censo guardado correctamente.";
         }
 
@@ -891,6 +1000,15 @@ public class CensoController : Controller
             {
                 TempData["SuccessMessage"] = $"{TempData["SuccessMessage"]} {string.Join(" ", warnings)}";
             }
+        }
+
+        if (newRecordId.HasValue)
+        {
+            return RedirectToAction(nameof(Index), new
+            {
+                cedulaPaciente = model.NumeroIdentificacion,
+                recordId = newRecordId.Value
+            });
         }
 
         if (!string.IsNullOrWhiteSpace(model.CedulaFiltro))
@@ -945,6 +1063,19 @@ public class CensoController : Controller
         if (record is null) return NotFound(new { message = "Registro no encontrado." });
         record.ProrrogaJson = string.IsNullOrWhiteSpace(prorrogaJson) ? null : prorrogaJson.Trim();
         record.EsProrroga = record.ProrrogaJson != null;
+        if (record.ProrrogaJson != null)
+        {
+            try
+            {
+                var pDto = JsonSerializer.Deserialize<ProrrogaExportDto>(record.ProrrogaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (!string.IsNullOrWhiteSpace(pDto?.NombreMedicamentoPrincipal))
+                {
+                    record.KardexEdicionJson = null;
+                    record.RequisicionFarmaciaJson = null;
+                }
+            }
+            catch { }
+        }
         await _context.SaveChangesAsync(cancellationToken);
         return Json(new { message = "Prórroga guardada correctamente." });
     }
@@ -1384,7 +1515,8 @@ public class CensoController : Controller
                 NumeroIdentificacion = record.NumeroIdentificacion,
                 CodigoCie10 = record.CodigoCie10,
                 Estado = record.Estado,
-                GestionCompletaPendiente = record.GestionCompletaPendiente
+                GestionCompletaPendiente = record.GestionCompletaPendiente,
+                TieneProrrogaActiva = !string.IsNullOrWhiteSpace(record.ProrrogaJson)
             })
             .ToList();
         model.CensoTableRecords = records;
@@ -1496,10 +1628,26 @@ public class CensoController : Controller
         var med3Dosis = NormalizeAdditionalMedicationValueForForm(record.NumeroDosisMedicamento3);
         var med3Medida = NormalizeAdditionalMedicationValueForForm(record.MedidaMedicamento3);
         var med3Via = NormalizeAdditionalMedicationValueForForm(record.ViaAdministracionMedicamento3);
+        var med4Nombre = NormalizeAdditionalMedicationValueForForm(record.NombreMedicamentoNumero4);
+        var med4Frecuencia = NormalizeAdditionalMedicationValueForForm(record.FrecuenciaAdministracionMedicamento4);
+        var med4Dosis = NormalizeAdditionalMedicationValueForForm(record.NumeroDosisMedicamento4);
+        var med4Medida = NormalizeAdditionalMedicationValueForForm(record.MedidaMedicamento4);
+        var med4Via = NormalizeAdditionalMedicationValueForForm(record.ViaAdministracionMedicamento4);
+        var med5Nombre = NormalizeAdditionalMedicationValueForForm(record.NombreMedicamentoNumero5);
+        var med5Frecuencia = NormalizeAdditionalMedicationValueForForm(record.FrecuenciaAdministracionMedicamento5);
+        var med5Dosis = NormalizeAdditionalMedicationValueForForm(record.NumeroDosisMedicamento5);
+        var med5Medida = NormalizeAdditionalMedicationValueForForm(record.MedidaMedicamento5);
+        var med5Via = NormalizeAdditionalMedicationValueForForm(record.ViaAdministracionMedicamento5);
+        var med6Nombre = NormalizeAdditionalMedicationValueForForm(record.NombreMedicamentoNumero6);
+        var med6Frecuencia = NormalizeAdditionalMedicationValueForForm(record.FrecuenciaAdministracionMedicamento6);
+        var med6Dosis = NormalizeAdditionalMedicationValueForForm(record.NumeroDosisMedicamento6);
+        var med6Medida = NormalizeAdditionalMedicationValueForForm(record.MedidaMedicamento6);
+        var med6Via = NormalizeAdditionalMedicationValueForForm(record.ViaAdministracionMedicamento6);
 
         model.EditingRecordId = record.Id;
         model.CedulaFiltro = record.NumeroIdentificacion;
         model.EsProrroga = record.EsProrroga;
+        model.TieneProrrogaActiva = !string.IsNullOrWhiteSpace(record.ProrrogaJson);
         model.DocumentoProrrogaBusqueda = record.EsProrroga ? record.NumeroIdentificacion : null;
 
         model.FechaIngreso = record.FechaIngreso.Date;
@@ -1539,10 +1687,13 @@ public class CensoController : Controller
         model.NumeroDosisDiaMedicamentoPrincipal = record.NumeroDosisDiaMedicamentoPrincipal;
         model.TieneSegundoMedicamento = HasMedicationData(med2Nombre, med2Frecuencia, med2Dosis, record.DosisMedicamento2, med2Medida, med2Via);
         model.TieneTercerMedicamento = HasMedicationData(med3Nombre, med3Frecuencia, med3Dosis, record.DosisMedicamento3, med3Medida, med3Via);
-        if (model.TieneTercerMedicamento)
-        {
-            model.TieneSegundoMedicamento = true;
-        }
+        model.TieneCuartoMedicamento = HasMedicationData(med4Nombre, med4Frecuencia, med4Dosis, record.DosisMedicamento4, med4Medida, med4Via);
+        model.TieneQuintoMedicamento = HasMedicationData(med5Nombre, med5Frecuencia, med5Dosis, record.DosisMedicamento5, med5Medida, med5Via);
+        model.TieneSextoMedicamento = HasMedicationData(med6Nombre, med6Frecuencia, med6Dosis, record.DosisMedicamento6, med6Medida, med6Via);
+        if (model.TieneSextoMedicamento) { model.TieneQuintoMedicamento = true; }
+        if (model.TieneQuintoMedicamento) { model.TieneCuartoMedicamento = true; }
+        if (model.TieneCuartoMedicamento) { model.TieneTercerMedicamento = true; }
+        if (model.TieneTercerMedicamento) { model.TieneSegundoMedicamento = true; }
 
         model.NombreMedicamentoNumero2 = med2Nombre;
         model.DosisMedicamento2 = record.DosisMedicamento2;
@@ -1558,6 +1709,27 @@ public class CensoController : Controller
         model.FrecuenciaAdministracionMedicamento3 = med3Frecuencia;
         model.DiasMedicamento3 = record.DiasMedicamento3;
         model.NumeroDosisMedicamento3 = med3Dosis;
+        model.NombreMedicamentoNumero4 = med4Nombre;
+        model.DosisMedicamento4 = record.DosisMedicamento4;
+        model.MedidaMedicamento4 = med4Medida;
+        model.ViaAdministracionMedicamento4 = med4Via;
+        model.FrecuenciaAdministracionMedicamento4 = med4Frecuencia;
+        model.DiasMedicamento4 = record.DiasMedicamento4;
+        model.NumeroDosisMedicamento4 = med4Dosis;
+        model.NombreMedicamentoNumero5 = med5Nombre;
+        model.DosisMedicamento5 = record.DosisMedicamento5;
+        model.MedidaMedicamento5 = med5Medida;
+        model.ViaAdministracionMedicamento5 = med5Via;
+        model.FrecuenciaAdministracionMedicamento5 = med5Frecuencia;
+        model.DiasMedicamento5 = record.DiasMedicamento5;
+        model.NumeroDosisMedicamento5 = med5Dosis;
+        model.NombreMedicamentoNumero6 = med6Nombre;
+        model.DosisMedicamento6 = record.DosisMedicamento6;
+        model.MedidaMedicamento6 = med6Medida;
+        model.ViaAdministracionMedicamento6 = med6Via;
+        model.FrecuenciaAdministracionMedicamento6 = med6Frecuencia;
+        model.DiasMedicamento6 = record.DiasMedicamento6;
+        model.NumeroDosisMedicamento6 = med6Dosis;
         model.AplicacionesTotales = record.AplicacionesTotales;
         model.DiasTratamientoIv = record.DiasTratamientoIv;
         model.CambioFrecuenciaAdministracionTto = record.CambioFrecuenciaAdministracionTto;
@@ -1718,6 +1890,27 @@ public class CensoController : Controller
         censoRecord.FrecuenciaAdministracionMedicamento3 = GetAdditionalMedicationValueForStorage(model.TieneTercerMedicamento, model.FrecuenciaAdministracionMedicamento3);
         censoRecord.DiasMedicamento3 = model.TieneTercerMedicamento ? model.DiasMedicamento3 : null;
         censoRecord.NumeroDosisMedicamento3 = GetAdditionalMedicationValueForStorage(model.TieneTercerMedicamento, model.NumeroDosisMedicamento3);
+        censoRecord.NombreMedicamentoNumero4 = GetAdditionalMedicationValueForStorage(model.TieneCuartoMedicamento, model.NombreMedicamentoNumero4);
+        censoRecord.DosisMedicamento4 = model.TieneCuartoMedicamento ? model.DosisMedicamento4 : null;
+        censoRecord.MedidaMedicamento4 = GetAdditionalMedicationValueForStorage(model.TieneCuartoMedicamento, model.MedidaMedicamento4);
+        censoRecord.ViaAdministracionMedicamento4 = GetAdditionalMedicationValueForStorage(model.TieneCuartoMedicamento, model.ViaAdministracionMedicamento4);
+        censoRecord.FrecuenciaAdministracionMedicamento4 = GetAdditionalMedicationValueForStorage(model.TieneCuartoMedicamento, model.FrecuenciaAdministracionMedicamento4);
+        censoRecord.DiasMedicamento4 = model.TieneCuartoMedicamento ? model.DiasMedicamento4 : null;
+        censoRecord.NumeroDosisMedicamento4 = GetAdditionalMedicationValueForStorage(model.TieneCuartoMedicamento, model.NumeroDosisMedicamento4);
+        censoRecord.NombreMedicamentoNumero5 = GetAdditionalMedicationValueForStorage(model.TieneQuintoMedicamento, model.NombreMedicamentoNumero5);
+        censoRecord.DosisMedicamento5 = model.TieneQuintoMedicamento ? model.DosisMedicamento5 : null;
+        censoRecord.MedidaMedicamento5 = GetAdditionalMedicationValueForStorage(model.TieneQuintoMedicamento, model.MedidaMedicamento5);
+        censoRecord.ViaAdministracionMedicamento5 = GetAdditionalMedicationValueForStorage(model.TieneQuintoMedicamento, model.ViaAdministracionMedicamento5);
+        censoRecord.FrecuenciaAdministracionMedicamento5 = GetAdditionalMedicationValueForStorage(model.TieneQuintoMedicamento, model.FrecuenciaAdministracionMedicamento5);
+        censoRecord.DiasMedicamento5 = model.TieneQuintoMedicamento ? model.DiasMedicamento5 : null;
+        censoRecord.NumeroDosisMedicamento5 = GetAdditionalMedicationValueForStorage(model.TieneQuintoMedicamento, model.NumeroDosisMedicamento5);
+        censoRecord.NombreMedicamentoNumero6 = GetAdditionalMedicationValueForStorage(model.TieneSextoMedicamento, model.NombreMedicamentoNumero6);
+        censoRecord.DosisMedicamento6 = model.TieneSextoMedicamento ? model.DosisMedicamento6 : null;
+        censoRecord.MedidaMedicamento6 = GetAdditionalMedicationValueForStorage(model.TieneSextoMedicamento, model.MedidaMedicamento6);
+        censoRecord.ViaAdministracionMedicamento6 = GetAdditionalMedicationValueForStorage(model.TieneSextoMedicamento, model.ViaAdministracionMedicamento6);
+        censoRecord.FrecuenciaAdministracionMedicamento6 = GetAdditionalMedicationValueForStorage(model.TieneSextoMedicamento, model.FrecuenciaAdministracionMedicamento6);
+        censoRecord.DiasMedicamento6 = model.TieneSextoMedicamento ? model.DiasMedicamento6 : null;
+        censoRecord.NumeroDosisMedicamento6 = GetAdditionalMedicationValueForStorage(model.TieneSextoMedicamento, model.NumeroDosisMedicamento6);
         censoRecord.AplicacionesTotales = string.IsNullOrWhiteSpace(model.AplicacionesTotales) ? null : model.AplicacionesTotales;
         censoRecord.DiasTratamientoIv = string.IsNullOrWhiteSpace(model.DiasTratamientoIv) ? null : model.DiasTratamientoIv;
         censoRecord.CambioFrecuenciaAdministracionTto = string.IsNullOrWhiteSpace(model.CambioFrecuenciaAdministracionTto) ? null : model.CambioFrecuenciaAdministracionTto;
@@ -1858,6 +2051,12 @@ public class CensoController : Controller
             || HasMedicationData(model.NombreMedicamentoNumero2, model.FrecuenciaAdministracionMedicamento2, model.NumeroDosisMedicamento2, model.DosisMedicamento2, model.MedidaMedicamento2, model.ViaAdministracionMedicamento2);
         model.TieneTercerMedicamento = model.TieneTercerMedicamento
             || HasMedicationData(model.NombreMedicamentoNumero3, model.FrecuenciaAdministracionMedicamento3, model.NumeroDosisMedicamento3, model.DosisMedicamento3, model.MedidaMedicamento3, model.ViaAdministracionMedicamento3);
+        model.TieneCuartoMedicamento = model.TieneCuartoMedicamento
+            || HasMedicationData(model.NombreMedicamentoNumero4, model.FrecuenciaAdministracionMedicamento4, model.NumeroDosisMedicamento4, model.DosisMedicamento4, model.MedidaMedicamento4, model.ViaAdministracionMedicamento4);
+        model.TieneQuintoMedicamento = model.TieneQuintoMedicamento
+            || HasMedicationData(model.NombreMedicamentoNumero5, model.FrecuenciaAdministracionMedicamento5, model.NumeroDosisMedicamento5, model.DosisMedicamento5, model.MedidaMedicamento5, model.ViaAdministracionMedicamento5);
+        model.TieneSextoMedicamento = model.TieneSextoMedicamento
+            || HasMedicationData(model.NombreMedicamentoNumero6, model.FrecuenciaAdministracionMedicamento6, model.NumeroDosisMedicamento6, model.DosisMedicamento6, model.MedidaMedicamento6, model.ViaAdministracionMedicamento6);
 
         var municipioCanonical = ToCanonicalMunicipality(model.MunicipioResidencia) ?? MunicipioNoParametrizado;
         model.MunicipioResidencia = municipioCanonical;
@@ -2248,21 +2447,43 @@ public class CensoController : Controller
 
             ValidateAdditionalMedication(
                 model.TieneTercerMedicamento,
-                model.NombreMedicamentoNumero3,
-                model.DosisMedicamento3,
-                model.MedidaMedicamento3,
-                model.ViaAdministracionMedicamento3,
-                model.FrecuenciaAdministracionMedicamento3,
-                model.DiasMedicamento3,
-                model.NumeroDosisMedicamento3,
-                nameof(model.NombreMedicamentoNumero3),
-                nameof(model.DosisMedicamento3),
-                nameof(model.MedidaMedicamento3),
-                nameof(model.ViaAdministracionMedicamento3),
-                nameof(model.FrecuenciaAdministracionMedicamento3),
-                nameof(model.DiasMedicamento3),
-                nameof(model.NumeroDosisMedicamento3),
-                "medicamento 3");
+                model.NombreMedicamentoNumero3, model.DosisMedicamento3, model.MedidaMedicamento3,
+                model.ViaAdministracionMedicamento3, model.FrecuenciaAdministracionMedicamento3,
+                model.DiasMedicamento3, model.NumeroDosisMedicamento3,
+                nameof(model.NombreMedicamentoNumero3), nameof(model.DosisMedicamento3),
+                nameof(model.MedidaMedicamento3), nameof(model.ViaAdministracionMedicamento3),
+                nameof(model.FrecuenciaAdministracionMedicamento3), nameof(model.DiasMedicamento3),
+                nameof(model.NumeroDosisMedicamento3), "medicamento 3");
+
+            ValidateAdditionalMedication(
+                model.TieneCuartoMedicamento,
+                model.NombreMedicamentoNumero4, model.DosisMedicamento4, model.MedidaMedicamento4,
+                model.ViaAdministracionMedicamento4, model.FrecuenciaAdministracionMedicamento4,
+                model.DiasMedicamento4, model.NumeroDosisMedicamento4,
+                nameof(model.NombreMedicamentoNumero4), nameof(model.DosisMedicamento4),
+                nameof(model.MedidaMedicamento4), nameof(model.ViaAdministracionMedicamento4),
+                nameof(model.FrecuenciaAdministracionMedicamento4), nameof(model.DiasMedicamento4),
+                nameof(model.NumeroDosisMedicamento4), "medicamento 4");
+
+            ValidateAdditionalMedication(
+                model.TieneQuintoMedicamento,
+                model.NombreMedicamentoNumero5, model.DosisMedicamento5, model.MedidaMedicamento5,
+                model.ViaAdministracionMedicamento5, model.FrecuenciaAdministracionMedicamento5,
+                model.DiasMedicamento5, model.NumeroDosisMedicamento5,
+                nameof(model.NombreMedicamentoNumero5), nameof(model.DosisMedicamento5),
+                nameof(model.MedidaMedicamento5), nameof(model.ViaAdministracionMedicamento5),
+                nameof(model.FrecuenciaAdministracionMedicamento5), nameof(model.DiasMedicamento5),
+                nameof(model.NumeroDosisMedicamento5), "medicamento 5");
+
+            ValidateAdditionalMedication(
+                model.TieneSextoMedicamento,
+                model.NombreMedicamentoNumero6, model.DosisMedicamento6, model.MedidaMedicamento6,
+                model.ViaAdministracionMedicamento6, model.FrecuenciaAdministracionMedicamento6,
+                model.DiasMedicamento6, model.NumeroDosisMedicamento6,
+                nameof(model.NombreMedicamentoNumero6), nameof(model.DosisMedicamento6),
+                nameof(model.MedidaMedicamento6), nameof(model.ViaAdministracionMedicamento6),
+                nameof(model.FrecuenciaAdministracionMedicamento6), nameof(model.DiasMedicamento6),
+                nameof(model.NumeroDosisMedicamento6), "medicamento 6");
         }
 
         if (!string.IsNullOrWhiteSpace(model.Estado)
@@ -2574,10 +2795,10 @@ public class CensoController : Controller
             allowedValues.Add("2");
         }
 
-        if (model.TieneTercerMedicamento)
-        {
-            allowedValues.Add("3");
-        }
+        if (model.TieneTercerMedicamento) { allowedValues.Add("3"); }
+        if (model.TieneCuartoMedicamento) { allowedValues.Add("4"); }
+        if (model.TieneQuintoMedicamento) { allowedValues.Add("5"); }
+        if (model.TieneSextoMedicamento) { allowedValues.Add("6"); }
 
         if (!allowedValues.Contains(model.MedicamentoFrecuenciaAjustada))
         {
@@ -2803,6 +3024,27 @@ public class CensoController : Controller
                 model.DiasMedicamento3);
         }
 
+        if (model.TieneCuartoMedicamento)
+        {
+            total += CalculateMedicationApplicationsByFrequency(
+                GetFrequencyForApplications(model, "4", model.FrecuenciaAdministracionMedicamento4),
+                model.DiasMedicamento4);
+        }
+
+        if (model.TieneQuintoMedicamento)
+        {
+            total += CalculateMedicationApplicationsByFrequency(
+                GetFrequencyForApplications(model, "5", model.FrecuenciaAdministracionMedicamento5),
+                model.DiasMedicamento5);
+        }
+
+        if (model.TieneSextoMedicamento)
+        {
+            total += CalculateMedicationApplicationsByFrequency(
+                GetFrequencyForApplications(model, "6", model.FrecuenciaAdministracionMedicamento6),
+                model.DiasMedicamento6);
+        }
+
         return total;
     }
 
@@ -2832,6 +3074,21 @@ public class CensoController : Controller
         if (model.TieneTercerMedicamento)
         {
             maxDays = Math.Max(maxDays, model.DiasMedicamento3 ?? 0);
+        }
+
+        if (model.TieneCuartoMedicamento)
+        {
+            maxDays = Math.Max(maxDays, model.DiasMedicamento4 ?? 0);
+        }
+
+        if (model.TieneQuintoMedicamento)
+        {
+            maxDays = Math.Max(maxDays, model.DiasMedicamento5 ?? 0);
+        }
+
+        if (model.TieneSextoMedicamento)
+        {
+            maxDays = Math.Max(maxDays, model.DiasMedicamento6 ?? 0);
         }
 
         return maxDays > 0 ? maxDays.ToString(CultureInfo.InvariantCulture) : null;
@@ -3296,6 +3553,27 @@ public class CensoController : Controller
         AppendHeaderCell(sb, "FrecuenciaAdministracionMedicamento3");
         AppendHeaderCell(sb, "DiasMedicamento3");
         AppendHeaderCell(sb, "NumeroDosisMedicamento3");
+        AppendHeaderCell(sb, "NombreMedicamentoNumero4");
+        AppendHeaderCell(sb, "DosisMedicamento4");
+        AppendHeaderCell(sb, "MedidaMedicamento4");
+        AppendHeaderCell(sb, "ViaAdministracionMedicamento4");
+        AppendHeaderCell(sb, "FrecuenciaAdministracionMedicamento4");
+        AppendHeaderCell(sb, "DiasMedicamento4");
+        AppendHeaderCell(sb, "NumeroDosisMedicamento4");
+        AppendHeaderCell(sb, "NombreMedicamentoNumero5");
+        AppendHeaderCell(sb, "DosisMedicamento5");
+        AppendHeaderCell(sb, "MedidaMedicamento5");
+        AppendHeaderCell(sb, "ViaAdministracionMedicamento5");
+        AppendHeaderCell(sb, "FrecuenciaAdministracionMedicamento5");
+        AppendHeaderCell(sb, "DiasMedicamento5");
+        AppendHeaderCell(sb, "NumeroDosisMedicamento5");
+        AppendHeaderCell(sb, "NombreMedicamentoNumero6");
+        AppendHeaderCell(sb, "DosisMedicamento6");
+        AppendHeaderCell(sb, "MedidaMedicamento6");
+        AppendHeaderCell(sb, "ViaAdministracionMedicamento6");
+        AppendHeaderCell(sb, "FrecuenciaAdministracionMedicamento6");
+        AppendHeaderCell(sb, "DiasMedicamento6");
+        AppendHeaderCell(sb, "NumeroDosisMedicamento6");
         AppendHeaderCell(sb, "AplicacionesTotales");
         AppendHeaderCell(sb, "DiasTratamientoIv");
         AppendHeaderCell(sb, "CambioFrecuenciaAdministracionTto");
@@ -3381,6 +3659,34 @@ public class CensoController : Controller
         AppendHeaderCell(sb, "Prorroga_Via2");
         AppendHeaderCell(sb, "Prorroga_Frecuencia2");
         AppendHeaderCell(sb, "Prorroga_Dias2");
+        AppendHeaderCell(sb, "Prorroga_TercerMedicamento");
+        AppendHeaderCell(sb, "Prorroga_Medicamento3");
+        AppendHeaderCell(sb, "Prorroga_Dosis3");
+        AppendHeaderCell(sb, "Prorroga_Medida3");
+        AppendHeaderCell(sb, "Prorroga_Via3");
+        AppendHeaderCell(sb, "Prorroga_Frecuencia3");
+        AppendHeaderCell(sb, "Prorroga_Dias3");
+        AppendHeaderCell(sb, "Prorroga_CuartoMedicamento");
+        AppendHeaderCell(sb, "Prorroga_Medicamento4");
+        AppendHeaderCell(sb, "Prorroga_Dosis4");
+        AppendHeaderCell(sb, "Prorroga_Medida4");
+        AppendHeaderCell(sb, "Prorroga_Via4");
+        AppendHeaderCell(sb, "Prorroga_Frecuencia4");
+        AppendHeaderCell(sb, "Prorroga_Dias4");
+        AppendHeaderCell(sb, "Prorroga_QuintoMedicamento");
+        AppendHeaderCell(sb, "Prorroga_Medicamento5");
+        AppendHeaderCell(sb, "Prorroga_Dosis5");
+        AppendHeaderCell(sb, "Prorroga_Medida5");
+        AppendHeaderCell(sb, "Prorroga_Via5");
+        AppendHeaderCell(sb, "Prorroga_Frecuencia5");
+        AppendHeaderCell(sb, "Prorroga_Dias5");
+        AppendHeaderCell(sb, "Prorroga_SextoMedicamento");
+        AppendHeaderCell(sb, "Prorroga_Medicamento6");
+        AppendHeaderCell(sb, "Prorroga_Dosis6");
+        AppendHeaderCell(sb, "Prorroga_Medida6");
+        AppendHeaderCell(sb, "Prorroga_Via6");
+        AppendHeaderCell(sb, "Prorroga_Frecuencia6");
+        AppendHeaderCell(sb, "Prorroga_Dias6");
         AppendHeaderCell(sb, "Prorroga_AplicacionesTotales");
         AppendHeaderCell(sb, "Prorroga_DiasTratamientoIv");
         AppendHeaderCell(sb, "Prorroga_FechaInicio");
@@ -3453,6 +3759,27 @@ public class CensoController : Controller
             AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento3));
             AppendDataCell(sb, item.DiasMedicamento3?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
             AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento3));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero4));
+            AppendDataCell(sb, FormatNullableDecimal(item.DosisMedicamento4));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.MedidaMedicamento4));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento4));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento4));
+            AppendDataCell(sb, item.DiasMedicamento4?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento4));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero5));
+            AppendDataCell(sb, FormatNullableDecimal(item.DosisMedicamento5));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.MedidaMedicamento5));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento5));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento5));
+            AppendDataCell(sb, item.DiasMedicamento5?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento5));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero6));
+            AppendDataCell(sb, FormatNullableDecimal(item.DosisMedicamento6));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.MedidaMedicamento6));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento6));
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento6));
+            AppendDataCell(sb, item.DiasMedicamento6?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento6));
             AppendDataCell(sb, item.AplicacionesTotales ?? string.Empty);
             AppendDataCell(sb, item.DiasTratamientoIv ?? string.Empty);
             AppendDataCell(sb, item.CambioFrecuenciaAdministracionTto ?? string.Empty);
@@ -3543,6 +3870,34 @@ public class CensoController : Controller
             AppendDataCell(sb, prorroga?.ViaAdministracionMedicamento2 ?? "");
             AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMedicamento2 ?? "");
             AppendDataCell(sb, prorroga?.DiasMedicamento2 ?? "");
+            AppendDataCell(sb, prorroga?.TieneTercerMedicamento == true ? "Sí" : "No");
+            AppendDataCell(sb, prorroga?.NombreMedicamentoNumero3 ?? "");
+            AppendDataCell(sb, prorroga?.DosisMedicamento3 ?? "");
+            AppendDataCell(sb, prorroga?.MedidaMedicamento3 ?? "");
+            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamento3 ?? "");
+            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMedicamento3 ?? "");
+            AppendDataCell(sb, prorroga?.DiasMedicamento3 ?? "");
+            AppendDataCell(sb, prorroga?.TieneCuartoMedicamento == true ? "Sí" : "No");
+            AppendDataCell(sb, prorroga?.NombreMedicamentoNumero4 ?? "");
+            AppendDataCell(sb, prorroga?.DosisMedicamento4 ?? "");
+            AppendDataCell(sb, prorroga?.MedidaMedicamento4 ?? "");
+            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamento4 ?? "");
+            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMedicamento4 ?? "");
+            AppendDataCell(sb, prorroga?.DiasMedicamento4 ?? "");
+            AppendDataCell(sb, prorroga?.TieneQuintoMedicamento == true ? "Sí" : "No");
+            AppendDataCell(sb, prorroga?.NombreMedicamentoNumero5 ?? "");
+            AppendDataCell(sb, prorroga?.DosisMedicamento5 ?? "");
+            AppendDataCell(sb, prorroga?.MedidaMedicamento5 ?? "");
+            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamento5 ?? "");
+            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMedicamento5 ?? "");
+            AppendDataCell(sb, prorroga?.DiasMedicamento5 ?? "");
+            AppendDataCell(sb, prorroga?.TieneSextoMedicamento == true ? "Sí" : "No");
+            AppendDataCell(sb, prorroga?.NombreMedicamentoNumero6 ?? "");
+            AppendDataCell(sb, prorroga?.DosisMedicamento6 ?? "");
+            AppendDataCell(sb, prorroga?.MedidaMedicamento6 ?? "");
+            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamento6 ?? "");
+            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMedicamento6 ?? "");
+            AppendDataCell(sb, prorroga?.DiasMedicamento6 ?? "");
             AppendDataCell(sb, prorroga?.AplicacionesTotales ?? "");
             AppendDataCell(sb, prorroga?.DiasTratamientoIv ?? "");
             AppendDataCell(sb, prorroga?.FechaInicioTratamiento ?? "");
@@ -3881,6 +4236,34 @@ public class CensoController : Controller
         public string? ViaAdministracionMedicamento2 { get; set; }
         public string? FrecuenciaAdministracionMedicamento2 { get; set; }
         public string? DiasMedicamento2 { get; set; }
+        public bool? TieneTercerMedicamento { get; set; }
+        public string? NombreMedicamentoNumero3 { get; set; }
+        public string? DosisMedicamento3 { get; set; }
+        public string? MedidaMedicamento3 { get; set; }
+        public string? ViaAdministracionMedicamento3 { get; set; }
+        public string? FrecuenciaAdministracionMedicamento3 { get; set; }
+        public string? DiasMedicamento3 { get; set; }
+        public bool? TieneCuartoMedicamento { get; set; }
+        public string? NombreMedicamentoNumero4 { get; set; }
+        public string? DosisMedicamento4 { get; set; }
+        public string? MedidaMedicamento4 { get; set; }
+        public string? ViaAdministracionMedicamento4 { get; set; }
+        public string? FrecuenciaAdministracionMedicamento4 { get; set; }
+        public string? DiasMedicamento4 { get; set; }
+        public bool? TieneQuintoMedicamento { get; set; }
+        public string? NombreMedicamentoNumero5 { get; set; }
+        public string? DosisMedicamento5 { get; set; }
+        public string? MedidaMedicamento5 { get; set; }
+        public string? ViaAdministracionMedicamento5 { get; set; }
+        public string? FrecuenciaAdministracionMedicamento5 { get; set; }
+        public string? DiasMedicamento5 { get; set; }
+        public bool? TieneSextoMedicamento { get; set; }
+        public string? NombreMedicamentoNumero6 { get; set; }
+        public string? DosisMedicamento6 { get; set; }
+        public string? MedidaMedicamento6 { get; set; }
+        public string? ViaAdministracionMedicamento6 { get; set; }
+        public string? FrecuenciaAdministracionMedicamento6 { get; set; }
+        public string? DiasMedicamento6 { get; set; }
         public string? AplicacionesTotales { get; set; }
         public string? DiasTratamientoIv { get; set; }
         public string? FechaInicioTratamiento { get; set; }

@@ -153,6 +153,8 @@ public class FarmaciaDocumentViewModel
 
     public string? MedicoTratanteKardex { get; set; }
 
+    public bool EsProrrogaActiva { get; set; }
+
     public bool EsEntregaParcial { get; set; }
 
     public int? CantidadEntregas { get; set; }

@@ -20,7 +20,13 @@
         </a>
         <div>
             <span class="farmacia-eyebrow">Pedido #@Model.Id</span>
-            <h1>@(isRequisicion ? "Requisicion" : "Kardex")</h1>
+            <h1>
+                @(isRequisicion ? "Requisicion" : "Kardex")
+                @if (Model.EsProrrogaActiva)
+                {
+                    <span class="badge bg-warning text-dark ms-2" style="font-size:0.6em;vertical-align:middle;">PRÓRROGA</span>
+                }
+            </h1>
             <p>@Model.NombrePaciente - @Model.TipoIdentificacion @Model.NumeroIdentificacion</p>
         </div>
         <div class="farmacia-document-toolbar__switch">

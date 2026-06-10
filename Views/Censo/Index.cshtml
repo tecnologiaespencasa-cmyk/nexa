@@ -456,6 +456,10 @@
             <div class="censo-current-patient__identity">
                 <span class="censo-current-patient__label">Paciente actual</span>
                 <strong>@Model.NombrePaciente</strong>
+                @if (Model.TieneProrrogaActiva)
+                {
+                    <span class="badge bg-warning text-dark ms-1">PRÓRROGA</span>
+                }
                 @if (!string.IsNullOrWhiteSpace(Model.Estado))
                 {
                     <span class="censo-current-patient__status">@Model.Estado</span>
@@ -1036,6 +1040,147 @@
                                                         <span asp-validation-for="DiasMedicamento3" class="text-danger"></span>
                                                     </div>
                                                     <input asp-for="NumeroDosisMedicamento3" type="hidden" id="numeroDosisMedicamento3Select" />
+                                                    <div class="col-12">
+                                                        <div class="form-check form-switch">
+                                                            <input asp-for="TieneCuartoMedicamento" class="form-check-input" type="checkbox" role="switch" id="medicamento4Toggle" />
+                                                            <label asp-for="TieneCuartoMedicamento" class="form-check-label"></label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 d-none" id="medicamento4Container">
+                                                <div class="row g-3">
+                                                    <div class="col-lg-4">
+                                                        <label asp-for="NombreMedicamentoNumero4" class="form-label"></label>
+                                                        <input asp-for="NombreMedicamentoNumero4" class="form-control" maxlength="300" id="nombreMedicamento4Input" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                        <span asp-validation-for="NombreMedicamentoNumero4" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DosisMedicamento4" class="form-label"></label>
+                                                        <input asp-for="DosisMedicamento4" class="form-control" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" id="dosisMedicamento4Input" />
+                                                        <span asp-validation-for="DosisMedicamento4" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="MedidaMedicamento4" class="form-label"></label>
+                                                        <select asp-for="MedidaMedicamento4" asp-items="Model.MedidaMedicamentoOptions" class="form-select" id="medidaMedicamento4Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="MedidaMedicamento4" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="ViaAdministracionMedicamento4" class="form-label"></label>
+                                                        <select asp-for="ViaAdministracionMedicamento4" asp-items="Model.ViaAdministracionMedicamentoOptions" class="form-select" id="viaAdministracionMedicamento4Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="ViaAdministracionMedicamento4" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="FrecuenciaAdministracionMedicamento4" class="form-label"></label>
+                                                        <select asp-for="FrecuenciaAdministracionMedicamento4" asp-items="Model.FrecuenciaAdministracionMxPrincipalOptions" class="form-select" id="frecuenciaMedicamento4Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="FrecuenciaAdministracionMedicamento4" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DiasMedicamento4" class="form-label"></label>
+                                                        <input asp-for="DiasMedicamento4" class="form-control" type="number" min="1" max="999" step="1" inputmode="numeric" id="diasMedicamento4Input" />
+                                                        <span asp-validation-for="DiasMedicamento4" class="text-danger"></span>
+                                                    </div>
+                                                    <input asp-for="NumeroDosisMedicamento4" type="hidden" id="numeroDosisMedicamento4Select" />
+                                                    <div class="col-12">
+                                                        <div class="form-check form-switch">
+                                                            <input asp-for="TieneQuintoMedicamento" class="form-check-input" type="checkbox" role="switch" id="medicamento5Toggle" />
+                                                            <label asp-for="TieneQuintoMedicamento" class="form-check-label"></label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 d-none" id="medicamento5Container">
+                                                <div class="row g-3">
+                                                    <div class="col-lg-4">
+                                                        <label asp-for="NombreMedicamentoNumero5" class="form-label"></label>
+                                                        <input asp-for="NombreMedicamentoNumero5" class="form-control" maxlength="300" id="nombreMedicamento5Input" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                        <span asp-validation-for="NombreMedicamentoNumero5" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DosisMedicamento5" class="form-label"></label>
+                                                        <input asp-for="DosisMedicamento5" class="form-control" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" id="dosisMedicamento5Input" />
+                                                        <span asp-validation-for="DosisMedicamento5" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="MedidaMedicamento5" class="form-label"></label>
+                                                        <select asp-for="MedidaMedicamento5" asp-items="Model.MedidaMedicamentoOptions" class="form-select" id="medidaMedicamento5Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="MedidaMedicamento5" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="ViaAdministracionMedicamento5" class="form-label"></label>
+                                                        <select asp-for="ViaAdministracionMedicamento5" asp-items="Model.ViaAdministracionMedicamentoOptions" class="form-select" id="viaAdministracionMedicamento5Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="ViaAdministracionMedicamento5" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="FrecuenciaAdministracionMedicamento5" class="form-label"></label>
+                                                        <select asp-for="FrecuenciaAdministracionMedicamento5" asp-items="Model.FrecuenciaAdministracionMxPrincipalOptions" class="form-select" id="frecuenciaMedicamento5Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="FrecuenciaAdministracionMedicamento5" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DiasMedicamento5" class="form-label"></label>
+                                                        <input asp-for="DiasMedicamento5" class="form-control" type="number" min="1" max="999" step="1" inputmode="numeric" id="diasMedicamento5Input" />
+                                                        <span asp-validation-for="DiasMedicamento5" class="text-danger"></span>
+                                                    </div>
+                                                    <input asp-for="NumeroDosisMedicamento5" type="hidden" id="numeroDosisMedicamento5Select" />
+                                                    <div class="col-12">
+                                                        <div class="form-check form-switch">
+                                                            <input asp-for="TieneSextoMedicamento" class="form-check-input" type="checkbox" role="switch" id="medicamento6Toggle" />
+                                                            <label asp-for="TieneSextoMedicamento" class="form-check-label"></label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 d-none" id="medicamento6Container">
+                                                <div class="row g-3">
+                                                    <div class="col-lg-4">
+                                                        <label asp-for="NombreMedicamentoNumero6" class="form-label"></label>
+                                                        <input asp-for="NombreMedicamentoNumero6" class="form-control" maxlength="300" id="nombreMedicamento6Input" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                        <span asp-validation-for="NombreMedicamentoNumero6" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DosisMedicamento6" class="form-label"></label>
+                                                        <input asp-for="DosisMedicamento6" class="form-control" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" id="dosisMedicamento6Input" />
+                                                        <span asp-validation-for="DosisMedicamento6" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="MedidaMedicamento6" class="form-label"></label>
+                                                        <select asp-for="MedidaMedicamento6" asp-items="Model.MedidaMedicamentoOptions" class="form-select" id="medidaMedicamento6Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="MedidaMedicamento6" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="ViaAdministracionMedicamento6" class="form-label"></label>
+                                                        <select asp-for="ViaAdministracionMedicamento6" asp-items="Model.ViaAdministracionMedicamentoOptions" class="form-select" id="viaAdministracionMedicamento6Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="ViaAdministracionMedicamento6" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="FrecuenciaAdministracionMedicamento6" class="form-label"></label>
+                                                        <select asp-for="FrecuenciaAdministracionMedicamento6" asp-items="Model.FrecuenciaAdministracionMxPrincipalOptions" class="form-select" id="frecuenciaMedicamento6Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="FrecuenciaAdministracionMedicamento6" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DiasMedicamento6" class="form-label"></label>
+                                                        <input asp-for="DiasMedicamento6" class="form-control" type="number" min="1" max="999" step="1" inputmode="numeric" id="diasMedicamento6Input" />
+                                                        <span asp-validation-for="DiasMedicamento6" class="text-danger"></span>
+                                                    </div>
+                                                    <input asp-for="NumeroDosisMedicamento6" type="hidden" id="numeroDosisMedicamento6Select" />
                                                 </div>
                                             </div>
                                             <div class="col-lg-6">
@@ -1060,8 +1205,11 @@
                                                 <select asp-for="MedicamentoFrecuenciaAjustada" class="form-select" id="medicamentoFrecuenciaAjustadaSelect">
                                                     <option value="">Selecciona...</option>
                                                     <option value="1">Medicamento 1</option>
-                                                    <option value="2">Medicamento 2</option>
-                                                    <option value="3">Medicamento 3</option>
+                                                    <option value="2" class="d-none" id="medAjustadaOpt2">Medicamento 2</option>
+                                                    <option value="3" class="d-none" id="medAjustadaOpt3">Medicamento 3</option>
+                                                    <option value="4" class="d-none" id="medAjustadaOpt4">Medicamento 4</option>
+                                                    <option value="5" class="d-none" id="medAjustadaOpt5">Medicamento 5</option>
+                                                    <option value="6" class="d-none" id="medAjustadaOpt6">Medicamento 6</option>
                                                 </select>
                                                 <span asp-validation-for="MedicamentoFrecuenciaAjustada" class="text-danger"></span>
                                             </div>
@@ -1673,6 +1821,182 @@
                                                 <label class="form-label" for="prorrogaDiasMed2">D&iacute;as</label>
                                                 <input class="form-control" id="prorrogaDiasMed2" type="number" min="1" max="999" step="1" inputmode="numeric" />
                                             </div>
+
+                                            <div class="col-12">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" role="switch" id="prorrogaTieneTercerMed" />
+                                                    <label class="form-check-label" for="prorrogaTieneTercerMed">Tiene tercer medicamento</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 d-none" id="prorrogaMed3Container">
+                                                <div class="row g-3">
+                                                    <div class="col-lg-4">
+                                                        <label class="form-label" for="prorrogaNombreMed3">Nombre medicamento 3 / Principio activo</label>
+                                                        <input class="form-control" id="prorrogaNombreMed3" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label class="form-label" for="prorrogaDosisMed3">Dosis</label>
+                                                        <input class="form-control" id="prorrogaDosisMed3" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label class="form-label" for="prorrogaMedidaMed3">Medida</label>
+                                                        <select class="form-select" id="prorrogaMedidaMed3">
+                                                            <option value="">Selecciona...</option>
+                                                            @foreach (var opt in Model.MedidaMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label class="form-label" for="prorrogaViaMed3">V&iacute;a de administraci&oacute;n</label>
+                                                        <select class="form-select" id="prorrogaViaMed3">
+                                                            <option value="">Selecciona...</option>
+                                                            @foreach (var opt in Model.ViaAdministracionMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label class="form-label" for="prorrogaFrecuenciaMed3">Frecuencia</label>
+                                                        <select class="form-select" id="prorrogaFrecuenciaMed3">
+                                                            <option value="">Selecciona...</option>
+                                                            @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label class="form-label" for="prorrogaDiasMed3">D&iacute;as</label>
+                                                        <input class="form-control" id="prorrogaDiasMed3" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                                    </div>
+
+                                                    <div class="col-12">
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox" role="switch" id="prorrogaTieneCuartoMed" />
+                                                            <label class="form-check-label" for="prorrogaTieneCuartoMed">Tiene cuarto medicamento</label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12 d-none" id="prorrogaMed4Container">
+                                                        <div class="row g-3">
+                                                            <div class="col-lg-4">
+                                                                <label class="form-label" for="prorrogaNombreMed4">Nombre medicamento 4 / Principio activo</label>
+                                                                <input class="form-control" id="prorrogaNombreMed4" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                            </div>
+                                                            <div class="col-lg-1">
+                                                                <label class="form-label" for="prorrogaDosisMed4">Dosis</label>
+                                                                <input class="form-control" id="prorrogaDosisMed4" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                                            </div>
+                                                            <div class="col-lg-2">
+                                                                <label class="form-label" for="prorrogaMedidaMed4">Medida</label>
+                                                                <select class="form-select" id="prorrogaMedidaMed4">
+                                                                    <option value="">Selecciona...</option>
+                                                                    @foreach (var opt in Model.MedidaMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-lg-2">
+                                                                <label class="form-label" for="prorrogaViaMed4">V&iacute;a de administraci&oacute;n</label>
+                                                                <select class="form-select" id="prorrogaViaMed4">
+                                                                    <option value="">Selecciona...</option>
+                                                                    @foreach (var opt in Model.ViaAdministracionMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-lg-2">
+                                                                <label class="form-label" for="prorrogaFrecuenciaMed4">Frecuencia</label>
+                                                                <select class="form-select" id="prorrogaFrecuenciaMed4">
+                                                                    <option value="">Selecciona...</option>
+                                                                    @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-lg-1">
+                                                                <label class="form-label" for="prorrogaDiasMed4">D&iacute;as</label>
+                                                                <input class="form-control" id="prorrogaDiasMed4" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                                            </div>
+
+                                                            <div class="col-12">
+                                                                <div class="form-check form-switch">
+                                                                    <input class="form-check-input" type="checkbox" role="switch" id="prorrogaTieneQuintoMed" />
+                                                                    <label class="form-check-label" for="prorrogaTieneQuintoMed">Tiene quinto medicamento</label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-12 d-none" id="prorrogaMed5Container">
+                                                                <div class="row g-3">
+                                                                    <div class="col-lg-4">
+                                                                        <label class="form-label" for="prorrogaNombreMed5">Nombre medicamento 5 / Principio activo</label>
+                                                                        <input class="form-control" id="prorrogaNombreMed5" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                                    </div>
+                                                                    <div class="col-lg-1">
+                                                                        <label class="form-label" for="prorrogaDosisMed5">Dosis</label>
+                                                                        <input class="form-control" id="prorrogaDosisMed5" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                                                    </div>
+                                                                    <div class="col-lg-2">
+                                                                        <label class="form-label" for="prorrogaMedidaMed5">Medida</label>
+                                                                        <select class="form-select" id="prorrogaMedidaMed5">
+                                                                            <option value="">Selecciona...</option>
+                                                                            @foreach (var opt in Model.MedidaMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-lg-2">
+                                                                        <label class="form-label" for="prorrogaViaMed5">V&iacute;a de administraci&oacute;n</label>
+                                                                        <select class="form-select" id="prorrogaViaMed5">
+                                                                            <option value="">Selecciona...</option>
+                                                                            @foreach (var opt in Model.ViaAdministracionMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-lg-2">
+                                                                        <label class="form-label" for="prorrogaFrecuenciaMed5">Frecuencia</label>
+                                                                        <select class="form-select" id="prorrogaFrecuenciaMed5">
+                                                                            <option value="">Selecciona...</option>
+                                                                            @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-lg-1">
+                                                                        <label class="form-label" for="prorrogaDiasMed5">D&iacute;as</label>
+                                                                        <input class="form-control" id="prorrogaDiasMed5" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                                                    </div>
+
+                                                                    <div class="col-12">
+                                                                        <div class="form-check form-switch">
+                                                                            <input class="form-check-input" type="checkbox" role="switch" id="prorrogaTieneSextoMed" />
+                                                                            <label class="form-check-label" for="prorrogaTieneSextoMed">Tiene sexto medicamento</label>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="col-12 d-none" id="prorrogaMed6Container">
+                                                                        <div class="row g-3">
+                                                                            <div class="col-lg-4">
+                                                                                <label class="form-label" for="prorrogaNombreMed6">Nombre medicamento 6 / Principio activo</label>
+                                                                                <input class="form-control" id="prorrogaNombreMed6" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                                            </div>
+                                                                            <div class="col-lg-1">
+                                                                                <label class="form-label" for="prorrogaDosisMed6">Dosis</label>
+                                                                                <input class="form-control" id="prorrogaDosisMed6" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                                                            </div>
+                                                                            <div class="col-lg-2">
+                                                                                <label class="form-label" for="prorrogaMedidaMed6">Medida</label>
+                                                                                <select class="form-select" id="prorrogaMedidaMed6">
+                                                                                    <option value="">Selecciona...</option>
+                                                                                    @foreach (var opt in Model.MedidaMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                                </select>
+                                                                            </div>
+                                                                            <div class="col-lg-2">
+                                                                                <label class="form-label" for="prorrogaViaMed6">V&iacute;a de administraci&oacute;n</label>
+                                                                                <select class="form-select" id="prorrogaViaMed6">
+                                                                                    <option value="">Selecciona...</option>
+                                                                                    @foreach (var opt in Model.ViaAdministracionMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                                </select>
+                                                                            </div>
+                                                                            <div class="col-lg-2">
+                                                                                <label class="form-label" for="prorrogaFrecuenciaMed6">Frecuencia</label>
+                                                                                <select class="form-select" id="prorrogaFrecuenciaMed6">
+                                                                                    <option value="">Selecciona...</option>
+                                                                                    @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                                </select>
+                                                                            </div>
+                                                                            <div class="col-lg-1">
+                                                                                <label class="form-label" for="prorrogaDiasMed6">D&iacute;as</label>
+                                                                                <input class="form-control" id="prorrogaDiasMed6" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1874,6 +2198,10 @@
                                     <path d="M16 16l5 5"></path>
                                 </svg>
                             </a>
+                            @if (!string.IsNullOrWhiteSpace(record.ProrrogaJson))
+                            {
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.65em;">PRÓRROGA</span>
+                            }
                         </td>
 @foreach (var column in censoTableColumns)
 {
@@ -2173,8 +2501,14 @@
             const telefono3Container = document.getElementById("telefono3Container");
             const medicamento2Toggle = document.getElementById("medicamento2Toggle");
             const medicamento3Toggle = document.getElementById("medicamento3Toggle");
+            const medicamento4Toggle = document.getElementById("medicamento4Toggle");
+            const medicamento5Toggle = document.getElementById("medicamento5Toggle");
+            const medicamento6Toggle = document.getElementById("medicamento6Toggle");
             const medicamento2Container = document.getElementById("medicamento2Container");
             const medicamento3Container = document.getElementById("medicamento3Container");
+            const medicamento4Container = document.getElementById("medicamento4Container");
+            const medicamento5Container = document.getElementById("medicamento5Container");
+            const medicamento6Container = document.getElementById("medicamento6Container");
             const nombreMedicamentoPrincipalInput = document.getElementById("nombreMedicamentoPrincipalInput");
             const dosisMedicamentoPrincipalInput = document.getElementById("dosisMedicamentoPrincipalInput");
             const medidaMedicamentoPrincipalSelect = document.getElementById("medidaMedicamentoPrincipalSelect");
@@ -2205,6 +2539,27 @@
             const frecuenciaMedicamento3Select = document.getElementById("frecuenciaMedicamento3Select");
             const numeroDosisMedicamento3Select = document.getElementById("numeroDosisMedicamento3Select");
             const diasMedicamento3Input = document.getElementById("diasMedicamento3Input");
+            const nombreMedicamento4Input = document.getElementById("nombreMedicamento4Input");
+            const dosisMedicamento4Input = document.getElementById("dosisMedicamento4Input");
+            const medidaMedicamento4Select = document.getElementById("medidaMedicamento4Select");
+            const viaAdministracionMedicamento4Select = document.getElementById("viaAdministracionMedicamento4Select");
+            const frecuenciaMedicamento4Select = document.getElementById("frecuenciaMedicamento4Select");
+            const numeroDosisMedicamento4Select = document.getElementById("numeroDosisMedicamento4Select");
+            const diasMedicamento4Input = document.getElementById("diasMedicamento4Input");
+            const nombreMedicamento5Input = document.getElementById("nombreMedicamento5Input");
+            const dosisMedicamento5Input = document.getElementById("dosisMedicamento5Input");
+            const medidaMedicamento5Select = document.getElementById("medidaMedicamento5Select");
+            const viaAdministracionMedicamento5Select = document.getElementById("viaAdministracionMedicamento5Select");
+            const frecuenciaMedicamento5Select = document.getElementById("frecuenciaMedicamento5Select");
+            const numeroDosisMedicamento5Select = document.getElementById("numeroDosisMedicamento5Select");
+            const diasMedicamento5Input = document.getElementById("diasMedicamento5Input");
+            const nombreMedicamento6Input = document.getElementById("nombreMedicamento6Input");
+            const dosisMedicamento6Input = document.getElementById("dosisMedicamento6Input");
+            const medidaMedicamento6Select = document.getElementById("medidaMedicamento6Select");
+            const viaAdministracionMedicamento6Select = document.getElementById("viaAdministracionMedicamento6Select");
+            const frecuenciaMedicamento6Select = document.getElementById("frecuenciaMedicamento6Select");
+            const numeroDosisMedicamento6Select = document.getElementById("numeroDosisMedicamento6Select");
+            const diasMedicamento6Input = document.getElementById("diasMedicamento6Input");
             const cateterismoOSvSelect = document.getElementById("cateterismoOSvSelect");
             const cateterismoContainer = document.getElementById("cateterismoContainer");
             const cateterPiccSelect = document.getElementById("cateterPiccSelect");
@@ -2526,6 +2881,33 @@
                         days: getFormValue("DiasMedicamento3"),
                         startDate: fechaInicio,
                         endDate: fechaFin
+                    },
+                    {
+                        name: getFormValue("NombreMedicamentoNumero4"),
+                        dose: getFormValue("DosisMedicamento4"),
+                        frequency: getFormValue("FrecuenciaAdministracionMedicamento4"),
+                        dailyDoses: getFormValue("NumeroDosisMedicamento4"),
+                        days: getFormValue("DiasMedicamento4"),
+                        startDate: fechaInicio,
+                        endDate: fechaFin
+                    },
+                    {
+                        name: getFormValue("NombreMedicamentoNumero5"),
+                        dose: getFormValue("DosisMedicamento5"),
+                        frequency: getFormValue("FrecuenciaAdministracionMedicamento5"),
+                        dailyDoses: getFormValue("NumeroDosisMedicamento5"),
+                        days: getFormValue("DiasMedicamento5"),
+                        startDate: fechaInicio,
+                        endDate: fechaFin
+                    },
+                    {
+                        name: getFormValue("NombreMedicamentoNumero6"),
+                        dose: getFormValue("DosisMedicamento6"),
+                        frequency: getFormValue("FrecuenciaAdministracionMedicamento6"),
+                        dailyDoses: getFormValue("NumeroDosisMedicamento6"),
+                        days: getFormValue("DiasMedicamento6"),
+                        startDate: fechaInicio,
+                        endDate: fechaFin
                     }
                 ].filter((medication) => hasRequisitionMedication(medication.name));
             };
@@ -2710,6 +3092,39 @@
                     route: getFormValue("ViaAdministracionMedicamento3"),
                     frequency: getFormValue("FrecuenciaAdministracionMedicamento3"),
                     days: getFormValue("DiasMedicamento3"),
+                    startDate: fechaInicio,
+                    endDate: fechaFin
+                });
+
+                syncKardexMedicationRow(4, {
+                    name: getFormValue("NombreMedicamentoNumero4"),
+                    dose: getFormValue("DosisMedicamento4"),
+                    measure: getFormValue("MedidaMedicamento4"),
+                    route: getFormValue("ViaAdministracionMedicamento4"),
+                    frequency: getFormValue("FrecuenciaAdministracionMedicamento4"),
+                    days: getFormValue("DiasMedicamento4"),
+                    startDate: fechaInicio,
+                    endDate: fechaFin
+                });
+
+                syncKardexMedicationRow(5, {
+                    name: getFormValue("NombreMedicamentoNumero5"),
+                    dose: getFormValue("DosisMedicamento5"),
+                    measure: getFormValue("MedidaMedicamento5"),
+                    route: getFormValue("ViaAdministracionMedicamento5"),
+                    frequency: getFormValue("FrecuenciaAdministracionMedicamento5"),
+                    days: getFormValue("DiasMedicamento5"),
+                    startDate: fechaInicio,
+                    endDate: fechaFin
+                });
+
+                syncKardexMedicationRow(6, {
+                    name: getFormValue("NombreMedicamentoNumero6"),
+                    dose: getFormValue("DosisMedicamento6"),
+                    measure: getFormValue("MedidaMedicamento6"),
+                    route: getFormValue("ViaAdministracionMedicamento6"),
+                    frequency: getFormValue("FrecuenciaAdministracionMedicamento6"),
+                    days: getFormValue("DiasMedicamento6"),
                     startDate: fechaInicio,
                     endDate: fechaFin
                 });
@@ -3239,6 +3654,15 @@
                             if (medicamento3Toggle && medicamento3Toggle.checked) {
                                 required.push("NombreMedicamentoNumero3", "DosisMedicamento3", "MedidaMedicamento3", "ViaAdministracionMedicamento3", "FrecuenciaAdministracionMedicamento3", "DiasMedicamento3");
                             }
+                            if (medicamento4Toggle && medicamento4Toggle.checked) {
+                                required.push("NombreMedicamentoNumero4", "DosisMedicamento4", "MedidaMedicamento4", "ViaAdministracionMedicamento4", "FrecuenciaAdministracionMedicamento4", "DiasMedicamento4");
+                            }
+                            if (medicamento5Toggle && medicamento5Toggle.checked) {
+                                required.push("NombreMedicamentoNumero5", "DosisMedicamento5", "MedidaMedicamento5", "ViaAdministracionMedicamento5", "FrecuenciaAdministracionMedicamento5", "DiasMedicamento5");
+                            }
+                            if (medicamento6Toggle && medicamento6Toggle.checked) {
+                                required.push("NombreMedicamentoNumero6", "DosisMedicamento6", "MedidaMedicamento6", "ViaAdministracionMedicamento6", "FrecuenciaAdministracionMedicamento6", "DiasMedicamento6");
+                            }
                         }
 
 
@@ -3694,7 +4118,7 @@
                 form.addEventListener("submit", (event) => {
                     uppercaseAllCensoTextFields();
                     [telefono1Input, telefono2Input, telefono3Input, numeroTelefonoLlamadaBienvenidaInput].forEach((input) => sanitizePhoneInput(input));
-                    [diasMedicamentoPrincipalInput, diasMedicamento2Input, diasMedicamento3Input].forEach((input) => sanitizeDaysInput(input));
+                    [diasMedicamentoPrincipalInput, diasMedicamento2Input, diasMedicamento3Input, diasMedicamento4Input, diasMedicamento5Input, diasMedicamento6Input].forEach((input) => sanitizeDaysInput(input));
                     syncMedicationVisibility();
                     syncAllMedicationDailyDoses();
                     syncAplicacionesTotales();
@@ -3906,6 +4330,9 @@
                 syncPrincipalDailyDose();
                 syncAdditionalMedicationDailyDose(frecuenciaMedicamento2Select, numeroDosisMedicamento2Select);
                 syncAdditionalMedicationDailyDose(frecuenciaMedicamento3Select, numeroDosisMedicamento3Select);
+                syncAdditionalMedicationDailyDose(frecuenciaMedicamento4Select, numeroDosisMedicamento4Select);
+                syncAdditionalMedicationDailyDose(frecuenciaMedicamento5Select, numeroDosisMedicamento5Select);
+                syncAdditionalMedicationDailyDose(frecuenciaMedicamento6Select, numeroDosisMedicamento6Select);
             };
 
             const isMedicationAdministrationEnabled = () => {
@@ -4049,26 +4476,22 @@
                 }
 
                 if (medicamentoFrecuenciaAjustadaSelect) {
-                    const medication2Available = !!(medicamento2Toggle && medicamento2Toggle.checked);
-                    const medication3Available = !!(medicamento3Toggle && medicamento3Toggle.checked);
+                    const med2Avail = !!(medicamento2Toggle && medicamento2Toggle.checked);
+                    const med3Avail = !!(medicamento3Toggle && medicamento3Toggle.checked);
+                    const med4Avail = !!(medicamento4Toggle && medicamento4Toggle.checked);
+                    const med5Avail = !!(medicamento5Toggle && medicamento5Toggle.checked);
+                    const med6Avail = !!(medicamento6Toggle && medicamento6Toggle.checked);
+                    const availMap = { "2": med2Avail, "3": med3Avail, "4": med4Avail, "5": med5Avail, "6": med6Avail };
                     Array.from(medicamentoFrecuenciaAjustadaSelect.options).forEach((option) => {
-                        if (option.value === "2") {
-                            option.hidden = !medication2Available;
-                            option.disabled = !medication2Available;
-                        }
-
-                        if (option.value === "3") {
-                            option.hidden = !medication3Available;
-                            option.disabled = !medication3Available;
+                        if (availMap[option.value] !== undefined) {
+                            option.hidden = !availMap[option.value];
+                            option.disabled = !availMap[option.value];
                         }
                     });
-
-                    if (!showAdjustment
-                        || (medicamentoFrecuenciaAjustadaSelect.value === "2" && !medication2Available)
-                        || (medicamentoFrecuenciaAjustadaSelect.value === "3" && !medication3Available)) {
+                    const curVal = medicamentoFrecuenciaAjustadaSelect.value;
+                    if (!showAdjustment || (curVal && availMap[curVal] === false)) {
                         medicamentoFrecuenciaAjustadaSelect.value = "";
                     }
-
                     syncSelectPlaceholderState(medicamentoFrecuenciaAjustadaSelect);
                 }
 
@@ -4097,9 +4520,10 @@
                     days.push(getMedicationDaysValue(diasMedicamento2Input));
                 }
 
-                if (medicamento3Toggle && medicamento3Toggle.checked) {
-                    days.push(getMedicationDaysValue(diasMedicamento3Input));
-                }
+                if (medicamento3Toggle && medicamento3Toggle.checked) { days.push(getMedicationDaysValue(diasMedicamento3Input)); }
+                if (medicamento4Toggle && medicamento4Toggle.checked) { days.push(getMedicationDaysValue(diasMedicamento4Input)); }
+                if (medicamento5Toggle && medicamento5Toggle.checked) { days.push(getMedicationDaysValue(diasMedicamento5Input)); }
+                if (medicamento6Toggle && medicamento6Toggle.checked) { days.push(getMedicationDaysValue(diasMedicamento6Input)); }
 
                 const maxDays = Math.max(...days);
                 diasTratamientoIvInput.value = maxDays > 0 ? String(maxDays) : "";
@@ -4127,6 +4551,15 @@
 
                 if (medicamento3Toggle && medicamento3Toggle.checked) {
                     total += calculateMedicationApplicationsWithAdjustment(3, frecuenciaMedicamento3Select, numeroDosisMedicamento3Select, diasMedicamento3Input);
+                }
+                if (medicamento4Toggle && medicamento4Toggle.checked) {
+                    total += calculateMedicationApplicationsWithAdjustment(4, frecuenciaMedicamento4Select, numeroDosisMedicamento4Select, diasMedicamento4Input);
+                }
+                if (medicamento5Toggle && medicamento5Toggle.checked) {
+                    total += calculateMedicationApplicationsWithAdjustment(5, frecuenciaMedicamento5Select, numeroDosisMedicamento5Select, diasMedicamento5Input);
+                }
+                if (medicamento6Toggle && medicamento6Toggle.checked) {
+                    total += calculateMedicationApplicationsWithAdjustment(6, frecuenciaMedicamento6Select, numeroDosisMedicamento6Select, diasMedicamento6Input);
                 }
 
                 aplicacionesTotalesInput.value = String(total);
@@ -4278,14 +4711,7 @@
                         clearMedicationAdministrationFields();
                     }
 
-                    if (medicamento2Container) {
-                        medicamento2Container.classList.add("d-none");
-                    }
-
-                    if (medicamento3Container) {
-                        medicamento3Container.classList.add("d-none");
-                    }
-
+                    [medicamento2Container, medicamento3Container, medicamento4Container, medicamento5Container, medicamento6Container].forEach(c => { if (c) c.classList.add("d-none"); });
                     syncAplicacionesTotales();
                     syncFechaFinTratamiento();
                     return;
@@ -4297,81 +4723,95 @@
                 syncFechaFinTratamiento();
             };
 
+            const hasMedData = (nameEl, dosisEl, medidaEl, viaEl, frecuenciaEl, numDosisEl) => !!(
+                (nameEl && nameEl.value.trim().length > 0) || (dosisEl && dosisEl.value)
+                || (medidaEl && medidaEl.value) || (viaEl && viaEl.value)
+                || (frecuenciaEl && frecuenciaEl.value) || (numDosisEl && numDosisEl.value)
+            );
+
             const syncMedicationVisibility = (hydrateFromExistingData = false) => {
                 if (!isMedicationAdministrationEnabled()) {
-                    if (medicamento2Container) {
-                        medicamento2Container.classList.add("d-none");
-                    }
-
-                    if (medicamento3Container) {
-                        medicamento3Container.classList.add("d-none");
-                    }
-
+                    [medicamento2Container, medicamento3Container, medicamento4Container, medicamento5Container, medicamento6Container].forEach(c => { if (c) c.classList.add("d-none"); });
                     return;
                 }
 
-                const hasMedication2Data = !!(
-                    (nombreMedicamento2Input && nombreMedicamento2Input.value.trim().length > 0)
-                    || (dosisMedicamento2Input && dosisMedicamento2Input.value)
-                    || (medidaMedicamento2Select && medidaMedicamento2Select.value)
-                    || (viaAdministracionMedicamento2Select && viaAdministracionMedicamento2Select.value)
-                    || (frecuenciaMedicamento2Select && frecuenciaMedicamento2Select.value)
-                    || (numeroDosisMedicamento2Select && numeroDosisMedicamento2Select.value)
-                );
-                const hasMedication3Data = !!(
-                    (nombreMedicamento3Input && nombreMedicamento3Input.value.trim().length > 0)
-                    || (dosisMedicamento3Input && dosisMedicamento3Input.value)
-                    || (medidaMedicamento3Select && medidaMedicamento3Select.value)
-                    || (viaAdministracionMedicamento3Select && viaAdministracionMedicamento3Select.value)
-                    || (frecuenciaMedicamento3Select && frecuenciaMedicamento3Select.value)
-                    || (numeroDosisMedicamento3Select && numeroDosisMedicamento3Select.value)
-                );
+                const hasData2 = hasMedData(nombreMedicamento2Input, dosisMedicamento2Input, medidaMedicamento2Select, viaAdministracionMedicamento2Select, frecuenciaMedicamento2Select, numeroDosisMedicamento2Select);
+                const hasData3 = hasMedData(nombreMedicamento3Input, dosisMedicamento3Input, medidaMedicamento3Select, viaAdministracionMedicamento3Select, frecuenciaMedicamento3Select, numeroDosisMedicamento3Select);
+                const hasData4 = hasMedData(nombreMedicamento4Input, dosisMedicamento4Input, medidaMedicamento4Select, viaAdministracionMedicamento4Select, frecuenciaMedicamento4Select, numeroDosisMedicamento4Select);
+                const hasData5 = hasMedData(nombreMedicamento5Input, dosisMedicamento5Input, medidaMedicamento5Select, viaAdministracionMedicamento5Select, frecuenciaMedicamento5Select, numeroDosisMedicamento5Select);
+                const hasData6 = hasMedData(nombreMedicamento6Input, dosisMedicamento6Input, medidaMedicamento6Select, viaAdministracionMedicamento6Select, frecuenciaMedicamento6Select, numeroDosisMedicamento6Select);
 
-                if (hydrateFromExistingData && medicamento2Toggle && hasMedication2Data) {
-                    medicamento2Toggle.checked = true;
+                if (hydrateFromExistingData) {
+                    if (medicamento2Toggle && hasData2) medicamento2Toggle.checked = true;
+                    if (medicamento3Toggle && hasData3) medicamento3Toggle.checked = true;
+                    if (medicamento4Toggle && hasData4) medicamento4Toggle.checked = true;
+                    if (medicamento5Toggle && hasData5) medicamento5Toggle.checked = true;
+                    if (medicamento6Toggle && hasData6) medicamento6Toggle.checked = true;
                 }
 
-                const showMedication2 = !!(medicamento2Toggle && medicamento2Toggle.checked);
-                if (medicamento2Container) {
-                    medicamento2Container.classList.toggle("d-none", !showMedication2);
-                }
+                const show2 = !!(medicamento2Toggle && medicamento2Toggle.checked);
+                if (medicamento2Container) medicamento2Container.classList.toggle("d-none", !show2);
 
-                if (!showMedication2) {
+                if (!show2) {
+                    [medicamento3Toggle, medicamento4Toggle, medicamento5Toggle, medicamento6Toggle].forEach(t => { if (t) t.checked = false; });
+                    [medicamento3Container, medicamento4Container, medicamento5Container, medicamento6Container].forEach(c => { if (c) c.classList.add("d-none"); });
                     clearAdditionalMedicationFields(nombreMedicamento2Input, dosisMedicamento2Input, medidaMedicamento2Select, viaAdministracionMedicamento2Select, frecuenciaMedicamento2Select, numeroDosisMedicamento2Select, diasMedicamento2Input);
                     clearAdditionalMedicationFields(nombreMedicamento3Input, dosisMedicamento3Input, medidaMedicamento3Select, viaAdministracionMedicamento3Select, frecuenciaMedicamento3Select, numeroDosisMedicamento3Select, diasMedicamento3Input);
-
-                    if (medicamento3Toggle) {
-                        medicamento3Toggle.checked = false;
-                    }
-
-                    if (medicamento3Container) {
-                        medicamento3Container.classList.add("d-none");
-                    }
-
-                    syncCambioFrecuenciaVisibility();
-                    syncAplicacionesTotales();
-                    return;
+                    clearAdditionalMedicationFields(nombreMedicamento4Input, dosisMedicamento4Input, medidaMedicamento4Select, viaAdministracionMedicamento4Select, frecuenciaMedicamento4Select, numeroDosisMedicamento4Select, diasMedicamento4Input);
+                    clearAdditionalMedicationFields(nombreMedicamento5Input, dosisMedicamento5Input, medidaMedicamento5Select, viaAdministracionMedicamento5Select, frecuenciaMedicamento5Select, numeroDosisMedicamento5Select, diasMedicamento5Input);
+                    clearAdditionalMedicationFields(nombreMedicamento6Input, dosisMedicamento6Input, medidaMedicamento6Select, viaAdministracionMedicamento6Select, frecuenciaMedicamento6Select, numeroDosisMedicamento6Select, diasMedicamento6Input);
+                    syncCambioFrecuenciaVisibility(); syncAplicacionesTotales(); return;
                 }
 
                 syncAdditionalMedicationDailyDose(frecuenciaMedicamento2Select, numeroDosisMedicamento2Select);
+                const show3 = !!(medicamento3Toggle && medicamento3Toggle.checked);
+                if (medicamento3Container) medicamento3Container.classList.toggle("d-none", !show3);
 
-                if (hydrateFromExistingData && medicamento3Toggle && hasMedication3Data) {
-                    medicamento3Toggle.checked = true;
-                }
-
-                const showMedication3 = !!(medicamento3Toggle && medicamento3Toggle.checked);
-                if (medicamento3Container) {
-                    medicamento3Container.classList.toggle("d-none", !showMedication3);
-                }
-
-                if (!showMedication3) {
+                if (!show3) {
+                    [medicamento4Toggle, medicamento5Toggle, medicamento6Toggle].forEach(t => { if (t) t.checked = false; });
+                    [medicamento4Container, medicamento5Container, medicamento6Container].forEach(c => { if (c) c.classList.add("d-none"); });
                     clearAdditionalMedicationFields(nombreMedicamento3Input, dosisMedicamento3Input, medidaMedicamento3Select, viaAdministracionMedicamento3Select, frecuenciaMedicamento3Select, numeroDosisMedicamento3Select, diasMedicamento3Input);
-                    syncCambioFrecuenciaVisibility();
-                    syncAplicacionesTotales();
-                    return;
+                    clearAdditionalMedicationFields(nombreMedicamento4Input, dosisMedicamento4Input, medidaMedicamento4Select, viaAdministracionMedicamento4Select, frecuenciaMedicamento4Select, numeroDosisMedicamento4Select, diasMedicamento4Input);
+                    clearAdditionalMedicationFields(nombreMedicamento5Input, dosisMedicamento5Input, medidaMedicamento5Select, viaAdministracionMedicamento5Select, frecuenciaMedicamento5Select, numeroDosisMedicamento5Select, diasMedicamento5Input);
+                    clearAdditionalMedicationFields(nombreMedicamento6Input, dosisMedicamento6Input, medidaMedicamento6Select, viaAdministracionMedicamento6Select, frecuenciaMedicamento6Select, numeroDosisMedicamento6Select, diasMedicamento6Input);
+                    syncCambioFrecuenciaVisibility(); syncAplicacionesTotales(); return;
                 }
 
                 syncAdditionalMedicationDailyDose(frecuenciaMedicamento3Select, numeroDosisMedicamento3Select);
+                const show4 = !!(medicamento4Toggle && medicamento4Toggle.checked);
+                if (medicamento4Container) medicamento4Container.classList.toggle("d-none", !show4);
+
+                if (!show4) {
+                    [medicamento5Toggle, medicamento6Toggle].forEach(t => { if (t) t.checked = false; });
+                    [medicamento5Container, medicamento6Container].forEach(c => { if (c) c.classList.add("d-none"); });
+                    clearAdditionalMedicationFields(nombreMedicamento4Input, dosisMedicamento4Input, medidaMedicamento4Select, viaAdministracionMedicamento4Select, frecuenciaMedicamento4Select, numeroDosisMedicamento4Select, diasMedicamento4Input);
+                    clearAdditionalMedicationFields(nombreMedicamento5Input, dosisMedicamento5Input, medidaMedicamento5Select, viaAdministracionMedicamento5Select, frecuenciaMedicamento5Select, numeroDosisMedicamento5Select, diasMedicamento5Input);
+                    clearAdditionalMedicationFields(nombreMedicamento6Input, dosisMedicamento6Input, medidaMedicamento6Select, viaAdministracionMedicamento6Select, frecuenciaMedicamento6Select, numeroDosisMedicamento6Select, diasMedicamento6Input);
+                    syncCambioFrecuenciaVisibility(); syncAplicacionesTotales(); return;
+                }
+
+                syncAdditionalMedicationDailyDose(frecuenciaMedicamento4Select, numeroDosisMedicamento4Select);
+                const show5 = !!(medicamento5Toggle && medicamento5Toggle.checked);
+                if (medicamento5Container) medicamento5Container.classList.toggle("d-none", !show5);
+
+                if (!show5) {
+                    if (medicamento6Toggle) medicamento6Toggle.checked = false;
+                    if (medicamento6Container) medicamento6Container.classList.add("d-none");
+                    clearAdditionalMedicationFields(nombreMedicamento5Input, dosisMedicamento5Input, medidaMedicamento5Select, viaAdministracionMedicamento5Select, frecuenciaMedicamento5Select, numeroDosisMedicamento5Select, diasMedicamento5Input);
+                    clearAdditionalMedicationFields(nombreMedicamento6Input, dosisMedicamento6Input, medidaMedicamento6Select, viaAdministracionMedicamento6Select, frecuenciaMedicamento6Select, numeroDosisMedicamento6Select, diasMedicamento6Input);
+                    syncCambioFrecuenciaVisibility(); syncAplicacionesTotales(); return;
+                }
+
+                syncAdditionalMedicationDailyDose(frecuenciaMedicamento5Select, numeroDosisMedicamento5Select);
+                const show6 = !!(medicamento6Toggle && medicamento6Toggle.checked);
+                if (medicamento6Container) medicamento6Container.classList.toggle("d-none", !show6);
+
+                if (!show6) {
+                    clearAdditionalMedicationFields(nombreMedicamento6Input, dosisMedicamento6Input, medidaMedicamento6Select, viaAdministracionMedicamento6Select, frecuenciaMedicamento6Select, numeroDosisMedicamento6Select, diasMedicamento6Input);
+                } else {
+                    syncAdditionalMedicationDailyDose(frecuenciaMedicamento6Select, numeroDosisMedicamento6Select);
+                }
+
                 syncCambioFrecuenciaVisibility();
                 syncAplicacionesTotales();
             };
@@ -4782,6 +5222,14 @@
                 const prorrogaTabLink = document.getElementById("tab-prorroga-link");
                 const prorrogaMed2Toggle = document.getElementById("prorrogaTieneSegundoMed");
                 const prorrogaMed2Container = document.getElementById("prorrogaMed2Container");
+                const prorrogaMed3Toggle = document.getElementById("prorrogaTieneTercerMed");
+                const prorrogaMed3Container = document.getElementById("prorrogaMed3Container");
+                const prorrogaMed4Toggle = document.getElementById("prorrogaTieneCuartoMed");
+                const prorrogaMed4Container = document.getElementById("prorrogaMed4Container");
+                const prorrogaMed5Toggle = document.getElementById("prorrogaTieneQuintoMed");
+                const prorrogaMed5Container = document.getElementById("prorrogaMed5Container");
+                const prorrogaMed6Toggle = document.getElementById("prorrogaTieneSextoMed");
+                const prorrogaMed6Container = document.getElementById("prorrogaMed6Container");
                 const prorrogaAplicacionesInput = document.getElementById("prorrogaAplicacionesTotales");
                 const prorrogaDiasIvInput = document.getElementById("prorrogaDiasTratamientoIv");
                 const prorrogaFechaInicioInput = document.getElementById("prorrogaFechaInicio");
@@ -4795,9 +5243,12 @@
                 const syncProrrogaDiasIv = () => {
                     if (!prorrogaDiasIvInput) return;
                     const d1 = getMedicationDaysValue(document.getElementById("prorrogaDiasMedPrincipal"));
-                    const d2 = (prorrogaMed2Toggle?.checked)
-                        ? getMedicationDaysValue(document.getElementById("prorrogaDiasMed2")) : 0;
-                    const max = Math.max(d1, d2);
+                    const d2 = prorrogaMed2Toggle?.checked ? getMedicationDaysValue(document.getElementById("prorrogaDiasMed2")) : 0;
+                    const d3 = prorrogaMed3Toggle?.checked ? getMedicationDaysValue(document.getElementById("prorrogaDiasMed3")) : 0;
+                    const d4 = prorrogaMed4Toggle?.checked ? getMedicationDaysValue(document.getElementById("prorrogaDiasMed4")) : 0;
+                    const d5 = prorrogaMed5Toggle?.checked ? getMedicationDaysValue(document.getElementById("prorrogaDiasMed5")) : 0;
+                    const d6 = prorrogaMed6Toggle?.checked ? getMedicationDaysValue(document.getElementById("prorrogaDiasMed6")) : 0;
+                    const max = Math.max(d1, d2, d3, d4, d5, d6);
                     prorrogaDiasIvInput.value = max > 0 ? String(max) : "";
                 };
 
@@ -4817,11 +5268,21 @@
                 const syncProrrogaAplicaciones = () => {
                     if (!prorrogaAplicacionesInput) return;
                     const freq1 = getProrrogaInputValue("prorrogaFrecuenciaMedPrincipal");
-                    const a1 = calculateMedicationApplicationsByFrequency(freq1, document.getElementById("prorrogaDiasMedPrincipal"));
-                    let total = a1;
+                    let total = calculateMedicationApplicationsByFrequency(freq1, document.getElementById("prorrogaDiasMedPrincipal"));
                     if (prorrogaMed2Toggle?.checked) {
-                        const freq2 = getProrrogaInputValue("prorrogaFrecuenciaMed2");
-                        total += calculateMedicationApplicationsByFrequency(freq2, document.getElementById("prorrogaDiasMed2"));
+                        total += calculateMedicationApplicationsByFrequency(getProrrogaInputValue("prorrogaFrecuenciaMed2"), document.getElementById("prorrogaDiasMed2"));
+                    }
+                    if (prorrogaMed3Toggle?.checked) {
+                        total += calculateMedicationApplicationsByFrequency(getProrrogaInputValue("prorrogaFrecuenciaMed3"), document.getElementById("prorrogaDiasMed3"));
+                    }
+                    if (prorrogaMed4Toggle?.checked) {
+                        total += calculateMedicationApplicationsByFrequency(getProrrogaInputValue("prorrogaFrecuenciaMed4"), document.getElementById("prorrogaDiasMed4"));
+                    }
+                    if (prorrogaMed5Toggle?.checked) {
+                        total += calculateMedicationApplicationsByFrequency(getProrrogaInputValue("prorrogaFrecuenciaMed5"), document.getElementById("prorrogaDiasMed5"));
+                    }
+                    if (prorrogaMed6Toggle?.checked) {
+                        total += calculateMedicationApplicationsByFrequency(getProrrogaInputValue("prorrogaFrecuenciaMed6"), document.getElementById("prorrogaDiasMed6"));
                     }
                     prorrogaAplicacionesInput.value = total > 0 ? String(total) : "";
                     syncProrrogaDiasIv();
@@ -4843,6 +5304,34 @@
                     viaAdministracionMedicamento2: getProrrogaInputValue("prorrogaViaMed2"),
                     frecuenciaAdministracionMedicamento2: getProrrogaInputValue("prorrogaFrecuenciaMed2"),
                     diasMedicamento2: getProrrogaInputValue("prorrogaDiasMed2"),
+                    tieneTercerMedicamento: !!(prorrogaMed3Toggle?.checked),
+                    nombreMedicamentoNumero3: getProrrogaInputValue("prorrogaNombreMed3"),
+                    dosisMedicamento3: getProrrogaInputValue("prorrogaDosisMed3"),
+                    medidaMedicamento3: getProrrogaInputValue("prorrogaMedidaMed3"),
+                    viaAdministracionMedicamento3: getProrrogaInputValue("prorrogaViaMed3"),
+                    frecuenciaAdministracionMedicamento3: getProrrogaInputValue("prorrogaFrecuenciaMed3"),
+                    diasMedicamento3: getProrrogaInputValue("prorrogaDiasMed3"),
+                    tieneCuartoMedicamento: !!(prorrogaMed4Toggle?.checked),
+                    nombreMedicamentoNumero4: getProrrogaInputValue("prorrogaNombreMed4"),
+                    dosisMedicamento4: getProrrogaInputValue("prorrogaDosisMed4"),
+                    medidaMedicamento4: getProrrogaInputValue("prorrogaMedidaMed4"),
+                    viaAdministracionMedicamento4: getProrrogaInputValue("prorrogaViaMed4"),
+                    frecuenciaAdministracionMedicamento4: getProrrogaInputValue("prorrogaFrecuenciaMed4"),
+                    diasMedicamento4: getProrrogaInputValue("prorrogaDiasMed4"),
+                    tieneQuintoMedicamento: !!(prorrogaMed5Toggle?.checked),
+                    nombreMedicamentoNumero5: getProrrogaInputValue("prorrogaNombreMed5"),
+                    dosisMedicamento5: getProrrogaInputValue("prorrogaDosisMed5"),
+                    medidaMedicamento5: getProrrogaInputValue("prorrogaMedidaMed5"),
+                    viaAdministracionMedicamento5: getProrrogaInputValue("prorrogaViaMed5"),
+                    frecuenciaAdministracionMedicamento5: getProrrogaInputValue("prorrogaFrecuenciaMed5"),
+                    diasMedicamento5: getProrrogaInputValue("prorrogaDiasMed5"),
+                    tieneSextoMedicamento: !!(prorrogaMed6Toggle?.checked),
+                    nombreMedicamentoNumero6: getProrrogaInputValue("prorrogaNombreMed6"),
+                    dosisMedicamento6: getProrrogaInputValue("prorrogaDosisMed6"),
+                    medidaMedicamento6: getProrrogaInputValue("prorrogaMedidaMed6"),
+                    viaAdministracionMedicamento6: getProrrogaInputValue("prorrogaViaMed6"),
+                    frecuenciaAdministracionMedicamento6: getProrrogaInputValue("prorrogaFrecuenciaMed6"),
+                    diasMedicamento6: getProrrogaInputValue("prorrogaDiasMed6"),
                     aplicacionesTotales: getProrrogaInputValue("prorrogaAplicacionesTotales"),
                     diasTratamientoIv: getProrrogaInputValue("prorrogaDiasTratamientoIv"),
                     fechaInicioTratamiento: getProrrogaInputValue("prorrogaFechaInicio"),
@@ -4858,22 +5347,53 @@
                 const loadProrrogaPayload = (data) => {
                     if (!data) return;
                     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
+                    const setToggle = (toggle, container, flag) => {
+                        if (toggle) {
+                            toggle.checked = !!flag;
+                            container?.classList.toggle("d-none", !flag);
+                        }
+                    };
                     set("prorrogaNombreMedPrincipal", data.nombreMedicamentoPrincipal);
                     set("prorrogaDosisMedPrincipal", data.dosisMedicamentoPrincipal);
                     set("prorrogaMedidaMedPrincipal", data.medidaMedicamentoPrincipal);
                     set("prorrogaViaMedPrincipal", data.viaAdministracionMedicamentoPrincipal);
                     set("prorrogaFrecuenciaMedPrincipal", data.frecuenciaAdministracionMxPrincipal);
                     set("prorrogaDiasMedPrincipal", data.diasMedicamentoPrincipal);
-                    if (prorrogaMed2Toggle) {
-                        prorrogaMed2Toggle.checked = !!data.tieneSegundoMedicamento;
-                        prorrogaMed2Container?.classList.toggle("d-none", !data.tieneSegundoMedicamento);
-                    }
+                    setToggle(prorrogaMed2Toggle, prorrogaMed2Container, data.tieneSegundoMedicamento);
                     set("prorrogaNombreMed2", data.nombreMedicamentoNumero2);
                     set("prorrogaDosisMed2", data.dosisMedicamento2);
                     set("prorrogaMedidaMed2", data.medidaMedicamento2);
                     set("prorrogaViaMed2", data.viaAdministracionMedicamento2);
                     set("prorrogaFrecuenciaMed2", data.frecuenciaAdministracionMedicamento2);
                     set("prorrogaDiasMed2", data.diasMedicamento2);
+                    setToggle(prorrogaMed3Toggle, prorrogaMed3Container, data.tieneTercerMedicamento);
+                    set("prorrogaNombreMed3", data.nombreMedicamentoNumero3);
+                    set("prorrogaDosisMed3", data.dosisMedicamento3);
+                    set("prorrogaMedidaMed3", data.medidaMedicamento3);
+                    set("prorrogaViaMed3", data.viaAdministracionMedicamento3);
+                    set("prorrogaFrecuenciaMed3", data.frecuenciaAdministracionMedicamento3);
+                    set("prorrogaDiasMed3", data.diasMedicamento3);
+                    setToggle(prorrogaMed4Toggle, prorrogaMed4Container, data.tieneCuartoMedicamento);
+                    set("prorrogaNombreMed4", data.nombreMedicamentoNumero4);
+                    set("prorrogaDosisMed4", data.dosisMedicamento4);
+                    set("prorrogaMedidaMed4", data.medidaMedicamento4);
+                    set("prorrogaViaMed4", data.viaAdministracionMedicamento4);
+                    set("prorrogaFrecuenciaMed4", data.frecuenciaAdministracionMedicamento4);
+                    set("prorrogaDiasMed4", data.diasMedicamento4);
+                    setToggle(prorrogaMed5Toggle, prorrogaMed5Container, data.tieneQuintoMedicamento);
+                    set("prorrogaNombreMed5", data.nombreMedicamentoNumero5);
+                    set("prorrogaDosisMed5", data.dosisMedicamento5);
+                    set("prorrogaMedidaMed5", data.medidaMedicamento5);
+                    set("prorrogaViaMed5", data.viaAdministracionMedicamento5);
+                    set("prorrogaFrecuenciaMed5", data.frecuenciaAdministracionMedicamento5);
+                    set("prorrogaDiasMed5", data.diasMedicamento5);
+                    setToggle(prorrogaMed6Toggle, prorrogaMed6Container, data.tieneSextoMedicamento);
+                    set("prorrogaNombreMed6", data.nombreMedicamentoNumero6);
+                    set("prorrogaDosisMed6", data.dosisMedicamento6);
+                    set("prorrogaMedidaMed6", data.medidaMedicamento6);
+                    set("prorrogaViaMed6", data.viaAdministracionMedicamento6);
+                    set("prorrogaFrecuenciaMed6", data.frecuenciaAdministracionMedicamento6);
+                    set("prorrogaDiasMed6", data.diasMedicamento6);
                     set("prorrogaAplicacionesTotales", data.aplicacionesTotales);
                     set("prorrogaDiasTratamientoIv", data.diasTratamientoIv);
                     set("prorrogaFechaInicio", data.fechaInicioTratamiento);
@@ -4899,15 +5419,26 @@
                     });
                 });
 
-                if (prorrogaMed2Toggle) {
-                    prorrogaMed2Toggle.addEventListener("change", () => {
-                        prorrogaMed2Container?.classList.toggle("d-none", !prorrogaMed2Toggle.checked);
-                        syncProrrogaAplicaciones();
-                    });
-                }
+                const wireProrrogaMedToggle = (toggle, container) => {
+                    if (toggle) {
+                        toggle.addEventListener("change", () => {
+                            container?.classList.toggle("d-none", !toggle.checked);
+                            syncProrrogaAplicaciones();
+                        });
+                    }
+                };
+                wireProrrogaMedToggle(prorrogaMed2Toggle, prorrogaMed2Container);
+                wireProrrogaMedToggle(prorrogaMed3Toggle, prorrogaMed3Container);
+                wireProrrogaMedToggle(prorrogaMed4Toggle, prorrogaMed4Container);
+                wireProrrogaMedToggle(prorrogaMed5Toggle, prorrogaMed5Container);
+                wireProrrogaMedToggle(prorrogaMed6Toggle, prorrogaMed6Container);
 
                 ["prorrogaFrecuenciaMedPrincipal", "prorrogaDiasMedPrincipal",
-                 "prorrogaFrecuenciaMed2", "prorrogaDiasMed2"].forEach((id) => {
+                 "prorrogaFrecuenciaMed2", "prorrogaDiasMed2",
+                 "prorrogaFrecuenciaMed3", "prorrogaDiasMed3",
+                 "prorrogaFrecuenciaMed4", "prorrogaDiasMed4",
+                 "prorrogaFrecuenciaMed5", "prorrogaDiasMed5",
+                 "prorrogaFrecuenciaMed6", "prorrogaDiasMed6"].forEach((id) => {
                     document.getElementById(id)?.addEventListener("change", syncProrrogaAplicaciones);
                     document.getElementById(id)?.addEventListener("input", syncProrrogaAplicaciones);
                 });

@@ -176,6 +176,63 @@ public class CensoRecord
     [StringLength(10)]
     public string? NumeroDosisMedicamento3 { get; set; }
 
+    [StringLength(300)]
+    public string? NombreMedicamentoNumero4 { get; set; }
+
+    public decimal? DosisMedicamento4 { get; set; }
+
+    [StringLength(20)]
+    public string? MedidaMedicamento4 { get; set; }
+
+    [StringLength(30)]
+    public string? ViaAdministracionMedicamento4 { get; set; }
+
+    [StringLength(30)]
+    public string? FrecuenciaAdministracionMedicamento4 { get; set; }
+
+    public int? DiasMedicamento4 { get; set; }
+
+    [StringLength(10)]
+    public string? NumeroDosisMedicamento4 { get; set; }
+
+    [StringLength(300)]
+    public string? NombreMedicamentoNumero5 { get; set; }
+
+    public decimal? DosisMedicamento5 { get; set; }
+
+    [StringLength(20)]
+    public string? MedidaMedicamento5 { get; set; }
+
+    [StringLength(30)]
+    public string? ViaAdministracionMedicamento5 { get; set; }
+
+    [StringLength(30)]
+    public string? FrecuenciaAdministracionMedicamento5 { get; set; }
+
+    public int? DiasMedicamento5 { get; set; }
+
+    [StringLength(10)]
+    public string? NumeroDosisMedicamento5 { get; set; }
+
+    [StringLength(300)]
+    public string? NombreMedicamentoNumero6 { get; set; }
+
+    public decimal? DosisMedicamento6 { get; set; }
+
+    [StringLength(20)]
+    public string? MedidaMedicamento6 { get; set; }
+
+    [StringLength(30)]
+    public string? ViaAdministracionMedicamento6 { get; set; }
+
+    [StringLength(30)]
+    public string? FrecuenciaAdministracionMedicamento6 { get; set; }
+
+    public int? DiasMedicamento6 { get; set; }
+
+    [StringLength(10)]
+    public string? NumeroDosisMedicamento6 { get; set; }
+
     [StringLength(50)]
     public string? AplicacionesTotales { get; set; }
 

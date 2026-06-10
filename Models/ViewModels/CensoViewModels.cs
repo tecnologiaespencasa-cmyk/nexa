@@ -215,6 +215,84 @@ public class CensoReceptionViewModel
     [Display(Name = "Nro. de dosis medicamento 3")]
     public string? NumeroDosisMedicamento3 { get; set; }
 
+    [Display(Name = "Tiene cuarto medicamento")]
+    public bool TieneCuartoMedicamento { get; set; }
+
+    [StringLength(300, ErrorMessage = "El nombre del medicamento número 4 no puede superar 300 caracteres.")]
+    [Display(Name = "Nombre medicamento número 4 / Principio activo")]
+    public string? NombreMedicamentoNumero4 { get; set; }
+
+    [Display(Name = "Dosis")]
+    public decimal? DosisMedicamento4 { get; set; }
+
+    [Display(Name = "Medida")]
+    public string? MedidaMedicamento4 { get; set; }
+
+    [Display(Name = "Vía de administración")]
+    public string? ViaAdministracionMedicamento4 { get; set; }
+
+    [Display(Name = "Frecuencia 4")]
+    public string? FrecuenciaAdministracionMedicamento4 { get; set; }
+
+    [Range(1, 999, ErrorMessage = "Los días deben estar entre 1 y 999.")]
+    [Display(Name = "Días")]
+    public int? DiasMedicamento4 { get; set; }
+
+    [Display(Name = "Nro. de dosis medicamento 4")]
+    public string? NumeroDosisMedicamento4 { get; set; }
+
+    [Display(Name = "Tiene quinto medicamento")]
+    public bool TieneQuintoMedicamento { get; set; }
+
+    [StringLength(300, ErrorMessage = "El nombre del medicamento número 5 no puede superar 300 caracteres.")]
+    [Display(Name = "Nombre medicamento número 5 / Principio activo")]
+    public string? NombreMedicamentoNumero5 { get; set; }
+
+    [Display(Name = "Dosis")]
+    public decimal? DosisMedicamento5 { get; set; }
+
+    [Display(Name = "Medida")]
+    public string? MedidaMedicamento5 { get; set; }
+
+    [Display(Name = "Vía de administración")]
+    public string? ViaAdministracionMedicamento5 { get; set; }
+
+    [Display(Name = "Frecuencia 5")]
+    public string? FrecuenciaAdministracionMedicamento5 { get; set; }
+
+    [Range(1, 999, ErrorMessage = "Los días deben estar entre 1 y 999.")]
+    [Display(Name = "Días")]
+    public int? DiasMedicamento5 { get; set; }
+
+    [Display(Name = "Nro. de dosis medicamento 5")]
+    public string? NumeroDosisMedicamento5 { get; set; }
+
+    [Display(Name = "Tiene sexto medicamento")]
+    public bool TieneSextoMedicamento { get; set; }
+
+    [StringLength(300, ErrorMessage = "El nombre del medicamento número 6 no puede superar 300 caracteres.")]
+    [Display(Name = "Nombre medicamento número 6 / Principio activo")]
+    public string? NombreMedicamentoNumero6 { get; set; }
+
+    [Display(Name = "Dosis")]
+    public decimal? DosisMedicamento6 { get; set; }
+
+    [Display(Name = "Medida")]
+    public string? MedidaMedicamento6 { get; set; }
+
+    [Display(Name = "Vía de administración")]
+    public string? ViaAdministracionMedicamento6 { get; set; }
+
+    [Display(Name = "Frecuencia 6")]
+    public string? FrecuenciaAdministracionMedicamento6 { get; set; }
+
+    [Range(1, 999, ErrorMessage = "Los días deben estar entre 1 y 999.")]
+    [Display(Name = "Días")]
+    public int? DiasMedicamento6 { get; set; }
+
+    [Display(Name = "Nro. de dosis medicamento 6")]
+    public string? NumeroDosisMedicamento6 { get; set; }
+
     [StringLength(50, ErrorMessage = "Las aplicaciones totales no pueden superar 50 caracteres.")]
     [Display(Name = "Aplicaciones totales")]
     public string? AplicacionesTotales { get; set; }
@@ -546,6 +624,8 @@ public class CensoReceptionViewModel
     public IReadOnlyList<CensoListItemViewModel> CensoListItems { get; set; } = [];
     public IReadOnlyList<CensoRecord> CensoTableRecords { get; set; } = [];
     public IReadOnlyCollection<long> RecordIdsConAdjuntos { get; set; } = [];
+
+    public bool TieneProrrogaActiva { get; set; }
 }
 
 public class MedicamentoCatalogItemViewModel
@@ -598,4 +678,6 @@ public class CensoListItemViewModel
     public string? Estado { get; set; }
 
     public string GestionCompletaPendiente { get; set; } = string.Empty;
+
+    public bool TieneProrrogaActiva { get; set; }
 }
