@@ -244,4 +244,28 @@
             </div>
         </div>
     }
+
+    @if (Model.Adjuntos.Count > 0)
+    {
+        <div id="farmacia-adjuntos" class="farmacia-kardex-wrap farmacia-adjuntos-wrap">
+            <div class="farmacia-adjuntos-section">
+                <div class="farmacia-adjuntos-section__title">ADJUNTOS PDF</div>
+                <ul class="farmacia-adjuntos-list">
+                    @foreach (var adjunto in Model.Adjuntos)
+                    {
+                        <li class="farmacia-adjuntos-list__item">
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true" class="farmacia-adjuntos-list__icon">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                            <a href="@Url.Action("DescargarAdjunto", "Farmacia", new { adjuntoId = adjunto.Id })"
+                               target="_blank" rel="noopener" class="farmacia-adjuntos-list__link">
+                                @adjunto.FileName
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
 </section>

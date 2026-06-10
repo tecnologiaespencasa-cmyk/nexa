@@ -327,6 +327,10 @@
   background: var(--farmacia-blue);
 }
 
+.farmacia-doc-button--adjuntos {
+  background: #7c5cbf;
+}
+
 .farmacia-doc-button--signature {
   background: #23324d;
 }
@@ -914,3 +918,12 @@
     justify-self: flex-start;
   }
 }
+
+.farmacia-adjuntos-wrap { margin-top: 1.5rem; }
+.farmacia-adjuntos-section { border: 1px solid #d1d9e6; border-radius: 6px; overflow: hidden; }
+.farmacia-adjuntos-section__title { background: #f1f5fb; padding: 0.5rem 1rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; color: #4a5568; border-bottom: 1px solid #d1d9e6; }
+.farmacia-adjuntos-list { list-style: none; margin: 0; padding: 0.5rem 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.farmacia-adjuntos-list__item { display: flex; align-items: center; gap: 0.5rem; }
+.farmacia-adjuntos-list__icon { width: 1rem; height: 1rem; stroke: #e53e3e; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.farmacia-adjuntos-list__link { font-size: 0.85rem; color: #006be6; text-decoration: none; }
+.farmacia-adjuntos-list__link:hover { text-decoration: underline; }

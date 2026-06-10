@@ -108,7 +108,30 @@ public class FarmaciaController : Controller
             .Where(x => x.IsActive)
             .ToListAsync(cancellationToken);
 
-        return View(BuildDocumentModel(record, medicamentos, normalizedType));
+        var adjuntos = await _context.CensoAdjuntos
+            .AsNoTracking()
+            .Where(x => x.CensoRecordId == id)
+            .Select(x => new FarmaciaAdjuntoDto { Id = x.Id, FileName = x.FileName })
+            .ToListAsync(cancellationToken);
+
+        return View(BuildDocumentModel(record, medicamentos, normalizedType, adjuntos));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DescargarAdjunto(long adjuntoId, CancellationToken cancellationToken)
+    {
+        var adjunto = await _context.CensoAdjuntos
+            .AsNoTracking()
+            .Where(x => x.Id == adjuntoId)
+            .Select(x => new { x.FileData, x.FileName, x.CensoRecord.FarmaciaEnviadoAtUtc })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (adjunto is null || adjunto.FarmaciaEnviadoAtUtc is null)
+        {
+            return NotFound();
+        }
+
+        return File(adjunto.FileData, "application/pdf", adjunto.FileName);
     }
 
     [HttpGet]
@@ -370,7 +393,7 @@ public class FarmaciaController : Controller
         }
     }
 
-    private static FarmaciaPedidoViewModel MapPedido(CensoRecord record)
+    private static FarmaciaPedidoViewModel MapPedido(CensoRecord record, bool tieneAdjuntos = false)
     {
         return new FarmaciaPedidoViewModel
         {
@@ -396,6 +419,7 @@ public class FarmaciaController : Controller
             FarmaciaEntregaActual = record.FarmaciaEntregaActual,
             FarmaciaFacturado = record.FarmaciaFacturado,
             FarmaciaEmpacadoAtUtc = record.FarmaciaEmpacadoAtUtc,
+            TieneAdjuntos = tieneAdjuntos,
         };
     }
 
@@ -412,6 +436,7 @@ public class FarmaciaController : Controller
             .ThenBy(x => x.Id)
             .Skip((currentPage - 1) * PageSize)
             .Take(PageSize)
+            .Select(x => new { Record = x, TieneAdjuntos = x.Adjuntos.Any() })
             .ToListAsync(cancellationToken);
 
         return new FarmaciaSectionPageViewModel
@@ -419,14 +444,15 @@ public class FarmaciaController : Controller
             CurrentPage = currentPage,
             TotalItems = totalItems,
             TotalPages = totalPages,
-            Items = records.Select(MapPedido).ToList()
+            Items = records.Select(x => MapPedido(x.Record, x.TieneAdjuntos)).ToList()
         };
     }
 
     private static FarmaciaDocumentViewModel BuildDocumentModel(
         CensoRecord record,
         IReadOnlyList<Medicamento> medicamentos,
-        string tipoDocumento)
+        string tipoDocumento,
+        IReadOnlyList<FarmaciaAdjuntoDto>? adjuntos = null)
     {
         var medicationCatalog = medicamentos
             .GroupBy(x => NormalizeCatalogKey(x.Nombre), StringComparer.OrdinalIgnoreCase)
@@ -470,7 +496,8 @@ public class FarmaciaController : Controller
             EntregaActual = record.FarmaciaEntregaActual,
             Firma = BuildSignatureModel(record),
             Medicamentos = rows,
-            RequisicionItems = requisicionRows
+            RequisicionItems = requisicionRows,
+            Adjuntos = adjuntos ?? []
         };
 
         if (tipoDocumento == DocumentoRequisicion)

@@ -358,6 +358,7 @@ public class CensoController : Controller
         "COOPSANA NORTE",
         "ESE HOSPITAL LA MARIA",
         "ESPECIALISTAS ASESORES PROFESIONALES",
+        "ESPECIALISTAS EN CASA MEDICINA DOMICILIARIA SAS",
         "FUNDACION CLINICA DEL NORTE",
         "GRUPO MEDICO ESPECIALIZADO MEDELLIN",
         "HOME GROUP SAS",
@@ -2054,23 +2055,24 @@ public class CensoController : Controller
                 AddRequiredFieldErrorIfBlank(model.MedicamentoFrecuenciaAjustada, nameof(model.MedicamentoFrecuenciaAjustada), "Selecciona el medicamento al que se le ajusto la frecuencia.");
                 AddRequiredFieldErrorIfBlank(model.FrecuenciaAjustada, nameof(model.FrecuenciaAjustada), "Ingresa la frecuencia ajustada.");
             }
-        }
-
-        AddRequiredDateErrorIfMissing(model.FechaInicioTratamiento, nameof(model.FechaInicioTratamiento), "Selecciona la fecha de inicio de tratamiento.");
-        AddRequiredDateErrorIfMissing(model.FechaFinTratamiento, nameof(model.FechaFinTratamiento), "Selecciona la fecha fin de tratamiento.");
-        AddRequiredDateErrorIfMissing(model.FechaPromesaInicioTto, nameof(model.FechaPromesaInicioTto), "Selecciona la fecha promesa de inicio de TTO.");
-
-        if (string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoDesde)
-            && string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoHasta)
-            && string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoMeridiano))
-        {
-            ModelState.AddModelError(nameof(model.HoraPromesaInicioTto), "Ingresa la hora promesa de inicio de TTO.");
+            AddRequiredDateErrorIfMissing(model.FechaInicioTratamiento, nameof(model.FechaInicioTratamiento), "Selecciona la fecha de inicio de tratamiento.");
+            AddRequiredDateErrorIfMissing(model.FechaFinTratamiento, nameof(model.FechaFinTratamiento), "Selecciona la fecha fin de tratamiento.");
+            AddRequiredDateErrorIfMissing(model.FechaPromesaInicioTto, nameof(model.FechaPromesaInicioTto), "Selecciona la fecha promesa de inicio de TTO.");
+            if (string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoDesde)
+                && string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoHasta)
+                && string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoMeridiano))
+            {
+                ModelState.AddModelError(nameof(model.HoraPromesaInicioTto), "Ingresa la hora promesa de inicio de TTO.");
+            }
         }
 
         AddRequiredFieldErrorIfBlank(model.Estado, nameof(model.Estado), "Selecciona el estado.");
         AddRequiredFieldErrorIfBlank(model.ResponsableLlamadaBienvenida, nameof(model.ResponsableLlamadaBienvenida), "Selecciona el responsable de llamada de bienvenida.");
         AddRequiredFieldErrorIfBlank(model.EstadoLlamadaBienvenida, nameof(model.EstadoLlamadaBienvenida), "Selecciona el estado de llamada de bienvenida.");
-        AddRequiredFieldErrorIfBlank(model.NumeroTelefonoLlamadaBienvenida, nameof(model.NumeroTelefonoLlamadaBienvenida), "Ingresa el número de teléfono al que se llama.");
+        if (string.Equals(model.EstadoLlamadaBienvenida, "Efectivo", StringComparison.OrdinalIgnoreCase))
+        {
+            AddRequiredFieldErrorIfBlank(model.NumeroTelefonoLlamadaBienvenida, nameof(model.NumeroTelefonoLlamadaBienvenida), "Ingresa el número de teléfono al que se llama.");
+        }
         AddRequiredFieldErrorIfBlank(model.ObservacionesPlanManejo, nameof(model.ObservacionesPlanManejo), "Ingresa las observaciones.");
         AddRequiredFieldErrorIfBlank(model.RequiereServiciosComplementarios, nameof(model.RequiereServiciosComplementarios), "Selecciona si requiere servicios complementarios.");
         if (string.Equals(model.RequiereServiciosComplementarios, "Si", StringComparison.OrdinalIgnoreCase))

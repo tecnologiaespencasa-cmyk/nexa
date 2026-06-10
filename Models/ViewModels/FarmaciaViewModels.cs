@@ -96,6 +96,8 @@ public class FarmaciaPedidoViewModel
 
     public DateTime? FarmaciaEmpacadoAtUtc { get; set; }
 
+    public bool TieneAdjuntos { get; set; }
+
     public TimeSpan? TiempoEnEmpacado => FarmaciaEmpacadoAtUtc.HasValue
         ? DateTime.UtcNow - FarmaciaEmpacadoAtUtc.Value
         : null;
@@ -162,6 +164,14 @@ public class FarmaciaDocumentViewModel
     public IReadOnlyList<FarmaciaKardexMedicationViewModel> Medicamentos { get; set; } = [];
 
     public IReadOnlyList<FarmaciaRequisicionItemViewModel> RequisicionItems { get; set; } = [];
+
+    public IReadOnlyList<FarmaciaAdjuntoDto> Adjuntos { get; set; } = [];
+}
+
+public class FarmaciaAdjuntoDto
+{
+    public long Id { get; set; }
+    public string FileName { get; set; } = string.Empty;
 }
 
 public class FarmaciaKardexMedicationViewModel

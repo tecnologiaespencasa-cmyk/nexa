@@ -1165,7 +1165,7 @@
                                     </div>
                                     <div class="col-xl-4 col-lg-4">
                                         <label asp-for="EstadoLlamadaBienvenida" class="form-label"></label>
-                                        <select asp-for="EstadoLlamadaBienvenida" asp-items="Model.EstadoLlamadaBienvenidaOptions" class="form-select">
+                                        <select asp-for="EstadoLlamadaBienvenida" asp-items="Model.EstadoLlamadaBienvenidaOptions" class="form-select" id="estadoLlamadaBienvenidaSelect">
                                             <option value="">Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="EstadoLlamadaBienvenida" class="text-danger"></span>
@@ -3195,19 +3195,17 @@
                             && String(requiereServiciosComplementariosSelect.value || "").trim().toLowerCase() === "si"
                         );
 
+                        const isCallEfectivo = !!(
+                            document.getElementById("estadoLlamadaBienvenidaSelect")
+                            && String(document.getElementById("estadoLlamadaBienvenidaSelect").value || "").trim().toLowerCase() === "efectivo"
+                        );
+
                         const required = [
                             "ClasificacionRiesgo",
                             "AdministracionMedicamentos",
-                            "FechaInicioTratamiento",
-                            "FechaFinTratamiento",
-                            "FechaPromesaInicioTto",
-                            "HoraPromesaInicioTtoDesde",
-                            "HoraPromesaInicioTtoHasta",
-                            "HoraPromesaInicioTtoMeridiano",
                             "Estado",
                             "ResponsableLlamadaBienvenida",
                             "EstadoLlamadaBienvenida",
-                            "NumeroTelefonoLlamadaBienvenida",
                             "ObservacionesPlanManejo",
                             "RequiereServiciosComplementarios",
                             "PacienteGestante",
@@ -3223,8 +3221,18 @@
                             "CateterPicc"
                         ];
 
+                        if (isCallEfectivo) {
+                            required.push("NumeroTelefonoLlamadaBienvenida");
+                        }
+
                         if (hasMedicationAdministration) {
                             required.push(
+                                "FechaInicioTratamiento",
+                                "FechaFinTratamiento",
+                                "FechaPromesaInicioTto",
+                                "HoraPromesaInicioTtoDesde",
+                                "HoraPromesaInicioTtoHasta",
+                                "HoraPromesaInicioTtoMeridiano",
                                 "NombreMedicamentoPrincipalTratante",
                                 "DosisMedicamentoPrincipal",
                                 "MedidaMedicamentoPrincipal",
