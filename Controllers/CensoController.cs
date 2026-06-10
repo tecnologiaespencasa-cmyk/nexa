@@ -28,11 +28,14 @@ public class CensoController : Controller
     private const string ValorNoAplicaMedicamentoAdicional = "No";
     private static readonly string[] HoraPromesaInicioTtoValues =
     [
-        "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"
+        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11",
+        "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"
     ];
-    private static readonly string[] HoraPromesaInicioTtoMeridianoValues = ["AM", "PM"];
     private static readonly Regex Cie10Pattern = new("^[A-Z][0-9]{3}$", RegexOptions.Compiled);
     private static readonly Regex HoraPromesaPattern = new(
+        "^Entre\\s+(?<desde>\\d{1,2})\\s+y\\s+(?<hasta>\\d{1,2})$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex HoraPromesaLegacyPattern = new(
         "^Entre\\s+(?<desde>\\d{1,2})\\s+y\\s+(?<hasta>\\d{1,2})\\s+(?<meridiano>AM|PM)$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly TimeZoneInfo ColombiaTimeZone = ResolveColombiaTimeZone();
@@ -179,7 +182,7 @@ public class CensoController : Controller
         "Fonoaudiologia",
         "Nutricion"
     ];
-    private static readonly string[] TipoAislamientoValues = ["Aislamiento", "Contacto", "Gotas"];
+    private static readonly string[] TipoAislamientoValues = ["Aislamiento por Aerosoles", "Contacto", "Gotas"];
     private static readonly string[] EstadoValues =
     [
         "Aceptado activo",
@@ -612,7 +615,7 @@ public class CensoController : Controller
         model.NumeroTelefonoLlamadaBienvenida = model.NumeroTelefonoLlamadaBienvenida?.Trim();
         model.NumeroDiasAutorizado = model.NumeroDiasAutorizado?.Trim();
         model.RequiereServiciosComplementarios = model.RequiereServiciosComplementarios?.Trim();
-        model.ServicioComplementario = model.ServicioComplementario?.Trim();
+        model.ServicioComplementario = NormalizeServiciosComplementarios(model.ServicioComplementario);
         model.PacienteGestante = model.PacienteGestante?.Trim();
         model.Nebulizaciones = model.Nebulizaciones?.Trim();
         model.SistemasPresionNegativaVac = model.SistemasPresionNegativaVac?.Trim();
@@ -650,8 +653,7 @@ public class CensoController : Controller
         ApplyPlanManejoDefaultValues(model);
         model.HoraPromesaInicioTto = BuildHoraPromesaInicioTto(
             model.HoraPromesaInicioTtoDesde,
-            model.HoraPromesaInicioTtoHasta,
-            model.HoraPromesaInicioTtoMeridiano);
+            model.HoraPromesaInicioTtoHasta);
 
         var hasMedicationAdministration = string.Equals(model.AdministracionMedicamentos, "Si", StringComparison.OrdinalIgnoreCase);
         if (!hasMedicationAdministration)
@@ -663,6 +665,8 @@ public class CensoController : Controller
             model.FrecuenciaAdministracionMxPrincipal = string.Empty;
             model.DiasMedicamentoPrincipal = null;
             model.NumeroDosisDiaMedicamentoPrincipal = string.Empty;
+            ModelState.Remove(nameof(model.FrecuenciaAdministracionMxPrincipal));
+            ModelState.Remove(nameof(model.DiasMedicamentoPrincipal));
             model.TieneSegundoMedicamento = false;
             model.TieneTercerMedicamento = false;
             model.NombreMedicamentoNumero2 = null;
@@ -1573,7 +1577,16 @@ public class CensoController : Controller
             {
                 model.HoraPromesaInicioTtoDesde = match.Groups["desde"].Value;
                 model.HoraPromesaInicioTtoHasta = match.Groups["hasta"].Value;
-                model.HoraPromesaInicioTtoMeridiano = match.Groups["meridiano"].Value.ToUpperInvariant();
+            }
+            else
+            {
+                var legacyMatch = HoraPromesaLegacyPattern.Match(record.HoraPromesaInicioTto.Trim());
+                if (legacyMatch.Success)
+                {
+                    model.HoraPromesaInicioTtoDesde = legacyMatch.Groups["desde"].Value;
+                    model.HoraPromesaInicioTtoHasta = legacyMatch.Groups["hasta"].Value;
+                    model.HoraPromesaInicioTtoMeridiano = legacyMatch.Groups["meridiano"].Value.ToUpperInvariant();
+                }
             }
         }
 
@@ -2059,8 +2072,7 @@ public class CensoController : Controller
             AddRequiredDateErrorIfMissing(model.FechaFinTratamiento, nameof(model.FechaFinTratamiento), "Selecciona la fecha fin de tratamiento.");
             AddRequiredDateErrorIfMissing(model.FechaPromesaInicioTto, nameof(model.FechaPromesaInicioTto), "Selecciona la fecha promesa de inicio de TTO.");
             if (string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoDesde)
-                && string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoHasta)
-                && string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoMeridiano))
+                && string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoHasta))
             {
                 ModelState.AddModelError(nameof(model.HoraPromesaInicioTto), "Ingresa la hora promesa de inicio de TTO.");
             }
@@ -2357,11 +2369,23 @@ public class CensoController : Controller
         ValidateSiNoField(model.RequiereServiciosComplementarios, nameof(model.RequiereServiciosComplementarios), "requiere servicios complementarios");
         if (string.Equals(model.RequiereServiciosComplementarios, "Si", StringComparison.OrdinalIgnoreCase))
         {
-            ValidateOptionField(
-                model.ServicioComplementario,
-                ServicioComplementarioValues,
-                nameof(model.ServicioComplementario),
-                "un servicio complementario válido");
+            if (string.IsNullOrWhiteSpace(model.ServicioComplementario))
+            {
+                ModelState.AddModelError(nameof(model.ServicioComplementario), "Selecciona al menos un servicio complementario.");
+            }
+            else
+            {
+                var selectedServices = model.ServicioComplementario
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                foreach (var svc in selectedServices)
+                {
+                    if (!ServicioComplementarioValues.Contains(svc, StringComparer.OrdinalIgnoreCase))
+                    {
+                        ModelState.AddModelError(nameof(model.ServicioComplementario), $"'{svc}' no es un servicio complementario válido.");
+                        break;
+                    }
+                }
+            }
         }
         ValidateSiNoField(model.PacienteGestante, nameof(model.PacienteGestante), "paciente gestante");
         ValidateSiNoField(model.Nebulizaciones, nameof(model.Nebulizaciones), "nebulizaciones");
@@ -2570,25 +2594,12 @@ public class CensoController : Controller
             return;
         }
 
-        if (!model.NumeroCalibreSonda.HasValue)
-        {
-            ModelState.AddModelError(nameof(model.NumeroCalibreSonda), "Ingresa el número calibre de sonda.");
-        }
-        else if (model.NumeroCalibreSonda.Value <= 0)
+        if (model.NumeroCalibreSonda.HasValue && model.NumeroCalibreSonda.Value <= 0)
         {
             ModelState.AddModelError(nameof(model.NumeroCalibreSonda), "Ingresa un número calibre de sonda válido.");
         }
 
-        if (!model.FechaUltimoCambioSonda.HasValue)
-        {
-            ModelState.AddModelError(nameof(model.FechaUltimoCambioSonda), "Selecciona la fecha de ultimo cambio.");
-        }
-
-        if (string.IsNullOrWhiteSpace(model.AuxiliarAsignadoCateterismo))
-        {
-            ModelState.AddModelError(nameof(model.AuxiliarAsignadoCateterismo), "Selecciona el auxiliar asignado.");
-        }
-        else
+        if (!string.IsNullOrWhiteSpace(model.AuxiliarAsignadoCateterismo))
         {
             var allowedOpsAssistants = model.OpsAssistantOptions.Select(x => x.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
             if (!allowedOpsAssistants.Contains(model.AuxiliarAsignadoCateterismo))
@@ -2655,12 +2666,18 @@ public class CensoController : Controller
         return value.Trim();
     }
 
+    private static string? NormalizeServiciosComplementarios(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var items = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return items.Length > 0 ? string.Join(", ", items) : null;
+    }
+
     private void ValidateHoraPromesaInicioTto(CensoReceptionViewModel model)
     {
         var hasHoraPromesaData =
             !string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoDesde)
-            || !string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoHasta)
-            || !string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoMeridiano);
+            || !string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoHasta);
 
         if (!hasHoraPromesaData)
         {
@@ -2686,18 +2703,8 @@ public class CensoController : Controller
             ModelState.AddModelError(nameof(model.HoraPromesaInicioTtoHasta), "Selecciona una hora final valida para la promesa de inicio de TTO.");
         }
 
-        if (string.IsNullOrWhiteSpace(model.HoraPromesaInicioTtoMeridiano))
-        {
-            ModelState.AddModelError(nameof(model.HoraPromesaInicioTtoMeridiano), "Selecciona AM o PM para la promesa de inicio de TTO.");
-        }
-        else if (!HoraPromesaInicioTtoMeridianoValues.Contains(model.HoraPromesaInicioTtoMeridiano, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.HoraPromesaInicioTtoMeridiano), "Selecciona un valor válido de AM o PM para la promesa de inicio de TTO.");
-        }
-
         if (ModelState.ContainsKey(nameof(model.HoraPromesaInicioTtoDesde))
-            || ModelState.ContainsKey(nameof(model.HoraPromesaInicioTtoHasta))
-            || ModelState.ContainsKey(nameof(model.HoraPromesaInicioTtoMeridiano)))
+            || ModelState.ContainsKey(nameof(model.HoraPromesaInicioTtoHasta)))
         {
             return;
         }
@@ -2715,23 +2722,19 @@ public class CensoController : Controller
         }
     }
 
-    private static string? BuildHoraPromesaInicioTto(string? desde, string? hasta, string? meridiano)
+    private static string? BuildHoraPromesaInicioTto(string? desde, string? hasta)
     {
-        if (string.IsNullOrWhiteSpace(desde)
-            && string.IsNullOrWhiteSpace(hasta)
-            && string.IsNullOrWhiteSpace(meridiano))
+        if (string.IsNullOrWhiteSpace(desde) && string.IsNullOrWhiteSpace(hasta))
         {
             return null;
         }
 
-        if (string.IsNullOrWhiteSpace(desde)
-            || string.IsNullOrWhiteSpace(hasta)
-            || string.IsNullOrWhiteSpace(meridiano))
+        if (string.IsNullOrWhiteSpace(desde) || string.IsNullOrWhiteSpace(hasta))
         {
             return null;
         }
 
-        return $"Entre {desde} y {hasta} {meridiano.ToUpperInvariant()}";
+        return $"Entre {desde} y {hasta}";
     }
 
     private static string GetAdditionalMedicationValueForStorage(bool enabled, string? value)
@@ -3545,10 +3548,10 @@ public class CensoController : Controller
             AppendDataCell(sb, prorroga?.FechaInicioTratamiento ?? "");
             AppendDataCell(sb, prorroga?.FechaFinTratamiento ?? "");
             AppendDataCell(sb, prorroga?.FechaPromesaInicioTto ?? "");
-            var prorrogaHoraParts = new[] { prorroga?.HoraPromesaDesde, prorroga?.HoraPromesaHasta, prorroga?.HoraPromesaMeridiano }
-                .Select((x, i) => string.IsNullOrWhiteSpace(x) ? null : (i == 1 ? $"- {x}" : x))
-                .Where(x => x != null);
-            AppendDataCell(sb, string.Join(" ", prorrogaHoraParts));
+            var prorrogaHoraDisplay = (!string.IsNullOrWhiteSpace(prorroga?.HoraPromesaDesde) && !string.IsNullOrWhiteSpace(prorroga?.HoraPromesaHasta))
+                ? $"Entre {prorroga!.HoraPromesaDesde} y {prorroga.HoraPromesaHasta}"
+                : string.Empty;
+            AppendDataCell(sb, prorrogaHoraDisplay);
             AppendDataCell(sb, prorroga?.AuxiliarAsignado ?? "");
             AppendDataCell(sb, prorroga?.NumeroDiasExtension ?? "");
             AppendDataCell(sb, prorroga?.NotificadoAsegurador == true ? "Sí" : "No");
@@ -3610,25 +3613,30 @@ public class CensoController : Controller
             return null;
         }
 
-        var match = HoraPromesaPattern.Match(horaPromesaInicioTto.Trim());
-        if (!match.Success)
+        var trimmed = horaPromesaInicioTto.Trim();
+
+        // New 24h format: "Entre H y H"
+        var match24 = HoraPromesaPattern.Match(trimmed);
+        if (match24.Success && int.TryParse(match24.Groups["desde"].Value, out var horaDesde24))
+        {
+            return new TimeSpan(horaDesde24, 0, 0);
+        }
+
+        // Legacy 12h format: "Entre H y H AM/PM"
+        var matchLegacy = HoraPromesaLegacyPattern.Match(trimmed);
+        if (!matchLegacy.Success || !int.TryParse(matchLegacy.Groups["desde"].Value, out var horaDesde12))
         {
             return null;
         }
 
-        if (!int.TryParse(match.Groups["desde"].Value, out var horaDesde12))
-        {
-            return null;
-        }
-
-        var meridiano = match.Groups["meridiano"].Value.ToUpperInvariant();
-        var horaDesde24 = horaDesde12 % 12;
+        var meridiano = matchLegacy.Groups["meridiano"].Value;
+        var horaDesde = horaDesde12 % 12;
         if (string.Equals(meridiano, "PM", StringComparison.OrdinalIgnoreCase))
         {
-            horaDesde24 += 12;
+            horaDesde += 12;
         }
 
-        return new TimeSpan(horaDesde24, 0, 0);
+        return new TimeSpan(horaDesde, 0, 0);
     }
 
     private static void AppendDataCell(StringBuilder sb, string value)

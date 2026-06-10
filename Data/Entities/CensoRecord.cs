@@ -227,7 +227,7 @@ public class CensoRecord
     [StringLength(2)]
     public string? RequiereServiciosComplementarios { get; set; }
 
-    [StringLength(80)]
+    [StringLength(500)]
     public string? ServicioComplementario { get; set; }
 
     [StringLength(2)]

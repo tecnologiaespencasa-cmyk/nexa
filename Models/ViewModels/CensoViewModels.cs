@@ -285,7 +285,7 @@ public class CensoReceptionViewModel
     [Display(Name = "Requiere servicios complementarios")]
     public string? RequiereServiciosComplementarios { get; set; }
 
-    [StringLength(80, ErrorMessage = "El servicio complementario no puede superar 80 caracteres.")]
+    [StringLength(500, ErrorMessage = "Los servicios complementarios no pueden superar 500 caracteres.")]
     [Display(Name = "Servicio complementario")]
     public string? ServicioComplementario { get; set; }
 
