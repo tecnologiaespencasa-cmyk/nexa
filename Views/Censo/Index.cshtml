@@ -672,6 +672,27 @@
                                 </div>
                             </div>
                         </div>
+
+                    <div class="card mt-3" id="precargarPacienteCard" data-censo-no-lock="true">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <h2 class="h5 mb-0">Validar precarga del paciente</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-3">Ingresa el n&uacute;mero de documento para buscar un paciente existente y precargar sus datos en la secci&oacute;n 2. Esto crear&aacute; una nueva atenci&oacute;n.</p>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-lg-4 col-md-6">
+                                    <label for="precargaDocumentoInput" class="form-label">N&uacute;mero de documento</label>
+                                    <input type="text" id="precargaDocumentoInput" class="form-control" inputmode="numeric" maxlength="20" placeholder="Ingrese n&uacute;mero de documento" />
+                                </div>
+                                <div class="col-auto">
+                                    <button type="button" id="validarPrecargaBtn" class="btn btn-outline-primary">Validar</button>
+                                </div>
+                            </div>
+                            <div id="precargaMensaje" class="mt-3"></div>
+                        </div>
+                    </div>
                     </div>
 
                     <div class="tab-pane fade" id="tab-datos-basicos" role="tabpanel" aria-labelledby="tab-datos-basicos-link" data-section-title="Datos básicos del paciente" data-section-description="Consolida identificación, dirección, clasificación georreferenciada y canales de contacto.">
@@ -2018,7 +2039,7 @@
                                         <input class="form-control" id="prorrogaFechaFin" type="date" readonly />
                                     </div>
                                     <div class="col-lg-4">
-                                        <label class="form-label" for="prorrogaFechaPromesa">Fecha promesa de inicio de TTO</label>
+                                        <label class="form-label" for="prorrogaFechaPromesa">Fecha ordenamiento</label>
                                         <input class="form-control" id="prorrogaFechaPromesa" type="date" />
                                     </div>
 
@@ -2303,9 +2324,9 @@
                             <span>FECHA INICIO</span>
                             <span>FECHA FIN</span>
                         </div>
-                        @for (var kardexRow = 1; kardexRow <= 3; kardexRow++)
+                        @for (var kardexRow = 1; kardexRow <= 6; kardexRow++)
                         {
-                            <div class="censo-kardex-med-table__row" role="row" data-kardex-med-row="@kardexRow">
+                            <div class="censo-kardex-med-table__row @(kardexRow > 1 ? "d-none" : "")" role="row" data-kardex-med-row="@kardexRow">
                                 <textarea aria-label="Presentaci&oacute;n medicamentos @kardexRow" data-kardex-med-field="presentacion">Medicamento @kardexRow</textarea>
                                 <textarea aria-label="Dosis y frecuencia @kardexRow" data-kardex-med-field="dosisFrecuencia"></textarea>
                                 <textarea aria-label="Veh&iacute;culo de reconstituci&oacute;n @kardexRow" data-kardex-med-field="vehiculoReconstitucion"></textarea>
@@ -2417,19 +2438,27 @@
                 </div>
                 <ul class="list-group list-group-flush censo-adjuntos-list" id="adjuntosList" style="max-height:140px;overflow-y:auto;"></ul>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-outline-success" id="guardarDocumentosBtn">
-                    <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                    <span>Guardar</span>
-                </button>
-                <button type="button" class="btn btn-primary censo-kardex-send-button" id="enviarFarmaciaKardexBtn">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M21 3L3 10.2l6.7 2.6 2.7 8.2 3.2-5.1 5.4 4.1L21 3z"></path>
-                        <path d="M9.7 12.8L21 3"></path>
-                    </svg>
-                    <span>Enviar a farmacia</span>
-                </button>
+            <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="serviciosCargadosSwitch" />
+                    <label class="form-check-label fw-semibold" for="serviciosCargadosSwitch">Servicios cargados</label>
+                </div>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-outline-success" id="guardarDocumentosBtn">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <span>Guardar</span>
+                    </button>
+                    <div id="enviarFarmaciaKardexBtnWrapper" style="display:inline-block;">
+                        <button type="button" class="btn btn-primary censo-kardex-send-button" id="enviarFarmaciaKardexBtn" disabled>
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path d="M21 3L3 10.2l6.7 2.6 2.7 8.2 3.2-5.1 5.4 4.1L21 3z"></path>
+                                <path d="M9.7 12.8L21 3"></path>
+                            </svg>
+                            <span>Enviar a farmacia</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -2445,6 +2474,25 @@
             <div class="modal-body" id="censoFeedbackModalBody"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="censoAltaConfirmModal" tabindex="-1" aria-labelledby="censoAltaConfirmModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="censoAltaConfirmModalTitle">Cerrar atenci&oacute;n</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar" id="censoAltaCancelarBtnClose"></button>
+            </div>
+            <div class="modal-body">
+                <p>La atenci&oacute;n de este paciente ser&aacute; cerrada. &iquest;Est&aacute;s seguro que deseas continuar?</p>
+                <p class="text-muted small mb-0">Las secciones 1, 2 y 3 quedar&aacute;n bloqueadas en modo de solo lectura.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="censoAltaCancelarBtn" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="censoAltaConfirmarBtn">S&iacute;, cerrar atenci&oacute;n</button>
             </div>
         </div>
     </div>
@@ -2468,6 +2516,7 @@
             const eliminarAdjuntoUrl = "@Url.Action("EliminarAdjunto", "Censo")";
             const descargarAdjuntoUrl = "@Url.Action("DescargarAdjunto", "Censo")";
             const obtenerAdjuntosUrl = "@Url.Action("ObtenerAdjuntos", "Censo")";
+            const obtenerDatosSeccion2Url = "@Url.Action("ObtenerDatosSeccion2", "Censo")";
             const medicamentoCatalog = @Html.Raw(medicamentoCatalogJson);
             const direccionInput = document.getElementById("direccionInput");
             const validarDireccionBtn = document.getElementById("validarDireccionBtn");
@@ -3022,6 +3071,9 @@
                     ? (getFormValue("TipoAislamiento") || "Si")
                     : "No";
 
+                const rowEl = document.querySelector(`#censoKardexModal [data-kardex-med-row='${row}']`);
+                if (rowEl) rowEl.classList.toggle("d-none", row > 1 && !hasMedication);
+
                 setKardexMedicationRowField(
                     row,
                     "presentacion",
@@ -3313,6 +3365,30 @@
                     if (savedRequisicion) loadRequisitionPayload(savedRequisicion); else syncRequisitionSheet();
                     loadAdjuntos(recordId);
                     if (adjuntoUploadStatus) adjuntoUploadStatus.textContent = "";
+                    const serviciosCargadosSwitch = document.getElementById("serviciosCargadosSwitch");
+                    if (serviciosCargadosSwitch) {
+                        serviciosCargadosSwitch.checked = false;
+                        if (enviarFarmaciaKardexBtn) enviarFarmaciaKardexBtn.disabled = true;
+                    }
+                });
+            }
+
+            const serviciosCargadosSwitch = document.getElementById("serviciosCargadosSwitch");
+            if (serviciosCargadosSwitch) {
+                serviciosCargadosSwitch.addEventListener("change", () => {
+                    if (enviarFarmaciaKardexBtn) enviarFarmaciaKardexBtn.disabled = !serviciosCargadosSwitch.checked;
+                });
+            }
+
+            const enviarFarmaciaWrapper = document.getElementById("enviarFarmaciaKardexBtnWrapper");
+            if (enviarFarmaciaWrapper) {
+                enviarFarmaciaWrapper.addEventListener("click", () => {
+                    if (enviarFarmaciaKardexBtn?.disabled) {
+                        showFeedbackModal(
+                            "Servicios no cargados",
+                            "<p class=\"mb-0\">Primero tienes que cargar los servicios. Activa el interruptor <strong>Servicios cargados</strong> para poder enviar a farmacia.</p>",
+                            "warning");
+                    }
                 });
             }
 
@@ -5005,6 +5081,18 @@
                 medicamento3Toggle.addEventListener("change", () => syncMedicationVisibility(false));
             }
 
+            if (medicamento4Toggle) {
+                medicamento4Toggle.addEventListener("change", () => syncMedicationVisibility(false));
+            }
+
+            if (medicamento5Toggle) {
+                medicamento5Toggle.addEventListener("change", () => syncMedicationVisibility(false));
+            }
+
+            if (medicamento6Toggle) {
+                medicamento6Toggle.addEventListener("change", () => syncMedicationVisibility(false));
+            }
+
             syncAdministracionMedicamentosVisibility(false);
 
             if (cateterismoOSvSelect) {
@@ -5037,11 +5125,167 @@
             syncServicioComplementarioVisibility();
             initServicioComplementarioCheckboxes();
 
+            const lockSections123 = () => {
+                const sectionIds = ["tab-recepcion", "tab-datos-basicos", "tab-plan-manejo"];
+                sectionIds.forEach((id) => {
+                    const pane = document.getElementById(id);
+                    if (!pane) return;
+                    if (pane.querySelector(".censo-atencion-cerrada-banner")) return;
+                    const banner = document.createElement("div");
+                    banner.className = "alert alert-warning censo-atencion-cerrada-banner mb-3";
+                    banner.setAttribute("role", "alert");
+                    banner.innerHTML = "<strong>Atención cerrada.</strong> Esta sección es de solo lectura.";
+                    const firstCard = pane.querySelector(".card");
+                    if (firstCard) firstCard.before(banner);
+                    pane.querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio])").forEach((el) => {
+                        if (!el.closest("[data-censo-no-lock]")) el.readOnly = true;
+                    });
+                    pane.querySelectorAll("textarea").forEach((el) => {
+                        if (!el.closest("[data-censo-no-lock]")) el.readOnly = true;
+                    });
+                    pane.querySelectorAll("select, input[type=checkbox], input[type=radio]").forEach((el) => {
+                        if (!el.closest("[data-censo-no-lock]")) el.style.pointerEvents = "none";
+                    });
+                    pane.querySelectorAll("button, a.btn").forEach((el) => {
+                        if (!el.closest("[data-censo-no-lock]") && !el.hasAttribute("data-bs-dismiss")) {
+                            el.style.pointerEvents = "none";
+                            el.style.opacity = "0.5";
+                        }
+                    });
+                });
+            };
+
+            let pendingAltaValue = null;
+            let previousEstadoValue = estadoSelect ? estadoSelect.value : "";
+
             if (estadoSelect) {
-                estadoSelect.addEventListener("change", syncGestionAltaVisibility);
+                estadoSelect.addEventListener("change", () => {
+                    const newValue = estadoSelect.value;
+                    const newIsAlta = newValue.toLowerCase().includes("alta");
+                    const prevIsAlta = previousEstadoValue.toLowerCase().includes("alta");
+
+                    if (newIsAlta && !prevIsAlta) {
+                        pendingAltaValue = newValue;
+                        estadoSelect.value = previousEstadoValue;
+                        const altaModalEl = document.getElementById("censoAltaConfirmModal");
+                        if (altaModalEl && window.bootstrap?.Modal) {
+                            window.bootstrap.Modal.getOrCreateInstance(altaModalEl).show();
+                        }
+                    } else {
+                        previousEstadoValue = newValue;
+                        syncGestionAltaVisibility();
+                    }
+                });
+            }
+
+            const censoAltaConfirmarBtn = document.getElementById("censoAltaConfirmarBtn");
+            if (censoAltaConfirmarBtn) {
+                censoAltaConfirmarBtn.addEventListener("click", () => {
+                    const altaModalEl = document.getElementById("censoAltaConfirmModal");
+                    if (altaModalEl && window.bootstrap?.Modal) {
+                        window.bootstrap.Modal.getOrCreateInstance(altaModalEl).hide();
+                    }
+                    if (pendingAltaValue !== null && estadoSelect) {
+                        estadoSelect.value = pendingAltaValue;
+                        previousEstadoValue = pendingAltaValue;
+                        pendingAltaValue = null;
+                    }
+                    syncGestionAltaVisibility();
+                    lockSections123();
+                });
             }
 
             syncGestionAltaVisibility();
+
+            if (isEstadoAlta() && editingRecordIdInput?.value) {
+                lockSections123();
+            }
+
+            const precargaDocumentoInput = document.getElementById("precargaDocumentoInput");
+            const validarPrecargaBtn = document.getElementById("validarPrecargaBtn");
+            const precargaMensaje = document.getElementById("precargaMensaje");
+
+            const applyPrecargaData = async (data) => {
+                const setVal = (el, value) => {
+                    if (!el) return;
+                    el.value = value ?? "";
+                    el.dispatchEvent(new Event("input", { bubbles: true }));
+                    el.dispatchEvent(new Event("change", { bubbles: true }));
+                };
+
+                setVal(document.getElementById("NombrePaciente"), data.nombrePaciente);
+                setVal(document.getElementById("TipoIdentificacion"), data.tipoIdentificacion);
+                setVal(document.getElementById("NumeroIdentificacion"), data.numeroIdentificacion);
+                setVal(document.getElementById("fechaNacimientoInput"), data.fechaNacimiento);
+                setVal(document.getElementById("CorreoElectronico"), data.correoElectronico);
+
+                if (codigoCie10Input) codigoCie10Input.value = data.codigoCie10 ?? "";
+                if (diagnosticoDescriptivoInput) diagnosticoDescriptivoInput.value = data.diagnosticoDescriptivo ?? "";
+
+                setVal(document.getElementById("direccionInput"), data.direccion);
+                setVal(document.getElementById("DetalleDireccion"), data.detalleDireccion);
+
+                if (data.municipioResidencia && municipioSelect) {
+                    municipioSelect.value = data.municipioResidencia;
+                    await loadBarriosByMunicipio(data.municipioResidencia, data.barrio || "a", data.barrio, false);
+                }
+
+                if (data.barrio && barrioSelect) {
+                    if (!Array.from(barrioSelect.options).some((o) => o.value === data.barrio)) {
+                        const opt = document.createElement("option");
+                        opt.value = data.barrio;
+                        opt.textContent = data.barrio;
+                        barrioSelect.appendChild(opt);
+                    }
+                    barrioSelect.value = data.barrio;
+                }
+
+                if (clasificacionSelect && data.clasificacionZonaSura) clasificacionSelect.value = data.clasificacionZonaSura;
+                if (zonaSelect && data.zonaDireccionSegunMunicipio) zonaSelect.value = data.zonaDireccionSegunMunicipio;
+                if (areaSelect && data.area) areaSelect.value = data.area;
+
+                if (data.telefono1) setVal(document.getElementById("telefono1Input"), data.telefono1);
+                if (data.telefono2) {
+                    const t2c = document.getElementById("telefono2Container");
+                    if (t2c) t2c.classList.remove("d-none");
+                    setVal(document.getElementById("telefono2Input"), data.telefono2);
+                }
+                if (data.telefono3) {
+                    const t3c = document.getElementById("telefono3Container");
+                    if (t3c) t3c.classList.remove("d-none");
+                    setVal(document.getElementById("telefono3Input"), data.telefono3);
+                }
+            };
+
+            if (validarPrecargaBtn && precargaDocumentoInput) {
+                validarPrecargaBtn.addEventListener("click", async () => {
+                    const doc = precargaDocumentoInput.value.trim();
+                    if (!doc) {
+                        if (precargaMensaje) precargaMensaje.innerHTML = '<div class="alert alert-warning mb-0">Ingresa el número de documento.</div>';
+                        return;
+                    }
+                    validarPrecargaBtn.disabled = true;
+                    if (precargaMensaje) precargaMensaje.innerHTML = '<div class="text-muted">Buscando...</div>';
+                    try {
+                        const resp = await fetch(`${obtenerDatosSeccion2Url}?numeroDocumento=${encodeURIComponent(doc)}`);
+                        const result = await resp.json();
+                        if (!resp.ok) {
+                            if (precargaMensaje) precargaMensaje.innerHTML = `<div class="alert alert-danger mb-0">${result.message ?? "Error al buscar el paciente."}</div>`;
+                            return;
+                        }
+                        if (!result.found) {
+                            if (precargaMensaje) precargaMensaje.innerHTML = `<div class="alert alert-info mb-0">${result.message}</div>`;
+                            return;
+                        }
+                        await applyPrecargaData(result.data);
+                        if (precargaMensaje) precargaMensaje.innerHTML = '<div class="alert alert-success mb-0">Datos precargados correctamente. Revisa y completa la sección 2.</div>';
+                    } catch {
+                        if (precargaMensaje) precargaMensaje.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al buscar el paciente.</div>';
+                    } finally {
+                        validarPrecargaBtn.disabled = false;
+                    }
+                });
+            }
 
             const normalizeCie10InputValue = (value) => {
                 const source = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");

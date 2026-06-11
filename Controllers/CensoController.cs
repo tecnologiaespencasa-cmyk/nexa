@@ -1393,6 +1393,51 @@ public class CensoController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> ObtenerDatosSeccion2(string? numeroDocumento, CancellationToken cancellationToken)
+    {
+        var normalizedDoc = NormalizeCedulaFilter(numeroDocumento);
+        if (string.IsNullOrWhiteSpace(normalizedDoc))
+            return BadRequest(new { message = "Ingresa el número de documento del paciente." });
+
+        var record = await _context.Censos
+            .AsNoTracking()
+            .Where(x => x.NumeroIdentificacion == normalizedDoc)
+            .OrderByDescending(x => x.FechaIngreso)
+            .ThenByDescending(x => x.HoraIngreso)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (record is null)
+            return Json(new { found = false, message = "Documento no encontrado. Proceda como un nuevo ingreso." });
+
+        return Json(new
+        {
+            found = true,
+            data = new
+            {
+                record.NombrePaciente,
+                record.TipoIdentificacion,
+                record.NumeroIdentificacion,
+                record.CodigoCie10,
+                record.DiagnosticoDescriptivo,
+                fechaNacimiento = record.FechaNacimiento.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                record.Edad,
+                record.CorreoElectronico,
+                record.Direccion,
+                record.DetalleDireccion,
+                record.ClasificacionZonaSura,
+                record.MunicipioResidencia,
+                record.Barrio,
+                record.ZonaDireccionSegunMunicipio,
+                record.Area,
+                record.Telefono1,
+                record.Telefono2,
+                record.Telefono3
+            }
+        });
+    }
+
+    [HttpGet]
     public async Task<IActionResult> ExportarExcel(CancellationToken cancellationToken)
     {
         var records = await _context.Censos
@@ -3691,7 +3736,7 @@ public class CensoController : Controller
         AppendHeaderCell(sb, "Prorroga_DiasTratamientoIv");
         AppendHeaderCell(sb, "Prorroga_FechaInicio");
         AppendHeaderCell(sb, "Prorroga_FechaFin");
-        AppendHeaderCell(sb, "Prorroga_FechaPromesa");
+        AppendHeaderCell(sb, "Prorroga_FechaOrdenamiento");
         AppendHeaderCell(sb, "Prorroga_HoraPromesa");
         AppendHeaderCell(sb, "Prorroga_AuxiliarAsignado");
         AppendHeaderCell(sb, "Prorroga_NumeroDiasExtension");
