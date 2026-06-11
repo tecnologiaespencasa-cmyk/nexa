@@ -3312,17 +3312,18 @@
                 if (!payload) return;
                 if (payload.fields) {
                     Object.entries(payload.fields).forEach(([key, value]) => {
+                        if (!value) return;
                         const control = document.querySelector(`#censoKardexModal [data-kardex-field='${key}']`);
-                        if (control) control.value = value || "";
+                        if (control) control.value = value;
                     });
                 }
                 if (Array.isArray(payload.medRows)) {
                     payload.medRows.forEach((rowData) => {
                         const row = rowData.row;
                         Object.entries(rowData).forEach(([field, value]) => {
-                            if (field === "row") return;
+                            if (field === "row" || !value) return;
                             const control = document.querySelector(`#censoKardexModal [data-kardex-med-row='${row}'] [data-kardex-med-field='${field}']`);
-                            if (control) control.value = value || "";
+                            if (control) control.value = value;
                         });
                     });
                 }
@@ -3363,8 +3364,10 @@
                             }
                         } catch { /* fallback to form sync */ }
                     }
-                    if (savedKardex) loadKardexPayload(savedKardex); else syncKardexSheet();
-                    if (savedRequisicion) loadRequisitionPayload(savedRequisicion); else syncRequisitionSheet();
+                    syncKardexSheet();
+                    if (savedKardex) loadKardexPayload(savedKardex);
+                    syncRequisitionSheet();
+                    if (savedRequisicion) loadRequisitionPayload(savedRequisicion);
                     loadAdjuntos(recordId);
                     if (adjuntoUploadStatus) adjuntoUploadStatus.textContent = "";
                     const serviciosCargadosSwitch = document.getElementById("serviciosCargadosSwitch");
