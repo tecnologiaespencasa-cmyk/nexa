@@ -1,3 +1,5 @@
+using IntranetPrueba.Helpers;
+
 namespace IntranetPrueba.Models.ViewModels;
 
 public static class FarmaciaEstados
@@ -240,7 +242,7 @@ public class FarmaciaSignatureViewModel
         && !string.IsNullOrWhiteSpace(FirmaRecibeDataUrl)
         && FechaHoraRecepcionUtc.HasValue;
 
-    public string FechaHoraRecepcionTexto => FechaHoraRecepcionUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? string.Empty;
+    public string FechaHoraRecepcionTexto => ColombiaTime.Convert(FechaHoraRecepcionUtc)?.ToString("dd/MM/yyyy HH:mm") ?? string.Empty;
 }
 
 public class FarmaciaSignatureInputModel

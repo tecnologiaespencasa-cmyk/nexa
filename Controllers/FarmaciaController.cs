@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using IntranetPrueba.Data;
 using IntranetPrueba.Data.Entities;
+using IntranetPrueba.Helpers;
 using IntranetPrueba.Models.Security;
 using IntranetPrueba.Models.ViewModels;
 using IntranetPrueba.Services.Interfaces;
@@ -177,7 +178,7 @@ public class FarmaciaController : Controller
             nombreRecibe = firma.NombreRecibe,
             firmaEntregaDataUrl = firma.FirmaEntregaDataUrl,
             firmaRecibeDataUrl = firma.FirmaRecibeDataUrl,
-            fechaHoraRecepcion = firma.FechaHoraRecepcionUtc?.ToLocalTime().ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture),
+            fechaHoraRecepcion = ColombiaTime.Convert(firma.FechaHoraRecepcionUtc)?.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture),
             fechaHoraRecepcionTexto = firma.FechaHoraRecepcionTexto,
             estaCompleta = firma.EstaCompleta
         });
@@ -241,7 +242,7 @@ public class FarmaciaController : Controller
             message = "Firmas guardadas. Paciente pasado a Despachado.",
             estaCompleta = true,
             nombreRecibe = record.FarmaciaNombreRecibe,
-            fechaHoraRecepcionTexto = record.FarmaciaFechaHoraRecepcionUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+            fechaHoraRecepcionTexto = ColombiaTime.Convert(record.FarmaciaFechaHoraRecepcionUtc)?.ToString("dd/MM/yyyy HH:mm")
         });
     }
 
