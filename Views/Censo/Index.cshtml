@@ -576,7 +576,7 @@
                                                     </div>
                                                     <div class="censo-compact-field">
                                                         <label asp-for="HoraIngreso" class="form-label">Hora</label>
-                                                        <input asp-for="HoraIngreso" type="time" step="60" class="form-control" aria-label="Hora de ingreso" lang="en-GB" />
+                                                        <input asp-for="HoraIngreso" type="text" class="form-control hora-24h-input" placeholder="HH:mm" maxlength="5" autocomplete="off" aria-label="Hora de ingreso (formato 24h)" />
                                                     </div>
                                                 </div>
                                                 <span asp-validation-for="FechaIngreso" class="text-danger d-block"></span>
@@ -598,7 +598,7 @@
                                                     </div>
                                                     <div class="censo-compact-field">
                                                         <label asp-for="HoraRespuesta" class="form-label">Hora</label>
-                                                        <input asp-for="HoraRespuesta" type="time" step="60" class="form-control" aria-label="Hora de respuesta" lang="en-GB" />
+                                                        <input asp-for="HoraRespuesta" type="text" class="form-control hora-24h-input" placeholder="HH:mm" maxlength="5" autocomplete="off" aria-label="Hora de respuesta (formato 24h)" />
                                                     </div>
                                                 </div>
                                                 <span asp-validation-for="FechaRespuesta" class="text-danger d-block"></span>
@@ -621,7 +621,7 @@
                                                     </div>
                                                     <div class="censo-compact-field">
                                                         <label asp-for="HoraGestionFarmacia" class="form-label">Hora</label>
-                                                        <input asp-for="HoraGestionFarmacia" type="time" step="60" class="form-control" id="horaGestionFarmaciaDisplay" aria-label="Hora de gestión farmacia" disabled aria-readonly="true" lang="en-GB" />
+                                                        <input asp-for="HoraGestionFarmacia" type="text" class="form-control" id="horaGestionFarmaciaDisplay" placeholder="HH:mm" maxlength="5" aria-label="Hora de gestión farmacia" disabled aria-readonly="true" />
                                                         <input asp-for="HoraGestionFarmacia" type="hidden" id="horaGestionFarmaciaHidden" />
                                                     </div>
                                                 </div>
@@ -5318,6 +5318,51 @@
             }
 
             syncAdministracionMedicamentosVisibility(false);
+
+            // 24h time input initialization: strip seconds (ASP.NET renders TimeSpan as HH:mm:ss) and apply input mask
+            (function () {
+                const toHHmm = (val) => (val && val.length > 5 ? val.substring(0, 5) : val);
+
+                document.querySelectorAll(".hora-24h-input").forEach((el) => {
+                    el.value = toHHmm(el.value);
+                });
+                const gDisplay = document.getElementById("horaGestionFarmaciaDisplay");
+                if (gDisplay) gDisplay.value = toHHmm(gDisplay.value);
+
+                document.querySelectorAll(".hora-24h-input").forEach((el) => {
+                    el.addEventListener("keydown", (e) => {
+                        if (["Backspace", "Delete", "Tab", "Escape", "Enter",
+                             "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
+                             "Home", "End"].includes(e.key)) return;
+                        if ((e.ctrlKey || e.metaKey) && ["a", "c", "v", "x"].includes(e.key.toLowerCase())) return;
+                        if (e.key === ":") return;
+                        if (!/^[0-9]$/.test(e.key)) e.preventDefault();
+                    });
+
+                    el.addEventListener("input", () => {
+                        let digits = el.value.replace(/[^0-9]/g, "");
+                        if (digits.length > 4) digits = digits.substring(0, 4);
+                        if (digits.length >= 2) {
+                            const h = parseInt(digits.substring(0, 2), 10);
+                            if (h > 23) digits = "23" + digits.substring(2);
+                        }
+                        el.value = digits.length > 2
+                            ? digits.substring(0, 2) + ":" + digits.substring(2)
+                            : digits;
+                    });
+
+                    el.addEventListener("blur", () => {
+                        if (el.value && !/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(el.value)) {
+                            el.setCustomValidity("Ingrese la hora en formato HH:mm (ej: 14:30)");
+                            el.reportValidity();
+                        } else {
+                            el.setCustomValidity("");
+                        }
+                    });
+
+                    el.addEventListener("focus", () => el.setCustomValidity(""));
+                });
+            })();
 
             if (cateterismoOSvSelect) {
                 cateterismoOSvSelect.addEventListener("change", syncCateterismoVisibility);
