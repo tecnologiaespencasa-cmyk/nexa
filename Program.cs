@@ -44,6 +44,7 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddScoped<ICurrentUserPermissionService, CurrentUserPermissionService>();
 builder.Services.AddScoped<IFarmaciaDispatchNotificationService, FarmaciaDispatchNotificationService>();
+builder.Services.AddHostedService<EmpacadoNotificationHostedService>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddHttpClient<IAddressValidationService, GoogleAddressValidationService>();
 builder.Services.AddHttpClient<IEmailService, GraphEmailService>();

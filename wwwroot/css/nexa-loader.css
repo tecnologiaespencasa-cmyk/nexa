@@ -1,0 +1,159 @@
+/* ============================================================
+   Nexa Loader — overlay de carga global
+   ============================================================ */
+
+.nexa-loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(17, 17, 17, 0.96);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nexa-loader-overlay.hidden {
+  display: none;
+}
+
+.nexa-loader-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+/* ---- Logo SVG ---- */
+.nexa-logo-svg {
+  width: 150px;
+  height: 130px;
+  overflow: visible;
+}
+
+.nexa-ribbon {
+  fill: none;
+  stroke: url(#nexa-rg);
+  stroke-width: 19;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+  animation: nexa-draw 1.8s cubic-bezier(.4,0,.2,1) infinite;
+}
+@keyframes nexa-draw {
+  0%   { stroke-dashoffset: 240; }
+  55%  { stroke-dashoffset: 0; }
+  85%  { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 240; }
+}
+
+.nexa-dot-a {
+  fill: #ff2d2d;
+  transform-origin: 107px 20px;
+  animation: nexa-popA 1.8s cubic-bezier(.4,0,.2,1) infinite;
+}
+@keyframes nexa-popA {
+  0%,48% { opacity: 0; transform: scale(0); }
+  60%    { opacity: 1; transform: scale(1.18); }
+  70%    { opacity: 1; transform: scale(1); }
+  90%    { opacity: 1; transform: scale(1); }
+  100%   { opacity: 0; transform: scale(0); }
+}
+
+.nexa-dot-b {
+  fill: #e01818;
+  transform-origin: 36px 92px;
+  animation: nexa-popB 1.8s cubic-bezier(.4,0,.2,1) infinite;
+}
+@keyframes nexa-popB {
+  0%,56% { opacity: 0; transform: scale(0); }
+  68%    { opacity: 1; transform: scale(1.18); }
+  78%    { opacity: 1; transform: scale(1); }
+  90%    { opacity: 1; transform: scale(1); }
+  100%   { opacity: 0; transform: scale(0); }
+}
+
+/* ---- Wordmark ---- */
+.nexa-wordmark {
+  display: flex;
+  align-items: baseline;
+  font-size: 46px;
+  font-weight: 700;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  line-height: 1;
+}
+.nexa-wN   { color: #ff2d2d; }
+.nexa-wexa { color: #555; }
+
+.nexa-wN,
+.nexa-wexa span {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: nexa-fadeUp .35s ease forwards;
+}
+.nexa-wexa span:nth-child(1) { animation-delay: .18s; }
+.nexa-wexa span:nth-child(2) { animation-delay: .32s; }
+.nexa-wexa span:nth-child(3) { animation-delay: .46s; }
+
+@keyframes nexa-fadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Progress bar ---- */
+.nexa-progress-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.nexa-bar-track {
+  width: 160px;
+  height: 2px;
+  background: #333;
+  border-radius: 99px;
+  overflow: hidden;
+}
+.nexa-bar-fill {
+  height: 100%;
+  width: 40%;
+  background: #ff2d2d;
+  border-radius: 99px;
+  animation: nexa-sweep 1.8s ease-in-out infinite;
+}
+@keyframes nexa-sweep {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(360%); }
+}
+.nexa-loading-lbl {
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #888;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ---- Reduced motion: logo estático, sin keyframes ---- */
+@media (prefers-reduced-motion: reduce) {
+  .nexa-ribbon {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .nexa-dot-a,
+  .nexa-dot-b {
+    animation: none;
+    opacity: 1;
+    transform: scale(1);
+  }
+  .nexa-wN,
+  .nexa-wexa span {
+    animation: none;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .nexa-bar-fill {
+    animation: none;
+    transform: translateX(0);
+    width: 100%;
+  }
+}

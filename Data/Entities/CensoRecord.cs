@@ -463,6 +463,12 @@ public class CensoRecord
 
     public DateTime? FarmaciaEmpacadoAtUtc { get; set; }
 
+    public bool FarmaciaBolsaDesempacada { get; set; }
+
+    public DateTime? FarmaciaNotifAuxiliarUltimaUtc { get; set; }
+
+    public DateTime? FarmaciaNotif24hRestanteUtc { get; set; }
+
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public ICollection<CensoAdjunto> Adjuntos { get; set; } = [];

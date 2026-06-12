@@ -166,9 +166,14 @@ public class FarmaciaController : Controller
             return NotFound(new { message = "No se encontro el despacho de farmacia." });
         }
 
-        if (record.FarmaciaEstado != FarmaciaEstados.Empacado)
+        if (record.FarmaciaEstado != FarmaciaEstados.Empacado && record.FarmaciaEstado != FarmaciaEstados.PorDesempacar)
         {
-            return BadRequest(new { message = "La firma solo esta disponible en estado Empacado." });
+            return BadRequest(new { message = "La firma solo esta disponible en estado Empacado o Por Desempacar." });
+        }
+
+        if (record.FarmaciaEstado == FarmaciaEstados.PorDesempacar && record.FarmaciaBolsaDesempacada)
+        {
+            return BadRequest(new { message = "La bolsa ya fue marcada como desempacada." });
         }
 
         var firma = BuildSignatureModel(record);
@@ -223,9 +228,14 @@ public class FarmaciaController : Controller
             return NotFound(new { message = "No se encontro el despacho de farmacia." });
         }
 
-        if (record.FarmaciaEstado != FarmaciaEstados.Empacado)
+        if (record.FarmaciaEstado != FarmaciaEstados.Empacado && record.FarmaciaEstado != FarmaciaEstados.PorDesempacar)
         {
-            return BadRequest(new { message = "La firma solo esta disponible en estado Empacado." });
+            return BadRequest(new { message = "La firma solo esta disponible en estado Empacado o Por Desempacar." });
+        }
+
+        if (record.FarmaciaEstado == FarmaciaEstados.PorDesempacar && record.FarmaciaBolsaDesempacada)
+        {
+            return BadRequest(new { message = "La bolsa ya fue marcada como desempacada." });
         }
 
         record.FarmaciaNombreRecibe = nombreRecibe;
@@ -244,6 +254,25 @@ public class FarmaciaController : Controller
             nombreRecibe = record.FarmaciaNombreRecibe,
             fechaHoraRecepcionTexto = ColombiaTime.Convert(record.FarmaciaFechaHoraRecepcionUtc)?.ToString("dd/MM/yyyy HH:mm")
         });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetBolsaDesempacada(long id, CancellationToken cancellationToken)
+    {
+        var record = await _context.Censos.FirstOrDefaultAsync(
+            x => x.Id == id && x.FarmaciaEnviadoAtUtc != null && x.FarmaciaEstado == FarmaciaEstados.PorDesempacar,
+            cancellationToken);
+
+        if (record is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado o no esta en estado Por Desempacar." });
+        }
+
+        record.FarmaciaBolsaDesempacada = true;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new { message = "Bolsa marcada como desempacada." });
     }
 
     [HttpPost]
@@ -420,6 +449,7 @@ public class FarmaciaController : Controller
             FarmaciaEntregaActual = record.FarmaciaEntregaActual,
             FarmaciaFacturado = record.FarmaciaFacturado,
             FarmaciaEmpacadoAtUtc = record.FarmaciaEmpacadoAtUtc,
+            FarmaciaBolsaDesempacada = record.FarmaciaBolsaDesempacada,
             TieneAdjuntos = tieneAdjuntos,
         };
     }

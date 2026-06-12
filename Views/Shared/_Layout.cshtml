@@ -31,6 +31,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/nexa-loader.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/IntranetPrueba.styles.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
@@ -235,8 +236,45 @@
         </div>
     </footer>
 
+    <!-- Nexa Loader — overlay global de carga -->
+    <div class="nexa-loader-overlay hidden" id="nexaLoader" aria-busy="true" role="status" aria-label="Cargando">
+      <div class="nexa-loader-card">
+
+        <svg class="nexa-logo-svg" viewBox="0 0 140 130" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="nexa-rg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#ff5050"/>
+              <stop offset="55%"  stop-color="#e01818"/>
+              <stop offset="100%" stop-color="#a50f0f"/>
+            </linearGradient>
+          </defs>
+          <path class="nexa-ribbon"
+            d="M 36 68
+               L 36 36
+               C 36 24 46 20 54 30
+               L 88 86
+               C 96 98 106 94 106 80
+               L 106 48"
+          />
+          <circle class="nexa-dot-a" cx="107" cy="20" r="12"/>
+          <circle class="nexa-dot-b" cx="36"  cy="92" r="10"/>
+        </svg>
+
+        <div class="nexa-wordmark">
+          <span class="nexa-wN">N</span><span class="nexa-wexa"><span>e</span><span>x</span><span>a</span></span>
+        </div>
+
+        <div class="nexa-progress-zone">
+          <div class="nexa-bar-track"><div class="nexa-bar-fill"></div></div>
+          <span class="nexa-loading-lbl">Cargando</span>
+        </div>
+
+      </div>
+    </div>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/nexa-loader.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

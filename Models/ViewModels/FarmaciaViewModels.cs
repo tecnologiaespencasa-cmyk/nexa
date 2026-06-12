@@ -98,6 +98,8 @@ public class FarmaciaPedidoViewModel
 
     public DateTime? FarmaciaEmpacadoAtUtc { get; set; }
 
+    public bool FarmaciaBolsaDesempacada { get; set; }
+
     public bool TieneAdjuntos { get; set; }
 
     public TimeSpan? TiempoEnEmpacado => FarmaciaEmpacadoAtUtc.HasValue

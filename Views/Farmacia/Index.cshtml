@@ -337,7 +337,7 @@
                     <div class="farmacia-order-list">
                         @foreach (var item in Model.PorDesempacar.Items)
                         {
-                            <article class="farmacia-order farmacia-order--alert" data-pedido-id="@item.Id">
+                            <article class="farmacia-order @(item.FarmaciaBolsaDesempacada ? "farmacia-order--desempacada" : "farmacia-order--alert")" data-pedido-id="@item.Id">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
@@ -358,8 +358,23 @@
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
+                                        @if (!item.FarmaciaBolsaDesempacada)
+                                        {
+                                            <button type="button" class="farmacia-doc-button farmacia-doc-button--signature"
+                                                    data-firma-button data-pedido-id="@item.Id">
+                                                <span>Firma</span>
+                                                <small>Pendiente</small>
+                                            </button>
+                                            <button type="button" class="farmacia-doc-button farmacia-doc-button--desempacar"
+                                                    data-action-button="bolsa-desempacada" data-pedido-id="@item.Id">
+                                                <span>Bolsa desempacada</span>
+                                                <small>Confirmar</small>
+                                            </button>
+                                        }
                                     </div>
-                                    <span class="farmacia-status farmacia-status--alert">Por desempacar</span>
+                                    <span class="farmacia-status @(item.FarmaciaBolsaDesempacada ? "farmacia-status--desempacada" : "farmacia-status--alert")">
+                                        @(item.FarmaciaBolsaDesempacada ? "Bolsa desempacada" : "Por desempacar")
+                                    </span>
                                 </div>
                             </article>
                         }
@@ -520,6 +535,7 @@
             const okKardexUrl = "@Url.Action("SetOkKardex", "Farmacia")";
             const facturarUrl = "@Url.Action("SetFacturado", "Farmacia")";
             const empacarUrl = "@Url.Action("SetEmpacado", "Farmacia")";
+            const bolsaDesempacarUrl = "@Url.Action("SetBolsaDesempacada", "Farmacia")";
             const entregaParcialUrl = "@Url.Action("SetEntregaParcial", "Farmacia")";
             const avanzarEntregaUrl = "@Url.Action("AvanzarEntrega", "Farmacia")";
             const signatureModalElement = document.getElementById("farmaciaSignatureModal");
@@ -617,6 +633,10 @@
                         if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
                     } else if (action === "empacar") {
                         const resp = await postForm(empacarUrl, id);
+                        const data = await resp.json();
+                        if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
+                    } else if (action === "bolsa-desempacada") {
+                        const resp = await postForm(bolsaDesempacarUrl, id);
                         const data = await resp.json();
                         if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
                     } else if (action === "avanzar-entrega") {

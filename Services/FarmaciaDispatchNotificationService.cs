@@ -14,6 +14,7 @@ namespace IntranetPrueba.Services;
 public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotificationService
 {
     private const string MedicosKardexEmail = "medicos@especialistasencasa.com";
+    private const string GerenciaEmail = "gerencia@especialistasencasa.com";
     private const string ValorNoAplicaMedicamentoAdicional = "No";
     private readonly ApplicationDbContext _context;
     private readonly IEmailService _emailService;
@@ -678,6 +679,76 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
         return result.Succeeded
             ? []
             : [$"No se pudo notificar al auxiliar sobre despacho: {result.ErrorMessage}"];
+    }
+
+    public async Task<IReadOnlyList<string>> NotifyEmpacadoPendienteAuxiliarAsync(CensoRecord record, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(record.AuxiliarAsignado))
+        {
+            return ["No hay auxiliar asignado para notificar."];
+        }
+
+        var assistantEmail = await GetAssignedAssistantEmailAsync(record.AuxiliarAsignado, cancellationToken);
+        if (string.IsNullOrWhiteSpace(assistantEmail))
+        {
+            return ["No se encontro correo del auxiliar asignado."];
+        }
+
+        var telefonos = string.Join(" / ", new[] { record.Telefono1, record.Telefono2, record.Telefono3 }
+            .Where(x => !string.IsNullOrWhiteSpace(x)));
+        var direccionCompleta = string.Join(" ", new[] { record.Direccion, record.DetalleDireccion }
+            .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+        var result = await _emailService.SendAsync(new EmailMessage
+        {
+            To = [assistantEmail],
+            Subject = $"Bolsa pendiente de reclamar - {record.TipoIdentificacion} {record.NumeroIdentificacion} - {record.NombrePaciente}",
+            HtmlBody = $"""
+                <p>Hola <strong>{HtmlEncode(record.AuxiliarAsignado)}</strong>,</p>
+                <p>Tienes una bolsa de insumos pendiente de reclamar en la farmacia de <strong>Especialistas en Casa</strong>.</p>
+                <p><strong>Paciente:</strong> {HtmlEncode(record.NombrePaciente)}</p>
+                <p><strong>Documento:</strong> {HtmlEncode(record.TipoIdentificacion)} {HtmlEncode(record.NumeroIdentificacion)}</p>
+                <p><strong>Direccion:</strong> {HtmlEncode(direccionCompleta)}</p>
+                <p><strong>Telefonos:</strong> {HtmlEncode(telefonos)}</p>
+                <p>Por favor acercarse a farmacia para retirar la bolsa a la brevedad posible.</p>
+                <br/>
+                <p><em>Este es un correo automatico de Especialistas en Casa</em></p>
+                """
+        }, cancellationToken);
+
+        return result.Succeeded
+            ? []
+            : [$"No se pudo enviar recordatorio al auxiliar: {result.ErrorMessage}"];
+    }
+
+    public async Task<IReadOnlyList<string>> NotifyEmpacadoPorVencerGerenciaAsync(CensoRecord record, CancellationToken cancellationToken = default)
+    {
+        var telefonos = string.Join(" / ", new[] { record.Telefono1, record.Telefono2, record.Telefono3 }
+            .Where(x => !string.IsNullOrWhiteSpace(x)));
+        var direccionCompleta = string.Join(" ", new[] { record.Direccion, record.DetalleDireccion }
+            .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+        var result = await _emailService.SendAsync(new EmailMessage
+        {
+            To = [GerenciaEmail],
+            Subject = $"AVISO: Despacho por vencer en 24h - {record.TipoIdentificacion} {record.NumeroIdentificacion} - {record.NombrePaciente}",
+            HtmlBody = $"""
+                <p>Estimada Gerencia,</p>
+                <p>Le informamos que el despacho del siguiente paciente tiene <strong>24 horas restantes</strong> para ser reclamado antes de ser desempacado.</p>
+                <p><strong>Paciente:</strong> {HtmlEncode(record.NombrePaciente)}</p>
+                <p><strong>Documento:</strong> {HtmlEncode(record.TipoIdentificacion)} {HtmlEncode(record.NumeroIdentificacion)}</p>
+                <p><strong>Auxiliar asignado:</strong> {HtmlEncode(record.AuxiliarAsignado ?? "No asignado")}</p>
+                <p><strong>Direccion:</strong> {HtmlEncode(direccionCompleta)}</p>
+                <p><strong>Telefonos:</strong> {HtmlEncode(telefonos)}</p>
+                <p>Por favor tomar las acciones necesarias para garantizar el retiro oportuno de la bolsa.</p>
+                <br/>
+                <p><em>Este es un correo automatico de Especialistas en Casa</em></p>
+                """
+        }, cancellationToken);
+
+        return result.Succeeded
+            ? []
+            : [$"No se pudo enviar alerta de vencimiento a gerencia: {result.ErrorMessage}"];
     }
 
     private sealed record DispatchDocumentModels(

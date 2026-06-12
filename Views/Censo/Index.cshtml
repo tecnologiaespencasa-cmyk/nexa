@@ -576,7 +576,7 @@
                                                     </div>
                                                     <div class="censo-compact-field">
                                                         <label asp-for="HoraIngreso" class="form-label">Hora</label>
-                                                        <input asp-for="HoraIngreso" type="time" step="60" class="form-control" aria-label="Hora de ingreso" />
+                                                        <input asp-for="HoraIngreso" type="time" step="60" class="form-control" aria-label="Hora de ingreso" lang="en-GB" />
                                                     </div>
                                                 </div>
                                                 <span asp-validation-for="FechaIngreso" class="text-danger d-block"></span>
@@ -598,7 +598,7 @@
                                                     </div>
                                                     <div class="censo-compact-field">
                                                         <label asp-for="HoraRespuesta" class="form-label">Hora</label>
-                                                        <input asp-for="HoraRespuesta" type="time" step="60" class="form-control" aria-label="Hora de respuesta" />
+                                                        <input asp-for="HoraRespuesta" type="time" step="60" class="form-control" aria-label="Hora de respuesta" lang="en-GB" />
                                                     </div>
                                                 </div>
                                                 <span asp-validation-for="FechaRespuesta" class="text-danger d-block"></span>
@@ -621,7 +621,7 @@
                                                     </div>
                                                     <div class="censo-compact-field">
                                                         <label asp-for="HoraGestionFarmacia" class="form-label">Hora</label>
-                                                        <input asp-for="HoraGestionFarmacia" type="time" step="60" class="form-control" id="horaGestionFarmaciaDisplay" aria-label="Hora de gestión farmacia" disabled aria-readonly="true" />
+                                                        <input asp-for="HoraGestionFarmacia" type="time" step="60" class="form-control" id="horaGestionFarmaciaDisplay" aria-label="Hora de gestión farmacia" disabled aria-readonly="true" lang="en-GB" />
                                                         <input asp-for="HoraGestionFarmacia" type="hidden" id="horaGestionFarmaciaHidden" />
                                                     </div>
                                                 </div>
@@ -923,6 +923,10 @@
                                         <label asp-for="AdministracionMedicamentos" class="form-label"></label>
                                         <select asp-for="AdministracionMedicamentos" asp-items="Model.AdministracionMedicamentosOptions" class="form-select" id="administracionMedicamentosSelect"></select>
                                         <span asp-validation-for="AdministracionMedicamentos" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4 d-none" id="diasTratamientoNoMedicamentosContainer">
+                                        <label class="form-label" for="diasTratamientoNoMedicamentosInput">D&iacute;as de tratamiento</label>
+                                        <input class="form-control" type="number" id="diasTratamientoNoMedicamentosInput" min="1" max="9999" step="1" inputmode="numeric" />
                                     </div>
                                     <div class="w-100"></div>
                                     <div class="col-12 d-none" id="administracionMedicamentosFieldsContainer">
@@ -1723,7 +1727,7 @@
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
-                                    <div class="col-12">
+                                    <div class="col-lg-6">
                                         <label class="form-label fw-semibold">&iquest;Es extensi&oacute;n o adici&oacute;n de tratamiento?</label>
                                         <div role="radiogroup" aria-label="Tipo de prórroga">
                                             <div class="form-check form-check-inline">
@@ -1733,6 +1737,23 @@
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input" type="radio" name="prorroga-tipo" id="prorrogaTipoAdicion" value="adicion" />
                                                 <label class="form-check-label" for="prorrogaTipoAdicion">Adici&oacute;n de tratamiento</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label class="form-label fw-semibold">&iquest;Seguimiento m&eacute;dico?</label>
+                                        <div role="radiogroup" aria-label="Seguimiento médico">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="prorroga-seguimiento-medico" id="prorrogaSeguimientoSi" value="si" />
+                                                <label class="form-check-label" for="prorrogaSeguimientoSi">S&iacute;</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="prorroga-seguimiento-medico" id="prorrogaSeguimientoNo" value="no" />
+                                                <label class="form-check-label" for="prorrogaSeguimientoNo">No</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="prorroga-seguimiento-medico" id="prorrogaSeguimientoNoAplica" value="no-aplica" />
+                                                <label class="form-check-label" for="prorrogaSeguimientoNoAplica">No aplica</label>
                                             </div>
                                         </div>
                                     </div>
@@ -2628,6 +2649,8 @@
             const servicioComplementarioHidden = document.getElementById("servicioComplementarioHidden");
             const servicioComplementariosCheckboxes = document.querySelectorAll("[data-servicio-checkbox]");
             const auxiliarAsignadoInput = document.getElementById("auxiliarAsignadoInput");
+            const diasNoMedicamentosContainer = document.getElementById("diasTratamientoNoMedicamentosContainer");
+            const diasNoMedicamentosInput = document.getElementById("diasTratamientoNoMedicamentosInput");
             const estadoSelect = document.getElementById("estadoSelect");
             const gestionAltaTabLink = document.getElementById("tab-gestion-alta-link");
             const gestionAltaPane = document.getElementById("tab-gestion-alta");
@@ -4615,23 +4638,36 @@
                     return;
                 }
 
-                const shouldAutoCalculate = isMedicationAdministrationEnabled();
-                fechaFinTratamientoInput.readOnly = shouldAutoCalculate;
+                const medicacionSi = isMedicationAdministrationEnabled();
 
-                if (!shouldAutoCalculate) {
-                    return;
+                if (medicacionSi) {
+                    fechaFinTratamientoInput.readOnly = true;
+                    const startDate = parseIsoDateInputValue(fechaInicioTratamientoInput && fechaInicioTratamientoInput.value ? fechaInicioTratamientoInput.value : "");
+                    const treatmentDays = Number.parseInt(diasTratamientoIvInput && diasTratamientoIvInput.value ? diasTratamientoIvInput.value : "0", 10);
+                    if (!startDate || !Number.isFinite(treatmentDays) || treatmentDays < 1) {
+                        fechaFinTratamientoInput.value = "";
+                        return;
+                    }
+                    const offset = is24HorasFrecuencia(getWinningMedFreq()) ? treatmentDays - 1 : treatmentDays;
+                    const endDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                    endDate.setDate(endDate.getDate() + offset);
+                    fechaFinTratamientoInput.value = toIsoDateInputValue(endDate);
+                } else {
+                    const noMedDays = Number.parseInt(diasNoMedicamentosInput && diasNoMedicamentosInput.value ? diasNoMedicamentosInput.value : "0", 10);
+                    if (Number.isFinite(noMedDays) && noMedDays >= 1) {
+                        fechaFinTratamientoInput.readOnly = true;
+                        const startDate = parseIsoDateInputValue(fechaInicioTratamientoInput && fechaInicioTratamientoInput.value ? fechaInicioTratamientoInput.value : "");
+                        if (!startDate) {
+                            fechaFinTratamientoInput.value = "";
+                            return;
+                        }
+                        const endDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                        endDate.setDate(endDate.getDate() + noMedDays);
+                        fechaFinTratamientoInput.value = toIsoDateInputValue(endDate);
+                    } else {
+                        fechaFinTratamientoInput.readOnly = false;
+                    }
                 }
-
-                const startDate = parseIsoDateInputValue(fechaInicioTratamientoInput && fechaInicioTratamientoInput.value ? fechaInicioTratamientoInput.value : "");
-                const treatmentDays = Number.parseInt(diasTratamientoIvInput && diasTratamientoIvInput.value ? diasTratamientoIvInput.value : "0", 10);
-                if (!startDate || !Number.isFinite(treatmentDays) || treatmentDays < 1) {
-                    fechaFinTratamientoInput.value = "";
-                    return;
-                }
-
-                const endDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-                endDate.setDate(endDate.getDate() + treatmentDays);
-                fechaFinTratamientoInput.value = toIsoDateInputValue(endDate);
             };
 
             const calculateMedicationApplications = (doseInput, daysInput) => {
@@ -4676,6 +4712,21 @@
                 }
 
                 return days;
+            };
+
+            const is24HorasFrecuencia = (freqValue) =>
+                (freqValue || "").trim().toUpperCase() === "CADA 24 HORAS";
+
+            const getWinningMedFreq = () => {
+                const meds = [
+                    { days: getMedicationDaysValue(diasMedicamentoPrincipalInput), freq: frecuenciaAdministracionMxPrincipalSelect?.value || "" },
+                ];
+                if (medicamento2Toggle?.checked) meds.push({ days: getMedicationDaysValue(diasMedicamento2Input), freq: frecuenciaMedicamento2Select?.value || "" });
+                if (medicamento3Toggle?.checked) meds.push({ days: getMedicationDaysValue(diasMedicamento3Input), freq: frecuenciaMedicamento3Select?.value || "" });
+                if (medicamento4Toggle?.checked) meds.push({ days: getMedicationDaysValue(diasMedicamento4Input), freq: frecuenciaMedicamento4Select?.value || "" });
+                if (medicamento5Toggle?.checked) meds.push({ days: getMedicationDaysValue(diasMedicamento5Input), freq: frecuenciaMedicamento5Select?.value || "" });
+                if (medicamento6Toggle?.checked) meds.push({ days: getMedicationDaysValue(diasMedicamento6Input), freq: frecuenciaMedicamento6Select?.value || "" });
+                return meds.reduce((best, m) => m.days > best.days ? m : best, { days: 0, freq: "" }).freq;
             };
 
             const isCambioFrecuenciaActivo = () =>
@@ -4941,6 +4992,12 @@
                     administracionMedicamentosFieldsContainer.classList.toggle("d-none", !shouldShowAdministrationFields);
                 }
 
+                diasNoMedicamentosContainer?.classList.toggle("d-none", shouldShowAdministrationFields);
+
+                if (auxiliarAsignadoInput) {
+                    auxiliarAsignadoInput.disabled = !shouldShowAdministrationFields;
+                }
+
                 if (!shouldShowAdministrationFields) {
                     if (clearValuesWhenDisabled) {
                         clearMedicationAdministrationFields();
@@ -4950,6 +5007,10 @@
                     syncAplicacionesTotales();
                     syncFechaFinTratamiento();
                     return;
+                }
+
+                if (clearValuesWhenDisabled && diasNoMedicamentosInput) {
+                    diasNoMedicamentosInput.value = "";
                 }
 
                 syncAllMedicationDailyDoses();
@@ -5175,6 +5236,10 @@
             if (fechaInicioTratamientoInput) {
                 fechaInicioTratamientoInput.addEventListener("change", syncFechaFinTratamiento);
                 fechaInicioTratamientoInput.addEventListener("input", syncFechaFinTratamiento);
+            }
+
+            if (diasNoMedicamentosInput) {
+                diasNoMedicamentosInput.addEventListener("input", syncFechaFinTratamiento);
             }
 
             if (telefono2Toggle) {
@@ -5550,7 +5615,7 @@
                 };
 
                 const requireAuxiliarAsignadoForComplete = (showWarning) => {
-                    if (!switchInput.checked || !auxiliarAsignadoInput || String(auxiliarAsignadoInput.value || "").trim()) {
+                    if (!switchInput.checked || !auxiliarAsignadoInput || !isMedicationAdministrationEnabled() || String(auxiliarAsignadoInput.value || "").trim()) {
                         return true;
                     }
 
@@ -5655,6 +5720,18 @@
                     prorrogaDiasIvInput.value = max > 0 ? String(max) : "";
                 };
 
+                const getProrrogaWinningFreq = () => {
+                    const meds = [
+                        { days: getMedicationDaysValue(document.getElementById("prorrogaDiasMedPrincipal")), freq: getProrrogaInputValue("prorrogaFrecuenciaMedPrincipal") },
+                    ];
+                    if (prorrogaMed2Toggle?.checked) meds.push({ days: getMedicationDaysValue(document.getElementById("prorrogaDiasMed2")), freq: getProrrogaInputValue("prorrogaFrecuenciaMed2") });
+                    if (prorrogaMed3Toggle?.checked) meds.push({ days: getMedicationDaysValue(document.getElementById("prorrogaDiasMed3")), freq: getProrrogaInputValue("prorrogaFrecuenciaMed3") });
+                    if (prorrogaMed4Toggle?.checked) meds.push({ days: getMedicationDaysValue(document.getElementById("prorrogaDiasMed4")), freq: getProrrogaInputValue("prorrogaFrecuenciaMed4") });
+                    if (prorrogaMed5Toggle?.checked) meds.push({ days: getMedicationDaysValue(document.getElementById("prorrogaDiasMed5")), freq: getProrrogaInputValue("prorrogaFrecuenciaMed5") });
+                    if (prorrogaMed6Toggle?.checked) meds.push({ days: getMedicationDaysValue(document.getElementById("prorrogaDiasMed6")), freq: getProrrogaInputValue("prorrogaFrecuenciaMed6") });
+                    return meds.reduce((best, m) => m.days > best.days ? m : best, { days: 0, freq: "" }).freq;
+                };
+
                 const syncProrrogaFechaFin = () => {
                     if (!prorrogaFechaInicioInput || !prorrogaFechaFinInput || !prorrogaDiasIvInput) return;
                     const startDate = parseIsoDateInputValue(prorrogaFechaInicioInput.value);
@@ -5663,8 +5740,9 @@
                         prorrogaFechaFinInput.value = "";
                         return;
                     }
+                    const offset = is24HorasFrecuencia(getProrrogaWinningFreq()) ? days - 1 : days;
                     const endDate = new Date(startDate);
-                    endDate.setDate(endDate.getDate() + days - 1);
+                    endDate.setDate(endDate.getDate() + offset);
                     prorrogaFechaFinInput.value = endDate.toISOString().slice(0, 10);
                 };
 
@@ -5694,6 +5772,7 @@
 
                 const collectProrrogaPayload = () => ({
                     tipoProrroga: (document.querySelector("input[name='prorroga-tipo']:checked")?.value || ""),
+                    seguimientoMedico: (document.querySelector("input[name='prorroga-seguimiento-medico']:checked")?.value || ""),
                     nombreMedicamentoPrincipal: getProrrogaInputValue("prorrogaNombreMedPrincipal"),
                     dosisMedicamentoPrincipal: getProrrogaInputValue("prorrogaDosisMedPrincipal"),
                     medidaMedicamentoPrincipal: getProrrogaInputValue("prorrogaMedidaMedPrincipal"),
@@ -5810,6 +5889,10 @@
                         if (tipoRadio) tipoRadio.checked = true;
                     }
                     document.getElementById("prorrogaExtensionContainer")?.classList.toggle("d-none", data.tipoProrroga !== "extension");
+                    if (data.seguimientoMedico) {
+                        const segRadio = document.querySelector(`input[name='prorroga-seguimiento-medico'][value='${data.seguimientoMedico}']`);
+                        if (segRadio) segRadio.checked = true;
+                    }
                     set("prorrogaNumeroDiasExtension", data.numeroDiasExtension);
                     const notifEl = document.getElementById("prorrogaNotificadoAsegurador");
                     if (notifEl) notifEl.checked = !!data.notificadoAsegurador;

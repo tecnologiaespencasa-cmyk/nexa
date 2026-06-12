@@ -3004,3 +3004,7 @@
   gap: 0.5rem;
   flex-wrap: wrap;
 }
+
+#auxiliarAsignadoInput:disabled { background-color: #e9ecef; color: #adb5bd; opacity: 0.55; cursor: not-allowed; }
+
+input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }

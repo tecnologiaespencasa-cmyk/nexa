@@ -882,11 +882,15 @@
 .farmacia-section--desempacar   .farmacia-section__header strong { background: #fff0f0; color: #b42318; }
 .farmacia-section--despachado   .farmacia-section__header strong { background: #f6fef9; color: #087f5b; }
 
-.farmacia-doc-button--ok-kardex  { background: #e07b00; }
-.farmacia-doc-button--facturar   { background: #6a29c8; }
-.farmacia-doc-button--empacar    { background: #087f5b; }
+.farmacia-doc-button--ok-kardex   { background: #e07b00; }
+.farmacia-doc-button--facturar    { background: #6a29c8; }
+.farmacia-doc-button--empacar     { background: #087f5b; }
+.farmacia-doc-button--desempacar  { background: #5c7a9f; }
 
-.farmacia-order--alert { border-left: 3px solid #b42318; }
+.farmacia-status--desempacada { background: #eaf0f7; color: #3b5a7a; }
+
+.farmacia-order--alert       { border-left: 3px solid #b42318; }
+.farmacia-order--desempacada { border-left: 3px solid #5c7a9f; opacity: 0.75; }
 
 .farmacia-entrega-badge            { color: #0b63ce; font-size: 0.82rem; font-weight: 700; margin: 0; }
 .farmacia-entrega-badge--completa  { color: #087f5b; }
