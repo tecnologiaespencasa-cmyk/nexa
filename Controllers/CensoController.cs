@@ -3267,7 +3267,7 @@ public class CensoController : Controller
             model.DireccionSugerida = direccionValidation.FormattedAddress;
             model.DireccionMensajeValidacion = direccionValidation.Message;
 
-            if (!string.IsNullOrWhiteSpace(direccionValidation.FormattedAddress))
+            if (!string.IsNullOrWhiteSpace(direccionValidation.FormattedAddress) && !model.AsumirDireccionErrada)
             {
                 direccionParaGuardar = direccionValidation.FormattedAddress;
                 model.Direccion = direccionParaGuardar;

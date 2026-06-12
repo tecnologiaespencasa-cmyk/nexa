@@ -3108,7 +3108,7 @@
 
                 setKardexFieldValue("paciente", getFormValue("NombrePaciente"));
                 setKardexFieldValue("documento", [tipoDocumento, numeroDocumento].filter((value) => value).join(" "));
-                setKardexFieldValue("direccion", getFormValue("Direccion"));
+                setKardexFieldValue("direccion", [getFormValue("Direccion"), getFormValue("DetalleDireccion")].filter((v) => v).join(" "));
                 setKardexFieldValue("telefonos", telefonos);
                 setKardexFieldValue("edad", getFormValue("Edad"));
                 setKardexFieldValue("cie10", getFormValue("CodigoCie10"));
@@ -3182,6 +3182,137 @@
                     startDate: fechaInicio,
                     endDate: fechaFin
                 });
+            };
+
+            const syncKardexFromProrroga = (p) => {
+                if (!p) { syncKardexSheet(); return; }
+                const tipoDocumento = getFormValue("TipoIdentificacion");
+                const numeroDocumento = getFormValue("NumeroIdentificacion");
+                const telefonos = [
+                    getFormValue("Telefono1"),
+                    getFormValue("Telefono2"),
+                    getFormValue("Telefono3")
+                ].filter((v) => v).join(" / ");
+                const fechaInicio = formatDateForKardex(p.fechaInicioTratamiento || "");
+                const fechaFin = formatDateForKardex(p.fechaFinTratamiento || "");
+
+                setKardexFieldValue("paciente", getFormValue("NombrePaciente"));
+                setKardexFieldValue("documento", [tipoDocumento, numeroDocumento].filter((v) => v).join(" "));
+                setKardexFieldValue("direccion", [getFormValue("Direccion"), getFormValue("DetalleDireccion")].filter((v) => v).join(" "));
+                setKardexFieldValue("telefonos", telefonos);
+                setKardexFieldValue("edad", getFormValue("Edad"));
+                setKardexFieldValue("cie10", getFormValue("CodigoCie10"));
+                setKardexFieldValue("diagnostico", getFormValue("DiagnosticoDescriptivo"));
+                setKardexFieldValue("observaciones", getFormValue("ObservacionesPlanManejo"));
+                setKardexFieldValue("programador", getFormValue("ResponsableLlamadaBienvenida"));
+                setKardexFieldValue("auxiliarAsignado", getFormValue("AuxiliarAsignado"));
+
+                const prorrogaMeds = [
+                    { name: p.nombreMedicamentoPrincipal, dose: p.dosisMedicamentoPrincipal, measure: p.medidaMedicamentoPrincipal, route: p.viaAdministracionMedicamentoPrincipal, frequency: p.frecuenciaAdministracionMxPrincipal, days: p.diasMedicamentoPrincipal },
+                    p.tieneSegundoMedicamento ? { name: p.nombreMedicamentoNumero2, dose: p.dosisMedicamento2, measure: p.medidaMedicamento2, route: p.viaAdministracionMedicamento2, frequency: p.frecuenciaAdministracionMedicamento2, days: p.diasMedicamento2 } : null,
+                    p.tieneTercerMedicamento ? { name: p.nombreMedicamentoNumero3, dose: p.dosisMedicamento3, measure: p.medidaMedicamento3, route: p.viaAdministracionMedicamento3, frequency: p.frecuenciaAdministracionMedicamento3, days: p.diasMedicamento3 } : null,
+                    p.tieneCuartoMedicamento ? { name: p.nombreMedicamentoNumero4, dose: p.dosisMedicamento4, measure: p.medidaMedicamento4, route: p.viaAdministracionMedicamento4, frequency: p.frecuenciaAdministracionMedicamento4, days: p.diasMedicamento4 } : null,
+                    p.tieneQuintoMedicamento ? { name: p.nombreMedicamentoNumero5, dose: p.dosisMedicamento5, measure: p.medidaMedicamento5, route: p.viaAdministracionMedicamento5, frequency: p.frecuenciaAdministracionMedicamento5, days: p.diasMedicamento5 } : null,
+                    p.tieneSextoMedicamento ? { name: p.nombreMedicamentoNumero6, dose: p.dosisMedicamento6, measure: p.medidaMedicamento6, route: p.viaAdministracionMedicamento6, frequency: p.frecuenciaAdministracionMedicamento6, days: p.diasMedicamento6 } : null,
+                ];
+                for (let i = 0; i < 6; i++) {
+                    const med = prorrogaMeds[i];
+                    syncKardexMedicationRow(i + 1, {
+                        name: med?.name || "",
+                        dose: med?.dose || "",
+                        measure: med?.measure || "",
+                        route: med?.route || "",
+                        frequency: med?.frequency || "",
+                        days: med?.days || "",
+                        startDate: med?.name ? fechaInicio : "",
+                        endDate: med?.name ? fechaFin : ""
+                    });
+                }
+            };
+
+            const syncRequisitionFromProrroga = (p) => {
+                if (!p) { syncRequisitionSheet(); return; }
+                const telefonos = [
+                    getFormValue("Telefono1"),
+                    getFormValue("Telefono2"),
+                    getFormValue("Telefono3")
+                ].filter((v) => v).join(" / ");
+                setRequisitionFieldValue("auxiliarEncargado", getFormValue("AuxiliarAsignado"));
+                setRequisitionFieldValue("realizadoPor", getFormValue("NombreRealizaKardex"));
+                setRequisitionFieldValue("paciente", getFormValue("NombrePaciente"));
+                setRequisitionFieldValue("autorizacion", getFormValue("AutorizacionEvento"));
+                setRequisitionFieldValue("documento", getFormValue("NumeroIdentificacion"));
+                setRequisitionFieldValue("direccion", getFormValue("Direccion"));
+                setRequisitionFieldValue("telefonos", telefonos);
+                setRequisitionFieldValue("diagnostico", [getFormValue("CodigoCie10"), getFormValue("DiagnosticoDescriptivo")].filter((v) => v).join(" "));
+
+                const fechaInicio = formatDateForKardex(p.fechaInicioTratamiento || "");
+                const fechaFin = formatDateForKardex(p.fechaFinTratamiento || "");
+
+                const medications = [
+                    { name: p.nombreMedicamentoPrincipal, dose: p.dosisMedicamentoPrincipal, frequency: p.frecuenciaAdministracionMxPrincipal, dailyDoses: "", days: p.diasMedicamentoPrincipal, startDate: fechaInicio, endDate: fechaFin },
+                    p.tieneSegundoMedicamento ? { name: p.nombreMedicamentoNumero2, dose: p.dosisMedicamento2, frequency: p.frecuenciaAdministracionMedicamento2, dailyDoses: "", days: p.diasMedicamento2, startDate: fechaInicio, endDate: fechaFin } : null,
+                    p.tieneTercerMedicamento ? { name: p.nombreMedicamentoNumero3, dose: p.dosisMedicamento3, frequency: p.frecuenciaAdministracionMedicamento3, dailyDoses: "", days: p.diasMedicamento3, startDate: fechaInicio, endDate: fechaFin } : null,
+                    p.tieneCuartoMedicamento ? { name: p.nombreMedicamentoNumero4, dose: p.dosisMedicamento4, frequency: p.frecuenciaAdministracionMedicamento4, dailyDoses: "", days: p.diasMedicamento4, startDate: fechaInicio, endDate: fechaFin } : null,
+                    p.tieneQuintoMedicamento ? { name: p.nombreMedicamentoNumero5, dose: p.dosisMedicamento5, frequency: p.frecuenciaAdministracionMedicamento5, dailyDoses: "", days: p.diasMedicamento5, startDate: fechaInicio, endDate: fechaFin } : null,
+                    p.tieneSextoMedicamento ? { name: p.nombreMedicamentoNumero6, dose: p.dosisMedicamento6, frequency: p.frecuenciaAdministracionMedicamento6, dailyDoses: "", days: p.diasMedicamento6, startDate: fechaInicio, endDate: fechaFin } : null,
+                ].filter((m) => m && hasRequisitionMedication(m.name));
+
+                const rows = medications.map((medication) => ({
+                    descripcion: medication.name,
+                    detalle: "",
+                    cantidad: formatRequisitionQuantity(calculateMedicationRequisitionQuantity(medication)),
+                    fechaInicio: medication.startDate,
+                    fechaFin: medication.endDate
+                }));
+
+                const pushDistinctCatalogRows = (description, field, quantity) => {
+                    const details = new Map();
+                    medications.forEach((medication) => {
+                        const metadata = medicamentoCatalogByName.get(normalizeMedicationKey(medication.name));
+                        const detail = catalogValue(metadata, field);
+                        if (detail) details.set(detail.toUpperCase(), detail);
+                    });
+                    details.forEach((detail) => {
+                        rows.push({
+                            descripcion: description,
+                            detalle: detail,
+                            cantidad: typeof quantity === "function" ? quantity() : quantity,
+                            fechaInicio: medications[0]?.startDate || "",
+                            fechaFin: medications[0]?.endDate || ""
+                        });
+                    });
+                };
+
+                const aplicacionesTotales = formatRequisitionQuantity(parseRequisitionDecimal(p.aplicacionesTotales || ""));
+                const diasTratamientoIv = p.diasTratamientoIv || "";
+                pushDistinctCatalogRows("SOLUCION PARA DILUCION", "SolucionParaDilucion", "");
+                pushDistinctCatalogRows("JERINGA", "Jeringa", aplicacionesTotales);
+                [
+                    ["JELCO #22", calculateEveryThreeDaysQuantity(diasTratamientoIv, true)],
+                    ["ATI", calculateEveryThreeDaysQuantity(diasTratamientoIv)],
+                    ["MACROGOTERO", calculateEveryThreeDaysQuantity(diasTratamientoIv)],
+                    ["BURETRA", calculateEveryThreeDaysQuantity(diasTratamientoIv)],
+                    ["GUANTES (PAR)", parseRequisitionDecimal(p.aplicacionesTotales || "")]
+                ].forEach(([descripcion, cantidad]) => {
+                    rows.push({
+                        descripcion,
+                        detalle: "",
+                        cantidad: formatRequisitionQuantity(cantidad),
+                        fechaInicio: medications[0]?.startDate || "",
+                        fechaFin: medications[0]?.endDate || ""
+                    });
+                });
+
+                for (let row = 1; row <= 16; row++) {
+                    const data = rows[row - 1] || {};
+                    setRequisitionRowField(row, "item", row);
+                    setRequisitionRowField(row, "descripcion", data.descripcion || "");
+                    setRequisitionRowField(row, "detalle", data.detalle || "");
+                    setRequisitionRowField(row, "cantidad", data.cantidad || "");
+                    setRequisitionRowField(row, "fechaInicio", data.fechaInicio || "");
+                    setRequisitionRowField(row, "fechaFin", data.fechaFin || "");
+                }
             };
 
             const adjuntosListEl = document.getElementById("adjuntosList");
@@ -3354,6 +3485,7 @@
                     const recordId = Number(editingRecordIdInput?.value || "0") || 0;
                     let savedKardex = null;
                     let savedRequisicion = null;
+                    let savedProrroga = null;
                     if (recordId > 0) {
                         try {
                             const resp = await fetch(`${obtenerDocumentosUrl}?id=${recordId}`);
@@ -3361,13 +3493,35 @@
                                 const saved = await resp.json();
                                 savedKardex = saved.kardexJson ? JSON.parse(saved.kardexJson) : null;
                                 savedRequisicion = saved.requisicionJson ? JSON.parse(saved.requisicionJson) : null;
+                                savedProrroga = saved.prorrogaJson ? JSON.parse(saved.prorrogaJson) : null;
                             }
                         } catch { /* fallback to form sync */ }
                     }
-                    syncKardexSheet();
-                    if (savedKardex) loadKardexPayload(savedKardex);
-                    syncRequisitionSheet();
-                    if (savedRequisicion) loadRequisitionPayload(savedRequisicion);
+                    if (savedProrroga) {
+                        // Prórroga activa: usar medicamentos de la prórroga en kardex y requisición
+                        syncKardexFromProrroga(savedProrroga);
+                        syncRequisitionFromProrroga(savedProrroga);
+                        // Restaurar solo campos de encabezado que el usuario haya editado manualmente
+                        if (savedKardex?.fields) {
+                            Object.entries(savedKardex.fields).forEach(([key, value]) => {
+                                if (!value) return;
+                                const el = document.querySelector(`#censoKardexModal [data-kardex-field='${key}']`);
+                                if (el) el.value = value;
+                            });
+                        }
+                        if (savedRequisicion?.fields) {
+                            Object.entries(savedRequisicion.fields).forEach(([key, value]) => {
+                                if (!value) return;
+                                const el = document.querySelector(`#censoKardexModal [data-requisition-field='${key}']`);
+                                if (el) el.value = value;
+                            });
+                        }
+                    } else {
+                        syncKardexSheet();
+                        if (savedKardex) loadKardexPayload(savedKardex);
+                        syncRequisitionSheet();
+                        if (savedRequisicion) loadRequisitionPayload(savedRequisicion);
+                    }
                     loadAdjuntos(recordId);
                     if (adjuntoUploadStatus) adjuntoUploadStatus.textContent = "";
                     const serviciosCargadosSwitch = document.getElementById("serviciosCargadosSwitch");
@@ -3810,7 +3964,7 @@
                 const selectedNeighborhood = (candidate.neighborhood || candidate.district || "").trim();
                 lastValidationDistrict = candidate.district || "";
 
-                if (direccionInput && candidate.formattedAddress) {
+                if (direccionInput && candidate.formattedAddress && !asumirDireccionCheck?.checked) {
                     direccionInput.value = candidate.formattedAddress;
                 }
 
@@ -4164,7 +4318,7 @@
                         }
 
                         if (data.isValid) {
-                            if (data.formattedAddress) {
+                            if (data.formattedAddress && !asumirDireccionCheck?.checked) {
                                 direccionInput.value = data.formattedAddress;
                             }
                             setDireccionMessage("success", data.message || "Direccion validada correctamente.");
