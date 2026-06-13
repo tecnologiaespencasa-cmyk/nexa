@@ -82,6 +82,7 @@
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
+                                        @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                     </div>
                                     <div class="farmacia-order__actions">
@@ -140,6 +141,7 @@
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
+                                        @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (esParcial && item.FarmaciaCantidadEntregas.HasValue)
                                         {
@@ -221,6 +223,7 @@
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
+                                        @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (item.FarmaciaEsEntregaParcial == true && item.FarmaciaCantidadEntregas.HasValue)
                                         {
@@ -282,6 +285,7 @@
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
+                                        @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (item.FarmaciaEmpacadoAtUtc.HasValue)
                                         {
@@ -343,6 +347,7 @@
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
+                                        @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                     </div>
                                     <div class="farmacia-order__actions">
@@ -405,6 +410,7 @@
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
+                                        @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (!string.IsNullOrWhiteSpace(item.NombreRecibe))
                                         {

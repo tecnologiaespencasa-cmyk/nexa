@@ -1096,27 +1096,112 @@ public class CensoController : Controller
 
         var nowUtc = DateTime.UtcNow;
         var colombiaNow = GetColombiaNow();
-        var fechaHoraRespuesta = record.FechaRespuesta.Date + record.HoraRespuesta;
-        var fechaHoraGestionFarmacia = colombiaNow.Date + colombiaNow.TimeOfDay;
-        record.FarmaciaEnviadoAtUtc = nowUtc;
-        record.FarmaciaEstado = "Nuevo";
-        record.FechaGestionFarmacia = colombiaNow.Date;
-        record.HoraGestionFarmacia = colombiaNow.TimeOfDay;
-        record.IndicadorTiempoGestionMinutos = (int)Math.Round((fechaHoraGestionFarmacia - fechaHoraRespuesta).TotalMinutes, MidpointRounding.AwayFromZero);
-        record.FarmaciaKardexVistoAtUtc = null;
-        record.FarmaciaRequisicionVistoAtUtc = null;
-        record.KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
-        record.RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
 
-        await _context.SaveChangesAsync(cancellationToken);
-        var notificationWarnings = await _farmaciaDispatchNotificationService.NotifyDispatchSentAsync(record, cancellationToken);
+        // Si ya fue enviado a farmacia antes y ahora tiene prórroga activa, crear un registro nuevo de despacho
+        CensoRecord dispatchRecord;
+        if (record.EsProrroga && record.FarmaciaEnviadoAtUtc.HasValue)
+        {
+            dispatchRecord = new CensoRecord
+            {
+                Asegurador = record.Asegurador,
+                EsProrroga = true,
+                FarmaciaProrrogaDeId = record.Id,
+                FechaIngreso = record.FechaIngreso,
+                HoraIngreso = record.HoraIngreso,
+                FechaRespuesta = record.FechaRespuesta,
+                HoraRespuesta = record.HoraRespuesta,
+                IndicadorTiempoRespuestaMinutos = record.IndicadorTiempoRespuestaMinutos,
+                NombrePerfilGestionaCaso = record.NombrePerfilGestionaCaso,
+                NombreRecepcionaCaso = record.NombreRecepcionaCaso,
+                NombreRealizaKardex = record.NombreRealizaKardex,
+                NombrePaciente = record.NombrePaciente,
+                TipoIdentificacion = record.TipoIdentificacion,
+                NumeroIdentificacion = record.NumeroIdentificacion,
+                CodigoCie10 = record.CodigoCie10,
+                DiagnosticoDescriptivo = record.DiagnosticoDescriptivo,
+                FechaNacimiento = record.FechaNacimiento,
+                Edad = record.Edad,
+                CorreoElectronico = record.CorreoElectronico,
+                Direccion = record.Direccion,
+                DetalleDireccion = record.DetalleDireccion,
+                ClasificacionZonaSura = record.ClasificacionZonaSura,
+                MunicipioResidencia = record.MunicipioResidencia,
+                Barrio = record.Barrio,
+                ZonaDireccionSegunMunicipio = record.ZonaDireccionSegunMunicipio,
+                Area = record.Area,
+                IpsQueRemite = record.IpsQueRemite,
+                VistoBuenoRangoFueraAnexo = record.VistoBuenoRangoFueraAnexo,
+                Telefono1 = record.Telefono1,
+                Telefono2 = record.Telefono2,
+                Telefono3 = record.Telefono3,
+                ClasificacionRiesgo = record.ClasificacionRiesgo,
+                AdministracionMedicamentos = record.AdministracionMedicamentos,
+                NombreMedicamentoPrincipalTratante = record.NombreMedicamentoPrincipalTratante,
+                DosisMedicamentoPrincipal = record.DosisMedicamentoPrincipal,
+                MedidaMedicamentoPrincipal = record.MedidaMedicamentoPrincipal,
+                ViaAdministracionMedicamentoPrincipal = record.ViaAdministracionMedicamentoPrincipal,
+                FrecuenciaAdministracionMxPrincipal = record.FrecuenciaAdministracionMxPrincipal,
+                DiasMedicamentoPrincipal = record.DiasMedicamentoPrincipal,
+                NumeroDosisDiaMedicamentoPrincipal = record.NumeroDosisDiaMedicamentoPrincipal,
+                NombreMedicamentoNumero2 = record.NombreMedicamentoNumero2,
+                DosisMedicamento2 = record.DosisMedicamento2,
+                MedidaMedicamento2 = record.MedidaMedicamento2,
+                ViaAdministracionMedicamento2 = record.ViaAdministracionMedicamento2,
+                FrecuenciaAdministracionMedicamento2 = record.FrecuenciaAdministracionMedicamento2,
+                DiasMedicamento2 = record.DiasMedicamento2,
+                NumeroDosisMedicamento2 = record.NumeroDosisMedicamento2,
+                NombreMedicamentoNumero3 = record.NombreMedicamentoNumero3,
+                DosisMedicamento3 = record.DosisMedicamento3,
+                MedidaMedicamento3 = record.MedidaMedicamento3,
+                ViaAdministracionMedicamento3 = record.ViaAdministracionMedicamento3,
+                FrecuenciaAdministracionMedicamento3 = record.FrecuenciaAdministracionMedicamento3,
+                DiasMedicamento3 = record.DiasMedicamento3,
+                NumeroDosisMedicamento3 = record.NumeroDosisMedicamento3,
+                FechaInicioTratamiento = record.FechaInicioTratamiento,
+                FechaFinTratamiento = record.FechaFinTratamiento,
+                AuxiliarAsignado = record.AuxiliarAsignado,
+                AutorizacionEvento = record.AutorizacionEvento,
+                ObservacionesPlanManejo = record.ObservacionesPlanManejo,
+                ResponsableLlamadaBienvenida = record.ResponsableLlamadaBienvenida,
+                ProrrogaJson = record.ProrrogaJson,
+                KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim(),
+                RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim(),
+                GestionCompletaPendiente = "Pendiente",
+                FarmaciaEnviadoAtUtc = nowUtc,
+                FarmaciaEstado = "Nuevo",
+                FechaGestionFarmacia = colombiaNow.Date,
+                HoraGestionFarmacia = colombiaNow.TimeOfDay,
+                IndicadorTiempoGestionMinutos = record.IndicadorTiempoGestionMinutos,
+                CreatedAtUtc = nowUtc,
+            };
+            _context.Censos.Add(dispatchRecord);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        else
+        {
+            dispatchRecord = record;
+            var fechaHoraRespuesta = record.FechaRespuesta.Date + record.HoraRespuesta;
+            var fechaHoraGestionFarmacia = colombiaNow.Date + colombiaNow.TimeOfDay;
+            dispatchRecord.FarmaciaEnviadoAtUtc = nowUtc;
+            dispatchRecord.FarmaciaEstado = "Nuevo";
+            dispatchRecord.FechaGestionFarmacia = colombiaNow.Date;
+            dispatchRecord.HoraGestionFarmacia = colombiaNow.TimeOfDay;
+            dispatchRecord.IndicadorTiempoGestionMinutos = (int)Math.Round((fechaHoraGestionFarmacia - fechaHoraRespuesta).TotalMinutes, MidpointRounding.AwayFromZero);
+            dispatchRecord.FarmaciaKardexVistoAtUtc = null;
+            dispatchRecord.FarmaciaRequisicionVistoAtUtc = null;
+            dispatchRecord.KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
+            dispatchRecord.RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        var notificationWarnings = await _farmaciaDispatchNotificationService.NotifyDispatchSentAsync(dispatchRecord, cancellationToken);
 
         return Json(new
         {
             message = notificationWarnings.Count == 0
                 ? "Pedido enviado a farmacia correctamente."
                 : $"Pedido enviado a farmacia correctamente. {string.Join(" ", notificationWarnings)}",
-            recordId = record.Id,
+            recordId = dispatchRecord.Id,
             enviadoAtUtc = nowUtc,
             fechaGestionFarmacia = colombiaNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             horaGestionFarmacia = colombiaNow.ToString("HH:mm", CultureInfo.InvariantCulture),

@@ -102,6 +102,8 @@ public class FarmaciaPedidoViewModel
 
     public bool TieneAdjuntos { get; set; }
 
+    public bool EsProrrogaDispatch { get; set; }
+
     public TimeSpan? TiempoEnEmpacado => FarmaciaEmpacadoAtUtc.HasValue
         ? DateTime.UtcNow - FarmaciaEmpacadoAtUtc.Value
         : null;

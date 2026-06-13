@@ -35,9 +35,11 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
         var warnings = new List<string>();
         var documents = await BuildDocumentModelsAsync(record, cancellationToken);
 
+        // For prórroga dispatch copies, adjuntos live on the original record
+        var adjuntosSourceId = record.FarmaciaProrrogaDeId ?? record.Id;
         var adjuntos = await _context.CensoAdjuntos
             .AsNoTracking()
-            .Where(a => a.CensoRecordId == record.Id)
+            .Where(a => a.CensoRecordId == adjuntosSourceId)
             .OrderBy(a => a.UploadedAtUtc)
             .ToListAsync(cancellationToken);
 
@@ -87,9 +89,10 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
         }
 
         var documents = await BuildDocumentModelsAsync(record, cancellationToken);
+        var adjuntosSourceId = record.FarmaciaProrrogaDeId ?? record.Id;
         var adjuntos = await _context.CensoAdjuntos
             .AsNoTracking()
-            .Where(a => a.CensoRecordId == record.Id)
+            .Where(a => a.CensoRecordId == adjuntosSourceId)
             .OrderBy(a => a.UploadedAtUtc)
             .ToListAsync(cancellationToken);
         return await SendAssistantDocumentsAsync(record, documents, adjuntos, cancellationToken);
@@ -163,6 +166,53 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
             ? record.TipoAislamiento ?? "Si"
             : "No";
 
+        // Use prórroga medication data when available
+        ProrrogaMedData? prorrogaData = null;
+        if (!string.IsNullOrWhiteSpace(record.ProrrogaJson))
+        {
+            try
+            {
+                var pd = JsonSerializer.Deserialize<ProrrogaMedData>(record.ProrrogaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (pd != null && !string.IsNullOrWhiteSpace(pd.NombreMedicamentoPrincipal))
+                {
+                    prorrogaData = pd;
+                    fechaInicio = pd.FechaInicioTratamiento ?? fechaInicio;
+                    fechaFin = pd.FechaFinTratamiento ?? fechaFin;
+                }
+            }
+            catch { }
+        }
+
+        IReadOnlyList<FarmaciaKardexMedicationViewModel> medRows;
+        IReadOnlyList<FarmaciaRequisicionItemViewModel> reqRows;
+
+        if (prorrogaData != null)
+        {
+            medRows =
+            [
+                BuildMedicationRow(1, prorrogaData.NombreMedicamentoPrincipal, ParseDecimalStr(prorrogaData.DosisMedicamentoPrincipal), prorrogaData.MedidaMedicamentoPrincipal, prorrogaData.ViaAdministracionMedicamentoPrincipal, prorrogaData.FrecuenciaAdministracionMxPrincipal, ParseIntStr(prorrogaData.DiasMedicamentoPrincipal), fechaInicio, fechaFin, isolationValue, medicationCatalog),
+                BuildMedicationRow(2, prorrogaData.NombreMedicamentoNumero2, ParseDecimalStr(prorrogaData.DosisMedicamento2), prorrogaData.MedidaMedicamento2, prorrogaData.ViaAdministracionMedicamento2, prorrogaData.FrecuenciaAdministracionMedicamento2, ParseIntStr(prorrogaData.DiasMedicamento2), fechaInicio, fechaFin, isolationValue, medicationCatalog),
+                BuildMedicationRow(3, prorrogaData.NombreMedicamentoNumero3, ParseDecimalStr(prorrogaData.DosisMedicamento3), prorrogaData.MedidaMedicamento3, prorrogaData.ViaAdministracionMedicamento3, prorrogaData.FrecuenciaAdministracionMedicamento3, ParseIntStr(prorrogaData.DiasMedicamento3), fechaInicio, fechaFin, isolationValue, medicationCatalog),
+                BuildMedicationRow(4, prorrogaData.NombreMedicamentoNumero4, ParseDecimalStr(prorrogaData.DosisMedicamento4), prorrogaData.MedidaMedicamento4, prorrogaData.ViaAdministracionMedicamento4, prorrogaData.FrecuenciaAdministracionMedicamento4, ParseIntStr(prorrogaData.DiasMedicamento4), fechaInicio, fechaFin, isolationValue, medicationCatalog),
+                BuildMedicationRow(5, prorrogaData.NombreMedicamentoNumero5, ParseDecimalStr(prorrogaData.DosisMedicamento5), prorrogaData.MedidaMedicamento5, prorrogaData.ViaAdministracionMedicamento5, prorrogaData.FrecuenciaAdministracionMedicamento5, ParseIntStr(prorrogaData.DiasMedicamento5), fechaInicio, fechaFin, isolationValue, medicationCatalog),
+                BuildMedicationRow(6, prorrogaData.NombreMedicamentoNumero6, ParseDecimalStr(prorrogaData.DosisMedicamento6), prorrogaData.MedidaMedicamento6, prorrogaData.ViaAdministracionMedicamento6, prorrogaData.FrecuenciaAdministracionMedicamento6, ParseIntStr(prorrogaData.DiasMedicamento6), fechaInicio, fechaFin, isolationValue, medicationCatalog),
+            ];
+            reqRows = BuildRequisitionRowsFromProrroga(prorrogaData, medicationCatalog, fechaInicio, fechaFin);
+        }
+        else
+        {
+            medRows =
+            [
+                BuildMedicationRow(1, record.NombreMedicamentoPrincipalTratante, record.DosisMedicamentoPrincipal, record.MedidaMedicamentoPrincipal, record.ViaAdministracionMedicamentoPrincipal, record.FrecuenciaAdministracionMxPrincipal, record.DiasMedicamentoPrincipal, fechaInicio, fechaFin, isolationValue, medicationCatalog),
+                BuildMedicationRow(2, record.NombreMedicamentoNumero2, record.DosisMedicamento2, record.MedidaMedicamento2, record.ViaAdministracionMedicamento2, record.FrecuenciaAdministracionMedicamento2, record.DiasMedicamento2, fechaInicio, fechaFin, isolationValue, medicationCatalog),
+                BuildMedicationRow(3, record.NombreMedicamentoNumero3, record.DosisMedicamento3, record.MedidaMedicamento3, record.ViaAdministracionMedicamento3, record.FrecuenciaAdministracionMedicamento3, record.DiasMedicamento3, fechaInicio, fechaFin, isolationValue, medicationCatalog),
+                BuildMedicationRow(4, record.NombreMedicamentoNumero4, record.DosisMedicamento4, record.MedidaMedicamento4, record.ViaAdministracionMedicamento4, record.FrecuenciaAdministracionMedicamento4, record.DiasMedicamento4, fechaInicio, fechaFin, isolationValue, medicationCatalog),
+                BuildMedicationRow(5, record.NombreMedicamentoNumero5, record.DosisMedicamento5, record.MedidaMedicamento5, record.ViaAdministracionMedicamento5, record.FrecuenciaAdministracionMedicamento5, record.DiasMedicamento5, fechaInicio, fechaFin, isolationValue, medicationCatalog),
+                BuildMedicationRow(6, record.NombreMedicamentoNumero6, record.DosisMedicamento6, record.MedidaMedicamento6, record.ViaAdministracionMedicamento6, record.FrecuenciaAdministracionMedicamento6, record.DiasMedicamento6, fechaInicio, fechaFin, isolationValue, medicationCatalog),
+            ];
+            reqRows = BuildRequisitionRows(record, medicationCatalog, fechaInicio, fechaFin);
+        }
+
         var model = new FarmaciaDocumentViewModel
         {
             Id = record.Id,
@@ -181,13 +231,8 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
             AuxiliarAsignado = record.AuxiliarAsignado,
             NombreRealizaKardex = record.NombreRealizaKardex,
             Autorizacion = record.AutorizacionEvento,
-            Medicamentos =
-            [
-                BuildMedicationRow(1, record.NombreMedicamentoPrincipalTratante, record.DosisMedicamentoPrincipal, record.MedidaMedicamentoPrincipal, record.ViaAdministracionMedicamentoPrincipal, record.FrecuenciaAdministracionMxPrincipal, record.DiasMedicamentoPrincipal, fechaInicio, fechaFin, isolationValue, medicationCatalog),
-                BuildMedicationRow(2, record.NombreMedicamentoNumero2, record.DosisMedicamento2, record.MedidaMedicamento2, record.ViaAdministracionMedicamento2, record.FrecuenciaAdministracionMedicamento2, record.DiasMedicamento2, fechaInicio, fechaFin, isolationValue, medicationCatalog),
-                BuildMedicationRow(3, record.NombreMedicamentoNumero3, record.DosisMedicamento3, record.MedidaMedicamento3, record.ViaAdministracionMedicamento3, record.FrecuenciaAdministracionMedicamento3, record.DiasMedicamento3, fechaInicio, fechaFin, isolationValue, medicationCatalog)
-            ],
-            RequisicionItems = BuildRequisitionRows(record, medicationCatalog, fechaInicio, fechaFin)
+            Medicamentos = medRows,
+            RequisicionItems = reqRows
         };
 
         if (tipoDocumento == "kardex")
@@ -249,7 +294,10 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
         {
             new RequisitionMedication(record.NombreMedicamentoPrincipalTratante, record.DosisMedicamentoPrincipal, record.FrecuenciaAdministracionMxPrincipal, record.NumeroDosisDiaMedicamentoPrincipal, record.DiasMedicamentoPrincipal),
             new RequisitionMedication(record.NombreMedicamentoNumero2, record.DosisMedicamento2, record.FrecuenciaAdministracionMedicamento2, record.NumeroDosisMedicamento2, record.DiasMedicamento2),
-            new RequisitionMedication(record.NombreMedicamentoNumero3, record.DosisMedicamento3, record.FrecuenciaAdministracionMedicamento3, record.NumeroDosisMedicamento3, record.DiasMedicamento3)
+            new RequisitionMedication(record.NombreMedicamentoNumero3, record.DosisMedicamento3, record.FrecuenciaAdministracionMedicamento3, record.NumeroDosisMedicamento3, record.DiasMedicamento3),
+            new RequisitionMedication(record.NombreMedicamentoNumero4, record.DosisMedicamento4, record.FrecuenciaAdministracionMedicamento4, record.NumeroDosisMedicamento4, record.DiasMedicamento4),
+            new RequisitionMedication(record.NombreMedicamentoNumero5, record.DosisMedicamento5, record.FrecuenciaAdministracionMedicamento5, record.NumeroDosisMedicamento5, record.DiasMedicamento5),
+            new RequisitionMedication(record.NombreMedicamentoNumero6, record.DosisMedicamento6, record.FrecuenciaAdministracionMedicamento6, record.NumeroDosisMedicamento6, record.DiasMedicamento6)
         }
             .Where(x => HasMedication(x.Name))
             .ToList();
@@ -665,6 +713,81 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
         return decimal.TryParse(numericText, NumberStyles.Number, CultureInfo.InvariantCulture, out var result) ? result : 0;
     }
 
+    private static IReadOnlyList<FarmaciaRequisicionItemViewModel> BuildRequisitionRowsFromProrroga(
+        ProrrogaMedData prorroga,
+        IReadOnlyDictionary<string, Medicamento> medicationCatalog,
+        string fechaInicio,
+        string fechaFin)
+    {
+        static string? CalcDailyDoses(string? freq) => freq switch
+        {
+            "cada 6 horas" or "cada6h" => "4",
+            "cada 8 horas" or "cada8h" => "3",
+            "cada 12 horas" or "cada12h" => "2",
+            "cada 24 horas" or "cada24h" or "diario" => "1",
+            _ => null
+        };
+
+        var medications = new[]
+        {
+            new RequisitionMedication(prorroga.NombreMedicamentoPrincipal, ParseDecimalStr(prorroga.DosisMedicamentoPrincipal), prorroga.FrecuenciaAdministracionMxPrincipal, CalcDailyDoses(prorroga.FrecuenciaAdministracionMxPrincipal), ParseIntStr(prorroga.DiasMedicamentoPrincipal)),
+            new RequisitionMedication(prorroga.NombreMedicamentoNumero2, ParseDecimalStr(prorroga.DosisMedicamento2), prorroga.FrecuenciaAdministracionMedicamento2, CalcDailyDoses(prorroga.FrecuenciaAdministracionMedicamento2), ParseIntStr(prorroga.DiasMedicamento2)),
+            new RequisitionMedication(prorroga.NombreMedicamentoNumero3, ParseDecimalStr(prorroga.DosisMedicamento3), prorroga.FrecuenciaAdministracionMedicamento3, CalcDailyDoses(prorroga.FrecuenciaAdministracionMedicamento3), ParseIntStr(prorroga.DiasMedicamento3)),
+            new RequisitionMedication(prorroga.NombreMedicamentoNumero4, ParseDecimalStr(prorroga.DosisMedicamento4), prorroga.FrecuenciaAdministracionMedicamento4, CalcDailyDoses(prorroga.FrecuenciaAdministracionMedicamento4), ParseIntStr(prorroga.DiasMedicamento4)),
+            new RequisitionMedication(prorroga.NombreMedicamentoNumero5, ParseDecimalStr(prorroga.DosisMedicamento5), prorroga.FrecuenciaAdministracionMedicamento5, CalcDailyDoses(prorroga.FrecuenciaAdministracionMedicamento5), ParseIntStr(prorroga.DiasMedicamento5)),
+            new RequisitionMedication(prorroga.NombreMedicamentoNumero6, ParseDecimalStr(prorroga.DosisMedicamento6), prorroga.FrecuenciaAdministracionMedicamento6, CalcDailyDoses(prorroga.FrecuenciaAdministracionMedicamento6), ParseIntStr(prorroga.DiasMedicamento6))
+        }
+            .Where(x => HasMedication(x.Name))
+            .ToList();
+
+        var rows = new List<FarmaciaRequisicionItemViewModel>();
+        foreach (var medication in medications)
+        {
+            rows.Add(new FarmaciaRequisicionItemViewModel
+            {
+                Descripcion = medication.Name!.Trim(),
+                Cantidad = FormatQuantity(CalculateMedicationQuantity(medication)),
+                FechaInicio = fechaInicio,
+                FechaFin = fechaFin
+            });
+        }
+
+        foreach (var detail in medications
+            .Select(x => { medicationCatalog.TryGetValue(NormalizeCatalogKey(x.Name), out var metadata); return metadata?.SolucionParaDilucion; })
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "SOLUCION PARA DILUCION", Detalle = detail, FechaInicio = fechaInicio, FechaFin = fechaFin });
+        }
+
+        var totalApplications = ParseDecimal(prorroga.AplicacionesTotales);
+        foreach (var detail in medications
+            .Select(x => { medicationCatalog.TryGetValue(NormalizeCatalogKey(x.Name), out var metadata); return metadata?.Jeringa; })
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "JERINGA", Detalle = detail, Cantidad = FormatQuantity(totalApplications), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        }
+
+        var treatmentDays = ParseDecimal(prorroga.DiasTratamientoIv);
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "JELCO #22", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays, true)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "ATI", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "MACROGOTERO", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "BURETRA", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "GUANTES (PAR)", Cantidad = FormatQuantity(totalApplications), FechaInicio = fechaInicio, FechaFin = fechaFin });
+
+        for (var i = 0; i < rows.Count; i++) rows[i].Item = i + 1;
+        return rows;
+    }
+
+    private static decimal? ParseDecimalStr(string? s) =>
+        decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : null;
+
+    private static int? ParseIntStr(string? s) =>
+        int.TryParse(s, out var v) ? v : null;
+
     private static string FormatQuantity(decimal value) =>
         value <= 0 ? string.Empty : value.ToString("0.##", CultureInfo.InvariantCulture);
 
@@ -864,5 +987,49 @@ public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotification
         public string? BombaInfusion { get; set; }
         public string? FechaInicio { get; set; }
         public string? FechaFin { get; set; }
+    }
+
+    private sealed class ProrrogaMedData
+    {
+        public string? NombreMedicamentoPrincipal { get; set; }
+        public string? DosisMedicamentoPrincipal { get; set; }
+        public string? MedidaMedicamentoPrincipal { get; set; }
+        public string? ViaAdministracionMedicamentoPrincipal { get; set; }
+        public string? FrecuenciaAdministracionMxPrincipal { get; set; }
+        public string? DiasMedicamentoPrincipal { get; set; }
+        public string? NombreMedicamentoNumero2 { get; set; }
+        public string? DosisMedicamento2 { get; set; }
+        public string? MedidaMedicamento2 { get; set; }
+        public string? ViaAdministracionMedicamento2 { get; set; }
+        public string? FrecuenciaAdministracionMedicamento2 { get; set; }
+        public string? DiasMedicamento2 { get; set; }
+        public string? NombreMedicamentoNumero3 { get; set; }
+        public string? DosisMedicamento3 { get; set; }
+        public string? MedidaMedicamento3 { get; set; }
+        public string? ViaAdministracionMedicamento3 { get; set; }
+        public string? FrecuenciaAdministracionMedicamento3 { get; set; }
+        public string? DiasMedicamento3 { get; set; }
+        public string? NombreMedicamentoNumero4 { get; set; }
+        public string? DosisMedicamento4 { get; set; }
+        public string? MedidaMedicamento4 { get; set; }
+        public string? ViaAdministracionMedicamento4 { get; set; }
+        public string? FrecuenciaAdministracionMedicamento4 { get; set; }
+        public string? DiasMedicamento4 { get; set; }
+        public string? NombreMedicamentoNumero5 { get; set; }
+        public string? DosisMedicamento5 { get; set; }
+        public string? MedidaMedicamento5 { get; set; }
+        public string? ViaAdministracionMedicamento5 { get; set; }
+        public string? FrecuenciaAdministracionMedicamento5 { get; set; }
+        public string? DiasMedicamento5 { get; set; }
+        public string? NombreMedicamentoNumero6 { get; set; }
+        public string? DosisMedicamento6 { get; set; }
+        public string? MedidaMedicamento6 { get; set; }
+        public string? ViaAdministracionMedicamento6 { get; set; }
+        public string? FrecuenciaAdministracionMedicamento6 { get; set; }
+        public string? DiasMedicamento6 { get; set; }
+        public string? AplicacionesTotales { get; set; }
+        public string? DiasTratamientoIv { get; set; }
+        public string? FechaInicioTratamiento { get; set; }
+        public string? FechaFinTratamiento { get; set; }
     }
 }

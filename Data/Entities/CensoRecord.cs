@@ -469,6 +469,8 @@ public class CensoRecord
 
     public DateTime? FarmaciaNotif24hRestanteUtc { get; set; }
 
+    public long? FarmaciaProrrogaDeId { get; set; }
+
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public ICollection<CensoAdjunto> Adjuntos { get; set; } = [];

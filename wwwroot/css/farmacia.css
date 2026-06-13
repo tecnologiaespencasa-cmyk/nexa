@@ -893,6 +893,8 @@
 .farmacia-order--desempacada { border-left: 3px solid #5c7a9f; opacity: 0.75; }
 
 .farmacia-entrega-badge            { color: #0b63ce; font-size: 0.82rem; font-weight: 700; margin: 0; }
+
+.farmacia-prorroga-badge { display: inline-block; background: #b45309; color: #fff; font-size: 0.72rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; letter-spacing: 0.04em; margin-top: 2px; text-transform: uppercase; }
 .farmacia-entrega-badge--completa  { color: #087f5b; }
 .farmacia-timer                    { color: #087f5b; font-size: 0.8rem; font-weight: 700; margin: 0; }
 .farmacia-timer--urgent            { color: #b42318; }

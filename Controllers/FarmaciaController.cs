@@ -451,6 +451,7 @@ public class FarmaciaController : Controller
             FarmaciaEmpacadoAtUtc = record.FarmaciaEmpacadoAtUtc,
             FarmaciaBolsaDesempacada = record.FarmaciaBolsaDesempacada,
             TieneAdjuntos = tieneAdjuntos,
+            EsProrrogaDispatch = record.FarmaciaProrrogaDeId.HasValue,
         };
     }
 
