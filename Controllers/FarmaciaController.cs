@@ -487,8 +487,8 @@ public class FarmaciaController : Controller
         var totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)PageSize));
         var currentPage = Math.Clamp(requestedPage, 1, totalPages);
         var records = await query
-            .OrderBy(x => x.FarmaciaEnviadoAtUtc)
-            .ThenBy(x => x.Id)
+            .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
+            .ThenByDescending(x => x.Id)
             .Skip((currentPage - 1) * PageSize)
             .Take(PageSize)
             .Select(x => new { Record = x, TieneAdjuntos = x.Adjuntos.Any() })

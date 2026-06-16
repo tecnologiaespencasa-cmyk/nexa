@@ -32,6 +32,13 @@ public class CensoController : Controller
         "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"
     ];
     private static readonly Regex Cie10Pattern = new("^[A-Z][0-9]{3}$", RegexOptions.Compiled);
+    private static readonly Regex NumericIdentificationPattern = new("^[0-9]+$", RegexOptions.Compiled);
+    private static readonly Regex AlphaNumericIdentificationPattern = new("^[A-Z0-9]+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly HashSet<string> AlphaNumericIdentificationTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "PA",
+        "CE"
+    };
     private static readonly Regex HoraPromesaPattern = new(
         "^Entre\\s+(?<desde>\\d{1,2})\\s+y\\s+(?<hasta>\\d{1,2})$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -602,7 +609,8 @@ public class CensoController : Controller
         model.CorreoElectronico = model.CorreoElectronico?.Trim() ?? string.Empty;
         model.Barrio = model.Barrio?.Trim() ?? string.Empty;
         model.NombrePaciente = model.NombrePaciente?.Trim() ?? string.Empty;
-        model.NumeroIdentificacion = model.NumeroIdentificacion?.Trim() ?? string.Empty;
+        model.TipoIdentificacion = model.TipoIdentificacion?.Trim() ?? string.Empty;
+        model.NumeroIdentificacion = NormalizeIdentificationNumber(model.TipoIdentificacion, model.NumeroIdentificacion);
         model.CodigoCie10 = NormalizeCie10(model.CodigoCie10);
         model.DiagnosticoDescriptivo = model.DiagnosticoDescriptivo?.Trim() ?? string.Empty;
         model.IpsQueRemite = model.IpsQueRemite?.Trim() ?? string.Empty;
@@ -2244,8 +2252,25 @@ public class CensoController : Controller
             return string.Empty;
         }
 
-        var digits = new string(value.Where(char.IsDigit).ToArray());
-        return digits.Trim();
+        var document = new string(value
+            .Trim()
+            .Where(char.IsLetterOrDigit)
+            .ToArray());
+
+        return document.ToUpperInvariant();
+    }
+
+    private static string NormalizeIdentificationNumber(string? tipoIdentificacion, string? numeroIdentificacion)
+    {
+        var value = numeroIdentificacion?.Trim() ?? string.Empty;
+        return AllowsAlphaNumericIdentification(tipoIdentificacion)
+            ? value.ToUpperInvariant()
+            : value;
+    }
+
+    private static bool AllowsAlphaNumericIdentification(string? tipoIdentificacion)
+    {
+        return AlphaNumericIdentificationTypes.Contains(tipoIdentificacion ?? string.Empty);
     }
 
     private async Task PopulateDropdownsAsync(CensoReceptionViewModel model, CancellationToken cancellationToken)
@@ -2464,11 +2489,26 @@ public class CensoController : Controller
         }
     }
 
-    private static void ValidateBasicPatientData(CensoReceptionViewModel model)
+    private void ValidateBasicPatientData(CensoReceptionViewModel model)
     {
         if (!TiposIdentificacion.Contains(model.TipoIdentificacion, StringComparer.OrdinalIgnoreCase))
         {
             model.TipoIdentificacion = string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(model.NumeroIdentificacion))
+        {
+            if (AllowsAlphaNumericIdentification(model.TipoIdentificacion))
+            {
+                if (!AlphaNumericIdentificationPattern.IsMatch(model.NumeroIdentificacion))
+                {
+                    ModelState.AddModelError(nameof(model.NumeroIdentificacion), "El número de identificación solo permite letras y dígitos para PA o CE.");
+                }
+            }
+            else if (!NumericIdentificationPattern.IsMatch(model.NumeroIdentificacion))
+            {
+                ModelState.AddModelError(nameof(model.NumeroIdentificacion), "El número de identificación solo permite dígitos.");
+            }
         }
 
         if (model.FechaNacimiento.Date > DateTime.Today)

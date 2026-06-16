@@ -48,7 +48,6 @@ public class CensoReceptionViewModel
 
     [Required(ErrorMessage = "El número de identificación es obligatorio.")]
     [StringLength(20, ErrorMessage = "El número de identificación no puede superar 20 caracteres.")]
-    [RegularExpression(@"^[0-9]+$", ErrorMessage = "El número de identificación solo permite dígitos.")]
     [Display(Name = "Número de identificación")]
     public string NumeroIdentificacion { get; set; } = string.Empty;
 

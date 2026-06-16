@@ -415,7 +415,7 @@
                     <h2 class="censo-filter-panel__title">Filtros r&aacute;pidos</h2>
                     <label for="cedulaFiltroInput" class="form-label censo-filter-panel__label">Buscar por documento</label>
                     <div class="censo-filter-panel__input-wrap">
-                        <input class="form-control censo-filter-panel__input" id="cedulaFiltroInput" name="cedulaPaciente" value="@Model.CedulaFiltro" inputmode="numeric" maxlength="20" placeholder="Ingrese documento" />
+                        <input class="form-control censo-filter-panel__input" id="cedulaFiltroInput" name="cedulaPaciente" value="@Model.CedulaFiltro" inputmode="text" maxlength="20" placeholder="Ingrese documento" />
                         <span class="censo-filter-panel__search-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" focusable="false">
                                 <circle cx="11" cy="11" r="7"></circle>
@@ -506,7 +506,7 @@
                         <form method="get" asp-action="Index" class="censo-current-patient__search">
                             <label for="cambiarPacienteDocumento" class="form-label">Documento</label>
                             <div class="input-group">
-                                <input class="form-control" id="cambiarPacienteDocumento" name="cedulaPaciente" inputmode="numeric" maxlength="20" placeholder="Ingrese documento" />
+                                <input class="form-control" id="cambiarPacienteDocumento" name="cedulaPaciente" inputmode="text" maxlength="20" placeholder="Ingrese documento" />
                                 <button class="btn" type="submit" aria-label="Buscar paciente">
                                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                                         <circle cx="11" cy="11" r="7"></circle>
@@ -686,7 +686,7 @@
                             <div class="row g-3 align-items-end">
                                 <div class="col-lg-4 col-md-6">
                                     <label for="precargaDocumentoInput" class="form-label">N&uacute;mero de documento</label>
-                                    <input type="text" id="precargaDocumentoInput" class="form-control" inputmode="numeric" maxlength="20" placeholder="Ingrese n&uacute;mero de documento" />
+                                    <input type="text" id="precargaDocumentoInput" class="form-control" inputmode="text" maxlength="20" placeholder="Ingrese n&uacute;mero de documento" />
                                 </div>
                                 <div class="col-auto">
                                     <button type="button" id="validarPrecargaBtn" class="btn btn-outline-primary">Validar</button>
@@ -725,7 +725,7 @@
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="NumeroIdentificacion" class="form-label"></label>
-                                        <input asp-for="NumeroIdentificacion" class="form-control" maxlength="20" inputmode="numeric" placeholder="Ingrese n&uacute;mero de identificaci&oacute;n" />
+                                        <input asp-for="NumeroIdentificacion" class="form-control" maxlength="20" inputmode="numeric" autocomplete="off" placeholder="Ingrese n&uacute;mero de identificaci&oacute;n" />
                                         <span asp-validation-for="NumeroIdentificacion" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-3">
@@ -2553,6 +2553,8 @@
             const cedulaFiltroInput = document.getElementById("cedulaFiltroInput");
             const buscarCedulaBtn = document.getElementById("buscarCedulaBtn");
             const limpiarCedulaBtn = document.getElementById("limpiarCedulaBtn");
+            const tipoIdentificacionSelect = document.getElementById("TipoIdentificacion");
+            const numeroIdentificacionInput = document.getElementById("NumeroIdentificacion");
             const csrfTokenInput = document.querySelector("input[name='__RequestVerificationToken']");
             const usarSugerenciaServerBtn = document.getElementById("usarSugerenciaDireccionBtnServer");
             const municipioSelect = document.getElementById("municipioResidenciaSelect");
@@ -2754,7 +2756,29 @@
                     .replace(/'/g, "&#39;");
             };
 
-            const normalizeCedulaFilter = (value) => String(value || "").replace(/\D/g, "").trim();
+            const alphanumericIdentificationTypes = new Set(["PA", "CE"]);
+            const normalizeDocumentValue = (value) => String(value || "")
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, "")
+                .trim();
+            const normalizeCedulaFilter = (value) => normalizeDocumentValue(value);
+            const allowsAlphaNumericIdentification = (value) => alphanumericIdentificationTypes.has(String(value || "").trim().toUpperCase());
+            const syncNumeroIdentificacionMode = () => {
+                if (!numeroIdentificacionInput) {
+                    return;
+                }
+
+                const allowAlphaNumeric = allowsAlphaNumericIdentification(tipoIdentificacionSelect ? tipoIdentificacionSelect.value : "");
+                numeroIdentificacionInput.setAttribute("inputmode", allowAlphaNumeric ? "text" : "numeric");
+                numeroIdentificacionInput.title = allowAlphaNumeric
+                    ? "Permite letras y números para PA o CE."
+                    : "Solo permite dígitos para este tipo de identificación.";
+
+                const currentValue = String(numeroIdentificacionInput.value || "").toUpperCase();
+                numeroIdentificacionInput.value = allowAlphaNumeric
+                    ? currentValue.replace(/[^A-Z0-9]/g, "").slice(0, 20)
+                    : currentValue.replace(/\D/g, "").slice(0, 20);
+            };
 
             const normalizeMedicationKey = (value) => String(value || "")
                 .normalize("NFD")
@@ -4121,6 +4145,16 @@
             };
 
             initializeCensoSelectPlaceholders();
+
+            if (numeroIdentificacionInput) {
+                numeroIdentificacionInput.addEventListener("input", syncNumeroIdentificacionMode);
+            }
+
+            if (tipoIdentificacionSelect) {
+                tipoIdentificacionSelect.addEventListener("change", syncNumeroIdentificacionMode);
+            }
+
+            syncNumeroIdentificacionMode();
 
             if (cedulaFiltroInput) {
                 cedulaFiltroInput.value = normalizeCedulaFilter(cedulaFiltroInput.value);
@@ -5514,8 +5548,14 @@
             };
 
             if (validarPrecargaBtn && precargaDocumentoInput) {
+                precargaDocumentoInput.value = normalizeDocumentValue(precargaDocumentoInput.value);
+                precargaDocumentoInput.addEventListener("input", () => {
+                    precargaDocumentoInput.value = normalizeDocumentValue(precargaDocumentoInput.value);
+                });
+
                 validarPrecargaBtn.addEventListener("click", async () => {
-                    const doc = precargaDocumentoInput.value.trim();
+                    const doc = normalizeDocumentValue(precargaDocumentoInput.value);
+                    precargaDocumentoInput.value = doc;
                     if (!doc) {
                         if (precargaMensaje) precargaMensaje.innerHTML = '<div class="alert alert-warning mb-0">Ingresa el número de documento.</div>';
                         return;

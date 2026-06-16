@@ -100,9 +100,44 @@
   text-align: center;
 }
 
+.farmacia-hero__metrics div:nth-child(1) {
+  --metric-color: #d97900;
+  --metric-bg: #fff7e8;
+}
+
+.farmacia-hero__metrics div:nth-child(2) {
+  --metric-color: #0b63ce;
+  --metric-bg: #eef6ff;
+}
+
+.farmacia-hero__metrics div:nth-child(3) {
+  --metric-color: #6a29c8;
+  --metric-bg: #f5efff;
+}
+
+.farmacia-hero__metrics div:nth-child(4) {
+  --metric-color: #087f5b;
+  --metric-bg: #ebfff8;
+}
+
+.farmacia-hero__metrics div:nth-child(5) {
+  --metric-color: #b42318;
+  --metric-bg: #fff1f0;
+}
+
+.farmacia-hero__metrics div:nth-child(6) {
+  --metric-color: #0f766e;
+  --metric-bg: #ecfdf9;
+}
+
+.farmacia-hero__metrics div {
+  background: var(--metric-bg, #f7faff);
+  border-color: color-mix(in srgb, var(--metric-color, var(--farmacia-blue)) 28%, #d9e7fb);
+}
+
 .farmacia-hero__metrics div.is-new {
-  background: #eef4ff;
-  border-color: var(--farmacia-blue);
+  background: var(--metric-bg);
+  border-color: var(--metric-color);
 }
 
 .farmacia-hero__metrics span {
@@ -119,7 +154,7 @@
 }
 
 .farmacia-hero__metrics strong {
-  color: var(--farmacia-blue);
+  color: var(--metric-color, var(--farmacia-blue));
   display: block;
   font-size: 1.35rem;
   font-weight: 700;
@@ -155,15 +190,31 @@
 }
 
 .farmacia-section {
-  overflow: hidden;
+  --section-color: var(--farmacia-blue);
+  --section-rgb: 0, 107, 230;
+  --section-bg: #eef6ff;
+  --section-ink: #0b63ce;
+  border-color: var(--farmacia-border);
+  border-color: color-mix(in srgb, var(--section-color) 30%, var(--farmacia-border));
+  border-top: 4px solid var(--section-color);
+  box-shadow: 0 2px 8px rgba(31, 45, 75, 0.07), 0 8px 24px rgba(var(--section-rgb), 0.08);
+  overflow: visible;
+  scroll-margin-top: 4.5rem;
 }
 
 .farmacia-section__header {
   align-items: center;
+  background: linear-gradient(90deg, var(--section-bg) 0%, #ffffff 68%);
   border-bottom: 1px solid var(--farmacia-border);
+  border-bottom: 1px solid color-mix(in srgb, var(--section-color) 24%, var(--farmacia-border));
+  border-radius: 8px 8px 0 0;
   display: flex;
   justify-content: space-between;
   padding: 0.78rem 1rem;
+  position: sticky;
+  top: 0.75rem;
+  z-index: 8;
+  box-shadow: 0 8px 20px rgba(var(--section-rgb), 0.12);
 }
 
 .farmacia-section__header h2 {
@@ -175,6 +226,15 @@
   margin: 0;
 }
 
+.farmacia-section__header h2::before {
+  background: var(--section-color);
+  border-radius: 999px;
+  content: "";
+  display: inline-block;
+  height: 0.72rem;
+  width: 0.72rem;
+}
+
 .farmacia-section__header span {
   color: var(--farmacia-soft);
   display: block;
@@ -183,9 +243,9 @@
 
 .farmacia-section__header strong {
   align-items: center;
-  background: #eef5ff;
+  background: var(--section-bg);
   border-radius: 999px;
-  color: var(--farmacia-blue);
+  color: var(--section-ink);
   display: inline-flex;
   font-size: 0.78rem;
   height: 1.75rem;
@@ -195,12 +255,45 @@
 }
 
 .farmacia-section--new {
-  border-top: 3px solid #f5a400;
+  --section-color: #f59f00;
+  --section-rgb: 245, 159, 0;
+  --section-bg: #fff7e8;
+  --section-ink: #9a5a00;
 }
 
-.farmacia-section--new .farmacia-section__header strong {
-  background: #fff1d6;
-  color: #9a5a00;
+.farmacia-section--recepcionado {
+  --section-color: #0b63ce;
+  --section-rgb: 11, 99, 206;
+  --section-bg: #eef6ff;
+  --section-ink: #0b4da2;
+}
+
+.farmacia-section--facturado {
+  --section-color: #6a29c8;
+  --section-rgb: 106, 41, 200;
+  --section-bg: #f5efff;
+  --section-ink: #5a22ad;
+}
+
+.farmacia-section--empacado {
+  --section-color: #087f5b;
+  --section-rgb: 8, 127, 91;
+  --section-bg: #ebfff8;
+  --section-ink: #087f5b;
+}
+
+.farmacia-section--desempacar {
+  --section-color: #b42318;
+  --section-rgb: 180, 35, 24;
+  --section-bg: #fff1f0;
+  --section-ink: #b42318;
+}
+
+.farmacia-section--despachado {
+  --section-color: #0f766e;
+  --section-rgb: 15, 118, 110;
+  --section-bg: #ecfdf9;
+  --section-ink: #0f766e;
 }
 
 .farmacia-section__empty,
@@ -225,7 +318,10 @@
 }
 
 .farmacia-order {
+  background: linear-gradient(90deg, var(--section-bg) 0, #ffffff 1.15rem);
   border: 1px solid var(--farmacia-border);
+  border: 1px solid color-mix(in srgb, var(--section-color) 26%, var(--farmacia-border));
+  border-left: 4px solid var(--section-color);
   border-radius: 10px;
   overflow: hidden;
   padding: 0.75rem 0.85rem;
@@ -234,16 +330,17 @@
 
 .farmacia-order:hover {
   border-color: #c5d9f0;
-  box-shadow: 0 4px 14px rgba(31, 45, 75, 0.1);
+  border-color: color-mix(in srgb, var(--section-color) 50%, #c5d9f0);
+  box-shadow: 0 4px 14px rgba(var(--section-rgb), 0.15);
 }
 
 .farmacia-order.is-new {
-  border-color: #f0c875;
-  box-shadow: inset 4px 0 0 #f5a400;
+  border-color: color-mix(in srgb, var(--section-color) 42%, var(--farmacia-border));
+  box-shadow: none;
 }
 
 .farmacia-order.is-new:hover {
-  box-shadow: inset 4px 0 0 #f5a400, 0 4px 14px rgba(245, 164, 0, 0.18);
+  box-shadow: 0 4px 14px rgba(var(--section-rgb), 0.18);
 }
 
 .farmacia-order__identity {
@@ -255,9 +352,9 @@
 
 .farmacia-order__icon {
   align-items: center;
-  background: #e8f2ff;
+  background: var(--section-bg);
   border-radius: 999px;
-  color: var(--farmacia-blue);
+  color: var(--section-ink);
   display: inline-flex;
   height: 2.35rem;
   justify-content: center;
@@ -875,12 +972,6 @@
 .farmacia-status--facturado    { background: #f0e8ff; color: #6a29c8; }
 .farmacia-status--empacado     { background: #e8fff6; color: #087f5b; }
 .farmacia-status--alert        { background: #fff0f0; color: #b42318; }
-
-.farmacia-section--recepcionado .farmacia-section__header strong { background: #e8f2ff; color: #0b63ce; }
-.farmacia-section--facturado    .farmacia-section__header strong { background: #f0e8ff; color: #6a29c8; }
-.farmacia-section--empacado     .farmacia-section__header strong { background: #e8fff6; color: #087f5b; }
-.farmacia-section--desempacar   .farmacia-section__header strong { background: #fff0f0; color: #b42318; }
-.farmacia-section--despachado   .farmacia-section__header strong { background: #f6fef9; color: #087f5b; }
 
 .farmacia-doc-button--ok-kardex   { background: #e07b00; }
 .farmacia-doc-button--facturar    { background: #6a29c8; }
