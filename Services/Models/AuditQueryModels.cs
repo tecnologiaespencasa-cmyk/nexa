@@ -26,3 +26,11 @@ public class AuditLogSearchResultDto
     public IReadOnlyList<string> AvailableActions { get; set; } = [];
     public IReadOnlyList<AuditLogListItemDto> Logs { get; set; } = [];
 }
+
+public class AuditTodayStatsDto
+{
+    public int TotalEvents { get; set; }
+    public int UniqueUsers { get; set; }
+    public int FailedLogins { get; set; }
+    public int OperationalEvents { get; set; }
+}

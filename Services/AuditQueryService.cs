@@ -56,4 +56,16 @@ public class AuditQueryService : IAuditQueryService
 
         return ServiceResult<AuditLogSearchResultDto>.Success(result);
     }
+
+    public async Task<AuditTodayStatsDto> GetTodayStatsAsync(CancellationToken cancellationToken = default)
+    {
+        var stats = await _auditLogRepository.GetTodayStatsAsync(cancellationToken);
+        return new AuditTodayStatsDto
+        {
+            TotalEvents = stats.TotalEvents,
+            UniqueUsers = stats.UniqueUsers,
+            FailedLogins = stats.FailedLogins,
+            OperationalEvents = stats.OperationalEvents
+        };
+    }
 }

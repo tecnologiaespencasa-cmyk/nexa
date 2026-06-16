@@ -516,6 +516,7 @@ public class CensoController : Controller
     private readonly IUserAdministrationService _userAdministrationService;
     private readonly IAddressValidationService _addressValidationService;
     private readonly IFarmaciaDispatchNotificationService _farmaciaDispatchNotificationService;
+    private readonly IAuditService _auditService;
     private readonly IReadOnlyList<string> _medicamentoFallbackValues;
     private readonly IReadOnlyDictionary<string, string> _cie10Catalog;
     private readonly IReadOnlyDictionary<string, string> _medellinNeighborhoodZoneMap;
@@ -525,12 +526,14 @@ public class CensoController : Controller
         IUserAdministrationService userAdministrationService,
         IAddressValidationService addressValidationService,
         IFarmaciaDispatchNotificationService farmaciaDispatchNotificationService,
+        IAuditService auditService,
         IWebHostEnvironment webHostEnvironment)
     {
         _context = context;
         _userAdministrationService = userAdministrationService;
         _addressValidationService = addressValidationService;
         _farmaciaDispatchNotificationService = farmaciaDispatchNotificationService;
+        _auditService = auditService;
         _medicamentoFallbackValues = LoadMedicamentoPrincipalValues(webHostEnvironment.ContentRootPath);
         _cie10Catalog = LoadCie10Catalog(webHostEnvironment.ContentRootPath);
         _medellinNeighborhoodZoneMap = LoadMedellinNeighborhoodZoneMap(webHostEnvironment.ContentRootPath);
@@ -940,6 +943,10 @@ public class CensoController : Controller
         var indicadorTiempoRespuestaMinutos = (int)Math.Round((fechaHoraRespuesta - fechaHoraIngreso).TotalMinutes, MidpointRounding.AwayFromZero);
         CensoRecord? recordToNotifyAssistant = null;
         long? newRecordId = null;
+        long savedRecordId;
+        var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
+        var auditIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+
         if (model.EditingRecordId is long editingRecordId)
         {
             var existingRecord = await _context.Censos.FirstOrDefaultAsync(x => x.Id == editingRecordId, cancellationToken);
@@ -971,26 +978,67 @@ public class CensoController : Controller
             }
 
             await _context.SaveChangesAsync(cancellationToken);
+            savedRecordId = editingRecordId;
             TempData["SuccessMessage"] = "Registro de censo actualizado correctamente.";
+            await _auditService.LogAsync("CENSO_ACTUALIZADO", "Censo",
+                $"Paciente: {existingRecord.NombrePaciente}, Doc: {existingRecord.NumeroIdentificacion}",
+                auditUserId, auditIp, cancellationToken);
         }
         else
         {
-            var censoRecord = new CensoRecord
+            // No EditingRecordId: look for an existing active record for this patient
+            // to avoid creating duplicates when the form context was lost.
+            // A new record is only created when there is no active record (or the patient
+            // is discharged / cancelled / rejected, per business rules).
+            CensoRecord? existingActiveRecord = null;
+            var trimmedDocumento = model.NumeroIdentificacion.Trim();
+            if (!string.IsNullOrWhiteSpace(trimmedDocumento))
             {
-                CreatedAtUtc = DateTime.UtcNow
-            };
+                var candidatos = await _context.Censos
+                    .Where(x => x.NumeroIdentificacion == trimmedDocumento)
+                    .OrderByDescending(x => x.Id)
+                    .ToListAsync(cancellationToken);
+                existingActiveRecord = candidatos.FirstOrDefault(x => !IsEstadoTerminado(x.Estado));
+            }
 
-            ApplyModelToCensoRecord(
-                censoRecord,
-                model,
-                direccionParaGuardar,
-                indicadorTiempoRespuestaMinutos,
-                0);
+            if (existingActiveRecord != null)
+            {
+                ApplyModelToCensoRecord(
+                    existingActiveRecord,
+                    model,
+                    direccionParaGuardar,
+                    indicadorTiempoRespuestaMinutos,
+                    existingActiveRecord.IndicadorTiempoGestionMinutos);
+                await _context.SaveChangesAsync(cancellationToken);
+                savedRecordId = existingActiveRecord.Id;
+                TempData["SuccessMessage"] = "Registro de censo actualizado correctamente.";
+                await _auditService.LogAsync("CENSO_ACTUALIZADO", "Censo",
+                    $"Paciente: {existingActiveRecord.NombrePaciente}, Doc: {existingActiveRecord.NumeroIdentificacion}",
+                    auditUserId, auditIp, cancellationToken);
+            }
+            else
+            {
+                var censoRecord = new CensoRecord
+                {
+                    CreatedAtUtc = DateTime.UtcNow
+                };
 
-            await _context.Censos.AddAsync(censoRecord, cancellationToken);
-            await _context.SaveChangesAsync(cancellationToken);
-            newRecordId = censoRecord.Id;
-            TempData["SuccessMessage"] = "Registro de censo guardado correctamente.";
+                ApplyModelToCensoRecord(
+                    censoRecord,
+                    model,
+                    direccionParaGuardar,
+                    indicadorTiempoRespuestaMinutos,
+                    0);
+
+                await _context.Censos.AddAsync(censoRecord, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
+                newRecordId = censoRecord.Id;
+                savedRecordId = censoRecord.Id;
+                TempData["SuccessMessage"] = "Registro de censo guardado correctamente.";
+                await _auditService.LogAsync("CENSO_CREADO", "Censo",
+                    $"Paciente: {censoRecord.NombrePaciente}, Doc: {censoRecord.NumeroIdentificacion}",
+                    auditUserId, auditIp, cancellationToken);
+            }
         }
 
         if (recordToNotifyAssistant is not null)
@@ -1002,6 +1050,8 @@ public class CensoController : Controller
             }
         }
 
+        // Always redirect with recordId to preserve form context across saves.
+        // New records clear date filters; updates keep them.
         if (newRecordId.HasValue)
         {
             return RedirectToAction(nameof(Index), new
@@ -1011,18 +1061,13 @@ public class CensoController : Controller
             });
         }
 
-        if (!string.IsNullOrWhiteSpace(model.CedulaFiltro))
-        {
-            return RedirectToAction(nameof(Index), new
-            {
-                cedulaPaciente = model.CedulaFiltro,
-                fechaIngresoDesde = model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                fechaIngresoHasta = model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
-            });
-        }
-
+        var cedulaRedirect = !string.IsNullOrWhiteSpace(model.CedulaFiltro)
+            ? model.CedulaFiltro
+            : model.NumeroIdentificacion;
         return RedirectToAction(nameof(Index), new
         {
+            cedulaPaciente = cedulaRedirect,
+            recordId = savedRecordId,
             fechaIngresoDesde = model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             fechaIngresoHasta = model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
         });
@@ -1061,9 +1106,11 @@ public class CensoController : Controller
         if (id <= 0) return BadRequest(new { message = "ID de registro inválido." });
         var record = await _context.Censos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (record is null) return NotFound(new { message = "Registro no encontrado." });
+        var hadProrrogaAlready = !string.IsNullOrWhiteSpace(record.ProrrogaJson);
         record.ProrrogaJson = string.IsNullOrWhiteSpace(prorrogaJson) ? null : prorrogaJson.Trim();
         record.EsProrroga = record.ProrrogaJson != null;
-        if (record.ProrrogaJson != null)
+        // Solo limpiar ediciones de kardex la primera vez que se agrega una prórroga a un registro que no la tenía
+        if (!hadProrrogaAlready && record.ProrrogaJson != null)
         {
             try
             {
@@ -1097,85 +1144,130 @@ public class CensoController : Controller
         var nowUtc = DateTime.UtcNow;
         var colombiaNow = GetColombiaNow();
 
-        // Si ya fue enviado a farmacia antes y ahora tiene prórroga activa, crear un registro nuevo de despacho
+        // Si tiene prórroga activa y ya fue enviado a farmacia antes, reusar o crear el registro de despacho de prórroga
         CensoRecord dispatchRecord;
         if (record.EsProrroga && record.FarmaciaEnviadoAtUtc.HasValue)
         {
-            dispatchRecord = new CensoRecord
+            // Buscar si ya existe una copia de despacho de prórroga para este registro
+            var existingProrrogaDispatch = await _context.Censos
+                .Where(x => x.FarmaciaProrrogaDeId == record.Id)
+                .OrderByDescending(x => x.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (existingProrrogaDispatch != null)
             {
-                Asegurador = record.Asegurador,
-                EsProrroga = true,
-                FarmaciaProrrogaDeId = record.Id,
-                FechaIngreso = record.FechaIngreso,
-                HoraIngreso = record.HoraIngreso,
-                FechaRespuesta = record.FechaRespuesta,
-                HoraRespuesta = record.HoraRespuesta,
-                IndicadorTiempoRespuestaMinutos = record.IndicadorTiempoRespuestaMinutos,
-                NombrePerfilGestionaCaso = record.NombrePerfilGestionaCaso,
-                NombreRecepcionaCaso = record.NombreRecepcionaCaso,
-                NombreRealizaKardex = record.NombreRealizaKardex,
-                NombrePaciente = record.NombrePaciente,
-                TipoIdentificacion = record.TipoIdentificacion,
-                NumeroIdentificacion = record.NumeroIdentificacion,
-                CodigoCie10 = record.CodigoCie10,
-                DiagnosticoDescriptivo = record.DiagnosticoDescriptivo,
-                FechaNacimiento = record.FechaNacimiento,
-                Edad = record.Edad,
-                CorreoElectronico = record.CorreoElectronico,
-                Direccion = record.Direccion,
-                DetalleDireccion = record.DetalleDireccion,
-                ClasificacionZonaSura = record.ClasificacionZonaSura,
-                MunicipioResidencia = record.MunicipioResidencia,
-                Barrio = record.Barrio,
-                ZonaDireccionSegunMunicipio = record.ZonaDireccionSegunMunicipio,
-                Area = record.Area,
-                IpsQueRemite = record.IpsQueRemite,
-                VistoBuenoRangoFueraAnexo = record.VistoBuenoRangoFueraAnexo,
-                Telefono1 = record.Telefono1,
-                Telefono2 = record.Telefono2,
-                Telefono3 = record.Telefono3,
-                ClasificacionRiesgo = record.ClasificacionRiesgo,
-                AdministracionMedicamentos = record.AdministracionMedicamentos,
-                NombreMedicamentoPrincipalTratante = record.NombreMedicamentoPrincipalTratante,
-                DosisMedicamentoPrincipal = record.DosisMedicamentoPrincipal,
-                MedidaMedicamentoPrincipal = record.MedidaMedicamentoPrincipal,
-                ViaAdministracionMedicamentoPrincipal = record.ViaAdministracionMedicamentoPrincipal,
-                FrecuenciaAdministracionMxPrincipal = record.FrecuenciaAdministracionMxPrincipal,
-                DiasMedicamentoPrincipal = record.DiasMedicamentoPrincipal,
-                NumeroDosisDiaMedicamentoPrincipal = record.NumeroDosisDiaMedicamentoPrincipal,
-                NombreMedicamentoNumero2 = record.NombreMedicamentoNumero2,
-                DosisMedicamento2 = record.DosisMedicamento2,
-                MedidaMedicamento2 = record.MedidaMedicamento2,
-                ViaAdministracionMedicamento2 = record.ViaAdministracionMedicamento2,
-                FrecuenciaAdministracionMedicamento2 = record.FrecuenciaAdministracionMedicamento2,
-                DiasMedicamento2 = record.DiasMedicamento2,
-                NumeroDosisMedicamento2 = record.NumeroDosisMedicamento2,
-                NombreMedicamentoNumero3 = record.NombreMedicamentoNumero3,
-                DosisMedicamento3 = record.DosisMedicamento3,
-                MedidaMedicamento3 = record.MedidaMedicamento3,
-                ViaAdministracionMedicamento3 = record.ViaAdministracionMedicamento3,
-                FrecuenciaAdministracionMedicamento3 = record.FrecuenciaAdministracionMedicamento3,
-                DiasMedicamento3 = record.DiasMedicamento3,
-                NumeroDosisMedicamento3 = record.NumeroDosisMedicamento3,
-                FechaInicioTratamiento = record.FechaInicioTratamiento,
-                FechaFinTratamiento = record.FechaFinTratamiento,
-                AuxiliarAsignado = record.AuxiliarAsignado,
-                AutorizacionEvento = record.AutorizacionEvento,
-                ObservacionesPlanManejo = record.ObservacionesPlanManejo,
-                ResponsableLlamadaBienvenida = record.ResponsableLlamadaBienvenida,
-                ProrrogaJson = record.ProrrogaJson,
-                KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim(),
-                RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim(),
-                GestionCompletaPendiente = "Pendiente",
-                FarmaciaEnviadoAtUtc = nowUtc,
-                FarmaciaEstado = "Nuevo",
-                FechaGestionFarmacia = colombiaNow.Date,
-                HoraGestionFarmacia = colombiaNow.TimeOfDay,
-                IndicadorTiempoGestionMinutos = record.IndicadorTiempoGestionMinutos,
-                CreatedAtUtc = nowUtc,
-            };
-            _context.Censos.Add(dispatchRecord);
-            await _context.SaveChangesAsync(cancellationToken);
+                // Actualizar la copia existente en lugar de crear una nueva
+                dispatchRecord = existingProrrogaDispatch;
+                dispatchRecord.Asegurador = record.Asegurador;
+                dispatchRecord.NombrePaciente = record.NombrePaciente;
+                dispatchRecord.TipoIdentificacion = record.TipoIdentificacion;
+                dispatchRecord.NumeroIdentificacion = record.NumeroIdentificacion;
+                dispatchRecord.CodigoCie10 = record.CodigoCie10;
+                dispatchRecord.DiagnosticoDescriptivo = record.DiagnosticoDescriptivo;
+                dispatchRecord.Edad = record.Edad;
+                dispatchRecord.Direccion = record.Direccion;
+                dispatchRecord.DetalleDireccion = record.DetalleDireccion;
+                dispatchRecord.Telefono1 = record.Telefono1;
+                dispatchRecord.Telefono2 = record.Telefono2;
+                dispatchRecord.Telefono3 = record.Telefono3;
+                dispatchRecord.AuxiliarAsignado = record.AuxiliarAsignado;
+                dispatchRecord.AutorizacionEvento = record.AutorizacionEvento;
+                dispatchRecord.ObservacionesPlanManejo = record.ObservacionesPlanManejo;
+                dispatchRecord.ResponsableLlamadaBienvenida = record.ResponsableLlamadaBienvenida;
+                dispatchRecord.NombreRealizaKardex = record.NombreRealizaKardex;
+                dispatchRecord.FechaInicioTratamiento = record.FechaInicioTratamiento;
+                dispatchRecord.FechaFinTratamiento = record.FechaFinTratamiento;
+                dispatchRecord.ProrrogaJson = record.ProrrogaJson;
+                dispatchRecord.KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
+                dispatchRecord.RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
+                dispatchRecord.GestionCompletaPendiente = "Pendiente";
+                dispatchRecord.FarmaciaEnviadoAtUtc = nowUtc;
+                dispatchRecord.FarmaciaEstado = FarmaciaEstados.Nuevo;
+                dispatchRecord.FechaGestionFarmacia = colombiaNow.Date;
+                dispatchRecord.HoraGestionFarmacia = colombiaNow.TimeOfDay;
+                dispatchRecord.FarmaciaKardexVistoAtUtc = null;
+                dispatchRecord.FarmaciaRequisicionVistoAtUtc = null;
+                dispatchRecord.IndicadorTiempoGestionMinutos = record.IndicadorTiempoGestionMinutos;
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            else
+            {
+                dispatchRecord = new CensoRecord
+                {
+                    Asegurador = record.Asegurador,
+                    EsProrroga = true,
+                    FarmaciaProrrogaDeId = record.Id,
+                    FechaIngreso = record.FechaIngreso,
+                    HoraIngreso = record.HoraIngreso,
+                    FechaRespuesta = record.FechaRespuesta,
+                    HoraRespuesta = record.HoraRespuesta,
+                    IndicadorTiempoRespuestaMinutos = record.IndicadorTiempoRespuestaMinutos,
+                    NombrePerfilGestionaCaso = record.NombrePerfilGestionaCaso,
+                    NombreRecepcionaCaso = record.NombreRecepcionaCaso,
+                    NombreRealizaKardex = record.NombreRealizaKardex,
+                    NombrePaciente = record.NombrePaciente,
+                    TipoIdentificacion = record.TipoIdentificacion,
+                    NumeroIdentificacion = record.NumeroIdentificacion,
+                    CodigoCie10 = record.CodigoCie10,
+                    DiagnosticoDescriptivo = record.DiagnosticoDescriptivo,
+                    FechaNacimiento = record.FechaNacimiento,
+                    Edad = record.Edad,
+                    CorreoElectronico = record.CorreoElectronico,
+                    Direccion = record.Direccion,
+                    DetalleDireccion = record.DetalleDireccion,
+                    ClasificacionZonaSura = record.ClasificacionZonaSura,
+                    MunicipioResidencia = record.MunicipioResidencia,
+                    Barrio = record.Barrio,
+                    ZonaDireccionSegunMunicipio = record.ZonaDireccionSegunMunicipio,
+                    Area = record.Area,
+                    IpsQueRemite = record.IpsQueRemite,
+                    VistoBuenoRangoFueraAnexo = record.VistoBuenoRangoFueraAnexo,
+                    Telefono1 = record.Telefono1,
+                    Telefono2 = record.Telefono2,
+                    Telefono3 = record.Telefono3,
+                    ClasificacionRiesgo = record.ClasificacionRiesgo,
+                    AdministracionMedicamentos = record.AdministracionMedicamentos,
+                    NombreMedicamentoPrincipalTratante = record.NombreMedicamentoPrincipalTratante,
+                    DosisMedicamentoPrincipal = record.DosisMedicamentoPrincipal,
+                    MedidaMedicamentoPrincipal = record.MedidaMedicamentoPrincipal,
+                    ViaAdministracionMedicamentoPrincipal = record.ViaAdministracionMedicamentoPrincipal,
+                    FrecuenciaAdministracionMxPrincipal = record.FrecuenciaAdministracionMxPrincipal,
+                    DiasMedicamentoPrincipal = record.DiasMedicamentoPrincipal,
+                    NumeroDosisDiaMedicamentoPrincipal = record.NumeroDosisDiaMedicamentoPrincipal,
+                    NombreMedicamentoNumero2 = record.NombreMedicamentoNumero2,
+                    DosisMedicamento2 = record.DosisMedicamento2,
+                    MedidaMedicamento2 = record.MedidaMedicamento2,
+                    ViaAdministracionMedicamento2 = record.ViaAdministracionMedicamento2,
+                    FrecuenciaAdministracionMedicamento2 = record.FrecuenciaAdministracionMedicamento2,
+                    DiasMedicamento2 = record.DiasMedicamento2,
+                    NumeroDosisMedicamento2 = record.NumeroDosisMedicamento2,
+                    NombreMedicamentoNumero3 = record.NombreMedicamentoNumero3,
+                    DosisMedicamento3 = record.DosisMedicamento3,
+                    MedidaMedicamento3 = record.MedidaMedicamento3,
+                    ViaAdministracionMedicamento3 = record.ViaAdministracionMedicamento3,
+                    FrecuenciaAdministracionMedicamento3 = record.FrecuenciaAdministracionMedicamento3,
+                    DiasMedicamento3 = record.DiasMedicamento3,
+                    NumeroDosisMedicamento3 = record.NumeroDosisMedicamento3,
+                    FechaInicioTratamiento = record.FechaInicioTratamiento,
+                    FechaFinTratamiento = record.FechaFinTratamiento,
+                    AuxiliarAsignado = record.AuxiliarAsignado,
+                    AutorizacionEvento = record.AutorizacionEvento,
+                    ObservacionesPlanManejo = record.ObservacionesPlanManejo,
+                    ResponsableLlamadaBienvenida = record.ResponsableLlamadaBienvenida,
+                    ProrrogaJson = record.ProrrogaJson,
+                    KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim(),
+                    RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim(),
+                    GestionCompletaPendiente = "Pendiente",
+                    FarmaciaEnviadoAtUtc = nowUtc,
+                    FarmaciaEstado = FarmaciaEstados.Nuevo,
+                    FechaGestionFarmacia = colombiaNow.Date,
+                    HoraGestionFarmacia = colombiaNow.TimeOfDay,
+                    IndicadorTiempoGestionMinutos = record.IndicadorTiempoGestionMinutos,
+                    CreatedAtUtc = nowUtc,
+                };
+                _context.Censos.Add(dispatchRecord);
+                await _context.SaveChangesAsync(cancellationToken);
+            }
         }
         else
         {
@@ -1195,6 +1287,11 @@ public class CensoController : Controller
         }
 
         var notificationWarnings = await _farmaciaDispatchNotificationService.NotifyDispatchSentAsync(dispatchRecord, cancellationToken);
+
+        var envioAuditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var envioUid) ? (Guid?)envioUid : null;
+        await _auditService.LogAsync("CENSO_ENVIADO_FARMACIA", "Censo",
+            $"Paciente: {dispatchRecord.NombrePaciente}, Doc: {dispatchRecord.NumeroIdentificacion}",
+            envioAuditUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
 
         return Json(new
         {
@@ -2130,6 +2227,14 @@ public class CensoController : Controller
     {
         return !string.IsNullOrWhiteSpace(estado)
             && estado.Contains("alta", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsEstadoTerminado(string? estado)
+    {
+        if (string.IsNullOrWhiteSpace(estado)) return false;
+        return estado.Contains("alta", StringComparison.OrdinalIgnoreCase)
+            || estado.StartsWith("Cancelado", StringComparison.OrdinalIgnoreCase)
+            || estado.StartsWith("Rechazado", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeCedulaFilter(string? value)

@@ -78,4 +78,28 @@ public class AuditLogRepository : IAuditLogRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<AuditTodayStats> GetTodayStatsAsync(CancellationToken cancellationToken = default)
+    {
+        var todayStart = DateTime.UtcNow.Date;
+        var todayEnd = todayStart.AddDays(1);
+
+        var logs = await _context.AuditLogs
+            .AsNoTracking()
+            .Where(l => l.PerformedAtUtc >= todayStart && l.PerformedAtUtc < todayEnd)
+            .Select(l => new { l.Action, l.PerformedByUserId })
+            .ToListAsync(cancellationToken);
+
+        return new AuditTodayStats
+        {
+            TotalEvents = logs.Count,
+            UniqueUsers = logs
+                .Where(l => l.PerformedByUserId != null)
+                .Select(l => l.PerformedByUserId)
+                .Distinct()
+                .Count(),
+            FailedLogins = logs.Count(l => l.Action == "LOGIN_FAILED"),
+            OperationalEvents = logs.Count(l => l.Action.StartsWith("CENSO_") || l.Action.StartsWith("FARMACIA_"))
+        };
+    }
+
 }

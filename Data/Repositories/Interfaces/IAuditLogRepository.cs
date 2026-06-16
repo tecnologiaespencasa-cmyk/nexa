@@ -13,4 +13,6 @@ public interface IAuditLogRepository
         string? action,
         int take,
         CancellationToken cancellationToken = default);
+
+    Task<AuditTodayStats> GetTodayStatsAsync(CancellationToken cancellationToken = default);
 }

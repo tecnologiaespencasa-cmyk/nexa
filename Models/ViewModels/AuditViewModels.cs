@@ -28,9 +28,17 @@ public class AuditFilterViewModel
     [StringLength(80)]
     public string? Username { get; set; }
 
-    [Display(Name = "Accion")]
+    [Display(Name = "Acción")]
     [StringLength(100)]
     public string? Action { get; set; }
+}
+
+public class AuditStatsViewModel
+{
+    public int TodayTotal { get; set; }
+    public int TodayUniqueUsers { get; set; }
+    public int TodayFailedLogins { get; set; }
+    public int TodayOperational { get; set; }
 }
 
 public class AuditIndexViewModel
@@ -38,4 +46,5 @@ public class AuditIndexViewModel
     public AuditFilterViewModel Filter { get; set; } = new();
     public List<string> AvailableActions { get; set; } = [];
     public List<AuditLogItemViewModel> Logs { get; set; } = [];
+    public AuditStatsViewModel Stats { get; set; } = new();
 }

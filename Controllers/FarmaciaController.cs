@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using IntranetPrueba.Data;
@@ -23,11 +24,13 @@ public class FarmaciaController : Controller
     private static readonly TimeSpan TiempoLimiteEmpacado = TimeSpan.FromHours(72);
     private readonly ApplicationDbContext _context;
     private readonly IFarmaciaDispatchNotificationService _notificationService;
+    private readonly IAuditService _auditService;
 
-    public FarmaciaController(ApplicationDbContext context, IFarmaciaDispatchNotificationService notificationService)
+    public FarmaciaController(ApplicationDbContext context, IFarmaciaDispatchNotificationService notificationService, IAuditService auditService)
     {
         _context = context;
         _notificationService = notificationService;
+        _auditService = auditService;
     }
 
     [HttpGet]
@@ -247,6 +250,11 @@ public class FarmaciaController : Controller
 
         await _context.SaveChangesAsync(cancellationToken);
 
+        var despachadoUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var despachadoUid) ? (Guid?)despachadoUid : null;
+        await _auditService.LogAsync("FARMACIA_DESPACHADO", "Farmacia",
+            $"Paciente: {record.NombrePaciente}, Doc: {record.NumeroIdentificacion}, Recibe: {record.FarmaciaNombreRecibe}",
+            despachadoUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
         return Json(new
         {
             message = "Firmas guardadas. Paciente pasado a Despachado.",
@@ -291,6 +299,11 @@ public class FarmaciaController : Controller
         record.FarmaciaOkKardex = true;
         record.FarmaciaEstado = FarmaciaEstados.Recepcionado;
         await _context.SaveChangesAsync(cancellationToken);
+
+        var kardexUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var kardexUid) ? (Guid?)kardexUid : null;
+        await _auditService.LogAsync("FARMACIA_KARDEX_APROBADO", "Farmacia",
+            $"Paciente: {record.NombrePaciente}, Doc: {record.NumeroIdentificacion}",
+            kardexUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
 
         return Json(new { message = "Kardex aprobado. Paciente en estado Recepcionado." });
     }
@@ -380,6 +393,11 @@ public class FarmaciaController : Controller
 
         _ = Task.Run(() => _notificationService.NotifyDespachadoAsync(record, CancellationToken.None), CancellationToken.None);
 
+        var facturadoUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var facturadoUid) ? (Guid?)facturadoUid : null;
+        await _auditService.LogAsync("FARMACIA_FACTURADO", "Farmacia",
+            $"Paciente: {record.NombrePaciente}, Doc: {record.NumeroIdentificacion}",
+            facturadoUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
         return Json(new { message = "Pedido marcado como Facturado." });
     }
 
@@ -399,6 +417,11 @@ public class FarmaciaController : Controller
         record.FarmaciaEstado = FarmaciaEstados.Empacado;
         record.FarmaciaEmpacadoAtUtc = DateTime.UtcNow;
         await _context.SaveChangesAsync(cancellationToken);
+
+        var empacadoUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var empacadoUid) ? (Guid?)empacadoUid : null;
+        await _auditService.LogAsync("FARMACIA_EMPACADO", "Farmacia",
+            $"Paciente: {record.NombrePaciente}, Doc: {record.NumeroIdentificacion}",
+            empacadoUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
 
         return Json(new { message = "Pedido en estado Empacado. Tiene 72 horas para firmar." });
     }

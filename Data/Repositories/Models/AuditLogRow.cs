@@ -12,3 +12,11 @@ public class AuditLogRow
     public string? Username { get; set; }
     public string? FullName { get; set; }
 }
+
+public class AuditTodayStats
+{
+    public int TotalEvents { get; set; }
+    public int UniqueUsers { get; set; }
+    public int FailedLogins { get; set; }
+    public int OperationalEvents { get; set; }
+}

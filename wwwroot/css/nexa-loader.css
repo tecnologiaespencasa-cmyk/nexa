@@ -6,7 +6,9 @@
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(17, 17, 17, 0.96);
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -20,6 +22,12 @@
   flex-direction: column;
   align-items: center;
   gap: 2rem;
+  background: rgba(15, 15, 15, 0.75);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-radius: 24px;
+  padding: 2.5rem 3.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* ---- Logo SVG ---- */
@@ -82,7 +90,7 @@
   line-height: 1;
 }
 .nexa-wN   { color: #ff2d2d; }
-.nexa-wexa { color: #555; }
+.nexa-wexa { color: #aaaaaa; }
 
 .nexa-wN,
 .nexa-wexa span {

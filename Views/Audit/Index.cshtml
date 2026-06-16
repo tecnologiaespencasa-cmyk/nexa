@@ -1,90 +1,427 @@
 @model AuditIndexViewModel
+@using System.Globalization
 @{
     ViewData["Title"] = "Auditoria";
+    var cultureEs = new CultureInfo("es-CO");
 }
 
-<h1 class="h3 mb-3">Bitacora de auditoria</h1>
+@functions {
+    static readonly TimeZoneInfo ColombiaZone = ResolveColombiaZone();
 
-<form method="get" class="card card-body mb-3">
-    <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+    static TimeZoneInfo ResolveColombiaZone()
+    {
+        foreach (var id in new[] { "America/Bogota", "SA Pacific Standard Time" })
+        {
+            try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+            catch { }
+        }
+        return TimeZoneInfo.Utc;
+    }
 
-    <div class="row g-3 align-items-end">
-        <div class="col-md-3">
-            <label asp-for="Filter.FromDate" class="form-label"></label>
-            <input asp-for="Filter.FromDate" type="date" class="form-control" />
-        </div>
-        <div class="col-md-3">
-            <label asp-for="Filter.ToDate" class="form-label"></label>
-            <input asp-for="Filter.ToDate" type="date" class="form-control" />
-        </div>
-        <div class="col-md-3">
-            <label asp-for="Filter.Username" class="form-label"></label>
-            <input asp-for="Filter.Username" class="form-control" placeholder="Usuario ejecutor" />
-        </div>
-        <div class="col-md-3">
-            <label asp-for="Filter.Action" class="form-label"></label>
-            <select asp-for="Filter.Action" class="form-select">
-                <option value="">Todas</option>
-                @foreach (var action in Model.AvailableActions)
-                {
-                    <option value="@action">@action</option>
-                }
-            </select>
-        </div>
+    static DateTime ToColombia(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), ColombiaZone);
+
+    static string GetCategory(string action)
+    {
+        var a = action.ToUpperInvariant();
+        if (a is "LOGIN_SUCCESS" or "LOGIN_FAILED" or "LOGOUT" or "ACCESS_DENIED")
+            return "auth";
+        if (a.StartsWith("USER_") || a.StartsWith("NURSING_") || a == "BOOTSTRAP_ADMIN_PASSWORD_RESET")
+            return "usuarios";
+        if (a.StartsWith("CENSO_"))
+            return "censo";
+        if (a.StartsWith("FARMACIA_"))
+            return "farmacia";
+        return "otros";
+    }
+
+    static string GetBadgeClass(string action) => action.ToUpperInvariant() switch
+    {
+        "LOGIN_SUCCESS" => "badge-audit badge-success",
+        "LOGIN_FAILED" => "badge-audit badge-danger",
+        "ACCESS_DENIED" => "badge-audit badge-danger",
+        "LOGOUT" => "badge-audit badge-secondary",
+        "USER_CREATED" => "badge-audit badge-success",
+        "USER_ACTIVATED" => "badge-audit badge-success",
+        "NURSING_ASSISTANT_CREATED" => "badge-audit badge-success",
+        "NURSING_ASSISTANT_ACTIVATED" => "badge-audit badge-success",
+        "USER_DEACTIVATED" => "badge-audit badge-danger",
+        "NURSING_ASSISTANT_DEACTIVATED" => "badge-audit badge-danger",
+        "USER_UPDATED" => "badge-audit badge-primary",
+        "USER_PASSWORD_RESET" => "badge-audit badge-warning",
+        "USER_PERMISSIONS_UPDATED" => "badge-audit badge-primary",
+        "BOOTSTRAP_ADMIN_PASSWORD_RESET" => "badge-audit badge-warning",
+        "CENSO_CREADO" => "badge-audit badge-success",
+        "CENSO_ACTUALIZADO" => "badge-audit badge-primary",
+        "CENSO_ENVIADO_FARMACIA" => "badge-audit badge-info",
+        "FARMACIA_KARDEX_APROBADO" => "badge-audit badge-primary",
+        "FARMACIA_FACTURADO" => "badge-audit badge-primary",
+        "FARMACIA_EMPACADO" => "badge-audit badge-warning",
+        "FARMACIA_DESPACHADO" => "badge-audit badge-success",
+        _ => "badge-audit badge-secondary"
+    };
+
+    static string GetActionLabel(string action) => action.ToUpperInvariant() switch
+    {
+        "LOGIN_SUCCESS" => "Ingreso exitoso",
+        "LOGIN_FAILED" => "Ingreso fallido",
+        "LOGOUT" => "Cierre de sesión",
+        "ACCESS_DENIED" => "Acceso denegado",
+        "USER_CREATED" => "Usuario creado",
+        "USER_UPDATED" => "Usuario actualizado",
+        "USER_ACTIVATED" => "Usuario activado",
+        "USER_DEACTIVATED" => "Usuario desactivado",
+        "USER_PASSWORD_RESET" => "Contraseña restablecida",
+        "USER_PERMISSIONS_UPDATED" => "Permisos actualizados",
+        "NURSING_ASSISTANT_CREATED" => "Auxiliar registrado",
+        "NURSING_ASSISTANT_ACTIVATED" => "Auxiliar activado",
+        "NURSING_ASSISTANT_DEACTIVATED" => "Auxiliar desactivado",
+        "BOOTSTRAP_ADMIN_PASSWORD_RESET" => "Admin reseteado",
+        "CENSO_CREADO" => "Paciente registrado",
+        "CENSO_ACTUALIZADO" => "Censo actualizado",
+        "CENSO_ENVIADO_FARMACIA" => "Enviado a farmacia",
+        "FARMACIA_KARDEX_APROBADO" => "Kardex aprobado",
+        "FARMACIA_FACTURADO" => "Facturado",
+        "FARMACIA_EMPACADO" => "Empacado",
+        "FARMACIA_DESPACHADO" => "Despachado",
+        _ => action
+    };
+}
+
+@section Styles {
+<style>
+    .audit-stat-card {
+        border: none;
+        border-radius: 12px;
+        transition: transform .15s;
+    }
+    .audit-stat-card:hover { transform: translateY(-2px); }
+    .audit-stat-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .audit-stat-label { font-size: .75rem; color: #6c757d; margin-top: .25rem; }
+
+    .badge-audit {
+        font-size: .7rem;
+        font-weight: 600;
+        padding: .3em .65em;
+        border-radius: 6px;
+        white-space: nowrap;
+        display: inline-block;
+    }
+    .badge-success  { background: #d1fae5; color: #065f46; }
+    .badge-danger   { background: #fee2e2; color: #991b1b; }
+    .badge-primary  { background: #dbeafe; color: #1e40af; }
+    .badge-warning  { background: #fef3c7; color: #92400e; }
+    .badge-info     { background: #e0f2fe; color: #075985; }
+    .badge-secondary{ background: #f1f5f9; color: #475569; }
+
+    .category-tab {
+        border: none;
+        background: none;
+        padding: .45rem .9rem;
+        border-radius: 8px;
+        font-size: .85rem;
+        font-weight: 500;
+        color: #6c757d;
+        cursor: pointer;
+        transition: background .15s, color .15s;
+    }
+    .category-tab:hover { background: #f1f5f9; color: #1e293b; }
+    .category-tab.active { background: #1e293b; color: #fff; }
+
+    .audit-date-divider {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        margin: 1.5rem 0 .5rem;
+        color: #94a3b8;
+        font-size: .75rem;
+        font-weight: 600;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+    }
+    .audit-date-divider::before,
+    .audit-date-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #e2e8f0;
+    }
+
+    .audit-table { font-size: .875rem; }
+    .audit-table td { padding: .55rem .75rem; vertical-align: middle; }
+    .audit-table tbody tr:hover { background: #f8fafc; }
+    .audit-table tbody tr.hidden-row { display: none; }
+
+    .audit-time { color: #94a3b8; font-size: .78rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .audit-user-name { font-weight: 600; color: #1e293b; }
+    .audit-user-full { font-size: .78rem; color: #94a3b8; }
+    .audit-details { color: #475569; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .audit-ip { color: #94a3b8; font-size: .75rem; font-family: monospace; white-space: nowrap; }
+
+    .visible-count { font-size: .8rem; color: #94a3b8; }
+    .filter-card { border: 1px solid #e2e8f0; border-radius: 12px; }
+</style>
+}
+
+<div class="d-flex justify-content-between align-items-start mb-1">
+    <div>
+        <h1 class="h3 mb-0">Centro de Auditoría</h1>
+        <p class="text-muted small mb-0">Registro de actividad del sistema · hora Colombia</p>
     </div>
-
-    <div class="mt-3 d-flex gap-2">
-        <button type="submit" class="btn btn-primary">Filtrar</button>
-        <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
-    </div>
-</form>
-
-<div class="table-responsive">
-    <table class="table table-striped align-middle">
-        <thead>
-            <tr>
-                <th>Fecha (UTC)</th>
-                <th>Usuario</th>
-                <th>Accion</th>
-                <th>Entidad</th>
-                <th>Detalle</th>
-                <th>IP</th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (!Model.Logs.Any())
-            {
-                <tr>
-                    <td colspan="6" class="text-center text-muted">No se encontraron registros para el filtro aplicado.</td>
-                </tr>
-            }
-            else
-            {
-                @foreach (var log in Model.Logs)
-                {
-                    <tr>
-                        <td>@log.PerformedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td>
-                            @if (string.IsNullOrWhiteSpace(log.Username))
-                            {
-                                <span class="text-muted">Sistema</span>
-                            }
-                            else
-                            {
-                                <span>@log.Username</span>
-                                @if (!string.IsNullOrWhiteSpace(log.FullName))
-                                {
-                                    <div class="small text-muted">@log.FullName</div>
-                                }
-                            }
-                        </td>
-                        <td><code>@log.Action</code></td>
-                        <td>@log.Entity</td>
-                        <td>@log.Details</td>
-                        <td>@log.IpAddress</td>
-                    </tr>
-                }
-            }
-        </tbody>
-    </table>
 </div>
+
+<!-- Stats -->
+<div class="row g-3 mt-1 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card audit-stat-card bg-primary bg-opacity-10 h-100">
+            <div class="card-body py-3">
+                <div class="audit-stat-label">Eventos hoy</div>
+                <div class="audit-stat-value text-primary">@Model.Stats.TodayTotal</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card audit-stat-card bg-success bg-opacity-10 h-100">
+            <div class="card-body py-3">
+                <div class="audit-stat-label">Usuarios activos hoy</div>
+                <div class="audit-stat-value text-success">@Model.Stats.TodayUniqueUsers</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        @{
+            var failClass = Model.Stats.TodayFailedLogins > 0 ? "bg-danger bg-opacity-10" : "bg-secondary bg-opacity-10";
+            var failValueClass = Model.Stats.TodayFailedLogins > 0 ? "text-danger" : "text-secondary";
+        }
+        <div class="card audit-stat-card @failClass h-100">
+            <div class="card-body py-3">
+                <div class="audit-stat-label">Ingresos fallidos hoy</div>
+                <div class="audit-stat-value @failValueClass">@Model.Stats.TodayFailedLogins</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card audit-stat-card bg-info bg-opacity-10 h-100">
+            <div class="card-body py-3">
+                <div class="audit-stat-label">Actividad clínica hoy</div>
+                <div class="audit-stat-value text-info">@Model.Stats.TodayOperational</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter panel -->
+<div class="card filter-card mb-4">
+    <div class="card-body pb-2 pt-3">
+        <!-- Category tabs -->
+        <div class="d-flex gap-1 flex-wrap mb-3" id="categoryTabs">
+            <button class="category-tab active" data-cat="">
+                Todos <span class="badge bg-secondary ms-1 rounded-pill" id="cnt-all" style="font-size:.65rem">…</span>
+            </button>
+            <button class="category-tab" data-cat="auth">
+                Seguridad <span class="badge bg-secondary ms-1 rounded-pill" id="cnt-auth" style="font-size:.65rem">…</span>
+            </button>
+            <button class="category-tab" data-cat="usuarios">
+                Usuarios <span class="badge bg-secondary ms-1 rounded-pill" id="cnt-usuarios" style="font-size:.65rem">…</span>
+            </button>
+            <button class="category-tab" data-cat="censo">
+                Censo <span class="badge bg-secondary ms-1 rounded-pill" id="cnt-censo" style="font-size:.65rem">…</span>
+            </button>
+            <button class="category-tab" data-cat="farmacia">
+                Farmacia <span class="badge bg-secondary ms-1 rounded-pill" id="cnt-farmacia" style="font-size:.65rem">…</span>
+            </button>
+        </div>
+
+        <form method="get">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+            <div class="row g-2 align-items-end">
+                <div class="col-sm-6 col-lg-3">
+                    <label asp-for="Filter.FromDate" class="form-label small mb-1"></label>
+                    <input asp-for="Filter.FromDate" type="date" class="form-control form-control-sm" />
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <label asp-for="Filter.ToDate" class="form-label small mb-1"></label>
+                    <input asp-for="Filter.ToDate" type="date" class="form-control form-control-sm" />
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <label asp-for="Filter.Username" class="form-label small mb-1"></label>
+                    <input asp-for="Filter.Username" class="form-control form-control-sm" placeholder="Usuario" />
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <label asp-for="Filter.Action" class="form-label small mb-1"></label>
+                    <select asp-for="Filter.Action" class="form-select form-select-sm">
+                        <option value="">Todas las acciones</option>
+                        @foreach (var action in Model.AvailableActions)
+                        {
+                            <option value="@action">@GetActionLabel(action)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="mt-2 d-flex gap-2 align-items-center">
+                <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+                <span class="ms-auto visible-count" id="visibleCount"></span>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Activity log -->
+@{
+    var groupedLogs = Model.Logs
+        .GroupBy(l => ToColombia(l.PerformedAtUtc).Date)
+        .OrderByDescending(g => g.Key)
+        .ToList();
+}
+
+@if (!Model.Logs.Any())
+{
+    <div class="text-center py-5 text-muted">
+        <div class="fs-1 mb-2">📋</div>
+        <p class="mb-0">No se encontraron registros para el filtro aplicado.</p>
+    </div>
+}
+else
+{
+    <div id="auditLog">
+        @foreach (var dateGroup in groupedLogs)
+        {
+            var dateLabel = dateGroup.Key.ToString("dddd d 'de' MMMM 'de' yyyy", cultureEs);
+            dateLabel = char.ToUpper(dateLabel[0]) + dateLabel[1..];
+
+            <div class="audit-date-divider" data-date="@dateGroup.Key.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)">
+                @dateLabel
+            </div>
+
+            <div class="card border-0 shadow-sm mb-1">
+                <div class="table-responsive">
+                    <table class="table audit-table mb-0">
+                        <tbody>
+                            @foreach (var log in dateGroup.OrderByDescending(l => l.PerformedAtUtc))
+                            {
+                                <tr data-cat="@GetCategory(log.Action)">
+                                    <td style="width:72px">
+                                        <span class="audit-time">@ToColombia(log.PerformedAtUtc).ToString("HH:mm")</span>
+                                    </td>
+                                    <td style="width:150px">
+                                        <span class="@GetBadgeClass(log.Action)">@GetActionLabel(log.Action)</span>
+                                    </td>
+                                    <td style="width:200px">
+                                        @if (string.IsNullOrWhiteSpace(log.Username))
+                                        {
+                                            <span class="audit-user-full">Sistema</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="audit-user-name">@log.Username</span>
+                                            @if (!string.IsNullOrWhiteSpace(log.FullName))
+                                            {
+                                                <span class="audit-user-full d-block">@log.FullName</span>
+                                            }
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="audit-details" title="@log.Details">@log.Details</span>
+                                    </td>
+                                    <td style="width:130px" class="text-end">
+                                        <span class="audit-ip">@log.IpAddress</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@section Scripts {
+<script>
+(function () {
+    var rows = document.querySelectorAll('#auditLog tbody tr[data-cat]');
+    var tabs = document.querySelectorAll('#categoryTabs .category-tab');
+    var visibleCount = document.getElementById('visibleCount');
+
+    // Count per category
+    var counts = { '': 0, auth: 0, usuarios: 0, censo: 0, farmacia: 0, otros: 0 };
+    rows.forEach(function (r) {
+        var cat = r.dataset.cat || 'otros';
+        counts['']++;
+        if (counts[cat] !== undefined) counts[cat]++;
+        else counts['otros']++;
+    });
+
+    document.getElementById('cnt-all').textContent     = counts[''];
+    document.getElementById('cnt-auth').textContent    = counts.auth;
+    document.getElementById('cnt-usuarios').textContent= counts.usuarios;
+    document.getElementById('cnt-censo').textContent   = counts.censo;
+    document.getElementById('cnt-farmacia').textContent= counts.farmacia;
+
+    function updateVisibleCount() {
+        var visible = document.querySelectorAll('#auditLog tbody tr[data-cat]:not(.hidden-row)').length;
+        visibleCount.textContent = 'Mostrando ' + visible + ' de ' + counts[''] + ' registros';
+    }
+
+    function applyCategory(cat) {
+        // Show/hide rows
+        rows.forEach(function (r) {
+            if (!cat || r.dataset.cat === cat) {
+                r.classList.remove('hidden-row');
+            } else {
+                r.classList.add('hidden-row');
+            }
+        });
+
+        // Show/hide date dividers and cards together
+        var dateGroups = document.querySelectorAll('[data-date]');
+        dateGroups.forEach(function (divider) {
+            var date = divider.dataset.date;
+            var card = divider.nextElementSibling;
+            var visibleInGroup = document.querySelectorAll(
+                '#auditLog tbody tr[data-cat]:not(.hidden-row)'
+            );
+            // Check if any visible row in this date group exists
+            var hasVisible = Array.from(visibleInGroup).some(function (r) {
+                return r.closest('table').closest('.card').previousElementSibling === divider;
+            });
+            divider.style.display = hasVisible || !cat ? '' : 'none';
+            if (card) card.style.display = hasVisible || !cat ? '' : 'none';
+        });
+
+        updateVisibleCount();
+    }
+
+    // Re-implement date group visibility more reliably
+    function applyFilter(cat) {
+        rows.forEach(function (r) {
+            r.classList.toggle('hidden-row', cat !== '' && r.dataset.cat !== cat);
+        });
+
+        // Hide date-divider + card if all rows in that card are hidden
+        var cards = document.querySelectorAll('#auditLog .card');
+        var dividers = document.querySelectorAll('#auditLog .audit-date-divider');
+        cards.forEach(function (card, i) {
+            var anyVisible = Array.from(card.querySelectorAll('tbody tr')).some(function (r) {
+                return !r.classList.contains('hidden-row');
+            });
+            card.style.display = anyVisible ? '' : 'none';
+            if (dividers[i]) dividers[i].style.display = anyVisible ? '' : 'none';
+        });
+
+        updateVisibleCount();
+    }
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            tabs.forEach(function (t) { t.classList.remove('active'); });
+            tab.classList.add('active');
+            applyFilter(tab.dataset.cat || '');
+        });
+    });
+
+    applyFilter('');
+})();
+</script>
+}

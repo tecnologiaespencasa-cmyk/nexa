@@ -3521,24 +3521,11 @@
                         } catch { /* fallback to form sync */ }
                     }
                     if (savedProrroga) {
-                        // Prórroga activa: usar medicamentos de la prórroga en kardex y requisición
+                        // Prórroga activa: base desde datos de prórroga, luego aplicar todos los ajustes guardados
                         syncKardexFromProrroga(savedProrroga);
                         syncRequisitionFromProrroga(savedProrroga);
-                        // Restaurar solo campos de encabezado que el usuario haya editado manualmente
-                        if (savedKardex?.fields) {
-                            Object.entries(savedKardex.fields).forEach(([key, value]) => {
-                                if (!value) return;
-                                const el = document.querySelector(`#censoKardexModal [data-kardex-field='${key}']`);
-                                if (el) el.value = value;
-                            });
-                        }
-                        if (savedRequisicion?.fields) {
-                            Object.entries(savedRequisicion.fields).forEach(([key, value]) => {
-                                if (!value) return;
-                                const el = document.querySelector(`#censoKardexModal [data-requisition-field='${key}']`);
-                                if (el) el.value = value;
-                            });
-                        }
+                        if (savedKardex) loadKardexPayload(savedKardex);
+                        if (savedRequisicion) loadRequisitionPayload(savedRequisicion);
                     } else {
                         syncKardexSheet();
                         if (savedKardex) loadKardexPayload(savedKardex);

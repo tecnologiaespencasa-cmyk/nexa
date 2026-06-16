@@ -20,6 +20,8 @@ public class AuditController : Controller
     [HttpGet]
     public async Task<IActionResult> Index([FromQuery] AuditFilterViewModel filter, CancellationToken cancellationToken)
     {
+        var stats = await _auditQueryService.GetTodayStatsAsync(cancellationToken);
+
         var serviceResult = await _auditQueryService.SearchAsync(
             new AuditLogSearchRequest
             {
@@ -41,6 +43,13 @@ public class AuditController : Controller
         {
             Filter = filter,
             AvailableActions = serviceResult.Value.AvailableActions.ToList(),
+            Stats = new AuditStatsViewModel
+            {
+                TodayTotal = stats.TotalEvents,
+                TodayUniqueUsers = stats.UniqueUsers,
+                TodayFailedLogins = stats.FailedLogins,
+                TodayOperational = stats.OperationalEvents
+            },
             Logs = serviceResult.Value.Logs.Select(log => new AuditLogItemViewModel
             {
                 Id = log.Id,
