@@ -692,10 +692,6 @@ public class CensoController : Controller
         model.MotivoNovedadDevolucionProductos = model.MotivoNovedadDevolucionProductos?.Trim();
         model.NotificacionAuxiliarDevolucionProductos = model.NotificacionAuxiliarDevolucionProductos?.Trim();
         model.EstadoDevolucionServicioFarmaceutico = model.EstadoDevolucionServicioFarmaceutico?.Trim();
-        model.PresentaNovedadKardex = model.PresentaNovedadKardex?.Trim();
-        model.PresentaNovedadRequisicion = model.PresentaNovedadRequisicion?.Trim();
-        model.PresentaNovedadAutorizacion = model.PresentaNovedadAutorizacion?.Trim();
-        model.DescripcionNovedadDocumentosPaciente = model.DescripcionNovedadDocumentosPaciente?.Trim();
         model.Telefono1 = NormalizePhone(model.Telefono1);
         model.Telefono2 = NormalizePhone(model.Telefono2);
         model.Telefono3 = NormalizePhone(model.Telefono3);
@@ -2434,13 +2430,6 @@ public class CensoController : Controller
         model.NotificacionAuxiliarDevolucionProductos = record.NotificacionAuxiliarDevolucionProductos;
         model.FechaMaximaDevolucionProductos = record.FechaMaximaDevolucionProductos;
         model.EstadoDevolucionServicioFarmaceutico = record.EstadoDevolucionServicioFarmaceutico;
-        model.PresentaNovedadKardex = record.PresentaNovedadKardex;
-        model.PresentaNovedadRequisicion = record.PresentaNovedadRequisicion;
-        model.PresentaNovedadAutorizacion = record.PresentaNovedadAutorizacion;
-        model.DescripcionNovedadDocumentosPaciente = record.DescripcionNovedadDocumentosPaciente;
-        model.FechaReporteNovedadDocumentos = record.FechaReporteNovedadDocumentos;
-        model.HoraReporteNovedadDocumentos = record.HoraReporteNovedadDocumentos;
-        model.HoraGestionSolucionNovedadDocumentos = record.HoraGestionSolucionNovedadDocumentos;
         model.FechaGestionFarmacia = record.FechaGestionFarmacia != default ? record.FechaGestionFarmacia.Date : null;
         model.HoraGestionFarmacia = record.HoraGestionFarmacia != default ? record.HoraGestionFarmacia : null;
         model.GestionCompleta = string.Equals(record.GestionCompletaPendiente, GestionCompleta, StringComparison.OrdinalIgnoreCase);
@@ -2592,13 +2581,6 @@ public class CensoController : Controller
         censoRecord.NotificacionAuxiliarDevolucionProductos = string.IsNullOrWhiteSpace(model.NotificacionAuxiliarDevolucionProductos) ? null : model.NotificacionAuxiliarDevolucionProductos;
         censoRecord.FechaMaximaDevolucionProductos = model.FechaMaximaDevolucionProductos?.Date;
         censoRecord.EstadoDevolucionServicioFarmaceutico = string.IsNullOrWhiteSpace(model.EstadoDevolucionServicioFarmaceutico) ? null : model.EstadoDevolucionServicioFarmaceutico;
-        censoRecord.PresentaNovedadKardex = string.IsNullOrWhiteSpace(model.PresentaNovedadKardex) ? null : model.PresentaNovedadKardex;
-        censoRecord.PresentaNovedadRequisicion = string.IsNullOrWhiteSpace(model.PresentaNovedadRequisicion) ? null : model.PresentaNovedadRequisicion;
-        censoRecord.PresentaNovedadAutorizacion = string.IsNullOrWhiteSpace(model.PresentaNovedadAutorizacion) ? null : model.PresentaNovedadAutorizacion;
-        censoRecord.DescripcionNovedadDocumentosPaciente = string.IsNullOrWhiteSpace(model.DescripcionNovedadDocumentosPaciente) ? null : model.DescripcionNovedadDocumentosPaciente;
-        censoRecord.FechaReporteNovedadDocumentos = model.FechaReporteNovedadDocumentos?.Date;
-        censoRecord.HoraReporteNovedadDocumentos = model.HoraReporteNovedadDocumentos;
-        censoRecord.HoraGestionSolucionNovedadDocumentos = model.HoraGestionSolucionNovedadDocumentos;
         // FechaGestionFarmacia/HoraGestionFarmacia are auto-set when sending to farmacia, not on regular save
 
         censoRecord.IndicadorTiempoGestionMinutos = indicadorTiempoGestionMinutos;
@@ -3241,10 +3223,6 @@ public class CensoController : Controller
             nameof(model.EstadoDevolucionServicioFarmaceutico),
             "un estado de devolución válido");
 
-        ValidateSiNoField(model.PresentaNovedadKardex, nameof(model.PresentaNovedadKardex), "presenta novedad en kardex");
-        ValidateSiNoField(model.PresentaNovedadRequisicion, nameof(model.PresentaNovedadRequisicion), "presenta novedad en requisicion");
-        ValidateSiNoField(model.PresentaNovedadAutorizacion, nameof(model.PresentaNovedadAutorizacion), "presenta novedad en la autorizacion");
-
         if (!string.IsNullOrWhiteSpace(model.NombreQuienRealizaSeguimientoAltaTardia))
         {
             var allowedAssistants = model.NursingAssistantOptions.Select(x => x.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -3540,9 +3518,6 @@ public class CensoController : Controller
         model.AltaTardia = NormalizeSiNoDefault(model.AltaTardia);
         model.PacienteRehospitalizado = NormalizeSiNoDefault(model.PacienteRehospitalizado);
         model.NotificacionAuxiliarDevolucionProductos = NormalizeSiNoDefault(model.NotificacionAuxiliarDevolucionProductos);
-        model.PresentaNovedadKardex = NormalizeSiNoDefault(model.PresentaNovedadKardex);
-        model.PresentaNovedadRequisicion = NormalizeSiNoDefault(model.PresentaNovedadRequisicion);
-        model.PresentaNovedadAutorizacion = NormalizeSiNoDefault(model.PresentaNovedadAutorizacion);
     }
 
     private static string NormalizeSiNoDefault(string? value)
@@ -4304,13 +4279,6 @@ public class CensoController : Controller
         AppendHeaderCell(sb, "NotificacionAuxiliarDevolucionProductos");
         AppendHeaderCell(sb, "FechaMaximaDevolucionProductos");
         AppendHeaderCell(sb, "EstadoDevolucionServicioFarmaceutico");
-        AppendHeaderCell(sb, "PresentaNovedadKardex");
-        AppendHeaderCell(sb, "PresentaNovedadRequisicion");
-        AppendHeaderCell(sb, "PresentaNovedadAutorizacion");
-        AppendHeaderCell(sb, "DescripcionNovedadDocumentosPaciente");
-        AppendHeaderCell(sb, "FechaReporteNovedadDocumentos");
-        AppendHeaderCell(sb, "HoraReporteNovedadDocumentos");
-        AppendHeaderCell(sb, "HoraGestionSolucionNovedadDocumentos");
         AppendHeaderCell(sb, "CreatedAtUtc");
         AppendHeaderCell(sb, "Adjuntos");
         AppendHeaderCell(sb, "Prorroga_Tipo");
@@ -4510,13 +4478,6 @@ public class CensoController : Controller
             AppendDataCell(sb, item.NotificacionAuxiliarDevolucionProductos ?? string.Empty);
             AppendDataCell(sb, FormatNullableDate(item.FechaMaximaDevolucionProductos));
             AppendDataCell(sb, item.EstadoDevolucionServicioFarmaceutico ?? string.Empty);
-            AppendDataCell(sb, item.PresentaNovedadKardex ?? string.Empty);
-            AppendDataCell(sb, item.PresentaNovedadRequisicion ?? string.Empty);
-            AppendDataCell(sb, item.PresentaNovedadAutorizacion ?? string.Empty);
-            AppendDataCell(sb, item.DescripcionNovedadDocumentosPaciente ?? string.Empty);
-            AppendDataCell(sb, FormatNullableDate(item.FechaReporteNovedadDocumentos));
-            AppendDataCell(sb, item.HoraReporteNovedadDocumentos?.ToString(@"hh\:mm") ?? string.Empty);
-            AppendDataCell(sb, item.HoraGestionSolucionNovedadDocumentos?.ToString(@"hh\:mm") ?? string.Empty);
             AppendDataCell(sb, item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"));
             AppendDataCell(sb, idsConAdjuntos?.Contains(item.Id) == true ? "Sí" : "No");
             ProrrogaExportDto? prorroga = null;

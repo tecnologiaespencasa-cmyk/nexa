@@ -150,13 +150,6 @@
         nameof(CensoRecord.NotificacionAuxiliarDevolucionProductos),
         nameof(CensoRecord.FechaMaximaDevolucionProductos),
         nameof(CensoRecord.EstadoDevolucionServicioFarmaceutico),
-        nameof(CensoRecord.PresentaNovedadKardex),
-        nameof(CensoRecord.PresentaNovedadRequisicion),
-        nameof(CensoRecord.PresentaNovedadAutorizacion),
-        nameof(CensoRecord.DescripcionNovedadDocumentosPaciente),
-        nameof(CensoRecord.FechaReporteNovedadDocumentos),
-        nameof(CensoRecord.HoraReporteNovedadDocumentos),
-        nameof(CensoRecord.HoraGestionSolucionNovedadDocumentos),
         nameof(CensoRecord.CreatedAtUtc)
     };
     var hiddenCensoTableColumns = new HashSet<string>
@@ -350,30 +343,6 @@
                         <span class="censo-nav__eyebrow">Devolución</span>
                         <span class="censo-nav__title">Devolución de productos</span>
                         <span class="censo-nav__description">Novedades, notificaciones y estado farmacéutico.</span>
-                    </span>
-                </button>
-
-                <button class="list-group-item list-group-item-action censo-nav__item"
-                        id="tab-novedad-documentos-link"
-                        data-bs-toggle="list"
-                        data-bs-target="#tab-novedad-documentos"
-                        type="button"
-                        role="tab"
-                        aria-controls="tab-novedad-documentos"
-                        aria-selected="false">
-                    <span class="censo-nav__icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" focusable="false">
-                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
-                            <path d="M14 3v5h5"></path>
-                            <path d="M9 13h6"></path>
-                            <path d="M9 17h6"></path>
-                            <path d="M9 9h1"></path>
-                        </svg>
-                    </span>
-                    <span class="censo-nav__content">
-                        <span class="censo-nav__eyebrow">Documentos</span>
-                        <span class="censo-nav__title">Novedad documental</span>
-                        <span class="censo-nav__description">Hallazgos, tiempos de reporte y gestión.</span>
                     </span>
                 </button>
 
@@ -1661,56 +1630,6 @@
                                             <option value="">Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="EstadoDevolucionServicioFarmaceutico" class="text-danger"></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="tab-pane fade" id="tab-novedad-documentos" role="tabpanel" aria-labelledby="tab-novedad-documentos-link" data-section-title="Novedad en documentos de paciente" data-section-description="Centraliza hallazgos documentales, tiempos de reporte y gestión de solución.">
-                        <div class="card">
-                            <div class="card-header">
-                                <div class="censo-card-heading">
-                                    <span class="censo-card-heading__eyebrow">Sección 8</span>
-                                    <h2 class="h5 mb-0">Novedad en documentos de paciente</h2>
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label asp-for="PresentaNovedadKardex" class="form-label"></label>
-                                        <select asp-for="PresentaNovedadKardex" asp-items="Model.SiNoOptions" class="form-select"></select>
-                                        <span asp-validation-for="PresentaNovedadKardex" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label asp-for="PresentaNovedadRequisicion" class="form-label"></label>
-                                        <select asp-for="PresentaNovedadRequisicion" asp-items="Model.SiNoOptions" class="form-select"></select>
-                                        <span asp-validation-for="PresentaNovedadRequisicion" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label asp-for="PresentaNovedadAutorizacion" class="form-label"></label>
-                                        <select asp-for="PresentaNovedadAutorizacion" asp-items="Model.SiNoOptions" class="form-select"></select>
-                                        <span asp-validation-for="PresentaNovedadAutorizacion" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-12">
-                                        <label asp-for="DescripcionNovedadDocumentosPaciente" class="form-label"></label>
-                                        <textarea asp-for="DescripcionNovedadDocumentosPaciente" class="form-control" rows="4" maxlength="2000"></textarea>
-                                        <span asp-validation-for="DescripcionNovedadDocumentosPaciente" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label asp-for="FechaReporteNovedadDocumentos" class="form-label"></label>
-                                        <input asp-for="FechaReporteNovedadDocumentos" type="date" class="form-control" />
-                                        <span asp-validation-for="FechaReporteNovedadDocumentos" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label asp-for="HoraReporteNovedadDocumentos" class="form-label"></label>
-                                        <input asp-for="HoraReporteNovedadDocumentos" type="time" class="form-control" />
-                                        <span asp-validation-for="HoraReporteNovedadDocumentos" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label asp-for="HoraGestionSolucionNovedadDocumentos" class="form-label"></label>
-                                        <input asp-for="HoraGestionSolucionNovedadDocumentos" type="time" class="form-control" />
-                                        <span asp-validation-for="HoraGestionSolucionNovedadDocumentos" class="text-danger"></span>
                                     </div>
                                 </div>
                             </div>
@@ -6297,18 +6216,6 @@
                 }
 
                 refreshProrrogaSection(true).catch(() => { });
-
-                window.addEventListener("focus", () => {
-                    if (prorrogaTabPane?.classList.contains("active")) {
-                        refreshProrrogaSection(false).catch(() => { });
-                    }
-                });
-
-                document.addEventListener("visibilitychange", () => {
-                    if (!document.hidden && prorrogaTabPane?.classList.contains("active")) {
-                        refreshProrrogaSection(false).catch(() => { });
-                    }
-                });
 
                 if (prorrogaVersionSelect) {
                     prorrogaVersionSelect.addEventListener("change", () => {

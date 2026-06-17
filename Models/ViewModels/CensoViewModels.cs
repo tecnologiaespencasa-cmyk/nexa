@@ -515,31 +515,6 @@ public class CensoReceptionViewModel
     [Display(Name = "Estado de devolución - Diligencia el servicio farmacéutico")]
     public string? EstadoDevolucionServicioFarmaceutico { get; set; }
 
-    [Display(Name = "Presenta novedad en kardex")]
-    public string? PresentaNovedadKardex { get; set; }
-
-    [Display(Name = "Presenta novedad en requisición")]
-    public string? PresentaNovedadRequisicion { get; set; }
-
-    [Display(Name = "Presenta novedad en la autorización")]
-    public string? PresentaNovedadAutorizacion { get; set; }
-
-    [StringLength(2000, ErrorMessage = "La descripción de la novedad no puede superar 2000 caracteres.")]
-    [Display(Name = "Descripción de la novedad")]
-    public string? DescripcionNovedadDocumentosPaciente { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de reporte de la novedad")]
-    public DateTime? FechaReporteNovedadDocumentos { get; set; }
-
-    [DataType(DataType.Time)]
-    [Display(Name = "Hora de reporte de la novedad")]
-    public TimeSpan? HoraReporteNovedadDocumentos { get; set; }
-
-    [DataType(DataType.Time)]
-    [Display(Name = "Hora de gestión y solución de la novedad")]
-    public TimeSpan? HoraGestionSolucionNovedadDocumentos { get; set; }
-
     [StringLength(20)]
     [Display(Name = "Filtrar por cédula paciente")]
     public string? CedulaFiltro { get; set; }

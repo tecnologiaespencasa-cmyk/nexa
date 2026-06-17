@@ -405,24 +405,6 @@ public class CensoRecord
     [StringLength(20)]
     public string? EstadoDevolucionServicioFarmaceutico { get; set; }
 
-    [StringLength(2)]
-    public string? PresentaNovedadKardex { get; set; }
-
-    [StringLength(2)]
-    public string? PresentaNovedadRequisicion { get; set; }
-
-    [StringLength(2)]
-    public string? PresentaNovedadAutorizacion { get; set; }
-
-    [StringLength(2000)]
-    public string? DescripcionNovedadDocumentosPaciente { get; set; }
-
-    public DateTime? FechaReporteNovedadDocumentos { get; set; }
-
-    public TimeSpan? HoraReporteNovedadDocumentos { get; set; }
-
-    public TimeSpan? HoraGestionSolucionNovedadDocumentos { get; set; }
-
     public DateTime FechaGestionFarmacia { get; set; }
 
     public TimeSpan HoraGestionFarmacia { get; set; }

@@ -226,10 +226,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.MotivoNovedadDevolucionProductos).HasMaxLength(40);
             entity.Property(x => x.NotificacionAuxiliarDevolucionProductos).HasMaxLength(2);
             entity.Property(x => x.EstadoDevolucionServicioFarmaceutico).HasMaxLength(20);
-            entity.Property(x => x.PresentaNovedadKardex).HasMaxLength(2);
-            entity.Property(x => x.PresentaNovedadRequisicion).HasMaxLength(2);
-            entity.Property(x => x.PresentaNovedadAutorizacion).HasMaxLength(2);
-            entity.Property(x => x.DescripcionNovedadDocumentosPaciente).HasMaxLength(2000);
             entity.Property(x => x.GestionCompletaPendiente).HasMaxLength(20).IsRequired().HasDefaultValue("Pendiente");
             entity.Property(x => x.FarmaciaEnviadoAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.FarmaciaKardexVistoAtUtc).HasColumnType("timestamp with time zone");
@@ -372,13 +368,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         entity.Property(x => x.FechaAltaHospitalizacion).HasColumnType("date");
         entity.Property(x => x.FechaNovedadDevolucionProductos).HasColumnType("date");
         entity.Property(x => x.FechaMaximaDevolucionProductos).HasColumnType("date");
-        entity.Property(x => x.FechaReporteNovedadDocumentos).HasColumnType("date");
         entity.Property(x => x.FechaGestionFarmacia).HasColumnType("date");
 
         entity.Property(x => x.HoraIngreso).HasColumnType("time without time zone");
         entity.Property(x => x.HoraRespuesta).HasColumnType("time without time zone");
-        entity.Property(x => x.HoraReporteNovedadDocumentos).HasColumnType("time without time zone");
-        entity.Property(x => x.HoraGestionSolucionNovedadDocumentos).HasColumnType("time without time zone");
         entity.Property(x => x.HoraGestionFarmacia).HasColumnType("time without time zone");
     }
 }
