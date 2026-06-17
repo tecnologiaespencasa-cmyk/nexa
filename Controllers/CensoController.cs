@@ -923,7 +923,7 @@ public class CensoController : Controller
         ValidateDropdownSelections(model);
         ValidateCie10Fields(model);
         ValidatePhoneFields(model);
-        NormalizeGestionCompletaWithoutAuxiliar(model);
+        ValidateGestionCompleta(model);
 
         var direccionValidation = await _addressValidationService.ValidateAddressAsync(model.Direccion, cancellationToken);
         var direccionParaGuardar = model.Direccion;
@@ -2517,11 +2517,19 @@ public class CensoController : Controller
         }
     }
 
-    private static void NormalizeGestionCompletaWithoutAuxiliar(CensoReceptionViewModel model)
+    private void ValidateGestionCompleta(CensoReceptionViewModel model)
     {
-        if (model.GestionCompleta && string.IsNullOrWhiteSpace(model.AuxiliarAsignado))
+        if (!model.GestionCompleta)
         {
-            model.GestionCompleta = false;
+            return;
+        }
+
+        var hasMedicationAdministration = string.Equals(model.AdministracionMedicamentos, "Si", StringComparison.OrdinalIgnoreCase);
+        if (hasMedicationAdministration && string.IsNullOrWhiteSpace(model.AuxiliarAsignado))
+        {
+            ModelState.AddModelError(
+                nameof(model.AuxiliarAsignado),
+                "Para marcar la gestión como completa debes diligenciar el campo Auxiliar asignado en la sección 3.");
         }
     }
 
