@@ -1726,6 +1726,23 @@
                                 </div>
                             </div>
                             <div class="card-body">
+                                <div class="censo-prorroga-version-panel mb-3">
+                                    <div>
+                                        <label class="form-label fw-semibold" for="prorrogaVersionSelect">Pr&oacute;rrogas del paciente</label>
+                                        <select class="form-select" id="prorrogaVersionSelect">
+                                            <option value="">Pr&oacute;rroga actual</option>
+                                        </select>
+                                    </div>
+                                    <div class="censo-prorroga-version-panel__actions">
+                                        <button type="button" class="btn btn-outline-primary" id="adicionalProrrogaBtn">
+                                            Adicionar pr&oacute;rroga
+                                        </button>
+                                    </div>
+                                    <span class="badge text-bg-primary d-none" id="prorrogaNumeroBadge">Pr&oacute;rroga #1</span>
+                                </div>
+                                <div class="alert alert-warning d-none" id="prorrogaSoloLecturaBanner" role="alert">
+                                    <strong>Kardex cerrado.</strong> Esta pr&oacute;rroga est&aacute; disponible solo para consulta. Usa <strong>Adicionar pr&oacute;rroga</strong> para crear una nueva.
+                                </div>
                                 <div class="row g-3">
                                     <div class="col-lg-6">
                                         <label class="form-label fw-semibold">&iquest;Es extensi&oacute;n o adici&oacute;n de tratamiento?</label>
@@ -2289,6 +2306,9 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
+                <div class="alert alert-warning d-none censo-document-closed-banner" id="censoDocumentClosedBanner" role="alert">
+                    <strong>Kardex cerrado.</strong> Este kardex y su requisici&oacute;n ya fueron aprobados por farmacia y quedan solo para consulta.
+                </div>
                 <section class="censo-document-pane active" id="censoKardexPane" data-censo-document-pane="kardex" role="tabpanel" aria-labelledby="censoKardexTabButton">
                 <div class="censo-kardex-sheet" aria-label="Kardex aplicaci&oacute;n de medicamentos">
                     <div class="censo-kardex-sheet__head">
@@ -2521,6 +2541,25 @@
     </div>
 </div>
 
+<div class="modal fade" id="censoAdicionalProrrogaConfirmModal" tabindex="-1" aria-labelledby="censoAdicionalProrrogaConfirmModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="censoAdicionalProrrogaConfirmModalTitle">Crear pr&oacute;rroga adicional</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Se abrir&aacute; un formulario nuevo para registrar otra pr&oacute;rroga del paciente.</p>
+                <p class="text-muted small mb-0">La informaci&oacute;n de las pr&oacute;rrogas anteriores se conservar&aacute; solo para consulta.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmarAdicionalProrrogaBtn">Aceptar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts
 {
     <partial name="_ValidationScriptsPartial" />
@@ -2541,6 +2580,12 @@
             const obtenerAdjuntosUrl = "@Url.Action("ObtenerAdjuntos", "Censo")";
             const obtenerDatosSeccion2Url = "@Url.Action("ObtenerDatosSeccion2", "Censo")";
             const medicamentoCatalog = @Html.Raw(medicamentoCatalogJson);
+            const initialKardexInicialCerrado = @Json.Serialize(Model.KardexInicialCerrado);
+            const initialProrrogaCerrada = @Json.Serialize(Model.ProrrogaCerrada);
+            let documentosState = null;
+            let activeProrrogaVersionId = null;
+            let activeProrrogaIsNewAdditional = false;
+            let loadProrrogaPayload = null;
             const direccionInput = document.getElementById("direccionInput");
             const validarDireccionBtn = document.getElementById("validarDireccionBtn");
             const limpiarDireccionBtn = document.getElementById("limpiarDireccionBtn");
@@ -2550,6 +2595,14 @@
             const form = document.getElementById("censoForm");
             const editingRecordIdInput = form ? form.querySelector("input[name='EditingRecordId']") : null;
             const enviarFarmaciaKardexBtn = document.getElementById("enviarFarmaciaKardexBtn");
+            const guardarDocumentosBtn = document.getElementById("guardarDocumentosBtn");
+            const prorrogaVersionSelect = document.getElementById("prorrogaVersionSelect");
+            const adicionalProrrogaBtn = document.getElementById("adicionalProrrogaBtn");
+            const confirmarAdicionalProrrogaBtn = document.getElementById("confirmarAdicionalProrrogaBtn");
+            const prorrogaNumeroBadge = document.getElementById("prorrogaNumeroBadge");
+            const prorrogaSoloLecturaBanner = document.getElementById("prorrogaSoloLecturaBanner");
+            const censoDocumentClosedBanner = document.getElementById("censoDocumentClosedBanner");
+            const prorrogaTabPane = document.getElementById("tab-prorroga");
             const cedulaFiltroInput = document.getElementById("cedulaFiltroInput");
             const buscarCedulaBtn = document.getElementById("buscarCedulaBtn");
             const limpiarCedulaBtn = document.getElementById("limpiarCedulaBtn");
@@ -3242,6 +3295,7 @@
                 ].filter((v) => v).join(" / ");
                 const fechaInicio = formatDateForKardex(p.fechaInicioTratamiento || "");
                 const fechaFin = formatDateForKardex(p.fechaFinTratamiento || "");
+                const auxiliarProrroga = (p.auxiliarAsignado || "").trim() || getFormValue("AuxiliarAsignado");
 
                 setKardexFieldValue("paciente", getFormValue("NombrePaciente"));
                 setKardexFieldValue("documento", [tipoDocumento, numeroDocumento].filter((v) => v).join(" "));
@@ -3252,7 +3306,7 @@
                 setKardexFieldValue("diagnostico", getFormValue("DiagnosticoDescriptivo"));
                 setKardexFieldValue("observaciones", getFormValue("ObservacionesPlanManejo"));
                 setKardexFieldValue("programador", getFormValue("ResponsableLlamadaBienvenida"));
-                setKardexFieldValue("auxiliarAsignado", getFormValue("AuxiliarAsignado"));
+                setKardexFieldValue("auxiliarAsignado", auxiliarProrroga);
 
                 const prorrogaMeds = [
                     { name: p.nombreMedicamentoPrincipal, dose: p.dosisMedicamentoPrincipal, measure: p.medidaMedicamentoPrincipal, route: p.viaAdministracionMedicamentoPrincipal, frequency: p.frecuenciaAdministracionMxPrincipal, days: p.diasMedicamentoPrincipal },
@@ -3284,7 +3338,8 @@
                     getFormValue("Telefono2"),
                     getFormValue("Telefono3")
                 ].filter((v) => v).join(" / ");
-                setRequisitionFieldValue("auxiliarEncargado", getFormValue("AuxiliarAsignado"));
+                const auxiliarProrroga = (p.auxiliarAsignado || "").trim() || getFormValue("AuxiliarAsignado");
+                setRequisitionFieldValue("auxiliarEncargado", auxiliarProrroga);
                 setRequisitionFieldValue("realizadoPor", getFormValue("NombreRealizaKardex"));
                 setRequisitionFieldValue("paciente", getFormValue("NombrePaciente"));
                 setRequisitionFieldValue("autorizacion", getFormValue("AutorizacionEvento"));
@@ -3526,6 +3581,185 @@
                 }
             };
 
+            const getActiveProrroga = () => {
+                if (!documentosState) return null;
+                if (activeProrrogaVersionId) {
+                    return (documentosState.prorrogas || []).find((p) => String(p.id) === String(activeProrrogaVersionId)) || null;
+                }
+                return documentosState.prorrogaJson
+                    ? {
+                        id: null,
+                        numero: Number(documentosState.prorrogaNumero) || 1,
+                        prorrogaJson: documentosState.prorrogaJson,
+                        kardexJson: documentosState.prorrogaKardexJson || documentosState.kardexJson,
+                        requisicionJson: documentosState.prorrogaRequisicionJson || documentosState.requisicionJson,
+                        cerrada: !!documentosState.prorrogaCerrada
+                    }
+                    : null;
+            };
+
+            const isProrrogaDocumentContext = () => {
+                return !!prorrogaTabPane?.classList.contains("active") || !!activeProrrogaIsNewAdditional;
+            };
+
+            const getDocumentProrroga = () => {
+                return isProrrogaDocumentContext() ? getActiveProrroga() : null;
+            };
+
+            const isActiveDocumentClosed = () => {
+                const prorroga = getDocumentProrroga();
+                if (prorroga) return !!prorroga.cerrada;
+                if (isProrrogaDocumentContext()) {
+                    return !!documentosState?.prorrogaCerrada || !!initialProrrogaCerrada;
+                }
+                return !!documentosState?.principalCerrado || !!initialKardexInicialCerrado;
+            };
+
+            const setDocumentClosedMode = (closed) => {
+                kardexModal?.classList.toggle("is-document-closed", closed);
+                censoDocumentClosedBanner?.classList.toggle("d-none", !closed);
+                document
+                    .querySelectorAll("#censoKardexModal input, #censoKardexModal textarea, #censoKardexModal select")
+                    .forEach((control) => {
+                        if (control.id === "serviciosCargadosSwitch") {
+                            control.disabled = closed;
+                            return;
+                        }
+
+                        if (control.type === "hidden") return;
+                        control.readOnly = closed;
+                        if (control.matches("select, input[type=checkbox], input[type=radio]")) {
+                            control.disabled = closed;
+                        }
+                    });
+
+                if (guardarDocumentosBtn) guardarDocumentosBtn.disabled = closed;
+                if (subirAdjuntoBtn) subirAdjuntoBtn.disabled = closed;
+                if (enviarFarmaciaKardexBtn) enviarFarmaciaKardexBtn.disabled = closed || !(document.getElementById("serviciosCargadosSwitch")?.checked);
+            };
+
+            const loadDocumentosState = async (recordId) => {
+                const resp = await fetch(`${obtenerDocumentosUrl}?id=${recordId}`);
+                if (!resp.ok) return null;
+                documentosState = await resp.json();
+                return documentosState;
+            };
+
+            const getLatestProrrogaOption = () => {
+                if (!documentosState) return null;
+                const versiones = (documentosState.prorrogas || [])
+                    .filter((p) => p?.prorrogaJson)
+                    .sort((a, b) => (Number(b.numero) || 0) - (Number(a.numero) || 0));
+
+                if (versiones.length > 0) {
+                    return { id: String(versiones[0].id) };
+                }
+
+                return documentosState.prorrogaJson ? { id: "" } : null;
+            };
+
+            const renderProrrogaVersionOptions = (preferLatest = false) => {
+                if (!prorrogaVersionSelect || !documentosState) return;
+                prorrogaVersionSelect.innerHTML = "";
+                const latestOption = getLatestProrrogaOption();
+                if (preferLatest && latestOption) {
+                    activeProrrogaVersionId = latestOption.id || null;
+                }
+
+                let hasActiveOption = !activeProrrogaVersionId && !!documentosState.prorrogaJson;
+                if (documentosState.prorrogaJson) {
+                    const opt = document.createElement("option");
+                    opt.value = "";
+                    opt.textContent = `Prórroga #${Number(documentosState.prorrogaNumero) || 1}${documentosState.prorrogaCerrada ? " - cerrada" : ""}`;
+                    prorrogaVersionSelect.appendChild(opt);
+                }
+
+                (documentosState.prorrogas || []).forEach((p) => {
+                    const opt = document.createElement("option");
+                    opt.value = String(p.id);
+                    opt.textContent = `Prórroga #${p.numero}${p.cerrada ? " - cerrada" : ""}`;
+                    prorrogaVersionSelect.appendChild(opt);
+                    if (String(p.id) === String(activeProrrogaVersionId)) {
+                        hasActiveOption = true;
+                    }
+                });
+
+                if (!documentosState.prorrogaJson && (!documentosState.prorrogas || documentosState.prorrogas.length === 0)) {
+                    const opt = document.createElement("option");
+                    opt.value = "";
+                    opt.textContent = "Sin prórrogas guardadas";
+                    prorrogaVersionSelect.appendChild(opt);
+                }
+
+                if (!hasActiveOption) {
+                    activeProrrogaVersionId = latestOption?.id || null;
+                }
+                prorrogaVersionSelect.value = activeProrrogaVersionId ? String(activeProrrogaVersionId) : "";
+            };
+
+            const updateProrrogaReadonlyMode = () => {
+                const prorroga = getActiveProrroga();
+                const closed = !activeProrrogaIsNewAdditional && !!prorroga?.cerrada;
+                prorrogaTabPane?.classList.toggle("is-prorroga-closed", closed);
+                prorrogaSoloLecturaBanner?.classList.toggle("d-none", !closed);
+                if (prorrogaNumeroBadge) {
+                    const baseNumero = Number(documentosState?.maxProrrogaNumero) || (documentosState?.prorrogaJson ? (Number(documentosState?.prorrogaNumero) || 1) : 0);
+                    const nextNumber = (documentosState?.prorrogas || []).reduce((max, p) => Math.max(max, Number(p.numero) || 0), baseNumero) + 1;
+                    prorrogaNumeroBadge.textContent = activeProrrogaIsNewAdditional
+                        ? `Prórroga #${nextNumber}`
+                        : prorroga
+                            ? `Prórroga #${prorroga.numero}`
+                            : "Prórroga #1";
+                    prorrogaNumeroBadge.classList.remove("d-none");
+                }
+
+                document
+                    .querySelectorAll("#tab-prorroga input, #tab-prorroga textarea, #tab-prorroga select, #guardarProrrogaBtn")
+                    .forEach((control) => {
+                        if (control.id === "prorrogaVersionSelect") return;
+                        if (control.type === "hidden") return;
+                        if (control.tagName === "BUTTON") {
+                            control.disabled = closed;
+                            return;
+                        }
+                        if (control.matches("select, input[type=checkbox], input[type=radio]")) {
+                            control.disabled = closed;
+                        } else {
+                            control.readOnly = closed;
+                        }
+                    });
+            };
+
+            const clearProrrogaForm = () => {
+                document
+                    .querySelectorAll("#tab-prorroga input, #tab-prorroga select, #tab-prorroga textarea")
+                    .forEach((control) => {
+                        if (control.id === "prorrogaVersionSelect") return;
+                        if (control.type === "radio" || control.type === "checkbox") {
+                            control.checked = false;
+                        } else {
+                            control.value = "";
+                        }
+                    });
+                ["prorrogaExtensionContainer", "prorrogaMed2Container", "prorrogaMed3Container", "prorrogaMed4Container", "prorrogaMed5Container", "prorrogaMed6Container"]
+                    .forEach((id) => document.getElementById(id)?.classList.add("d-none"));
+            };
+
+            const loadSelectedProrrogaIntoForm = () => {
+                if (activeProrrogaIsNewAdditional) {
+                    clearProrrogaForm();
+                    updateProrrogaReadonlyMode();
+                    return;
+                }
+
+                const prorroga = getActiveProrroga();
+                clearProrrogaForm();
+                if (prorroga?.prorrogaJson && typeof loadProrrogaPayload === "function") {
+                    try { loadProrrogaPayload(JSON.parse(prorroga.prorrogaJson)); } catch { }
+                }
+                updateProrrogaReadonlyMode();
+            };
+
             const kardexModal = document.getElementById("censoKardexModal");
             if (kardexModal) {
                 kardexModal.addEventListener("show.bs.modal", async () => {
@@ -3535,12 +3769,16 @@
                     let savedProrroga = null;
                     if (recordId > 0) {
                         try {
-                            const resp = await fetch(`${obtenerDocumentosUrl}?id=${recordId}`);
-                            if (resp.ok) {
-                                const saved = await resp.json();
+                            const saved = await loadDocumentosState(recordId);
+                            renderProrrogaVersionOptions();
+                            const activeProrroga = getDocumentProrroga();
+                            if (activeProrroga) {
+                                savedKardex = activeProrroga.kardexJson ? JSON.parse(activeProrroga.kardexJson) : null;
+                                savedRequisicion = activeProrroga.requisicionJson ? JSON.parse(activeProrroga.requisicionJson) : null;
+                                savedProrroga = activeProrroga.prorrogaJson ? JSON.parse(activeProrroga.prorrogaJson) : null;
+                            } else if (saved) {
                                 savedKardex = saved.kardexJson ? JSON.parse(saved.kardexJson) : null;
                                 savedRequisicion = saved.requisicionJson ? JSON.parse(saved.requisicionJson) : null;
-                                savedProrroga = saved.prorrogaJson ? JSON.parse(saved.prorrogaJson) : null;
                             }
                         } catch { /* fallback to form sync */ }
                     }
@@ -3563,13 +3801,14 @@
                         serviciosCargadosSwitch.checked = false;
                         if (enviarFarmaciaKardexBtn) enviarFarmaciaKardexBtn.disabled = true;
                     }
+                    setDocumentClosedMode(isActiveDocumentClosed());
                 });
             }
 
             const serviciosCargadosSwitch = document.getElementById("serviciosCargadosSwitch");
             if (serviciosCargadosSwitch) {
                 serviciosCargadosSwitch.addEventListener("change", () => {
-                    if (enviarFarmaciaKardexBtn) enviarFarmaciaKardexBtn.disabled = !serviciosCargadosSwitch.checked;
+                    if (enviarFarmaciaKardexBtn) enviarFarmaciaKardexBtn.disabled = isActiveDocumentClosed() || !serviciosCargadosSwitch.checked;
                 });
             }
 
@@ -3577,6 +3816,14 @@
             if (enviarFarmaciaWrapper) {
                 enviarFarmaciaWrapper.addEventListener("click", () => {
                     if (enviarFarmaciaKardexBtn?.disabled) {
+                        if (isActiveDocumentClosed()) {
+                            showFeedbackModal(
+                                "Kardex cerrado",
+                                "<p class=\"mb-0\">Este kardex y su requisición ya fueron aprobados por farmacia. Están disponibles solo para consulta.</p>",
+                                "warning");
+                            return;
+                        }
+
                         showFeedbackModal(
                             "Servicios no cargados",
                             "<p class=\"mb-0\">Primero tienes que cargar los servicios. Activa el interruptor <strong>Servicios cargados</strong> para poder enviar a farmacia.</p>",
@@ -3604,12 +3851,15 @@
                 });
             });
 
-            const guardarDocumentosBtn = document.getElementById("guardarDocumentosBtn");
             if (guardarDocumentosBtn) {
                 guardarDocumentosBtn.addEventListener("click", async () => {
                     const recordId = Number(editingRecordIdInput?.value || "0") || 0;
                     if (recordId <= 0) {
                         showFeedbackModal("Guarda el censo primero", "<p class=\"mb-0\">Necesitas guardar el registro antes de poder guardar los documentos.</p>", "warning");
+                        return;
+                    }
+                    if (isActiveDocumentClosed()) {
+                        showFeedbackModal("Kardex cerrado", "<p class=\"mb-0\">Este kardex y su requisición ya fueron aprobados por farmacia y no se pueden editar.</p>", "warning");
                         return;
                     }
                     guardarDocumentosBtn.disabled = true;
@@ -3618,6 +3868,12 @@
                         formData.append("id", String(recordId));
                         formData.append("kardexJson", JSON.stringify(collectKardexPayload()));
                         formData.append("requisicionJson", JSON.stringify(collectRequisitionPayload()));
+                        if (isProrrogaDocumentContext()) {
+                            formData.append("documentoProrroga", "true");
+                        }
+                        if (isProrrogaDocumentContext() && activeProrrogaVersionId) {
+                            formData.append("prorrogaVersionId", String(activeProrrogaVersionId));
+                        }
                         const response = await fetch(guardarDocumentosUrl, {
                             method: "POST",
                             body: formData,
@@ -3761,6 +4017,13 @@
                             "warning");
                         return;
                     }
+                    if (isActiveDocumentClosed()) {
+                        showFeedbackModal(
+                            "Kardex cerrado",
+                            "<p class=\"mb-0\">Este kardex y su requisición ya fueron aprobados por farmacia y no se pueden reenviar.</p>",
+                            "warning");
+                        return;
+                    }
 
                     enviarFarmaciaKardexBtn.disabled = true;
                     try {
@@ -3768,6 +4031,12 @@
                         formData.append("id", String(recordId));
                         formData.append("kardexJson", JSON.stringify(collectKardexPayload()));
                         formData.append("requisicionJson", JSON.stringify(collectRequisitionPayload()));
+                        if (isProrrogaDocumentContext()) {
+                            formData.append("documentoProrroga", "true");
+                        }
+                        if (isProrrogaDocumentContext() && activeProrrogaVersionId) {
+                            formData.append("prorrogaVersionId", String(activeProrrogaVersionId));
+                        }
                         const response = await fetch(enviarFarmaciaUrl, {
                             method: "POST",
                             body: formData,
@@ -3813,7 +4082,8 @@
                             "<p class=\"mb-0\">Ocurrio un error de conexion al enviar el pedido a farmacia.</p>",
                             "danger");
                     } finally {
-                        enviarFarmaciaKardexBtn.disabled = false;
+                        const serviciosActivos = !!document.getElementById("serviciosCargadosSwitch")?.checked;
+                        enviarFarmaciaKardexBtn.disabled = isActiveDocumentClosed() || !serviciosActivos;
                     }
                 });
             }
@@ -5898,7 +6168,7 @@
                     notificadoAsegurador: !!(document.getElementById("prorrogaNotificadoAsegurador")?.checked),
                 });
 
-                const loadProrrogaPayload = (data) => {
+                loadProrrogaPayload = (data) => {
                     if (!data) return;
                     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
                     const setToggle = (toggle, container, flag) => {
@@ -6005,21 +6275,77 @@
                     prorrogaFechaInicioInput.addEventListener("change", syncProrrogaFechaFin);
                 }
 
+                const refreshProrrogaSection = async (preferLatest = false) => {
+                    const recordId = Number(editingRecordIdInput?.value || "0") || 0;
+                    if (recordId <= 0) return;
+                    await loadDocumentosState(recordId);
+                    renderProrrogaVersionOptions(preferLatest);
+                    prorrogaDataLoaded = true;
+                    activeProrrogaIsNewAdditional = false;
+                    loadSelectedProrrogaIntoForm();
+                    if (kardexModal?.classList.contains("show")) {
+                        setDocumentClosedMode(isActiveDocumentClosed());
+                    }
+                };
+
                 if (prorrogaTabLink) {
                     prorrogaTabLink.addEventListener("show.bs.tab", async () => {
-                        if (prorrogaDataLoaded) return;
-                        prorrogaDataLoaded = true;
-                        const recordId = Number(editingRecordIdInput?.value || "0") || 0;
-                        if (recordId <= 0) return;
                         try {
-                            const resp = await fetch(`${obtenerDocumentosUrl}?id=${recordId}`);
-                            if (resp.ok) {
-                                const saved = await resp.json();
-                                if (saved.prorrogaJson) {
-                                    loadProrrogaPayload(JSON.parse(saved.prorrogaJson));
-                                }
-                            }
+                            await refreshProrrogaSection(true);
                         } catch { }
+                    });
+                }
+
+                refreshProrrogaSection(true).catch(() => { });
+
+                window.addEventListener("focus", () => {
+                    if (prorrogaTabPane?.classList.contains("active")) {
+                        refreshProrrogaSection(false).catch(() => { });
+                    }
+                });
+
+                document.addEventListener("visibilitychange", () => {
+                    if (!document.hidden && prorrogaTabPane?.classList.contains("active")) {
+                        refreshProrrogaSection(false).catch(() => { });
+                    }
+                });
+
+                if (prorrogaVersionSelect) {
+                    prorrogaVersionSelect.addEventListener("change", () => {
+                        activeProrrogaVersionId = prorrogaVersionSelect.value || null;
+                        activeProrrogaIsNewAdditional = false;
+                        loadSelectedProrrogaIntoForm();
+                    });
+                }
+
+                if (adicionalProrrogaBtn) {
+                    adicionalProrrogaBtn.addEventListener("click", () => {
+                        const modalEl = document.getElementById("censoAdicionalProrrogaConfirmModal");
+                        if (window.bootstrap && window.bootstrap.Modal && modalEl) {
+                            window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                            return;
+                        }
+
+                        activeProrrogaIsNewAdditional = true;
+                        activeProrrogaVersionId = null;
+                        if (prorrogaVersionSelect) prorrogaVersionSelect.value = "";
+                        clearProrrogaForm();
+                        updateProrrogaReadonlyMode();
+                    });
+                }
+
+                if (confirmarAdicionalProrrogaBtn) {
+                    confirmarAdicionalProrrogaBtn.addEventListener("click", () => {
+                        const modalEl = document.getElementById("censoAdicionalProrrogaConfirmModal");
+                        if (window.bootstrap && window.bootstrap.Modal && modalEl) {
+                            window.bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                        }
+
+                        activeProrrogaIsNewAdditional = true;
+                        activeProrrogaVersionId = null;
+                        if (prorrogaVersionSelect) prorrogaVersionSelect.value = "";
+                        clearProrrogaForm();
+                        updateProrrogaReadonlyMode();
                     });
                 }
 
@@ -6036,6 +6362,12 @@
                             const formData = new FormData();
                             formData.append("id", String(recordId));
                             formData.append("prorrogaJson", JSON.stringify(collectProrrogaPayload()));
+                            if (activeProrrogaVersionId) {
+                                formData.append("prorrogaVersionId", String(activeProrrogaVersionId));
+                            }
+                            if (activeProrrogaIsNewAdditional) {
+                                formData.append("adicionalProrroga", "true");
+                            }
                             if (csrfTokenInput) formData.append("__RequestVerificationToken", csrfTokenInput.value);
                             const resp = await fetch(guardarProrrogaUrl, { method: "POST", body: formData });
                             const result = await resp.json().catch(() => ({}));
@@ -6044,13 +6376,21 @@
                                 if (prorrogaGuardadoStatus) prorrogaGuardadoStatus.textContent = "";
                                 return;
                             }
+                            if (result.prorrogaId) {
+                                activeProrrogaVersionId = String(result.prorrogaId);
+                                activeProrrogaIsNewAdditional = false;
+                                await loadDocumentosState(recordId);
+                                renderProrrogaVersionOptions();
+                                updateProrrogaReadonlyMode();
+                            }
                             if (prorrogaGuardadoStatus) prorrogaGuardadoStatus.textContent = "Guardado ✓";
                             window.setTimeout(() => { if (prorrogaGuardadoStatus) prorrogaGuardadoStatus.textContent = ""; }, 3000);
                         } catch {
                             showFeedbackModal("Error de conexión", "<p class=\"mb-0\">No se pudo conectar al servidor.</p>", "danger");
                             if (prorrogaGuardadoStatus) prorrogaGuardadoStatus.textContent = "";
                         } finally {
-                            guardarProrrogaBtn.disabled = false;
+                            const prorrogaCerrada = !activeProrrogaIsNewAdditional && !!getActiveProrroga()?.cerrada;
+                            guardarProrrogaBtn.disabled = prorrogaCerrada;
                         }
                     });
                 }

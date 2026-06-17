@@ -13,6 +13,14 @@ public class CensoRecord
 
     public bool EsProrroga { get; set; }
 
+    public DateTime? KardexCerradoAtUtc { get; set; }
+
+    public long? KardexCerradoPorFarmaciaId { get; set; }
+
+    public DateTime? ProrrogaCerradaAtUtc { get; set; }
+
+    public long? ProrrogaCerradaPorFarmaciaId { get; set; }
+
     public DateTime FechaIngreso { get; set; }
 
     public TimeSpan HoraIngreso { get; set; }
@@ -471,7 +479,11 @@ public class CensoRecord
 
     public long? FarmaciaProrrogaDeId { get; set; }
 
+    public long? FarmaciaProrrogaVersionId { get; set; }
+
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public ICollection<CensoAdjunto> Adjuntos { get; set; } = [];
+
+    public ICollection<CensoProrroga> Prorrogas { get; set; } = [];
 }

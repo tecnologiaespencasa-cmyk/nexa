@@ -1088,18 +1088,163 @@ public class CensoController : Controller
         var record = await _context.Censos
             .AsNoTracking()
             .Where(x => x.Id == id)
-            .Select(x => new { x.KardexEdicionJson, x.RequisicionFarmaciaJson, x.ProrrogaJson })
+            .Select(x => new
+            {
+                x.Id,
+                x.NumeroIdentificacion,
+                x.KardexEdicionJson,
+                x.RequisicionFarmaciaJson,
+                x.ProrrogaJson,
+                x.KardexCerradoAtUtc,
+                x.ProrrogaCerradaAtUtc
+            })
             .FirstOrDefaultAsync(cancellationToken);
         if (record is null) return NotFound();
-        return Json(new { kardexJson = record.KardexEdicionJson, requisicionJson = record.RequisicionFarmaciaJson, prorrogaJson = record.ProrrogaJson });
+
+        var prorrogaJson = record.ProrrogaJson;
+        var prorrogaKardexJson = record.KardexEdicionJson;
+        var prorrogaRequisicionJson = record.RequisicionFarmaciaJson;
+        var prorrogaCerrada = record.ProrrogaCerradaAtUtc != null;
+        var prorrogaCerradaAtUtc = record.ProrrogaCerradaAtUtc;
+        var prorrogaNumero = 1;
+
+        var prorrogas = await _context.CensoProrrogas
+            .AsNoTracking()
+            .Where(x => x.CensoRecordId == id)
+            .OrderBy(x => x.Numero)
+            .Select(x => new
+            {
+                id = x.Id,
+                numero = x.Numero,
+                prorrogaJson = x.ProrrogaJson,
+                kardexJson = x.KardexEdicionJson,
+                requisicionJson = x.RequisicionFarmaciaJson,
+                cerrada = x.CerradaAtUtc != null,
+                cerradaAtUtc = x.CerradaAtUtc
+            })
+            .ToListAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(prorrogaJson)
+            && prorrogas.Count == 0
+            && !string.IsNullOrWhiteSpace(record.NumeroIdentificacion))
+        {
+            var latestProrrogaRecordId = await _context.Censos
+                .AsNoTracking()
+                .Where(x => x.NumeroIdentificacion == record.NumeroIdentificacion
+                    && x.Id != id
+                    && ((x.ProrrogaJson != null && x.ProrrogaJson != "")
+                        || _context.CensoProrrogas.Any(p => p.CensoRecordId == x.Id && p.ProrrogaJson != null && p.ProrrogaJson != "")))
+                .OrderByDescending(x => x.FechaIngreso)
+                .ThenByDescending(x => x.HoraIngreso)
+                .ThenByDescending(x => x.Id)
+                .Select(x => (long?)x.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (latestProrrogaRecordId.HasValue)
+            {
+                var latestProrroga = await _context.CensoProrrogas
+                    .AsNoTracking()
+                    .Where(x => x.CensoRecordId == latestProrrogaRecordId.Value && x.ProrrogaJson != null && x.ProrrogaJson != "")
+                    .OrderByDescending(x => x.Numero)
+                    .ThenByDescending(x => x.Id)
+                    .Select(x => new
+                    {
+                        x.Numero,
+                        x.ProrrogaJson,
+                        x.KardexEdicionJson,
+                        x.RequisicionFarmaciaJson
+                    })
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (latestProrroga is not null)
+                {
+                    prorrogaNumero = latestProrroga.Numero;
+                    prorrogaJson = latestProrroga.ProrrogaJson;
+                    prorrogaKardexJson = latestProrroga.KardexEdicionJson;
+                    prorrogaRequisicionJson = latestProrroga.RequisicionFarmaciaJson;
+                    prorrogaCerrada = false;
+                    prorrogaCerradaAtUtc = null;
+                }
+                else
+                {
+                    var latestBaseProrroga = await _context.Censos
+                        .AsNoTracking()
+                        .Where(x => x.Id == latestProrrogaRecordId.Value)
+                        .Select(x => new
+                        {
+                            x.ProrrogaJson,
+                            x.KardexEdicionJson,
+                            x.RequisicionFarmaciaJson
+                        })
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    if (latestBaseProrroga is not null)
+                    {
+                        prorrogaJson = latestBaseProrroga.ProrrogaJson;
+                        prorrogaKardexJson = latestBaseProrroga.KardexEdicionJson;
+                        prorrogaRequisicionJson = latestBaseProrroga.RequisicionFarmaciaJson;
+                        prorrogaCerrada = false;
+                        prorrogaCerradaAtUtc = null;
+                    }
+                }
+            }
+        }
+
+        var maxProrrogaNumero = prorrogas
+            .Select(p => (int?)p.numero)
+            .Max() ?? (string.IsNullOrWhiteSpace(prorrogaJson) ? 0 : prorrogaNumero);
+        if (!string.IsNullOrWhiteSpace(prorrogaJson))
+        {
+            maxProrrogaNumero = Math.Max(maxProrrogaNumero, prorrogaNumero);
+        }
+
+        return Json(new
+        {
+            kardexJson = record.KardexEdicionJson,
+            requisicionJson = record.RequisicionFarmaciaJson,
+            prorrogaJson,
+            prorrogaNumero,
+            maxProrrogaNumero,
+            prorrogaKardexJson,
+            prorrogaRequisicionJson,
+            principalCerrado = record.KardexCerradoAtUtc != null,
+            principalCerradoAtUtc = record.KardexCerradoAtUtc,
+            prorrogaCerrada,
+            prorrogaCerradaAtUtc,
+            prorrogas
+        });
     }
 
     [HttpPost]
-    public async Task<IActionResult> GuardarDocumentos(long id, string? kardexJson, string? requisicionJson, CancellationToken cancellationToken)
+    public async Task<IActionResult> GuardarDocumentos(long id, string? kardexJson, string? requisicionJson, long? prorrogaVersionId, bool documentoProrroga = false, CancellationToken cancellationToken = default)
     {
         if (id <= 0) return BadRequest(new { message = "ID de registro inválido." });
         var record = await _context.Censos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (record is null) return NotFound(new { message = "Registro no encontrado." });
+
+        if (prorrogaVersionId.HasValue)
+        {
+            var prorroga = await _context.CensoProrrogas.FirstOrDefaultAsync(
+                x => x.Id == prorrogaVersionId.Value && x.CensoRecordId == id,
+                cancellationToken);
+            if (prorroga is null) return NotFound(new { message = "Prórroga no encontrada." });
+            if (prorroga.CerradaAtUtc.HasValue) return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya no se puede editar." });
+
+            prorroga.KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
+            prorroga.RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
+            prorroga.UpdatedAtUtc = DateTime.UtcNow;
+            await _context.SaveChangesAsync(cancellationToken);
+            return Json(new { message = "Documentos de prórroga guardados correctamente." });
+        }
+
+        if (documentoProrroga && record.EsProrroga && !string.IsNullOrWhiteSpace(record.ProrrogaJson))
+        {
+            if (record.ProrrogaCerradaAtUtc.HasValue) return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya no se puede editar." });
+        }
+        else if (record.KardexCerradoAtUtc.HasValue)
+        {
+            return BadRequest(new { message = "Kardex cerrado. Este documento ya no se puede editar." });
+        }
 
         record.KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
         record.RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
@@ -1109,13 +1254,66 @@ public class CensoController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> GuardarProrroga(long id, string? prorrogaJson, CancellationToken cancellationToken)
+    public async Task<IActionResult> GuardarProrroga(long id, string? prorrogaJson, long? prorrogaVersionId, bool adicionalProrroga = false, CancellationToken cancellationToken = default)
     {
         if (id <= 0) return BadRequest(new { message = "ID de registro inválido." });
         var record = await _context.Censos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (record is null) return NotFound(new { message = "Registro no encontrado." });
+        if (string.IsNullOrWhiteSpace(prorrogaJson)) return BadRequest(new { message = "Ingresa los datos de la prórroga." });
+
+        if (adicionalProrroga || prorrogaVersionId.HasValue)
+        {
+            CensoProrroga prorroga;
+            if (prorrogaVersionId.HasValue)
+            {
+                var existingProrroga = await _context.CensoProrrogas.FirstOrDefaultAsync(
+                    x => x.Id == prorrogaVersionId.Value && x.CensoRecordId == id,
+                    cancellationToken);
+                if (existingProrroga is null) return NotFound(new { message = "Prórroga no encontrada." });
+                prorroga = existingProrroga;
+                if (prorroga.CerradaAtUtc.HasValue) return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya no se puede editar." });
+            }
+            else
+            {
+                var maxNumeroRegistro = await _context.CensoProrrogas
+                    .Where(x => x.CensoRecordId == id)
+                    .Select(x => (int?)x.Numero)
+                    .MaxAsync(cancellationToken) ?? (string.IsNullOrWhiteSpace(record.ProrrogaJson) ? 0 : 1);
+                var maxNumeroPaciente = 0;
+                if (!string.IsNullOrWhiteSpace(record.NumeroIdentificacion))
+                {
+                    var maxVersionPaciente = await _context.CensoProrrogas
+                        .Where(x => x.CensoRecord.NumeroIdentificacion == record.NumeroIdentificacion)
+                        .Select(x => (int?)x.Numero)
+                        .MaxAsync(cancellationToken) ?? 0;
+                    var tieneProrrogaBasePaciente = await _context.Censos
+                        .AnyAsync(x => x.NumeroIdentificacion == record.NumeroIdentificacion && x.ProrrogaJson != null && x.ProrrogaJson != "", cancellationToken);
+                    maxNumeroPaciente = Math.Max(maxVersionPaciente, tieneProrrogaBasePaciente ? 1 : 0);
+                }
+
+                prorroga = new CensoProrroga
+                {
+                    CensoRecordId = id,
+                    Numero = Math.Max(maxNumeroRegistro, maxNumeroPaciente) + 1,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+                _context.CensoProrrogas.Add(prorroga);
+            }
+
+            prorroga.ProrrogaJson = prorrogaJson.Trim();
+            prorroga.UpdatedAtUtc = DateTime.UtcNow;
+            record.EsProrroga = true;
+            await _context.SaveChangesAsync(cancellationToken);
+            return Json(new { message = $"Prórroga #{prorroga.Numero} guardada correctamente.", prorrogaId = prorroga.Id, numero = prorroga.Numero });
+        }
+
+        if (record.ProrrogaCerradaAtUtc.HasValue)
+        {
+            return BadRequest(new { message = "Kardex cerrado. La prórroga actual ya no se puede editar. Usa Adicionar prórroga para crear una nueva." });
+        }
+
         var hadProrrogaAlready = !string.IsNullOrWhiteSpace(record.ProrrogaJson);
-        record.ProrrogaJson = string.IsNullOrWhiteSpace(prorrogaJson) ? null : prorrogaJson.Trim();
+        record.ProrrogaJson = prorrogaJson.Trim();
         record.EsProrroga = record.ProrrogaJson != null;
         // Solo limpiar ediciones de kardex la primera vez que se agrega una prórroga a un registro que no la tenía
         if (!hadProrrogaAlready && record.ProrrogaJson != null)
@@ -1136,7 +1334,7 @@ public class CensoController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> EnviarAFarmacia(long id, string? kardexJson, string? requisicionJson, CancellationToken cancellationToken)
+    public async Task<IActionResult> EnviarAFarmacia(long id, string? kardexJson, string? requisicionJson, long? prorrogaVersionId, bool documentoProrroga = false, CancellationToken cancellationToken = default)
     {
         if (id <= 0)
         {
@@ -1152,10 +1350,53 @@ public class CensoController : Controller
         var nowUtc = DateTime.UtcNow;
         var colombiaNow = GetColombiaNow();
 
-        // Si tiene prórroga activa y ya fue enviado a farmacia antes, reusar o crear el registro de despacho de prórroga
         CensoRecord dispatchRecord;
-        if (record.EsProrroga && record.FarmaciaEnviadoAtUtc.HasValue)
+        if (!documentoProrroga && record.KardexCerradoAtUtc.HasValue)
         {
+            return BadRequest(new { message = "Kardex cerrado. Este documento ya fue aprobado por farmacia." });
+        }
+
+        if (prorrogaVersionId.HasValue)
+        {
+            var prorroga = await _context.CensoProrrogas.FirstOrDefaultAsync(
+                x => x.Id == prorrogaVersionId.Value && x.CensoRecordId == id,
+                cancellationToken);
+            if (prorroga is null) return NotFound(new { message = "Prórroga no encontrada." });
+            if (prorroga.CerradaAtUtc.HasValue) return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya fue aprobada por farmacia." });
+
+            prorroga.KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
+            prorroga.RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
+            prorroga.UpdatedAtUtc = nowUtc;
+
+            var existingProrrogaDispatch = await _context.Censos
+                .Where(x => x.FarmaciaProrrogaVersionId == prorroga.Id)
+                .OrderByDescending(x => x.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (existingProrrogaDispatch is null)
+            {
+                dispatchRecord = BuildProrrogaDispatchRecord(record, prorroga.ProrrogaJson, prorroga.KardexEdicionJson, prorroga.RequisicionFarmaciaJson, nowUtc, colombiaNow, prorroga.Id);
+                _context.Censos.Add(dispatchRecord);
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            else
+            {
+                dispatchRecord = existingProrrogaDispatch;
+                ApplyProrrogaDispatchUpdate(dispatchRecord, record, prorroga.ProrrogaJson, prorroga.KardexEdicionJson, prorroga.RequisicionFarmaciaJson, nowUtc, colombiaNow, prorroga.Id);
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
+            prorroga.FarmaciaDispatchRecordId = dispatchRecord.Id;
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        // Si tiene prórroga activa y ya fue enviado a farmacia antes, reusar o crear el registro de despacho de prórroga
+        else if (documentoProrroga && record.EsProrroga && record.FarmaciaEnviadoAtUtc.HasValue)
+        {
+            if (record.ProrrogaCerradaAtUtc.HasValue)
+            {
+                return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya fue aprobada por farmacia." });
+            }
+
             // Buscar si ya existe una copia de despacho de prórroga para este registro
             var existingProrrogaDispatch = await _context.Censos
                 .Where(x => x.FarmaciaProrrogaDeId == record.Id)
@@ -1178,7 +1419,7 @@ public class CensoController : Controller
                 dispatchRecord.Telefono1 = record.Telefono1;
                 dispatchRecord.Telefono2 = record.Telefono2;
                 dispatchRecord.Telefono3 = record.Telefono3;
-                dispatchRecord.AuxiliarAsignado = record.AuxiliarAsignado;
+                dispatchRecord.AuxiliarAsignado = GetProrrogaAuxiliarAsignado(record.ProrrogaJson) ?? record.AuxiliarAsignado;
                 dispatchRecord.AutorizacionEvento = record.AutorizacionEvento;
                 dispatchRecord.ObservacionesPlanManejo = record.ObservacionesPlanManejo;
                 dispatchRecord.ResponsableLlamadaBienvenida = record.ResponsableLlamadaBienvenida;
@@ -1258,7 +1499,7 @@ public class CensoController : Controller
                     NumeroDosisMedicamento3 = record.NumeroDosisMedicamento3,
                     FechaInicioTratamiento = record.FechaInicioTratamiento,
                     FechaFinTratamiento = record.FechaFinTratamiento,
-                    AuxiliarAsignado = record.AuxiliarAsignado,
+                    AuxiliarAsignado = GetProrrogaAuxiliarAsignado(record.ProrrogaJson) ?? record.AuxiliarAsignado,
                     AutorizacionEvento = record.AutorizacionEvento,
                     ObservacionesPlanManejo = record.ObservacionesPlanManejo,
                     ResponsableLlamadaBienvenida = record.ResponsableLlamadaBienvenida,
@@ -1312,6 +1553,129 @@ public class CensoController : Controller
             horaGestionFarmacia = colombiaNow.ToString("HH:mm", CultureInfo.InvariantCulture),
             notificationWarnings
         });
+    }
+
+    private static CensoRecord BuildProrrogaDispatchRecord(
+        CensoRecord record,
+        string prorrogaJson,
+        string? kardexJson,
+        string? requisicionJson,
+        DateTime nowUtc,
+        DateTime colombiaNow,
+        long prorrogaVersionId)
+    {
+        var dispatchRecord = new CensoRecord
+        {
+            CreatedAtUtc = nowUtc
+        };
+
+        ApplyProrrogaDispatchUpdate(dispatchRecord, record, prorrogaJson, kardexJson, requisicionJson, nowUtc, colombiaNow, prorrogaVersionId);
+        return dispatchRecord;
+    }
+
+    private static string? GetProrrogaAuxiliarAsignado(string? prorrogaJson)
+    {
+        if (string.IsNullOrWhiteSpace(prorrogaJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            var dto = JsonSerializer.Deserialize<ProrrogaExportDto>(
+                prorrogaJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return string.IsNullOrWhiteSpace(dto?.AuxiliarAsignado) ? null : dto.AuxiliarAsignado.Trim();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void ApplyProrrogaDispatchUpdate(
+        CensoRecord dispatchRecord,
+        CensoRecord record,
+        string prorrogaJson,
+        string? kardexJson,
+        string? requisicionJson,
+        DateTime nowUtc,
+        DateTime colombiaNow,
+        long prorrogaVersionId)
+    {
+        dispatchRecord.Asegurador = record.Asegurador;
+        dispatchRecord.EsProrroga = true;
+        dispatchRecord.FarmaciaProrrogaDeId = record.Id;
+        dispatchRecord.FarmaciaProrrogaVersionId = prorrogaVersionId;
+        dispatchRecord.FechaIngreso = record.FechaIngreso;
+        dispatchRecord.HoraIngreso = record.HoraIngreso;
+        dispatchRecord.FechaRespuesta = record.FechaRespuesta;
+        dispatchRecord.HoraRespuesta = record.HoraRespuesta;
+        dispatchRecord.IndicadorTiempoRespuestaMinutos = record.IndicadorTiempoRespuestaMinutos;
+        dispatchRecord.NombrePerfilGestionaCaso = record.NombrePerfilGestionaCaso;
+        dispatchRecord.NombreRecepcionaCaso = record.NombreRecepcionaCaso;
+        dispatchRecord.NombreRealizaKardex = record.NombreRealizaKardex;
+        dispatchRecord.NombrePaciente = record.NombrePaciente;
+        dispatchRecord.TipoIdentificacion = record.TipoIdentificacion;
+        dispatchRecord.NumeroIdentificacion = record.NumeroIdentificacion;
+        dispatchRecord.CodigoCie10 = record.CodigoCie10;
+        dispatchRecord.DiagnosticoDescriptivo = record.DiagnosticoDescriptivo;
+        dispatchRecord.FechaNacimiento = record.FechaNacimiento;
+        dispatchRecord.Edad = record.Edad;
+        dispatchRecord.CorreoElectronico = record.CorreoElectronico;
+        dispatchRecord.Direccion = record.Direccion;
+        dispatchRecord.DetalleDireccion = record.DetalleDireccion;
+        dispatchRecord.ClasificacionZonaSura = record.ClasificacionZonaSura;
+        dispatchRecord.MunicipioResidencia = record.MunicipioResidencia;
+        dispatchRecord.Barrio = record.Barrio;
+        dispatchRecord.ZonaDireccionSegunMunicipio = record.ZonaDireccionSegunMunicipio;
+        dispatchRecord.Area = record.Area;
+        dispatchRecord.IpsQueRemite = record.IpsQueRemite;
+        dispatchRecord.VistoBuenoRangoFueraAnexo = record.VistoBuenoRangoFueraAnexo;
+        dispatchRecord.Telefono1 = record.Telefono1;
+        dispatchRecord.Telefono2 = record.Telefono2;
+        dispatchRecord.Telefono3 = record.Telefono3;
+        dispatchRecord.ClasificacionRiesgo = record.ClasificacionRiesgo;
+        dispatchRecord.AdministracionMedicamentos = record.AdministracionMedicamentos;
+        dispatchRecord.NombreMedicamentoPrincipalTratante = record.NombreMedicamentoPrincipalTratante;
+        dispatchRecord.DosisMedicamentoPrincipal = record.DosisMedicamentoPrincipal;
+        dispatchRecord.MedidaMedicamentoPrincipal = record.MedidaMedicamentoPrincipal;
+        dispatchRecord.ViaAdministracionMedicamentoPrincipal = record.ViaAdministracionMedicamentoPrincipal;
+        dispatchRecord.FrecuenciaAdministracionMxPrincipal = record.FrecuenciaAdministracionMxPrincipal;
+        dispatchRecord.DiasMedicamentoPrincipal = record.DiasMedicamentoPrincipal;
+        dispatchRecord.NumeroDosisDiaMedicamentoPrincipal = record.NumeroDosisDiaMedicamentoPrincipal;
+        dispatchRecord.NombreMedicamentoNumero2 = record.NombreMedicamentoNumero2;
+        dispatchRecord.DosisMedicamento2 = record.DosisMedicamento2;
+        dispatchRecord.MedidaMedicamento2 = record.MedidaMedicamento2;
+        dispatchRecord.ViaAdministracionMedicamento2 = record.ViaAdministracionMedicamento2;
+        dispatchRecord.FrecuenciaAdministracionMedicamento2 = record.FrecuenciaAdministracionMedicamento2;
+        dispatchRecord.DiasMedicamento2 = record.DiasMedicamento2;
+        dispatchRecord.NumeroDosisMedicamento2 = record.NumeroDosisMedicamento2;
+        dispatchRecord.NombreMedicamentoNumero3 = record.NombreMedicamentoNumero3;
+        dispatchRecord.DosisMedicamento3 = record.DosisMedicamento3;
+        dispatchRecord.MedidaMedicamento3 = record.MedidaMedicamento3;
+        dispatchRecord.ViaAdministracionMedicamento3 = record.ViaAdministracionMedicamento3;
+        dispatchRecord.FrecuenciaAdministracionMedicamento3 = record.FrecuenciaAdministracionMedicamento3;
+        dispatchRecord.DiasMedicamento3 = record.DiasMedicamento3;
+        dispatchRecord.NumeroDosisMedicamento3 = record.NumeroDosisMedicamento3;
+        dispatchRecord.FechaInicioTratamiento = record.FechaInicioTratamiento;
+        dispatchRecord.FechaFinTratamiento = record.FechaFinTratamiento;
+        dispatchRecord.AuxiliarAsignado = GetProrrogaAuxiliarAsignado(prorrogaJson) ?? record.AuxiliarAsignado;
+        dispatchRecord.AutorizacionEvento = record.AutorizacionEvento;
+        dispatchRecord.ObservacionesPlanManejo = record.ObservacionesPlanManejo;
+        dispatchRecord.ResponsableLlamadaBienvenida = record.ResponsableLlamadaBienvenida;
+        dispatchRecord.ProrrogaJson = prorrogaJson;
+        dispatchRecord.KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
+        dispatchRecord.RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
+        dispatchRecord.GestionCompletaPendiente = GestionPendiente;
+        dispatchRecord.FarmaciaEnviadoAtUtc = nowUtc;
+        dispatchRecord.FarmaciaEstado = FarmaciaEstados.Nuevo;
+        dispatchRecord.FechaGestionFarmacia = colombiaNow.Date;
+        dispatchRecord.HoraGestionFarmacia = colombiaNow.TimeOfDay;
+        dispatchRecord.FarmaciaKardexVistoAtUtc = null;
+        dispatchRecord.FarmaciaRequisicionVistoAtUtc = null;
+        dispatchRecord.FarmaciaOkKardex = false;
+        dispatchRecord.IndicadorTiempoGestionMinutos = record.IndicadorTiempoGestionMinutos;
     }
 
     [HttpPost]
@@ -1704,10 +2068,11 @@ public class CensoController : Controller
         var today = DateTime.Today;
         model.IngresosHoyCount = await _context.Censos
             .AsNoTracking()
+            .Where(IsEditableCensoRecordExpression())
             .CountAsync(x => x.FechaIngreso >= today && x.FechaIngreso < today.AddDays(1), cancellationToken);
 
         var query = ApplyHistoryFilters(
-            _context.Censos.AsNoTracking(),
+            _context.Censos.AsNoTracking().Where(IsEditableCensoRecordExpression()),
             cedulaFiltro,
             model.FechaIngresoFiltroDesde,
             model.FechaIngresoFiltroHasta);
@@ -1780,6 +2145,19 @@ public class CensoController : Controller
                 latestRecord = await _context.Censos
                     .AsNoTracking()
                     .FirstOrDefaultAsync(x => x.Id == selectedRecordId.Value, cancellationToken);
+                if (latestRecord?.FarmaciaProrrogaDeId is long parentId)
+                {
+                    latestRecord = await _context.Censos
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(x => x.Id == parentId, cancellationToken);
+                }
+                else if (latestRecord?.FarmaciaProrrogaVersionId is not null)
+                {
+                    latestRecord = await _context.Censos
+                        .AsNoTracking()
+                        .Where(x => x.Prorrogas.Any(p => p.Id == latestRecord.FarmaciaProrrogaVersionId.Value))
+                        .FirstOrDefaultAsync(cancellationToken);
+                }
             }
         }
 
@@ -1842,6 +2220,11 @@ public class CensoController : Controller
         return query;
     }
 
+    private static System.Linq.Expressions.Expression<Func<CensoRecord, bool>> IsEditableCensoRecordExpression()
+    {
+        return x => x.FarmaciaProrrogaDeId == null && x.FarmaciaProrrogaVersionId == null;
+    }
+
     private static string BuildFilteredExcelFileName(DateTime? fechaIngresoDesde, DateTime? fechaIngresoHasta)
     {
         var suffix = fechaIngresoDesde.HasValue || fechaIngresoHasta.HasValue
@@ -1883,6 +2266,8 @@ public class CensoController : Controller
         model.CedulaFiltro = record.NumeroIdentificacion;
         model.EsProrroga = record.EsProrroga;
         model.TieneProrrogaActiva = !string.IsNullOrWhiteSpace(record.ProrrogaJson);
+        model.KardexInicialCerrado = record.KardexCerradoAtUtc.HasValue;
+        model.ProrrogaCerrada = record.ProrrogaCerradaAtUtc.HasValue;
         model.DocumentoProrrogaBusqueda = record.EsProrroga ? record.NumeroIdentificacion : null;
 
         model.FechaIngreso = record.FechaIngreso.Date;

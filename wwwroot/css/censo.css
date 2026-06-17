@@ -3008,3 +3008,79 @@
 #auxiliarAsignadoInput:disabled { background-color: #e9ecef; color: #adb5bd; opacity: 0.55; cursor: not-allowed; }
 
 input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
+.censo-prorroga-version-panel {
+  align-items: end;
+  background: #f8fbff;
+  border: 1px solid #dbe7f6;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: minmax(14rem, 1fr) auto auto;
+  padding: 0.85rem;
+}
+
+.censo-prorroga-version-panel__actions {
+  align-items: center;
+  display: flex;
+  margin-bottom: 0.2rem;
+}
+
+.censo-kardex-modal.is-document-closed .modal-body {
+  position: relative;
+}
+
+.censo-kardex-modal.is-document-closed .modal-body::after {
+  color: rgba(180, 35, 24, 0.14);
+  content: "KARDEX CERRADO";
+  font-size: clamp(2.4rem, 8vw, 6rem);
+  font-weight: 900;
+  left: 50%;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  position: fixed;
+  text-align: center;
+  text-transform: uppercase;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-18deg);
+  white-space: nowrap;
+  z-index: 20;
+}
+
+.censo-kardex-modal.is-document-closed .censo-document-pane {
+  opacity: 0.82;
+}
+
+#tab-prorroga.is-prorroga-closed {
+  position: relative;
+}
+
+#tab-prorroga.is-prorroga-closed::after {
+  color: rgba(180, 35, 24, 0.11);
+  content: "KARDEX CERRADO";
+  font-size: clamp(2.2rem, 7vw, 5.5rem);
+  font-weight: 900;
+  left: 50%;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  text-transform: uppercase;
+  top: 28rem;
+  transform: translateX(-50%) rotate(-16deg);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+#tab-prorroga.is-prorroga-closed .card-body {
+  position: relative;
+}
+
+@media (max-width: 767.98px) {
+  .censo-prorroga-version-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .censo-prorroga-version-panel__actions {
+    margin-bottom: 0;
+  }
+}

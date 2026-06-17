@@ -16,6 +16,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<CensoRecord> Censos => Set<CensoRecord>();
     public DbSet<CensoAdjunto> CensoAdjuntos => Set<CensoAdjunto>();
+    public DbSet<CensoProrroga> CensoProrrogas => Set<CensoProrroga>();
     public DbSet<Medicamento> Medicamentos => Set<Medicamento>();
     public DbSet<NursingAssistant> NursingAssistants => Set<NursingAssistant>();
     public DbSet<OpsAssistant> OpsAssistants => Set<OpsAssistant>();
@@ -143,6 +144,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.NombreRecepcionaCaso).HasMaxLength(120).IsRequired();
             entity.Property(x => x.NombreRealizaKardex).HasMaxLength(120).IsRequired();
             entity.Property(x => x.NombrePaciente).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.KardexCerradoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.ProrrogaCerradaAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.TipoIdentificacion).HasMaxLength(3).IsRequired();
             entity.Property(x => x.NumeroIdentificacion).HasMaxLength(20).IsRequired();
             entity.Property(x => x.CodigoCie10).HasMaxLength(4).IsRequired();
@@ -232,6 +235,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.FarmaciaKardexVistoAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.FarmaciaRequisicionVistoAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.RequisicionFarmaciaJson).HasColumnType("text");
+            entity.Property(x => x.KardexEdicionJson).HasColumnType("text");
+            entity.Property(x => x.ProrrogaJson).HasColumnType("text");
             entity.Property(x => x.FarmaciaNombreRecibe).HasMaxLength(160);
             entity.Property(x => x.FarmaciaFirmaEntregaDataUrl).HasColumnType("text");
             entity.Property(x => x.FarmaciaFirmaRecibeDataUrl).HasColumnType("text");
@@ -241,7 +246,26 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             ConfigureCensoDateAndTimeColumns(entity);
             entity.HasIndex(x => x.FechaIngreso);
             entity.HasIndex(x => x.FarmaciaEnviadoAtUtc);
+            entity.HasIndex(x => x.FarmaciaProrrogaVersionId);
             entity.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<CensoProrroga>(entity =>
+        {
+            entity.ToTable("censo_prorrogas");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.ProrrogaJson).HasColumnType("text").IsRequired();
+            entity.Property(x => x.KardexEdicionJson).HasColumnType("text");
+            entity.Property(x => x.RequisicionFarmaciaJson).HasColumnType("text");
+            entity.Property(x => x.CerradaAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.HasOne(x => x.CensoRecord)
+                .WithMany(x => x.Prorrogas)
+                .HasForeignKey(x => x.CensoRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => new { x.CensoRecordId, x.Numero }).IsUnique();
+            entity.HasIndex(x => x.FarmaciaDispatchRecordId);
         });
 
         modelBuilder.Entity<CensoAdjunto>(entity =>

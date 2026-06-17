@@ -590,6 +590,10 @@ public class CensoReceptionViewModel
 
     public bool GestionCompleta { get; set; }
 
+    public bool KardexInicialCerrado { get; set; }
+
+    public bool ProrrogaCerrada { get; set; }
+
     public IReadOnlyList<SelectListItem> NursingAssistantOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> OpsAssistantOptions { get; set; } = [];
 

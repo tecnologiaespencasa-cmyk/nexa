@@ -298,6 +298,40 @@ public class FarmaciaController : Controller
 
         record.FarmaciaOkKardex = true;
         record.FarmaciaEstado = FarmaciaEstados.Recepcionado;
+        var closedAtUtc = DateTime.UtcNow;
+        if (record.FarmaciaProrrogaVersionId.HasValue)
+        {
+            var prorroga = await _context.CensoProrrogas.FirstOrDefaultAsync(
+                x => x.Id == record.FarmaciaProrrogaVersionId.Value,
+                cancellationToken);
+            if (prorroga is not null)
+            {
+                prorroga.CerradaAtUtc = closedAtUtc;
+                prorroga.CerradaPorFarmaciaId = record.Id;
+            }
+        }
+        else if (record.FarmaciaProrrogaDeId.HasValue)
+        {
+            var parent = await _context.Censos.FirstOrDefaultAsync(
+                x => x.Id == record.FarmaciaProrrogaDeId.Value,
+                cancellationToken);
+            if (parent is not null)
+            {
+                parent.ProrrogaCerradaAtUtc = closedAtUtc;
+                parent.ProrrogaCerradaPorFarmaciaId = record.Id;
+            }
+        }
+        else
+        {
+            record.KardexCerradoAtUtc = closedAtUtc;
+            record.KardexCerradoPorFarmaciaId = record.Id;
+            if (record.EsProrroga && !string.IsNullOrWhiteSpace(record.ProrrogaJson))
+            {
+                record.ProrrogaCerradaAtUtc = closedAtUtc;
+                record.ProrrogaCerradaPorFarmaciaId = record.Id;
+            }
+        }
+
         await _context.SaveChangesAsync(cancellationToken);
 
         var kardexUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var kardexUid) ? (Guid?)kardexUid : null;
