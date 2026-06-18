@@ -2776,9 +2776,21 @@
                 .trim()
                 .replace(/\s+/g, " ");
 
-            const medicamentoCatalogByName = new Map((Array.isArray(medicamentoCatalog) ? medicamentoCatalog : [])
-                .map((item) => [item.NormalizedNombre || normalizeMedicationKey(item.Nombre), item])
-                .filter(([key]) => key));
+            const normalizeCatalogOptionKey = (value) => normalizeMedicationKey(value);
+
+            const medicamentoCatalogByName = new Map();
+            (Array.isArray(medicamentoCatalog) ? medicamentoCatalog : []).forEach((item) => {
+                const keys = [
+                    normalizeCatalogOptionKey(item?.Nombre),
+                    normalizeCatalogOptionKey(item?.NormalizedNombre)
+                ].filter((key) => key);
+
+                keys.forEach((key) => {
+                    if (!medicamentoCatalogByName.has(key)) {
+                        medicamentoCatalogByName.set(key, item);
+                    }
+                });
+            });
 
             const getFormControlByName = (name) => form ? form.querySelector(`[name='${name}']`) : null;
 
@@ -3526,8 +3538,8 @@
                         id: null,
                         numero: Number(documentosState.prorrogaNumero) || 1,
                         prorrogaJson: documentosState.prorrogaJson,
-                        kardexJson: documentosState.prorrogaKardexJson || documentosState.kardexJson,
-                        requisicionJson: documentosState.prorrogaRequisicionJson || documentosState.requisicionJson,
+                        kardexJson: documentosState.prorrogaKardexJson,
+                        requisicionJson: documentosState.prorrogaRequisicionJson,
                         cerrada: !!documentosState.prorrogaCerrada
                     }
                     : null;
@@ -4263,7 +4275,13 @@
                 ? form.querySelector(`[name="${fieldName}"]`)
                 : null;
 
-            const normalizeOptionValue = (value) => String(value || "").trim().toLowerCase();
+            const normalizeOptionValue = (value) => String(value || "")
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toUpperCase()
+                .replace(/[^A-Z0-9]+/g, " ")
+                .trim()
+                .replace(/\s+/g, " ");
 
             const ipsQueRemiteOptions = Array.from(document.querySelectorAll("#ipsQueRemiteOptions option"))
                 .map((option) => ({
@@ -4488,6 +4506,145 @@
                 { inputId: "prorrogaNombreMed5", isActive: () => !!document.getElementById("prorrogaTieneQuintoMed")?.checked },
                 { inputId: "prorrogaNombreMed6", isActive: () => !!document.getElementById("prorrogaTieneSextoMed")?.checked }
             ].map((entry) => ({ ...entry, input: document.getElementById(entry.inputId) }));
+
+            const buildSearchOptions = (items) => (items || [])
+                .map((item) => {
+                    const value = String(typeof item === "string" ? item : item?.value || item?.Nombre || "").trim();
+                    const label = String(typeof item === "string" ? item : item?.label || item?.text || item?.Nombre || value).trim();
+                    return {
+                        value,
+                        label,
+                        searchKey: normalizeOptionValue(`${value} ${label}`)
+                    };
+                })
+                .filter((item) => item.value.length > 0);
+
+            const createSearchableInput = (input, options, onSelected) => {
+                if (!input || !Array.isArray(options) || options.length === 0) {
+                    return;
+                }
+
+                input.removeAttribute("list");
+
+                const menu = document.createElement("div");
+                menu.className = "censo-autocomplete-menu d-none";
+                menu.setAttribute("role", "listbox");
+                document.body.appendChild(menu);
+                let activeIndex = -1;
+                let visibleOptions = [];
+
+                const hide = () => {
+                    menu.classList.add("d-none");
+                    activeIndex = -1;
+                };
+
+                const position = () => {
+                    const rect = input.getBoundingClientRect();
+                    menu.style.left = `${rect.left + window.scrollX}px`;
+                    menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
+                    menu.style.width = `${rect.width}px`;
+                };
+
+                const selectOption = (option) => {
+                    if (!option) {
+                        return;
+                    }
+
+                    input.value = option.value;
+                    hide();
+                    onSelected?.(input, option.value);
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                    input.dispatchEvent(new Event("change", { bubbles: true }));
+                };
+
+                const render = () => {
+                    menu.innerHTML = "";
+                    visibleOptions.forEach((option, index) => {
+                        const button = document.createElement("button");
+                        button.type = "button";
+                        button.className = `censo-autocomplete-menu__item${index === activeIndex ? " is-active" : ""}`;
+                        button.setAttribute("role", "option");
+                        button.textContent = option.label;
+                        button.addEventListener("mousedown", (event) => {
+                            event.preventDefault();
+                            selectOption(option);
+                        });
+                        menu.appendChild(button);
+                    });
+                };
+
+                const update = () => {
+                    const query = normalizeOptionValue(input.value);
+                    const terms = query.split(" ").filter((term) => term);
+                    visibleOptions = options
+                        .filter((option) => terms.length === 0 || terms.every((term) => option.searchKey.includes(term)))
+                        .slice(0, 12);
+
+                    if (visibleOptions.length === 0) {
+                        hide();
+                        return;
+                    }
+
+                    activeIndex = -1;
+                    position();
+                    render();
+                    menu.classList.remove("d-none");
+                };
+
+                input.addEventListener("input", update);
+                input.addEventListener("focus", update);
+                input.addEventListener("keydown", (event) => {
+                    if (menu.classList.contains("d-none")) {
+                        if (event.key === "ArrowDown") {
+                            update();
+                        }
+                        return;
+                    }
+
+                    if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        activeIndex = Math.min(activeIndex + 1, visibleOptions.length - 1);
+                        render();
+                    } else if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        activeIndex = Math.max(activeIndex - 1, 0);
+                        render();
+                    } else if (event.key === "Enter" && activeIndex >= 0) {
+                        event.preventDefault();
+                        selectOption(visibleOptions[activeIndex]);
+                    } else if (event.key === "Escape") {
+                        hide();
+                    }
+                });
+                input.addEventListener("blur", () => window.setTimeout(hide, 120));
+                window.addEventListener("scroll", () => {
+                    if (!menu.classList.contains("d-none")) {
+                        position();
+                    }
+                }, true);
+                window.addEventListener("resize", () => {
+                    if (!menu.classList.contains("d-none")) {
+                        position();
+                    }
+                });
+            };
+
+            const canonicalizeMedicamentoInput = (input) => {
+                const canonicalValue = getCanonicalMedicamentoValue(input?.value || "");
+                if (canonicalValue && input) {
+                    input.value = canonicalValue;
+                }
+            };
+
+            const medicamentoSearchOptions = buildSearchOptions(
+                (Array.isArray(medicamentoCatalog) ? medicamentoCatalog : []).map((item) => item?.Nombre || "")
+            );
+            [...section3MedicamentoEntries, ...prorrogaMedicamentoEntries].forEach((entry) => {
+                createSearchableInput(entry.input, medicamentoSearchOptions, canonicalizeMedicamentoInput);
+            });
+            createSearchableInput(ipsQueRemiteInput, buildSearchOptions(ipsQueRemiteOptions), () => syncIpsQueRemiteValidation(false));
+            createSearchableInput(auxiliarAsignadoInput, buildSearchOptions(auxiliarAsignadoOptions), () => syncAuxiliarAsignadoValidation(false));
+            createSearchableInput(auxiliarAsignadoCateterismoInput, buildSearchOptions(auxiliarAsignadoOptions));
 
             const syncSection3MedicamentoValidation = (showInvalidMessage = false) => {
                 const invalidEntries = [];

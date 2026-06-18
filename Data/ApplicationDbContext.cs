@@ -232,6 +232,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.FarmaciaRequisicionVistoAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.RequisicionFarmaciaJson).HasColumnType("text");
             entity.Property(x => x.KardexEdicionJson).HasColumnType("text");
+            entity.Property(x => x.ProrrogaRequisicionFarmaciaJson).HasColumnType("text");
+            entity.Property(x => x.ProrrogaKardexEdicionJson).HasColumnType("text");
             entity.Property(x => x.ProrrogaJson).HasColumnType("text");
             entity.Property(x => x.FarmaciaNombreRecibe).HasMaxLength(160);
             entity.Property(x => x.FarmaciaFirmaEntregaDataUrl).HasColumnType("text");

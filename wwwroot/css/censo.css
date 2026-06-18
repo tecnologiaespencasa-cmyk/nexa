@@ -3007,6 +3007,36 @@
 
 #auxiliarAsignadoInput:disabled { background-color: #e9ecef; color: #adb5bd; opacity: 0.55; cursor: not-allowed; }
 
+.censo-autocomplete-menu {
+  background: #fff;
+  border: 1px solid #d8e2f1;
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+  max-height: 18rem;
+  overflow-y: auto;
+  padding: 0.35rem;
+  position: absolute;
+  z-index: 1080;
+}
+
+.censo-autocomplete-menu__item {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #1f2a44;
+  display: block;
+  font: inherit;
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  width: 100%;
+}
+
+.censo-autocomplete-menu__item:hover,
+.censo-autocomplete-menu__item.is-active {
+  background: #0d6efd;
+  color: #fff;
+}
+
 input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
 .censo-prorroga-version-panel {
   align-items: end;

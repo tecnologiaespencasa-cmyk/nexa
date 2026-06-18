@@ -425,6 +425,10 @@ public class CensoRecord
 
     public string? KardexEdicionJson { get; set; }
 
+    public string? ProrrogaRequisicionFarmaciaJson { get; set; }
+
+    public string? ProrrogaKardexEdicionJson { get; set; }
+
     public string? ProrrogaJson { get; set; }
 
     [StringLength(160)]

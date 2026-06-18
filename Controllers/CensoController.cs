@@ -1090,6 +1090,8 @@ public class CensoController : Controller
                 x.NumeroIdentificacion,
                 x.KardexEdicionJson,
                 x.RequisicionFarmaciaJson,
+                x.ProrrogaKardexEdicionJson,
+                x.ProrrogaRequisicionFarmaciaJson,
                 x.ProrrogaJson,
                 x.KardexCerradoAtUtc,
                 x.ProrrogaCerradaAtUtc
@@ -1098,8 +1100,8 @@ public class CensoController : Controller
         if (record is null) return NotFound();
 
         var prorrogaJson = record.ProrrogaJson;
-        var prorrogaKardexJson = record.KardexEdicionJson;
-        var prorrogaRequisicionJson = record.RequisicionFarmaciaJson;
+        var prorrogaKardexJson = record.ProrrogaKardexEdicionJson;
+        var prorrogaRequisicionJson = record.ProrrogaRequisicionFarmaciaJson;
         var prorrogaCerrada = record.ProrrogaCerradaAtUtc != null;
         var prorrogaCerradaAtUtc = record.ProrrogaCerradaAtUtc;
         var prorrogaNumero = 1;
@@ -1169,16 +1171,16 @@ public class CensoController : Controller
                         .Select(x => new
                         {
                             x.ProrrogaJson,
-                            x.KardexEdicionJson,
-                            x.RequisicionFarmaciaJson
+                            x.ProrrogaKardexEdicionJson,
+                            x.ProrrogaRequisicionFarmaciaJson
                         })
                         .FirstOrDefaultAsync(cancellationToken);
 
                     if (latestBaseProrroga is not null)
                     {
                         prorrogaJson = latestBaseProrroga.ProrrogaJson;
-                        prorrogaKardexJson = latestBaseProrroga.KardexEdicionJson;
-                        prorrogaRequisicionJson = latestBaseProrroga.RequisicionFarmaciaJson;
+                        prorrogaKardexJson = latestBaseProrroga.ProrrogaKardexEdicionJson;
+                        prorrogaRequisicionJson = latestBaseProrroga.ProrrogaRequisicionFarmaciaJson;
                         prorrogaCerrada = false;
                         prorrogaCerradaAtUtc = null;
                     }
@@ -1236,6 +1238,10 @@ public class CensoController : Controller
         if (documentoProrroga && record.EsProrroga && !string.IsNullOrWhiteSpace(record.ProrrogaJson))
         {
             if (record.ProrrogaCerradaAtUtc.HasValue) return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya no se puede editar." });
+            record.ProrrogaKardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
+            record.ProrrogaRequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
+            await _context.SaveChangesAsync(cancellationToken);
+            return Json(new { message = "Documentos de prórroga guardados correctamente." });
         }
         else if (record.KardexCerradoAtUtc.HasValue)
         {
@@ -1301,7 +1307,14 @@ public class CensoController : Controller
                 _context.CensoProrrogas.Add(prorroga);
             }
 
-            prorroga.ProrrogaJson = prorrogaJson.Trim();
+            var versionProrrogaJsonTrimmed = prorrogaJson.Trim();
+            if (!string.Equals(prorroga.ProrrogaJson, versionProrrogaJsonTrimmed, StringComparison.Ordinal))
+            {
+                prorroga.KardexEdicionJson = null;
+                prorroga.RequisicionFarmaciaJson = null;
+            }
+
+            prorroga.ProrrogaJson = versionProrrogaJsonTrimmed;
             prorroga.UpdatedAtUtc = DateTime.UtcNow;
             record.EsProrroga = true;
             await _context.SaveChangesAsync(cancellationToken);
@@ -1314,7 +1327,14 @@ public class CensoController : Controller
         }
 
         var hadProrrogaAlready = !string.IsNullOrWhiteSpace(record.ProrrogaJson);
-        record.ProrrogaJson = prorrogaJson.Trim();
+        var prorrogaJsonTrimmed = prorrogaJson.Trim();
+        if (!string.Equals(record.ProrrogaJson, prorrogaJsonTrimmed, StringComparison.Ordinal))
+        {
+            record.ProrrogaKardexEdicionJson = null;
+            record.ProrrogaRequisicionFarmaciaJson = null;
+        }
+
+        record.ProrrogaJson = prorrogaJsonTrimmed;
         record.EsProrroga = record.ProrrogaJson != null;
         // Solo limpiar ediciones de kardex la primera vez que se agrega una prórroga a un registro que no la tenía
         if (!hadProrrogaAlready && record.ProrrogaJson != null && !record.FarmaciaEnviadoAtUtc.HasValue)
@@ -1324,8 +1344,8 @@ public class CensoController : Controller
                 var pDto = JsonSerializer.Deserialize<ProrrogaExportDto>(record.ProrrogaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (!string.IsNullOrWhiteSpace(pDto?.NombreMedicamentoPrincipal))
                 {
-                    record.KardexEdicionJson = null;
-                    record.RequisicionFarmaciaJson = null;
+                    record.ProrrogaKardexEdicionJson = null;
+                    record.ProrrogaRequisicionFarmaciaJson = null;
                 }
             }
             catch { }
@@ -1390,13 +1410,16 @@ public class CensoController : Controller
             prorroga.FarmaciaDispatchRecordId = dispatchRecord.Id;
             await _context.SaveChangesAsync(cancellationToken);
         }
-        // Si tiene prórroga activa y ya fue enviado a farmacia antes, reusar o crear el registro de despacho de prórroga
-        else if (documentoProrroga && record.EsProrroga && record.FarmaciaEnviadoAtUtc.HasValue)
+        // Si el documento se generó desde prórroga, reusar o crear siempre un despacho separado de prórroga.
+        else if (documentoProrroga && record.EsProrroga)
         {
             if (record.ProrrogaCerradaAtUtc.HasValue)
             {
                 return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya fue aprobada por farmacia." });
             }
+
+            record.ProrrogaKardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
+            record.ProrrogaRequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
 
             // Buscar si ya existe una copia de despacho de prórroga para este registro
             var existingProrrogaDispatch = await _context.Censos
@@ -1618,17 +1641,13 @@ public class CensoController : Controller
             .Where(item => item.IsActive)
             .Select(item => new { item.Nombre, item.NormalizedNombre })
             .ToListAsync(cancellationToken);
-        var catalogMap = catalogItems
-            .Select(item => new
+        var catalogMap = BuildMedicationCatalogMap(catalogItems
+            .Select(item => new MedicamentoCatalogItemViewModel
             {
-                Key = !string.IsNullOrWhiteSpace(item.NormalizedNombre)
-                    ? item.NormalizedNombre.Trim()
-                    : NormalizeMedicationCatalogKey(item.Nombre),
-                item.Nombre
+                Nombre = item.Nombre,
+                NormalizedNombre = item.NormalizedNombre
             })
-            .Where(item => !string.IsNullOrWhiteSpace(item.Key) && !string.IsNullOrWhiteSpace(item.Nombre))
-            .GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.First().Nombre, StringComparer.OrdinalIgnoreCase);
+            .ToList());
 
         var invalidFields = new List<string>();
         ValidateProrrogaMedicationName(dto.NombreMedicamentoPrincipal, "medicamento principal", catalogMap, invalidFields);
@@ -3509,17 +3528,28 @@ public class CensoController : Controller
 
     private static Dictionary<string, string> BuildMedicationCatalogMap(IReadOnlyList<MedicamentoCatalogItemViewModel> catalog)
     {
-        return catalog
-            .Select(item => new
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in catalog)
+        {
+            if (string.IsNullOrWhiteSpace(item.Nombre))
             {
-                Key = !string.IsNullOrWhiteSpace(item.NormalizedNombre)
-                    ? item.NormalizedNombre.Trim()
-                    : NormalizeMedicationCatalogKey(item.Nombre),
-                item.Nombre
+                continue;
+            }
+
+            foreach (var key in new[]
+            {
+                NormalizeMedicationCatalogKey(item.Nombre),
+                NormalizeMedicationCatalogKey(item.NormalizedNombre)
             })
-            .Where(item => !string.IsNullOrWhiteSpace(item.Key) && !string.IsNullOrWhiteSpace(item.Nombre))
-            .GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.First().Nombre, StringComparer.OrdinalIgnoreCase);
+            {
+                if (!string.IsNullOrWhiteSpace(key) && !map.ContainsKey(key))
+                {
+                    map[key] = item.Nombre;
+                }
+            }
+        }
+
+        return map;
     }
 
     private string? ValidateMedicationCatalogSelection(
