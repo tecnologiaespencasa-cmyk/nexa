@@ -1317,7 +1317,7 @@ public class CensoController : Controller
         record.ProrrogaJson = prorrogaJson.Trim();
         record.EsProrroga = record.ProrrogaJson != null;
         // Solo limpiar ediciones de kardex la primera vez que se agrega una prórroga a un registro que no la tenía
-        if (!hadProrrogaAlready && record.ProrrogaJson != null)
+        if (!hadProrrogaAlready && record.ProrrogaJson != null && !record.FarmaciaEnviadoAtUtc.HasValue)
         {
             try
             {

@@ -325,11 +325,6 @@ public class FarmaciaController : Controller
         {
             record.KardexCerradoAtUtc = closedAtUtc;
             record.KardexCerradoPorFarmaciaId = record.Id;
-            if (record.EsProrroga && !string.IsNullOrWhiteSpace(record.ProrrogaJson))
-            {
-                record.ProrrogaCerradaAtUtc = closedAtUtc;
-                record.ProrrogaCerradaPorFarmaciaId = record.Id;
-            }
         }
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -508,8 +503,13 @@ public class FarmaciaController : Controller
             FarmaciaEmpacadoAtUtc = record.FarmaciaEmpacadoAtUtc,
             FarmaciaBolsaDesempacada = record.FarmaciaBolsaDesempacada,
             TieneAdjuntos = tieneAdjuntos,
-            EsProrrogaDispatch = record.FarmaciaProrrogaDeId.HasValue,
+            EsProrrogaDispatch = IsProrrogaDispatch(record),
         };
+    }
+
+    private static bool IsProrrogaDispatch(CensoRecord record)
+    {
+        return record.FarmaciaProrrogaDeId.HasValue || record.FarmaciaProrrogaVersionId.HasValue;
     }
 
     private static async Task<FarmaciaSectionPageViewModel> BuildSectionPageAsync(
@@ -553,9 +553,10 @@ public class FarmaciaController : Controller
             ? record.TipoAislamiento ?? "Si"
             : "No";
 
+        var isProrrogaDispatch = IsProrrogaDispatch(record);
         ProrrogaMedData? prorrogaData = null;
         bool esProrrogaActiva = false;
-        if (!string.IsNullOrWhiteSpace(record.ProrrogaJson))
+        if (isProrrogaDispatch && !string.IsNullOrWhiteSpace(record.ProrrogaJson))
         {
             try
             {
