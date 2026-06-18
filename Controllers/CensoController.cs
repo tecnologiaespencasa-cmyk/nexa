@@ -1256,6 +1256,11 @@ public class CensoController : Controller
         var record = await _context.Censos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (record is null) return NotFound(new { message = "Registro no encontrado." });
         if (string.IsNullOrWhiteSpace(prorrogaJson)) return BadRequest(new { message = "Ingresa los datos de la prórroga." });
+        var prorrogaMedicamentosError = await ValidateProrrogaMedicationCatalogAsync(prorrogaJson.Trim(), cancellationToken);
+        if (!string.IsNullOrWhiteSpace(prorrogaMedicamentosError))
+        {
+            return BadRequest(new { message = prorrogaMedicamentosError });
+        }
 
         if (adicionalProrroga || prorrogaVersionId.HasValue)
         {
@@ -1586,6 +1591,73 @@ public class CensoController : Controller
         catch
         {
             return null;
+        }
+    }
+
+    private async Task<string?> ValidateProrrogaMedicationCatalogAsync(string prorrogaJson, CancellationToken cancellationToken)
+    {
+        ProrrogaExportDto? dto;
+        try
+        {
+            dto = JsonSerializer.Deserialize<ProrrogaExportDto>(
+                prorrogaJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch
+        {
+            return "No fue posible leer los datos de la prórroga.";
+        }
+
+        if (dto is null)
+        {
+            return "No fue posible leer los datos de la prórroga.";
+        }
+
+        var catalogItems = await _context.Medicamentos
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .Select(item => new { item.Nombre, item.NormalizedNombre })
+            .ToListAsync(cancellationToken);
+        var catalogMap = catalogItems
+            .Select(item => new
+            {
+                Key = !string.IsNullOrWhiteSpace(item.NormalizedNombre)
+                    ? item.NormalizedNombre.Trim()
+                    : NormalizeMedicationCatalogKey(item.Nombre),
+                item.Nombre
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.Key) && !string.IsNullOrWhiteSpace(item.Nombre))
+            .GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Nombre, StringComparer.OrdinalIgnoreCase);
+
+        var invalidFields = new List<string>();
+        ValidateProrrogaMedicationName(dto.NombreMedicamentoPrincipal, "medicamento principal", catalogMap, invalidFields);
+        ValidateProrrogaMedicationName(dto.NombreMedicamentoNumero2, "medicamento 2", catalogMap, invalidFields, dto.TieneSegundoMedicamento == true);
+        ValidateProrrogaMedicationName(dto.NombreMedicamentoNumero3, "medicamento 3", catalogMap, invalidFields, dto.TieneTercerMedicamento == true);
+        ValidateProrrogaMedicationName(dto.NombreMedicamentoNumero4, "medicamento 4", catalogMap, invalidFields, dto.TieneCuartoMedicamento == true);
+        ValidateProrrogaMedicationName(dto.NombreMedicamentoNumero5, "medicamento 5", catalogMap, invalidFields, dto.TieneQuintoMedicamento == true);
+        ValidateProrrogaMedicationName(dto.NombreMedicamentoNumero6, "medicamento 6", catalogMap, invalidFields, dto.TieneSextoMedicamento == true);
+
+        return invalidFields.Count == 0
+            ? null
+            : $"Selecciona desde el listado de medicamentos: {string.Join(", ", invalidFields)}.";
+    }
+
+    private static void ValidateProrrogaMedicationName(
+        string? value,
+        string displayName,
+        IReadOnlyDictionary<string, string> catalogMap,
+        List<string> invalidFields,
+        bool isActive = true)
+    {
+        if (!isActive || string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        if (!catalogMap.ContainsKey(NormalizeMedicationCatalogKey(value)))
+        {
+            invalidFields.Add(displayName);
         }
     }
 
@@ -3041,6 +3113,9 @@ public class CensoController : Controller
         }
 
         var hasMedicationAdministration = string.Equals(model.AdministracionMedicamentos, "Si", StringComparison.OrdinalIgnoreCase);
+        var medicationCatalogMap = hasMedicationAdministration
+            ? BuildMedicationCatalogMap(model.MedicamentoCatalog)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         if (hasMedicationAdministration
             && !FrecuenciaAdministracionMxPrincipalValues.Contains(model.FrecuenciaAdministracionMxPrincipal, StringComparer.OrdinalIgnoreCase))
@@ -3050,6 +3125,12 @@ public class CensoController : Controller
 
         if (hasMedicationAdministration)
         {
+            model.NombreMedicamentoPrincipalTratante = ValidateMedicationCatalogSelection(
+                model.NombreMedicamentoPrincipalTratante,
+                nameof(model.NombreMedicamentoPrincipalTratante),
+                "medicamento principal",
+                medicationCatalogMap);
+
             ValidateMedicationDose(model.DosisMedicamentoPrincipal, nameof(model.DosisMedicamentoPrincipal), "medicamento principal");
             ValidateOptionField(
                 model.MedidaMedicamentoPrincipal,
@@ -3089,6 +3170,14 @@ public class CensoController : Controller
                 nameof(model.DiasMedicamento2),
                 nameof(model.NumeroDosisMedicamento2),
                 "medicamento 2");
+            if (model.TieneSegundoMedicamento)
+            {
+                model.NombreMedicamentoNumero2 = ValidateMedicationCatalogSelection(
+                    model.NombreMedicamentoNumero2,
+                    nameof(model.NombreMedicamentoNumero2),
+                    "medicamento 2",
+                    medicationCatalogMap);
+            }
 
             if (model.TieneTercerMedicamento && !model.TieneSegundoMedicamento)
             {
@@ -3104,6 +3193,14 @@ public class CensoController : Controller
                 nameof(model.MedidaMedicamento3), nameof(model.ViaAdministracionMedicamento3),
                 nameof(model.FrecuenciaAdministracionMedicamento3), nameof(model.DiasMedicamento3),
                 nameof(model.NumeroDosisMedicamento3), "medicamento 3");
+            if (model.TieneTercerMedicamento)
+            {
+                model.NombreMedicamentoNumero3 = ValidateMedicationCatalogSelection(
+                    model.NombreMedicamentoNumero3,
+                    nameof(model.NombreMedicamentoNumero3),
+                    "medicamento 3",
+                    medicationCatalogMap);
+            }
 
             ValidateAdditionalMedication(
                 model.TieneCuartoMedicamento,
@@ -3114,6 +3211,14 @@ public class CensoController : Controller
                 nameof(model.MedidaMedicamento4), nameof(model.ViaAdministracionMedicamento4),
                 nameof(model.FrecuenciaAdministracionMedicamento4), nameof(model.DiasMedicamento4),
                 nameof(model.NumeroDosisMedicamento4), "medicamento 4");
+            if (model.TieneCuartoMedicamento)
+            {
+                model.NombreMedicamentoNumero4 = ValidateMedicationCatalogSelection(
+                    model.NombreMedicamentoNumero4,
+                    nameof(model.NombreMedicamentoNumero4),
+                    "medicamento 4",
+                    medicationCatalogMap);
+            }
 
             ValidateAdditionalMedication(
                 model.TieneQuintoMedicamento,
@@ -3124,6 +3229,14 @@ public class CensoController : Controller
                 nameof(model.MedidaMedicamento5), nameof(model.ViaAdministracionMedicamento5),
                 nameof(model.FrecuenciaAdministracionMedicamento5), nameof(model.DiasMedicamento5),
                 nameof(model.NumeroDosisMedicamento5), "medicamento 5");
+            if (model.TieneQuintoMedicamento)
+            {
+                model.NombreMedicamentoNumero5 = ValidateMedicationCatalogSelection(
+                    model.NombreMedicamentoNumero5,
+                    nameof(model.NombreMedicamentoNumero5),
+                    "medicamento 5",
+                    medicationCatalogMap);
+            }
 
             ValidateAdditionalMedication(
                 model.TieneSextoMedicamento,
@@ -3134,6 +3247,14 @@ public class CensoController : Controller
                 nameof(model.MedidaMedicamento6), nameof(model.ViaAdministracionMedicamento6),
                 nameof(model.FrecuenciaAdministracionMedicamento6), nameof(model.DiasMedicamento6),
                 nameof(model.NumeroDosisMedicamento6), "medicamento 6");
+            if (model.TieneSextoMedicamento)
+            {
+                model.NombreMedicamentoNumero6 = ValidateMedicationCatalogSelection(
+                    model.NombreMedicamentoNumero6,
+                    nameof(model.NombreMedicamentoNumero6),
+                    "medicamento 6",
+                    medicationCatalogMap);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(model.Estado)
@@ -3384,6 +3505,67 @@ public class CensoController : Controller
         {
             ModelState.AddModelError(fieldName, $"Los días del {displayName} deben estar entre 1 y 999.");
         }
+    }
+
+    private static Dictionary<string, string> BuildMedicationCatalogMap(IReadOnlyList<MedicamentoCatalogItemViewModel> catalog)
+    {
+        return catalog
+            .Select(item => new
+            {
+                Key = !string.IsNullOrWhiteSpace(item.NormalizedNombre)
+                    ? item.NormalizedNombre.Trim()
+                    : NormalizeMedicationCatalogKey(item.Nombre),
+                item.Nombre
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.Key) && !string.IsNullOrWhiteSpace(item.Nombre))
+            .GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Nombre, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private string? ValidateMedicationCatalogSelection(
+        string? value,
+        string fieldName,
+        string displayName,
+        IReadOnlyDictionary<string, string> catalogMap)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        var key = NormalizeMedicationCatalogKey(value);
+        if (catalogMap.TryGetValue(key, out var canonicalName))
+        {
+            return canonicalName;
+        }
+
+        ModelState.AddModelError(fieldName, $"Selecciona el {displayName} desde el listado de medicamentos.");
+        return value;
+    }
+
+    private static string NormalizeMedicationCatalogKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Trim().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var ch in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(char.IsLetterOrDigit(ch) ? char.ToUpperInvariant(ch) : ' ');
+            }
+        }
+
+        return string.Join(
+            ' ',
+            builder
+                .ToString()
+                .Normalize(NormalizationForm.FormC)
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     private static bool HasMedicationData(

@@ -276,6 +276,7 @@
                         <span class="censo-nav__eyebrow">Cierre</span>
                         <span class="censo-nav__title">Gestión de alta</span>
                         <span class="censo-nav__description">Fecha de alta y responsable del cierre.</span>
+                        <span class="censo-nav__lock-hint d-none" id="tab-gestion-alta-lock-hint">Disponible cuando el estado sea alta</span>
                     </span>
                 </button>
 
@@ -826,9 +827,13 @@
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="IpsQueRemite" class="form-label"></label>
-                                        <select asp-for="IpsQueRemite" asp-items="Model.IpsQueRemiteOptions" class="form-select">
-                                            <option value="">Selecciona...</option>
-                                        </select>
+                                        <input asp-for="IpsQueRemite" class="form-control" maxlength="200" id="ipsQueRemiteInput" list="ipsQueRemiteOptions" autocomplete="off" placeholder="Buscar IPS que remite" />
+                                        <datalist id="ipsQueRemiteOptions">
+                                            @foreach (var ipsOption in Model.IpsQueRemiteOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                            {
+                                                <option value="@ipsOption.Value">@ipsOption.Text</option>
+                                            }
+                                        </datalist>
                                         <span asp-validation-for="IpsQueRemite" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
@@ -1265,9 +1270,13 @@
                                     </div>
                                     <div class="col-12">
                                         <label asp-for="AuxiliarAsignado" class="form-label"></label>
-                                        <select asp-for="AuxiliarAsignado" asp-items="Model.OpsAssistantOptions" class="form-select" id="auxiliarAsignadoInput">
-                                            <option value="">Selecciona...</option>
-                                        </select>
+                                        <input asp-for="AuxiliarAsignado" class="form-control" maxlength="200" id="auxiliarAsignadoInput" list="auxiliarAsignadoOptions" autocomplete="off" placeholder="Buscar auxiliar asignado" />
+                                        <datalist id="auxiliarAsignadoOptions">
+                                            @foreach (var assistant in Model.OpsAssistantOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                            {
+                                                <option value="@assistant.Value">@assistant.Text</option>
+                                            }
+                                        </datalist>
                                         <div class="form-text">Selecciona un auxiliar OPS activo. Si no aparece, debe registrarse primero en administraci&oacute;n de usuarios.</div>
                                         <span asp-validation-for="AuxiliarAsignado" class="text-danger"></span>
                                     </div>
@@ -1711,6 +1720,7 @@
                                     <div class="col-lg-4">
                                         <label class="form-label" for="prorrogaNombreMedPrincipal">Nombre medicamento principal / Principio activo</label>
                                         <input class="form-control" id="prorrogaNombreMedPrincipal" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                        <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMedPrincipal"></span>
                                     </div>
                                     <div class="col-lg-1">
                                         <label class="form-label" for="prorrogaDosisMedPrincipal">Dosis</label>
@@ -1762,6 +1772,7 @@
                                             <div class="col-lg-4">
                                                 <label class="form-label" for="prorrogaNombreMed2">Nombre medicamento 2 / Principio activo</label>
                                                 <input class="form-control" id="prorrogaNombreMed2" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMed2"></span>
                                             </div>
                                             <div class="col-lg-1">
                                                 <label class="form-label" for="prorrogaDosisMed2">Dosis</label>
@@ -1813,6 +1824,7 @@
                                                     <div class="col-lg-4">
                                                         <label class="form-label" for="prorrogaNombreMed3">Nombre medicamento 3 / Principio activo</label>
                                                         <input class="form-control" id="prorrogaNombreMed3" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                        <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMed3"></span>
                                                     </div>
                                                     <div class="col-lg-1">
                                                         <label class="form-label" for="prorrogaDosisMed3">Dosis</label>
@@ -1855,6 +1867,7 @@
                                                             <div class="col-lg-4">
                                                                 <label class="form-label" for="prorrogaNombreMed4">Nombre medicamento 4 / Principio activo</label>
                                                                 <input class="form-control" id="prorrogaNombreMed4" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                                <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMed4"></span>
                                                             </div>
                                                             <div class="col-lg-1">
                                                                 <label class="form-label" for="prorrogaDosisMed4">Dosis</label>
@@ -1897,6 +1910,7 @@
                                                                     <div class="col-lg-4">
                                                                         <label class="form-label" for="prorrogaNombreMed5">Nombre medicamento 5 / Principio activo</label>
                                                                         <input class="form-control" id="prorrogaNombreMed5" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                                        <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMed5"></span>
                                                                     </div>
                                                                     <div class="col-lg-1">
                                                                         <label class="form-label" for="prorrogaDosisMed5">Dosis</label>
@@ -1939,6 +1953,7 @@
                                                                             <div class="col-lg-4">
                                                                                 <label class="form-label" for="prorrogaNombreMed6">Nombre medicamento 6 / Principio activo</label>
                                                                                 <input class="form-control" id="prorrogaNombreMed6" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                                                <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMed6"></span>
                                                                             </div>
                                                                             <div class="col-lg-1">
                                                                                 <label class="form-label" for="prorrogaDosisMed6">Dosis</label>
@@ -2534,6 +2549,7 @@
             const clasificacionSelect = document.getElementById("clasificacionZonaSuraSelect");
             const zonaSelect = document.getElementById("zonaDireccionSelect");
             const areaSelect = document.getElementById("areaSelect");
+            const ipsQueRemiteInput = document.getElementById("ipsQueRemiteInput");
             const censoSelects = Array.from(document.querySelectorAll(".censo-page select.form-select"));
             const administracionMedicamentosSelect = document.getElementById("administracionMedicamentosSelect");
             const administracionMedicamentosFieldsContainer = document.getElementById("administracionMedicamentosFieldsContainer");
@@ -3925,6 +3941,72 @@
                 return `<ul class="mb-0">${safeItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
             };
 
+            const requiredFieldLabelOverrides = {
+                HoraPromesaInicioTtoDesde: "Hora promesa de inicio de tratamiento - desde",
+                HoraPromesaInicioTtoHasta: "Hora promesa de inicio de tratamiento - hasta",
+                ServicioComplementario: "Servicios complementarios requeridos",
+                TipoAislamiento: "Tipo de aislamiento",
+                FechaUltimaCuracionPicc: "Fecha de última curación PICC",
+                NumeroTelefonoLlamadaBienvenida: "Número telefónico de llamada de bienvenida"
+            };
+
+            const getRequiredFieldLabel = (fieldName) => {
+                const override = requiredFieldLabelOverrides[fieldName];
+                if (override) {
+                    return override;
+                }
+
+                const fieldNodes = form ? Array.from(form.querySelectorAll(`[name="${fieldName}"]`)) : [];
+                const firstNode = fieldNodes[0] || null;
+                const label = firstNode && firstNode.id
+                    ? form.querySelector(`label[for="${firstNode.id}"]`)
+                    : form?.querySelector(`label[for="${fieldName}"]`);
+                const labelText = String(label?.textContent || "")
+                    .replace(/\s+/g, " ")
+                    .trim();
+
+                if (labelText) {
+                    return labelText;
+                }
+
+                return String(fieldName || "")
+                    .replace(/([a-z])([A-Z])/g, "$1 $2")
+                    .replace(/\s+/g, " ")
+                    .trim();
+            };
+
+            const getMissingMandatoryDetailsOnClient = () => {
+                return mandatorySectionsConfig
+                    .map((section) => {
+                        const missingFields = section.getRequiredFields()
+                            .filter((fieldName) => !isRequiredFieldCompleted(fieldName))
+                            .map((fieldName) => getRequiredFieldLabel(fieldName));
+
+                        return {
+                            name: section.name,
+                            tabLinkId: section.tabLinkId,
+                            fields: Array.from(new Set(missingFields))
+                        };
+                    })
+                    .filter((section) => section.fields.length > 0);
+            };
+
+            const buildMissingMandatoryDetailsHtml = (sections) => {
+                const details = (sections || []).filter((section) => section && section.fields && section.fields.length > 0);
+                if (details.length === 0) {
+                    return "";
+                }
+
+                return details
+                    .map((section) => [
+                        `<div class="mb-3">`,
+                        `<p class="fw-semibold mb-1">${escapeHtml(section.name)}</p>`,
+                        buildListHtml(section.fields),
+                        `</div>`
+                    ].join(""))
+                    .join("");
+            };
+
             if (enviarFarmaciaKardexBtn) {
                 enviarFarmaciaKardexBtn.addEventListener("click", async () => {
                     const recordIdInput = form?.querySelector("input[name='EditingRecordId']");
@@ -4092,6 +4174,7 @@
                                 "FechaPromesaInicioTto",
                                 "HoraPromesaInicioTtoDesde",
                                 "HoraPromesaInicioTtoHasta",
+                                "AuxiliarAsignado",
                                 "NombreMedicamentoPrincipalTratante",
                                 "DosisMedicamentoPrincipal",
                                 "MedidaMedicamentoPrincipal",
@@ -4164,10 +4247,438 @@
             };
 
             const getMissingMandatorySectionsOnClient = () => {
-                return mandatorySectionsConfig
-                    .filter((section) => section.getRequiredFields().some((fieldName) => !isRequiredFieldCompleted(fieldName)))
-                    .map((section) => section.name);
+                return getMissingMandatoryDetailsOnClient().map((section) => section.name);
             };
+
+            let censoSaveAttempted = false;
+
+            const getSection3MandatoryConfig = () => mandatorySectionsConfig
+                .find((section) => section.tabLinkId === "tab-plan-manejo-link");
+
+            const getFieldValidationMessageElement = (fieldName) => form
+                ? form.querySelector(`[data-valmsg-for="${fieldName}"]`)
+                : null;
+
+            const getFieldControl = (fieldName) => form
+                ? form.querySelector(`[name="${fieldName}"]`)
+                : null;
+
+            const normalizeOptionValue = (value) => String(value || "").trim().toLowerCase();
+
+            const ipsQueRemiteOptions = Array.from(document.querySelectorAll("#ipsQueRemiteOptions option"))
+                .map((option) => ({
+                    value: String(option.value || "").trim(),
+                    text: String(option.textContent || "").trim()
+                }))
+                .filter((option) => option.value.length > 0);
+            const auxiliarAsignadoOptions = Array.from(document.querySelectorAll("#auxiliarAsignadoOptions option"))
+                .map((option) => ({
+                    value: String(option.value || "").trim(),
+                    text: String(option.textContent || "").trim()
+                }))
+                .filter((option) => option.value.length > 0);
+
+            const getCanonicalIpsQueRemiteValue = (value) => {
+                const normalized = normalizeOptionValue(value);
+                if (!normalized) {
+                    return "";
+                }
+
+                const option = ipsQueRemiteOptions.find((item) =>
+                    normalizeOptionValue(item.value) === normalized
+                    || normalizeOptionValue(item.text) === normalized);
+
+                return option ? option.value : "";
+            };
+
+            const isIpsQueRemiteValidSelection = () => {
+                if (!ipsQueRemiteInput) {
+                    return true;
+                }
+
+                const value = String(ipsQueRemiteInput.value || "").trim();
+                return value.length === 0 || getCanonicalIpsQueRemiteValue(value).length > 0;
+            };
+
+            const setIpsQueRemiteValidationMessage = () => {
+                const messageElement = getFieldValidationMessageElement("IpsQueRemite");
+                if (!messageElement) {
+                    return;
+                }
+
+                messageElement.textContent = "Selecciona una IPS que remite del listado.";
+                messageElement.classList.remove("field-validation-valid");
+                messageElement.classList.add("field-validation-error", "text-danger");
+            };
+
+            const clearIpsQueRemiteValidationMessage = () => {
+                const messageElement = getFieldValidationMessageElement("IpsQueRemite");
+                if (!messageElement) {
+                    return;
+                }
+
+                const currentMessage = String(messageElement.textContent || "").trim();
+                if (currentMessage && currentMessage !== "Selecciona una IPS que remite del listado.") {
+                    return;
+                }
+
+                messageElement.textContent = "";
+                messageElement.classList.remove("field-validation-error");
+                messageElement.classList.add("field-validation-valid");
+            };
+
+            const syncIpsQueRemiteValidation = (showInvalidMessage = false) => {
+                if (!ipsQueRemiteInput) {
+                    return true;
+                }
+
+                const value = String(ipsQueRemiteInput.value || "").trim();
+                const canonicalValue = getCanonicalIpsQueRemiteValue(value);
+                if (canonicalValue) {
+                    ipsQueRemiteInput.value = canonicalValue;
+                    clearIpsQueRemiteValidationMessage();
+                    return true;
+                }
+
+                if (!value) {
+                    clearIpsQueRemiteValidationMessage();
+                    return true;
+                }
+
+                if (showInvalidMessage) {
+                    setIpsQueRemiteValidationMessage();
+                }
+
+                return false;
+            };
+
+            const getCanonicalAuxiliarAsignadoValue = (value) => {
+                const normalized = normalizeOptionValue(value);
+                if (!normalized) {
+                    return "";
+                }
+
+                const option = auxiliarAsignadoOptions.find((item) =>
+                    normalizeOptionValue(item.value) === normalized
+                    || normalizeOptionValue(item.text) === normalized);
+
+                return option ? option.value : "";
+            };
+
+            const setAuxiliarAsignadoValidationMessage = () => {
+                const messageElement = getFieldValidationMessageElement("AuxiliarAsignado");
+                if (!messageElement) {
+                    return;
+                }
+
+                messageElement.textContent = "Selecciona un auxiliar asignado del listado.";
+                messageElement.classList.remove("field-validation-valid");
+                messageElement.classList.add("field-validation-error", "text-danger");
+            };
+
+            const clearAuxiliarAsignadoValidationMessage = () => {
+                const messageElement = getFieldValidationMessageElement("AuxiliarAsignado");
+                if (!messageElement) {
+                    return;
+                }
+
+                const currentMessage = String(messageElement.textContent || "").trim();
+                if (currentMessage && currentMessage !== "Selecciona un auxiliar asignado del listado.") {
+                    return;
+                }
+
+                messageElement.textContent = "";
+                messageElement.classList.remove("field-validation-error");
+                messageElement.classList.add("field-validation-valid");
+            };
+
+            const syncAuxiliarAsignadoValidation = (showInvalidMessage = false) => {
+                if (!auxiliarAsignadoInput || auxiliarAsignadoInput.disabled) {
+                    clearAuxiliarAsignadoValidationMessage();
+                    return true;
+                }
+
+                const value = String(auxiliarAsignadoInput.value || "").trim();
+                const canonicalValue = getCanonicalAuxiliarAsignadoValue(value);
+                if (canonicalValue) {
+                    auxiliarAsignadoInput.value = canonicalValue;
+                    clearAuxiliarAsignadoValidationMessage();
+                    return true;
+                }
+
+                if (!value) {
+                    clearAuxiliarAsignadoValidationMessage();
+                    return true;
+                }
+
+                if (showInvalidMessage) {
+                    setAuxiliarAsignadoValidationMessage();
+                }
+
+                return false;
+            };
+
+            const medicamentoNoListadoMessage = "Selecciona un medicamento del listado.";
+
+            const getCanonicalMedicamentoValue = (value) => {
+                const normalized = normalizeMedicationKey(value);
+                if (!normalized) {
+                    return "";
+                }
+
+                const metadata = medicamentoCatalogByName.get(normalized);
+                return metadata?.Nombre || "";
+            };
+
+            const setSection3MedicamentoValidationMessage = (fieldName) => {
+                const messageElement = getFieldValidationMessageElement(fieldName);
+                if (!messageElement) {
+                    return;
+                }
+
+                messageElement.textContent = medicamentoNoListadoMessage;
+                messageElement.classList.remove("field-validation-valid");
+                messageElement.classList.add("field-validation-error", "text-danger");
+            };
+
+            const clearSection3MedicamentoValidationMessage = (fieldName) => {
+                const messageElement = getFieldValidationMessageElement(fieldName);
+                if (!messageElement) {
+                    return;
+                }
+
+                const currentMessage = String(messageElement.textContent || "").trim();
+                if (currentMessage && currentMessage !== medicamentoNoListadoMessage) {
+                    return;
+                }
+
+                messageElement.textContent = "";
+                messageElement.classList.remove("field-validation-error");
+                messageElement.classList.add("field-validation-valid");
+            };
+
+            const setProrrogaMedicamentoValidationMessage = (inputId) => {
+                const messageElement = document.querySelector(`[data-prorroga-med-validation-for="${inputId}"]`);
+                if (messageElement) {
+                    messageElement.textContent = medicamentoNoListadoMessage;
+                }
+            };
+
+            const clearProrrogaMedicamentoValidationMessage = (inputId) => {
+                const messageElement = document.querySelector(`[data-prorroga-med-validation-for="${inputId}"]`);
+                if (messageElement && String(messageElement.textContent || "").trim() === medicamentoNoListadoMessage) {
+                    messageElement.textContent = "";
+                }
+            };
+
+            const section3MedicamentoEntries = [
+                { fieldName: "NombreMedicamentoPrincipalTratante", input: nombreMedicamentoPrincipalInput, isActive: () => isMedicationAdministrationEnabled() },
+                { fieldName: "NombreMedicamentoNumero2", input: nombreMedicamento2Input, isActive: () => isMedicationAdministrationEnabled() && !!medicamento2Toggle?.checked },
+                { fieldName: "NombreMedicamentoNumero3", input: nombreMedicamento3Input, isActive: () => isMedicationAdministrationEnabled() && !!medicamento3Toggle?.checked },
+                { fieldName: "NombreMedicamentoNumero4", input: nombreMedicamento4Input, isActive: () => isMedicationAdministrationEnabled() && !!medicamento4Toggle?.checked },
+                { fieldName: "NombreMedicamentoNumero5", input: nombreMedicamento5Input, isActive: () => isMedicationAdministrationEnabled() && !!medicamento5Toggle?.checked },
+                { fieldName: "NombreMedicamentoNumero6", input: nombreMedicamento6Input, isActive: () => isMedicationAdministrationEnabled() && !!medicamento6Toggle?.checked }
+            ];
+
+            const prorrogaMedicamentoEntries = [
+                { inputId: "prorrogaNombreMedPrincipal", isActive: () => true },
+                { inputId: "prorrogaNombreMed2", isActive: () => !!document.getElementById("prorrogaTieneSegundoMed")?.checked },
+                { inputId: "prorrogaNombreMed3", isActive: () => !!document.getElementById("prorrogaTieneTercerMed")?.checked },
+                { inputId: "prorrogaNombreMed4", isActive: () => !!document.getElementById("prorrogaTieneCuartoMed")?.checked },
+                { inputId: "prorrogaNombreMed5", isActive: () => !!document.getElementById("prorrogaTieneQuintoMed")?.checked },
+                { inputId: "prorrogaNombreMed6", isActive: () => !!document.getElementById("prorrogaTieneSextoMed")?.checked }
+            ].map((entry) => ({ ...entry, input: document.getElementById(entry.inputId) }));
+
+            const syncSection3MedicamentoValidation = (showInvalidMessage = false) => {
+                const invalidEntries = [];
+
+                section3MedicamentoEntries.forEach((entry) => {
+                    if (!entry.input || !entry.isActive()) {
+                        clearSection3MedicamentoValidationMessage(entry.fieldName);
+                        return;
+                    }
+
+                    const value = String(entry.input.value || "").trim();
+                    const canonicalValue = getCanonicalMedicamentoValue(value);
+                    if (canonicalValue) {
+                        entry.input.value = canonicalValue;
+                        clearSection3MedicamentoValidationMessage(entry.fieldName);
+                        return;
+                    }
+
+                    if (!value) {
+                        clearSection3MedicamentoValidationMessage(entry.fieldName);
+                        return;
+                    }
+
+                    invalidEntries.push(entry);
+                    if (showInvalidMessage) {
+                        setSection3MedicamentoValidationMessage(entry.fieldName);
+                    }
+                });
+
+                return invalidEntries;
+            };
+
+            const syncProrrogaMedicamentoValidation = (showInvalidMessage = false) => {
+                const invalidEntries = [];
+
+                prorrogaMedicamentoEntries.forEach((entry) => {
+                    if (!entry.input || !entry.isActive()) {
+                        clearProrrogaMedicamentoValidationMessage(entry.inputId);
+                        return;
+                    }
+
+                    const value = String(entry.input.value || "").trim();
+                    const canonicalValue = getCanonicalMedicamentoValue(value);
+                    if (canonicalValue) {
+                        entry.input.value = canonicalValue;
+                        clearProrrogaMedicamentoValidationMessage(entry.inputId);
+                        return;
+                    }
+
+                    if (!value) {
+                        clearProrrogaMedicamentoValidationMessage(entry.inputId);
+                        return;
+                    }
+
+                    invalidEntries.push(entry);
+                    if (showInvalidMessage) {
+                        setProrrogaMedicamentoValidationMessage(entry.inputId);
+                    }
+                });
+
+                return invalidEntries;
+            };
+
+            const toSentenceLabel = (label) => {
+                const text = String(label || "").trim();
+                return text ? text.charAt(0).toLowerCase() + text.slice(1) : "este campo";
+            };
+
+            const buildRequiredFieldMessage = (fieldName) => {
+                const label = getRequiredFieldLabel(fieldName);
+                const control = getFieldControl(fieldName);
+                const tagName = String(control?.tagName || "").toUpperCase();
+
+                if (tagName === "SELECT") {
+                    return `Selecciona ${toSentenceLabel(label)}.`;
+                }
+
+                return `${label} es obligatorio.`;
+            };
+
+            const setClientRequiredMessage = (fieldName) => {
+                const messageElement = getFieldValidationMessageElement(fieldName);
+                if (!messageElement) {
+                    return;
+                }
+
+                messageElement.textContent = buildRequiredFieldMessage(fieldName);
+                messageElement.classList.remove("field-validation-valid");
+                messageElement.classList.add("field-validation-error", "text-danger");
+            };
+
+            const clearClientRequiredMessage = (fieldName) => {
+                const messageElement = getFieldValidationMessageElement(fieldName);
+                if (!messageElement) {
+                    return;
+                }
+
+                const currentMessage = String(messageElement.textContent || "").trim();
+                const requiredMessage = buildRequiredFieldMessage(fieldName);
+                if (currentMessage && currentMessage !== requiredMessage) {
+                    return;
+                }
+
+                messageElement.textContent = "";
+                messageElement.classList.remove("field-validation-error");
+                messageElement.classList.add("field-validation-valid");
+            };
+
+            const syncSection3RequiredMessages = () => {
+                const section = getSection3MandatoryConfig();
+                const sectionPane = document.getElementById("tab-plan-manejo");
+                if (!section || !sectionPane) {
+                    return;
+                }
+
+                const requiredFields = new Set(section.getRequiredFields());
+                sectionPane.querySelectorAll("[data-valmsg-for]").forEach((messageElement) => {
+                    const fieldName = messageElement.getAttribute("data-valmsg-for");
+                    if (!fieldName) {
+                        return;
+                    }
+
+                    if (!requiredFields.has(fieldName) || isRequiredFieldCompleted(fieldName)) {
+                        clearClientRequiredMessage(fieldName);
+                        return;
+                    }
+
+                    setClientRequiredMessage(fieldName);
+                });
+            };
+
+            const syncSection3RequiredMessagesAfterAttempt = () => {
+                if (!censoSaveAttempted) {
+                    return;
+                }
+
+                syncMedicationVisibility();
+                syncCateterismoVisibility();
+                syncCateterPiccVisibility();
+                syncSection3RequiredMessages();
+                syncSection3MedicamentoValidation(false);
+            };
+
+            if (form) {
+                form.addEventListener("input", syncSection3RequiredMessagesAfterAttempt);
+                form.addEventListener("change", syncSection3RequiredMessagesAfterAttempt);
+            }
+
+            if (ipsQueRemiteInput) {
+                ipsQueRemiteInput.addEventListener("input", () => {
+                    syncIpsQueRemiteValidation(false);
+                });
+                ipsQueRemiteInput.addEventListener("change", () => {
+                    syncIpsQueRemiteValidation(true);
+                });
+                ipsQueRemiteInput.addEventListener("blur", () => {
+                    syncIpsQueRemiteValidation(true);
+                });
+            }
+
+            if (auxiliarAsignadoInput) {
+                auxiliarAsignadoInput.addEventListener("input", () => {
+                    syncAuxiliarAsignadoValidation(false);
+                });
+                auxiliarAsignadoInput.addEventListener("change", () => {
+                    syncAuxiliarAsignadoValidation(true);
+                });
+                auxiliarAsignadoInput.addEventListener("blur", () => {
+                    syncAuxiliarAsignadoValidation(true);
+                });
+            }
+
+            section3MedicamentoEntries.forEach((entry) => {
+                if (!entry.input) {
+                    return;
+                }
+
+                entry.input.addEventListener("input", () => syncSection3MedicamentoValidation(false));
+                entry.input.addEventListener("change", () => syncSection3MedicamentoValidation(true));
+                entry.input.addEventListener("blur", () => syncSection3MedicamentoValidation(true));
+            });
+
+            prorrogaMedicamentoEntries.forEach((entry) => {
+                if (!entry.input) {
+                    return;
+                }
+
+                entry.input.addEventListener("input", () => syncProrrogaMedicamentoValidation(false));
+                entry.input.addEventListener("change", () => syncProrrogaMedicamentoValidation(true));
+                entry.input.addEventListener("blur", () => syncProrrogaMedicamentoValidation(true));
+            });
 
             const setDireccionMessage = (type, messageHtml) => {
                 if (!direccionMensaje) {
@@ -4600,18 +5111,53 @@
                         codigoCie10Input.value = normalizeCie10InputValue(codigoCie10Input.value || "");
                     }
 
-                    const missingMandatorySections = getMissingMandatorySectionsOnClient();
-                    if (missingMandatorySections.length > 0) {
+                    if (!syncIpsQueRemiteValidation(true)) {
+                        event.preventDefault();
+                        openSectionTab("tab-datos-basicos-link");
+                        showFeedbackModal(
+                            "IPS que remite no valida",
+                            "<p class=\"mb-0\">Selecciona una IPS que remite del listado de sugerencias.</p>",
+                            "warning");
+                        return;
+                    }
+
+                    if (!syncAuxiliarAsignadoValidation(true)) {
+                        event.preventDefault();
+                        openSectionTab("tab-plan-manejo-link");
+                        showFeedbackModal(
+                            "Auxiliar asignado no válido",
+                            "<p class=\"mb-0\">Selecciona un auxiliar asignado del listado de sugerencias.</p>",
+                            "warning");
+                        return;
+                    }
+
+                    const invalidSection3Medicamentos = syncSection3MedicamentoValidation(true);
+                    if (invalidSection3Medicamentos.length > 0) {
+                        event.preventDefault();
+                        openSectionTab("tab-plan-manejo-link");
+                        invalidSection3Medicamentos[0].input?.focus();
+                        showFeedbackModal(
+                            "Medicamento no válido",
+                            "<p class=\"mb-0\">Selecciona los medicamentos desde el listado de sugerencias.</p>",
+                            "warning");
+                        return;
+                    }
+
+                    censoSaveAttempted = true;
+                    syncSection3RequiredMessages();
+
+                    const missingMandatoryDetails = getMissingMandatoryDetailsOnClient();
+                    if (missingMandatoryDetails.length > 0) {
                         event.preventDefault();
 
-                        const firstMissingSection = mandatorySectionsConfig.find((section) => section.name === missingMandatorySections[0]);
+                        const firstMissingSection = mandatorySectionsConfig.find((section) => section.name === missingMandatoryDetails[0].name);
                         if (firstMissingSection) {
                             openSectionTab(firstMissingSection.tabLinkId);
                         }
 
                         showFeedbackModal(
                             "Faltan secciones obligatorias",
-                            `<p class="mb-2">Para guardar debes completar estas secciones:</p>${buildListHtml(missingMandatorySections)}`,
+                            `<p class="mb-2">Para guardar debes completar estos campos:</p>${buildMissingMandatoryDetailsHtml(missingMandatoryDetails)}`,
                             "warning");
 
                         return;
@@ -4728,9 +5274,26 @@
                 const showGestionAlta = isEstadoAlta();
 
                 if (gestionAltaTabLink) {
-                    gestionAltaTabLink.classList.toggle("d-none", !showGestionAlta);
-                    gestionAltaTabLink.setAttribute("aria-hidden", showGestionAlta ? "false" : "true");
+                    gestionAltaTabLink.classList.remove("d-none");
+                    gestionAltaTabLink.classList.toggle("censo-nav__item--locked", !showGestionAlta);
+                    gestionAltaTabLink.setAttribute("aria-hidden", "false");
+                    gestionAltaTabLink.setAttribute("aria-disabled", showGestionAlta ? "false" : "true");
                     gestionAltaTabLink.tabIndex = showGestionAlta ? 0 : -1;
+
+                    if (showGestionAlta) {
+                        gestionAltaTabLink.setAttribute("data-bs-toggle", "list");
+                        gestionAltaTabLink.setAttribute("data-bs-target", "#tab-gestion-alta");
+                        gestionAltaTabLink.removeAttribute("title");
+                    } else {
+                        gestionAltaTabLink.removeAttribute("data-bs-toggle");
+                        gestionAltaTabLink.removeAttribute("data-bs-target");
+                        gestionAltaTabLink.setAttribute("title", "Disponible cuando el estado del paciente sea alta");
+                    }
+                }
+
+                const gestionAltaLockHint = document.getElementById("tab-gestion-alta-lock-hint");
+                if (gestionAltaLockHint) {
+                    gestionAltaLockHint.classList.toggle("d-none", showGestionAlta);
                 }
 
                 if (gestionAltaPane) {
@@ -5206,7 +5769,9 @@
 
                 if (auxiliarAsignadoInput) {
                     auxiliarAsignadoInput.disabled = !shouldShowAdministrationFields;
+                    syncAuxiliarAsignadoValidation(false);
                 }
+                syncSection3MedicamentoValidation(false);
 
                 if (!shouldShowAdministrationFields) {
                     if (clearValuesWhenDisabled) {
@@ -6171,6 +6736,7 @@
                         toggle.addEventListener("change", () => {
                             container?.classList.toggle("d-none", !toggle.checked);
                             syncProrrogaAplicaciones();
+                            syncProrrogaMedicamentoValidation(false);
                         });
                     }
                 };
@@ -6263,6 +6829,17 @@
                             showFeedbackModal("Sin paciente activo", "<p class=\"mb-0\">Primero guarda el paciente antes de guardar la prórroga.</p>", "warning");
                             return;
                         }
+
+                        const invalidProrrogaMedicamentos = syncProrrogaMedicamentoValidation(true);
+                        if (invalidProrrogaMedicamentos.length > 0) {
+                            invalidProrrogaMedicamentos[0].input?.focus();
+                            showFeedbackModal(
+                                "Medicamento no válido",
+                                "<p class=\"mb-0\">Selecciona los medicamentos de la prórroga desde el listado de sugerencias.</p>",
+                                "warning");
+                            return;
+                        }
+
                         guardarProrrogaBtn.disabled = true;
                         if (prorrogaGuardadoStatus) prorrogaGuardadoStatus.textContent = "Guardando...";
                         try {
@@ -6314,7 +6891,12 @@
 
                 let bodyHtml = "";
                 if (missingSections.length > 0) {
-                    bodyHtml += `<p class="mb-2">Faltan secciones obligatorias por diligenciar:</p>${buildListHtml(missingSections)}`;
+                    const missingDetails = getMissingMandatoryDetailsOnClient()
+                        .filter((section) => missingSections.includes(section.name));
+
+                    bodyHtml += missingDetails.length > 0
+                        ? `<p class="mb-2">Faltan campos obligatorios por diligenciar:</p>${buildMissingMandatoryDetailsHtml(missingDetails)}`
+                        : `<p class="mb-2">Faltan secciones obligatorias por diligenciar:</p>${buildListHtml(missingSections)}`;
                 }
 
                 const generalErrors = normalizedErrors
@@ -6335,6 +6917,11 @@
                     const firstMissingSection = mandatorySectionsConfig.find((section) => section.name === missingSections[0]);
                     if (firstMissingSection) {
                         openSectionTab(firstMissingSection.tabLinkId);
+                    }
+
+                    if (missingSections.includes("Sección 3 - Plan de manejo")) {
+                        censoSaveAttempted = true;
+                        syncSection3RequiredMessages();
                     }
                 }
             }
