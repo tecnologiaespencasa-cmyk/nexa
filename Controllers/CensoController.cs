@@ -1304,15 +1304,23 @@ public class CensoController : Controller
             return Json(new { message = "Documentos de prórroga guardados correctamente." });
         }
 
-        if (documentoProrroga && record.EsProrroga && !string.IsNullOrWhiteSpace(record.ProrrogaJson))
+        // Una solicitud marcada como prórroga NUNCA debe escribir el kardex de la atención original.
+        // Si no se puede resolver una prórroga destino, se rechaza en vez de corromper la original.
+        if (documentoProrroga)
         {
-            if (record.ProrrogaCerradaAtUtc.HasValue) return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya no se puede editar." });
-            record.ProrrogaKardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
-            record.ProrrogaRequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
-            await _context.SaveChangesAsync(cancellationToken);
-            return Json(new { message = "Documentos de prórroga guardados correctamente." });
+            if (record.EsProrroga && !string.IsNullOrWhiteSpace(record.ProrrogaJson))
+            {
+                if (record.ProrrogaCerradaAtUtc.HasValue) return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya no se puede editar." });
+                record.ProrrogaKardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
+                record.ProrrogaRequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
+                await _context.SaveChangesAsync(cancellationToken);
+                return Json(new { message = "Documentos de prórroga guardados correctamente." });
+            }
+
+            return BadRequest(new { message = "No se identificó la prórroga para guardar su kardex. Guarda la prórroga antes de gestionar su kardex." });
         }
-        else if (record.KardexCerradoAtUtc.HasValue)
+
+        if (record.KardexCerradoAtUtc.HasValue)
         {
             return BadRequest(new { message = "Kardex cerrado. Este documento ya no se puede editar." });
         }
@@ -1480,7 +1488,7 @@ public class CensoController : Controller
             await _context.SaveChangesAsync(cancellationToken);
         }
         // Si el documento se generó desde prórroga, reusar o crear siempre un despacho separado de prórroga.
-        else if (documentoProrroga && record.EsProrroga)
+        else if (documentoProrroga && record.EsProrroga && !string.IsNullOrWhiteSpace(record.ProrrogaJson))
         {
             if (record.ProrrogaCerradaAtUtc.HasValue)
             {
@@ -1610,6 +1618,11 @@ public class CensoController : Controller
                 _context.Censos.Add(dispatchRecord);
                 await _context.SaveChangesAsync(cancellationToken);
             }
+        }
+        // Una solicitud marcada como prórroga que no pudo resolverse no debe reenviar/corromper la atención original.
+        else if (documentoProrroga)
+        {
+            return BadRequest(new { message = "No se identificó la prórroga a enviar. Guarda la prórroga antes de enviarla a farmacia." });
         }
         else
         {
@@ -2806,7 +2819,6 @@ public class CensoController : Controller
         censoRecord.FechaPromesaInicioTto = model.FechaPromesaInicioTto?.Date;
         censoRecord.HoraPromesaInicioTto = string.IsNullOrWhiteSpace(model.HoraPromesaInicioTto) ? null : model.HoraPromesaInicioTto;
         censoRecord.AuxiliarAsignado = string.IsNullOrWhiteSpace(model.AuxiliarAsignado) ? null : model.AuxiliarAsignado;
-        censoRecord.Estado = string.IsNullOrWhiteSpace(model.Estado) ? null : model.Estado;
         censoRecord.AutorizacionEvento = string.IsNullOrWhiteSpace(model.AutorizacionEvento) ? null : model.AutorizacionEvento;
         censoRecord.ResponsableLlamadaBienvenida = string.IsNullOrWhiteSpace(model.ResponsableLlamadaBienvenida) ? null : model.ResponsableLlamadaBienvenida;
         censoRecord.EstadoLlamadaBienvenida = string.IsNullOrWhiteSpace(model.EstadoLlamadaBienvenida) ? null : model.EstadoLlamadaBienvenida;
@@ -2833,6 +2845,7 @@ public class CensoController : Controller
         censoRecord.FechaProximoCambioSonda = model.FechaProximoCambioSonda?.Date;
         censoRecord.FechaUltimaCuracionPicc = model.FechaUltimaCuracionPicc?.Date;
         }
+        censoRecord.Estado = string.IsNullOrWhiteSpace(model.Estado) ? null : model.Estado;
         censoRecord.FechaAlta = model.FechaAlta?.Date;
         censoRecord.NombreQuienGestionaAlta = string.IsNullOrWhiteSpace(model.NombreQuienGestionaAlta) ? null : model.NombreQuienGestionaAlta;
         censoRecord.AltaTardia = string.IsNullOrWhiteSpace(model.AltaTardia) ? null : model.AltaTardia;

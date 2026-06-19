@@ -2308,6 +2308,7 @@
                 <div class="censo-document-header__title">
                     <span class="censo-card-heading__eyebrow">Gesti&oacute;n</span>
                     <h5 class="modal-title" id="censoKardexModalTitle">Gestionar kardex y requisici&oacute;n</h5>
+                    <span class="censo-document-context-badge" id="censoDocumentContextBadge" aria-live="polite"></span>
                 </div>
                 <div class="censo-document-switch censo-document-switch--header" role="tablist" aria-label="Seleccionar documento">
                     <button type="button" class="censo-document-switch__button active" id="censoKardexTabButton" data-censo-document-target="kardex" role="tab" aria-selected="true" aria-controls="censoKardexPane">Kardex</button>
@@ -3630,11 +3631,39 @@
             };
 
             const isProrrogaDocumentContext = () => {
-                return !!prorrogaTabPane?.classList.contains("active") || !!activeProrrogaIsNewAdditional;
+                // El kardex/requisición se gestiona SIEMPRE según la sección activa:
+                // Sección 3 (Plan de manejo) = atención original; Sección 8 (Prórroga) = prórroga.
+                // No depende de banderas transitorias (activeProrrogaIsNewAdditional) para evitar que,
+                // al gestionar la atención original, se cargue o guarde el kardex de una prórroga.
+                return !!prorrogaTabPane?.classList.contains("active");
             };
 
             const getDocumentProrroga = () => {
                 return isProrrogaDocumentContext() ? getActiveProrroga() : null;
+            };
+
+            const updateDocumentContextBadge = (savedProrroga) => {
+                const badge = document.getElementById("censoDocumentContextBadge");
+                if (!badge) return;
+                if (isProrrogaDocumentContext()) {
+                    const prorroga = getActiveProrroga();
+                    let numero = Number(prorroga?.numero) || 0;
+                    if (!numero && savedProrroga && typeof savedProrroga.numero !== "undefined") {
+                        numero = Number(savedProrroga.numero) || 0;
+                    }
+                    if (!numero) {
+                        const baseNumero = Number(documentosState?.maxProrrogaNumero)
+                            || (documentosState?.prorrogaJson ? (Number(documentosState?.prorrogaNumero) || 1) : 0);
+                        numero = activeProrrogaIsNewAdditional ? baseNumero + 1 : (baseNumero || 1);
+                    }
+                    badge.textContent = `Prórroga #${numero}`;
+                    badge.classList.remove("censo-document-context-badge--original");
+                    badge.classList.add("censo-document-context-badge--prorroga");
+                } else {
+                    badge.textContent = "Atención original";
+                    badge.classList.remove("censo-document-context-badge--prorroga");
+                    badge.classList.add("censo-document-context-badge--original");
+                }
             };
 
             const isActiveDocumentClosed = () => {
@@ -3683,7 +3712,7 @@
                     const banner = document.createElement("div");
                     banner.className = "alert alert-warning censo-plan-manejo-closed-banner mb-3";
                     banner.setAttribute("role", "alert");
-                    banner.innerHTML = "<strong>Plan de manejo cerrado.</strong> El Kardex del ingreso inicial fue aprobado por farmacia. Esta sección queda disponible solo para consulta.";
+                    banner.innerHTML = "<strong>Plan de manejo cerrado.</strong> El Kardex del ingreso inicial fue aprobado por farmacia. Esta sección queda disponible solo para consulta, excepto el campo <strong>Estado</strong> que permanece editable para gestionar altas.";
                     planManejoTabPane.querySelector(".card")?.before(banner);
                 }
 
@@ -3696,7 +3725,7 @@
                     }
                     control.setAttribute("aria-readonly", "true");
                 });
-                planManejoTabPane.querySelectorAll("select").forEach((control) => {
+                planManejoTabPane.querySelectorAll("select:not(#estadoSelect)").forEach((control) => {
                     control.style.pointerEvents = "none";
                     control.tabIndex = -1;
                     control.setAttribute("aria-readonly", "true");
@@ -3872,6 +3901,7 @@
                         syncRequisitionSheet();
                         if (savedRequisicion) loadRequisitionPayload(savedRequisicion);
                     }
+                    updateDocumentContextBadge(savedProrroga);
                     loadAdjuntos(recordId);
                     if (adjuntoUploadStatus) adjuntoUploadStatus.textContent = "";
                     const serviciosCargadosSwitch = document.getElementById("serviciosCargadosSwitch");
@@ -3938,6 +3968,10 @@
                     }
                     if (isActiveDocumentClosed()) {
                         showFeedbackModal("Kardex cerrado", "<p class=\"mb-0\">Este kardex y su requisición ya fueron aprobados por farmacia y no se pueden editar.</p>", "warning");
+                        return;
+                    }
+                    if (isProrrogaDocumentContext() && activeProrrogaIsNewAdditional && !activeProrrogaVersionId) {
+                        showFeedbackModal("Guarda la prórroga primero", "<p class=\"mb-0\">Antes de gestionar el kardex de una nueva prórroga, guárdala en la sección <strong>Prórroga o cambio</strong>.</p>", "warning");
                         return;
                     }
                     guardarDocumentosBtn.disabled = true;
@@ -4165,6 +4199,13 @@
                         showFeedbackModal(
                             "Kardex cerrado",
                             "<p class=\"mb-0\">Este kardex y su requisición ya fueron aprobados por farmacia y no se pueden reenviar.</p>",
+                            "warning");
+                        return;
+                    }
+                    if (isProrrogaDocumentContext() && activeProrrogaIsNewAdditional && !activeProrrogaVersionId) {
+                        showFeedbackModal(
+                            "Guarda la prórroga primero",
+                            "<p class=\"mb-0\">Antes de enviar el kardex de una nueva prórroga a farmacia, guárdala en la sección <strong>Prórroga o cambio</strong>.</p>",
                             "warning");
                         return;
                     }

@@ -2345,6 +2345,33 @@
   min-width: 0;
 }
 
+.censo-document-context-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.censo-document-context-badge:empty {
+  display: none;
+}
+
+.censo-document-context-badge--original {
+  background: #e3f0ff;
+  border: 1px solid #9cc2f0;
+  color: #1b4f8a;
+}
+
+.censo-document-context-badge--prorroga {
+  background: #fff1dc;
+  border: 1px solid #f0c489;
+  color: #9a5b12;
+}
+
 .censo-document-header .btn-close {
   margin-left: 0;
 }
@@ -3144,7 +3171,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
 }
 
 #tab-plan-manejo.is-plan-manejo-closed input,
-#tab-plan-manejo.is-plan-manejo-closed select,
+#tab-plan-manejo.is-plan-manejo-closed select:not(#estadoSelect),
 #tab-plan-manejo.is-plan-manejo-closed textarea {
   cursor: not-allowed;
 }
