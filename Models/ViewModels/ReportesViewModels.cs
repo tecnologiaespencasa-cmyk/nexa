@@ -37,9 +37,9 @@ public class ReportesDashboardViewModel
         ? FormatHours(PromedioResolucionHoras.Value)
         : "Sin datos";
 
-    public IReadOnlyList<ReportesTrendPointViewModel> NovedadesPorDia { get; init; } = [];
+    public ReportesTrendSeriesViewModel NovedadesPorDia { get; init; } = new();
 
-    public IReadOnlyList<ReportesTrendPointViewModel> IngresosPorDia { get; init; } = [];
+    public ReportesTrendSeriesViewModel IngresosPorDia { get; init; } = new();
 
     public IReadOnlyList<ReportesCategoryCountViewModel> NovedadesPorTipo { get; init; } = [];
 
@@ -123,6 +123,15 @@ public class ReportesTrendPointViewModel
     public int Value { get; init; }
 
     public double Percentage { get; init; }
+}
+
+public class ReportesTrendSeriesViewModel
+{
+    public int ScaleMax { get; init; } = 100;
+
+    public IReadOnlyList<int> ScaleTicks { get; init; } = [100, 80, 60, 40, 20, 0];
+
+    public IReadOnlyList<ReportesTrendPointViewModel> Points { get; init; } = [];
 }
 
 public class ReportesResolutionByTypeViewModel

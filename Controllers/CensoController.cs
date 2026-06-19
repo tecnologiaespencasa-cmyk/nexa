@@ -168,6 +168,69 @@ public class CensoController : Controller
         [nameof(CensoReceptionViewModel.FechaProximoCambioSonda)] = 3,
         [nameof(CensoReceptionViewModel.FechaUltimaCuracionPicc)] = 3
     };
+    private static readonly string[] ProrrogaTableJsonFields =
+    [
+        "TipoProrroga",
+        "SeguimientoMedico",
+        "NombreMedicamentoPrincipal",
+        "DosisMedicamentoPrincipal",
+        "MedidaMedicamentoPrincipal",
+        "ViaAdministracionMedicamentoPrincipal",
+        "FrecuenciaAdministracionMxPrincipal",
+        "DiasMedicamentoPrincipal",
+        "TieneSegundoMedicamento",
+        "NombreMedicamentoNumero2",
+        "DosisMedicamento2",
+        "MedidaMedicamento2",
+        "ViaAdministracionMedicamento2",
+        "FrecuenciaAdministracionMedicamento2",
+        "DiasMedicamento2",
+        "TieneTercerMedicamento",
+        "NombreMedicamentoNumero3",
+        "DosisMedicamento3",
+        "MedidaMedicamento3",
+        "ViaAdministracionMedicamento3",
+        "FrecuenciaAdministracionMedicamento3",
+        "DiasMedicamento3",
+        "TieneCuartoMedicamento",
+        "NombreMedicamentoNumero4",
+        "DosisMedicamento4",
+        "MedidaMedicamento4",
+        "ViaAdministracionMedicamento4",
+        "FrecuenciaAdministracionMedicamento4",
+        "DiasMedicamento4",
+        "TieneQuintoMedicamento",
+        "NombreMedicamentoNumero5",
+        "DosisMedicamento5",
+        "MedidaMedicamento5",
+        "ViaAdministracionMedicamento5",
+        "FrecuenciaAdministracionMedicamento5",
+        "DiasMedicamento5",
+        "TieneSextoMedicamento",
+        "NombreMedicamentoNumero6",
+        "DosisMedicamento6",
+        "MedidaMedicamento6",
+        "ViaAdministracionMedicamento6",
+        "FrecuenciaAdministracionMedicamento6",
+        "DiasMedicamento6",
+        "AplicacionesTotales",
+        "DiasTratamientoIv",
+        "FechaInicioTratamiento",
+        "FechaFinTratamiento",
+        "FechaPromesaInicioTto",
+        "HoraPromesaDesde",
+        "HoraPromesaHasta",
+        "HoraPromesaMeridiano",
+        "AuxiliarAsignado",
+        "NumeroDiasExtension",
+        "NotificadoAsegurador"
+    ];
+    private static readonly string[] ProrrogaTableColumns =
+    [
+        "Prorroga_Numero",
+        "Prorroga_Cerrada",
+        .. ProrrogaTableJsonFields.Select(field => $"Prorroga_{field}")
+    ];
     private static readonly IReadOnlyDictionary<string, string> OptionDisplayTextOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["Valle de aburra"] = "Valle de Aburrá",
@@ -602,6 +665,12 @@ public class CensoController : Controller
     [HttpPost]
     public async Task<IActionResult> Index(CensoReceptionViewModel model, CancellationToken cancellationToken)
     {
+        // Estas marcas son administradas exclusivamente por el envío a Farmacia.
+        ModelState.Remove(nameof(model.FechaGestionFarmacia));
+        ModelState.Remove(nameof(model.HoraGestionFarmacia));
+        model.FechaGestionFarmacia = null;
+        model.HoraGestionFarmacia = null;
+
         model.CedulaFiltro = NormalizeCedulaFilter(model.CedulaFiltro);
         model.DocumentoProrrogaBusqueda = NormalizeCedulaFilter(model.DocumentoProrrogaBusqueda);
         NormalizeHistoryFilters(model);
@@ -2209,6 +2278,65 @@ public class CensoController : Controller
         model.CensoTableRecords = records;
 
         var tableRecordIds = records.Select(r => r.Id).ToList();
+        model.CensoProrrogaTableColumns = ProrrogaTableColumns;
+        var prorrogaVersions = tableRecordIds.Count == 0
+            ? []
+            : await _context.CensoProrrogas
+                .AsNoTracking()
+                .Where(prorroga => tableRecordIds.Contains(prorroga.CensoRecordId))
+                .OrderBy(prorroga => prorroga.CensoRecordId)
+                .ThenBy(prorroga => prorroga.Numero)
+                .Select(prorroga => new
+                {
+                    prorroga.CensoRecordId,
+                    prorroga.Numero,
+                    prorroga.ProrrogaJson,
+                    prorroga.CerradaAtUtc
+                })
+                .ToListAsync(cancellationToken);
+        var prorrogaVersionsByRecord = prorrogaVersions
+            .GroupBy(prorroga => prorroga.CensoRecordId)
+            .ToDictionary(group => group.Key, group => group.ToList());
+        var tableRows = new List<CensoTableRowViewModel>();
+        foreach (var record in records)
+        {
+            var hasProrroga = false;
+            if (!string.IsNullOrWhiteSpace(record.ProrrogaJson))
+            {
+                tableRows.Add(new CensoTableRowViewModel
+                {
+                    Record = record,
+                    ProrrogaValues = BuildProrrogaTableValues(
+                        record.ProrrogaJson,
+                        numero: 1,
+                        cerrada: record.ProrrogaCerradaAtUtc.HasValue)
+                });
+                hasProrroga = true;
+            }
+
+            if (prorrogaVersionsByRecord.TryGetValue(record.Id, out var versions))
+            {
+                foreach (var version in versions)
+                {
+                    tableRows.Add(new CensoTableRowViewModel
+                    {
+                        Record = record,
+                        ProrrogaValues = BuildProrrogaTableValues(
+                            version.ProrrogaJson,
+                            version.Numero,
+                            version.CerradaAtUtc.HasValue)
+                    });
+                    hasProrroga = true;
+                }
+            }
+
+            if (!hasProrroga)
+            {
+                tableRows.Add(new CensoTableRowViewModel { Record = record });
+            }
+        }
+        model.CensoTableRows = tableRows;
+
         if (tableRecordIds.Count > 0)
         {
             var idsConAdjuntos = await _context.CensoAdjuntos
@@ -2264,6 +2392,61 @@ public class CensoController : Controller
         }
 
         ApplyCensoRecordToModel(model, latestRecord);
+    }
+
+    private static IReadOnlyDictionary<string, string> BuildProrrogaTableValues(
+        string prorrogaJson,
+        int numero,
+        bool cerrada)
+    {
+        var values = ProrrogaTableColumns.ToDictionary(
+            column => column,
+            _ => string.Empty,
+            StringComparer.OrdinalIgnoreCase);
+        values["Prorroga_Numero"] = numero.ToString(CultureInfo.InvariantCulture);
+        values["Prorroga_Cerrada"] = cerrada ? "Sí" : "No";
+
+        try
+        {
+            using var document = JsonDocument.Parse(prorrogaJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return values;
+            }
+
+            var jsonValues = document.RootElement
+                .EnumerateObject()
+                .ToDictionary(
+                    property => property.Name,
+                    property => property.Value,
+                    StringComparer.OrdinalIgnoreCase);
+            foreach (var field in ProrrogaTableJsonFields)
+            {
+                if (jsonValues.TryGetValue(field, out var value))
+                {
+                    values[$"Prorroga_{field}"] = FormatProrrogaTableValue(value);
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Conserva número y estado aun si un registro histórico tiene JSON inválido.
+        }
+
+        return values;
+    }
+
+    private static string FormatProrrogaTableValue(JsonElement value)
+    {
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => "Sí",
+            JsonValueKind.False => "No",
+            JsonValueKind.String => value.GetString() ?? string.Empty,
+            JsonValueKind.Number => value.GetRawText(),
+            JsonValueKind.Null or JsonValueKind.Undefined => string.Empty,
+            _ => value.ToString()
+        };
     }
 
     private static void NormalizeHistoryFilters(CensoReceptionViewModel model)
@@ -2567,6 +2750,8 @@ public class CensoController : Controller
         censoRecord.Telefono1 = model.Telefono1;
         censoRecord.Telefono2 = model.Telefono2;
         censoRecord.Telefono3 = string.IsNullOrWhiteSpace(model.Telefono3) ? null : model.Telefono3;
+        if (!censoRecord.KardexCerradoAtUtc.HasValue)
+        {
         censoRecord.ClasificacionRiesgo = model.ClasificacionRiesgo;
         censoRecord.AdministracionMedicamentos = model.AdministracionMedicamentos;
         censoRecord.NombreMedicamentoPrincipalTratante = string.IsNullOrWhiteSpace(model.NombreMedicamentoPrincipalTratante) ? null : model.NombreMedicamentoPrincipalTratante;
@@ -2647,6 +2832,7 @@ public class CensoController : Controller
         censoRecord.AuxiliarAsignadoCateterismo = string.IsNullOrWhiteSpace(model.AuxiliarAsignadoCateterismo) ? null : model.AuxiliarAsignadoCateterismo;
         censoRecord.FechaProximoCambioSonda = model.FechaProximoCambioSonda?.Date;
         censoRecord.FechaUltimaCuracionPicc = model.FechaUltimaCuracionPicc?.Date;
+        }
         censoRecord.FechaAlta = model.FechaAlta?.Date;
         censoRecord.NombreQuienGestionaAlta = string.IsNullOrWhiteSpace(model.NombreQuienGestionaAlta) ? null : model.NombreQuienGestionaAlta;
         censoRecord.AltaTardia = string.IsNullOrWhiteSpace(model.AltaTardia) ? null : model.AltaTardia;

@@ -3105,6 +3105,50 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   position: relative;
 }
 
+.censo-nav__closed-badge {
+  background: #fff3cd;
+  border: 1px solid #ffda6a;
+  border-radius: 999px;
+  color: #805500;
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin-top: 0.3rem;
+  padding: 0.12rem 0.5rem;
+  width: fit-content;
+}
+
+#tab-plan-manejo.is-plan-manejo-closed {
+  position: relative;
+}
+
+#tab-plan-manejo.is-plan-manejo-closed::after {
+  color: rgba(180, 35, 24, 0.11);
+  content: "KARDEX CERRADO";
+  font-size: clamp(2.2rem, 7vw, 5.5rem);
+  font-weight: 900;
+  left: 50%;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  text-transform: uppercase;
+  top: 24rem;
+  transform: translateX(-50%) rotate(-16deg);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+#tab-plan-manejo.is-plan-manejo-closed .card {
+  opacity: 0.82;
+}
+
+#tab-plan-manejo.is-plan-manejo-closed input,
+#tab-plan-manejo.is-plan-manejo-closed select,
+#tab-plan-manejo.is-plan-manejo-closed textarea {
+  cursor: not-allowed;
+}
+
 @media (max-width: 767.98px) {
   .censo-prorroga-version-panel {
     grid-template-columns: 1fr;

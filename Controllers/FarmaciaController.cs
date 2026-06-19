@@ -616,7 +616,7 @@ public class FarmaciaController : Controller
             Direccion = record.Direccion,
             DetalleDireccion = record.DetalleDireccion,
             Telefonos = string.Join(" / ", new[] { record.Telefono1, record.Telefono2, record.Telefono3 }.Where(x => !string.IsNullOrWhiteSpace(x))),
-            Observaciones = record.ObservacionesPlanManejo,
+            Observaciones = string.Empty,
             ResponsableLlamadaBienvenida = record.ResponsableLlamadaBienvenida,
             AuxiliarAsignado = record.AuxiliarAsignado,
             NombreRealizaKardex = record.NombreRealizaKardex,
@@ -641,6 +641,13 @@ public class FarmaciaController : Controller
         else
         {
             ApplyStoredKardex(model, record.KardexEdicionJson);
+            if (string.Equals(
+                model.Observaciones?.Trim(),
+                record.ObservacionesPlanManejo?.Trim(),
+                StringComparison.OrdinalIgnoreCase))
+            {
+                model.Observaciones = string.Empty;
+            }
         }
 
         return model;

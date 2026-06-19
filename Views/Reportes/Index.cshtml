@@ -122,17 +122,25 @@
             }
             else
             {
-                <div class="reportes-column-chart">
-                    @foreach (var point in Model.NovedadesPorDia)
-                    {
-                        <div class="reportes-column">
-                            <div class="reportes-column-track">
-                                <span style="height:@point.Percentage.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
+                <div class="reportes-chart-frame">
+                    <div class="reportes-y-axis" aria-label="Escala de 0 a @Model.NovedadesPorDia.ScaleMax">
+                        @foreach (var tick in Model.NovedadesPorDia.ScaleTicks)
+                        {
+                            <span>@tick.ToString("N0", culture)</span>
+                        }
+                    </div>
+                    <div class="reportes-column-chart">
+                        @foreach (var point in Model.NovedadesPorDia.Points)
+                        {
+                            <div class="reportes-column">
+                                <div class="reportes-column-track">
+                                    <span style="height:@point.Percentage.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
+                                </div>
+                                <strong>@point.Value.ToString("N0", culture)</strong>
+                                <small>@point.Label</small>
                             </div>
-                            <strong>@point.Value.ToString("N0", culture)</strong>
-                            <small>@point.Label</small>
-                        </div>
-                    }
+                        }
+                    </div>
                 </div>
             }
         </article>
@@ -179,17 +187,25 @@
                 <strong>@Model.TotalIngresosPeriodo.ToString("N0", culture)</strong>
             </div>
 
-            <div class="reportes-column-chart reportes-column-chart--compact">
-                @foreach (var point in Model.IngresosPorDia)
-                {
-                    <div class="reportes-column reportes-column--green">
-                        <div class="reportes-column-track">
-                            <span style="height:@point.Percentage.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
+            <div class="reportes-chart-frame">
+                <div class="reportes-y-axis" aria-label="Escala de 0 a @Model.IngresosPorDia.ScaleMax">
+                    @foreach (var tick in Model.IngresosPorDia.ScaleTicks)
+                    {
+                        <span>@tick.ToString("N0", culture)</span>
+                    }
+                </div>
+                <div class="reportes-column-chart reportes-column-chart--compact">
+                    @foreach (var point in Model.IngresosPorDia.Points)
+                    {
+                        <div class="reportes-column reportes-column--green">
+                            <div class="reportes-column-track">
+                                <span style="height:@point.Percentage.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
+                            </div>
+                            <strong>@point.Value.ToString("N0", culture)</strong>
+                            <small>@point.Label</small>
                         </div>
-                        <strong>@point.Value.ToString("N0", culture)</strong>
-                        <small>@point.Label</small>
-                    </div>
-                }
+                    }
+                </div>
             </div>
         </article>
 

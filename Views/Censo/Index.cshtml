@@ -89,6 +89,27 @@
         nameof(CensoRecord.FrecuenciaAdministracionMedicamento3),
         nameof(CensoRecord.DiasMedicamento3),
         nameof(CensoRecord.NumeroDosisMedicamento3),
+        nameof(CensoRecord.NombreMedicamentoNumero4),
+        nameof(CensoRecord.DosisMedicamento4),
+        nameof(CensoRecord.MedidaMedicamento4),
+        nameof(CensoRecord.ViaAdministracionMedicamento4),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento4),
+        nameof(CensoRecord.DiasMedicamento4),
+        nameof(CensoRecord.NumeroDosisMedicamento4),
+        nameof(CensoRecord.NombreMedicamentoNumero5),
+        nameof(CensoRecord.DosisMedicamento5),
+        nameof(CensoRecord.MedidaMedicamento5),
+        nameof(CensoRecord.ViaAdministracionMedicamento5),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento5),
+        nameof(CensoRecord.DiasMedicamento5),
+        nameof(CensoRecord.NumeroDosisMedicamento5),
+        nameof(CensoRecord.NombreMedicamentoNumero6),
+        nameof(CensoRecord.DosisMedicamento6),
+        nameof(CensoRecord.MedidaMedicamento6),
+        nameof(CensoRecord.ViaAdministracionMedicamento6),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento6),
+        nameof(CensoRecord.DiasMedicamento6),
+        nameof(CensoRecord.NumeroDosisMedicamento6),
         nameof(CensoRecord.AplicacionesTotales),
         nameof(CensoRecord.DiasTratamientoIv),
         nameof(CensoRecord.CambioFrecuenciaAdministracionTto),
@@ -156,6 +177,8 @@
     {
         nameof(CensoRecord.KardexEdicionJson),
         nameof(CensoRecord.RequisicionFarmaciaJson),
+        nameof(CensoRecord.ProrrogaKardexEdicionJson),
+        nameof(CensoRecord.ProrrogaRequisicionFarmaciaJson),
         nameof(CensoRecord.ProrrogaJson),
         nameof(CensoRecord.FarmaciaEnviadoAtUtc),
         nameof(CensoRecord.FarmaciaKardexVistoAtUtc),
@@ -164,7 +187,9 @@
         nameof(CensoRecord.FarmaciaFirmaEntregaDataUrl),
         nameof(CensoRecord.FarmaciaFirmaRecibeDataUrl),
         nameof(CensoRecord.FarmaciaFechaHoraRecepcionUtc),
-        nameof(CensoRecord.FarmaciaFirmaActualizadaAtUtc)
+        nameof(CensoRecord.FarmaciaFirmaActualizadaAtUtc),
+        nameof(CensoRecord.Adjuntos),
+        nameof(CensoRecord.Prorrogas)
     };
     var censoTableColumns = typeof(CensoRecord).GetProperties()
         .Where(property => !hiddenCensoTableColumns.Contains(property.Name))
@@ -178,6 +203,44 @@
         .ThenBy(item => item.OriginalIndex)
         .Select(item => item.Property)
         .ToArray();
+    var censoColumnTitleOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        [nameof(CensoRecord.Id)] = "Número de registro",
+        [nameof(CensoRecord.CreatedAtUtc)] = "Fecha de creación",
+        [nameof(CensoRecord.EsProrroga)] = "Tiene prórroga",
+        [nameof(CensoRecord.KardexCerradoAtUtc)] = "Fecha de cierre del Kardex",
+        [nameof(CensoRecord.KardexCerradoPorFarmaciaId)] = "Registro de Farmacia que cerró el Kardex",
+        [nameof(CensoRecord.ProrrogaCerradaAtUtc)] = "Fecha de cierre de la prórroga",
+        [nameof(CensoRecord.ProrrogaCerradaPorFarmaciaId)] = "Registro de Farmacia que cerró la prórroga",
+        [nameof(CensoRecord.FechaGestionFarmacia)] = "Fecha de envío a Farmacia",
+        [nameof(CensoRecord.HoraGestionFarmacia)] = "Hora de envío a Farmacia",
+        [nameof(CensoRecord.IndicadorTiempoRespuestaMinutos)] = "Tiempo de respuesta (minutos)",
+        [nameof(CensoRecord.IndicadorTiempoGestionMinutos)] = "Tiempo de gestión en Farmacia (minutos)"
+    };
+    Func<string, string> humanizeColumnTitle = name =>
+    {
+        var title = System.Text.RegularExpressions.Regex.Replace(name, "([a-z0-9])([A-Z])", "$1 $2");
+        return title
+            .Replace(" Utc", " UTC", StringComparison.OrdinalIgnoreCase)
+            .Replace(" Id", " ID", StringComparison.OrdinalIgnoreCase)
+            .Replace("Cie 10", "CIE10", StringComparison.OrdinalIgnoreCase)
+            .Replace("Ips", "IPS", StringComparison.OrdinalIgnoreCase)
+            .Replace("Tto", "TTO", StringComparison.OrdinalIgnoreCase)
+            .Replace("Mx", "MX", StringComparison.OrdinalIgnoreCase);
+    };
+    Func<string, string> getCensoColumnTitle = name => censoColumnTitleOverrides.TryGetValue(name, out var title)
+        ? title
+        : humanizeColumnTitle(name);
+    var prorrogaColumnTitleOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Prorroga_Numero"] = "Número de prórroga",
+        ["Prorroga_Cerrada"] = "Prórroga cerrada",
+        ["Prorroga_TipoProrroga"] = "Tipo de prórroga",
+        ["Prorroga_SeguimientoMedico"] = "Seguimiento médico"
+    };
+    Func<string, string> getProrrogaColumnTitle = name => prorrogaColumnTitleOverrides.TryGetValue(name, out var title)
+        ? title
+        : $"Prórroga - {humanizeColumnTitle(name.Replace("Prorroga_", string.Empty, StringComparison.OrdinalIgnoreCase))}";
 }
 
 <div class="censo-page @(showCurrentPatientBar ? "censo-page--with-current-patient" : null)">
@@ -587,12 +650,10 @@
                                                     <div class="censo-compact-field">
                                                         <label asp-for="FechaGestionFarmacia" class="form-label">Fecha</label>
                                                         <input asp-for="FechaGestionFarmacia" type="date" class="form-control" id="fechaGestionFarmaciaDisplay" disabled aria-readonly="true" />
-                                                        <input asp-for="FechaGestionFarmacia" type="hidden" id="fechaGestionFarmaciaHidden" />
                                                     </div>
                                                     <div class="censo-compact-field">
                                                         <label asp-for="HoraGestionFarmacia" class="form-label">Hora</label>
                                                         <input asp-for="HoraGestionFarmacia" type="text" class="form-control" id="horaGestionFarmaciaDisplay" placeholder="HH:mm" maxlength="5" aria-label="Hora de gestión farmacia" disabled aria-readonly="true" />
-                                                        <input asp-for="HoraGestionFarmacia" type="hidden" id="horaGestionFarmaciaHidden" />
                                                     </div>
                                                 </div>
                                                 <span asp-validation-for="FechaGestionFarmacia" class="text-danger d-block"></span>
@@ -2157,7 +2218,7 @@
         </div>
     }
 
-    @if (!Model.CensoTableRecords.Any())
+    @if (!Model.CensoTableRows.Any())
     {
         <div class="alert alert-warning mb-0">
             @(string.IsNullOrWhiteSpace(Model.CedulaFiltro)
@@ -2174,17 +2235,25 @@
                         <th scope="col">Abrir</th>
 @foreach (var column in censoTableColumns)
 {
-                        <th scope="col">@column.Name</th>
+                        <th scope="col">@getCensoColumnTitle(column.Name)</th>
+}
+@foreach (var column in Model.CensoProrrogaTableColumns)
+{
+                        <th scope="col">@getProrrogaColumnTitle(column)</th>
 }
                         <th scope="col">Adjuntos</th>
                     </tr>
                 </thead>
                 <tbody>
-@foreach (var record in Model.CensoTableRecords)
+@foreach (var tableRow in Model.CensoTableRows)
 {
+    var record = tableRow.Record;
     var alertaFarmacia = record.FarmaciaEnviadoAtUtc.HasValue
         && record.FarmaciaEstado == "Nuevo"
         && (DateTime.UtcNow - record.FarmaciaEnviadoAtUtc.Value).TotalMinutes > 15;
+    var prorrogaNumero = tableRow.ProrrogaValues.TryGetValue("Prorroga_Numero", out var numeroValue)
+        ? numeroValue
+        : string.Empty;
                     <tr class="@(alertaFarmacia ? "censo-row--alerta-farmacia" : null)">
                         <td>
                             <a class="censo-history-table__open" asp-action="Index" asp-route-recordId="@record.Id" asp-route-cedulaPaciente="@Model.CedulaFiltro" asp-route-fechaIngresoDesde="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")" asp-route-fechaIngresoHasta="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")" title="Cargar registro @record.Id para editar" aria-label="Cargar registro @record.Id para editar">
@@ -2193,9 +2262,9 @@
                                     <path d="M16 16l5 5"></path>
                                 </svg>
                             </a>
-                            @if (!string.IsNullOrWhiteSpace(record.ProrrogaJson))
+                            @if (tableRow.TieneProrroga)
                             {
-                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.65em;">PRÓRROGA</span>
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.65em;">PRÓRROGA #@prorrogaNumero</span>
                             }
                         </td>
 @foreach (var column in censoTableColumns)
@@ -2214,6 +2283,13 @@
     {
         displayValue = rawValue.ToString() ?? string.Empty;
     }
+                        <td>@displayValue</td>
+}
+@foreach (var column in Model.CensoProrrogaTableColumns)
+{
+    var displayValue = tableRow.ProrrogaValues.TryGetValue(column, out var prorrogaValue)
+        ? prorrogaValue
+        : string.Empty;
                         <td>@displayValue</td>
 }
                         <td>@(Model.RecordIdsConAdjuntos.Contains(record.Id) ? "Sí" : "No")</td>
@@ -2322,7 +2398,7 @@
 
                     <div class="censo-kardex-footer-table">
                         <label>OBSERVACI&Oacute;N:</label>
-                        <textarea data-kardex-field="observaciones">@Model.ObservacionesPlanManejo</textarea>
+                        <textarea data-kardex-field="observaciones"></textarea>
                         <label>Cambio de equipo:</label>
                         <input data-kardex-field="cambioEquipo" value="CADA 3 DIAS" />
                         <label>MEDICO TRATANTE</label>
@@ -2537,6 +2613,8 @@
             const prorrogaSoloLecturaBanner = document.getElementById("prorrogaSoloLecturaBanner");
             const censoDocumentClosedBanner = document.getElementById("censoDocumentClosedBanner");
             const prorrogaTabPane = document.getElementById("tab-prorroga");
+            const planManejoTabPane = document.getElementById("tab-plan-manejo");
+            const planManejoTabLink = document.getElementById("tab-plan-manejo-link");
             const cedulaFiltroInput = document.getElementById("cedulaFiltroInput");
             const buscarCedulaBtn = document.getElementById("buscarCedulaBtn");
             const limpiarCedulaBtn = document.getElementById("limpiarCedulaBtn");
@@ -3160,7 +3238,7 @@
                 setKardexFieldValue("edad", getFormValue("Edad"));
                 setKardexFieldValue("cie10", getFormValue("CodigoCie10"));
                 setKardexFieldValue("diagnostico", getFormValue("DiagnosticoDescriptivo"));
-                setKardexFieldValue("observaciones", getFormValue("ObservacionesPlanManejo"));
+                setKardexFieldValue("observaciones", "");
                 setKardexFieldValue("programador", getFormValue("ResponsableLlamadaBienvenida"));
                 setKardexFieldValue("auxiliarAsignado", getFormValue("AuxiliarAsignado"));
 
@@ -3251,7 +3329,7 @@
                 setKardexFieldValue("edad", getFormValue("Edad"));
                 setKardexFieldValue("cie10", getFormValue("CodigoCie10"));
                 setKardexFieldValue("diagnostico", getFormValue("DiagnosticoDescriptivo"));
-                setKardexFieldValue("observaciones", getFormValue("ObservacionesPlanManejo"));
+                setKardexFieldValue("observaciones", "");
                 setKardexFieldValue("programador", getFormValue("ResponsableLlamadaBienvenida"));
                 setKardexFieldValue("auxiliarAsignado", auxiliarProrroga);
 
@@ -3492,6 +3570,12 @@
                 if (!payload) return;
                 if (payload.fields) {
                     Object.entries(payload.fields).forEach(([key, value]) => {
+                        if (key === "observaciones"
+                            && String(value || "").trim() === getFormValue("ObservacionesPlanManejo")) {
+                            const observationControl = document.querySelector("#censoKardexModal [data-kardex-field='observaciones']");
+                            if (observationControl) observationControl.value = "";
+                            return;
+                        }
                         if (!value) return;
                         const control = document.querySelector(`#censoKardexModal [data-kardex-field='${key}']`);
                         if (control) control.value = value;
@@ -3585,10 +3669,57 @@
                 if (enviarFarmaciaKardexBtn) enviarFarmaciaKardexBtn.disabled = closed || !(document.getElementById("serviciosCargadosSwitch")?.checked);
             };
 
+            const setPlanManejoClosedMode = (closed) => {
+                if (!planManejoTabPane) {
+                    return;
+                }
+
+                planManejoTabPane.classList.toggle("is-plan-manejo-closed", closed);
+                if (!closed) {
+                    return;
+                }
+
+                if (!planManejoTabPane.querySelector(".censo-plan-manejo-closed-banner")) {
+                    const banner = document.createElement("div");
+                    banner.className = "alert alert-warning censo-plan-manejo-closed-banner mb-3";
+                    banner.setAttribute("role", "alert");
+                    banner.innerHTML = "<strong>Plan de manejo cerrado.</strong> El Kardex del ingreso inicial fue aprobado por farmacia. Esta sección queda disponible solo para consulta.";
+                    planManejoTabPane.querySelector(".card")?.before(banner);
+                }
+
+                planManejoTabPane.querySelectorAll("input:not([type=hidden]), textarea").forEach((control) => {
+                    if (control.matches("input[type=checkbox], input[type=radio]")) {
+                        control.style.pointerEvents = "none";
+                        control.tabIndex = -1;
+                    } else {
+                        control.readOnly = true;
+                    }
+                    control.setAttribute("aria-readonly", "true");
+                });
+                planManejoTabPane.querySelectorAll("select").forEach((control) => {
+                    control.style.pointerEvents = "none";
+                    control.tabIndex = -1;
+                    control.setAttribute("aria-readonly", "true");
+                });
+                planManejoTabPane.querySelectorAll("button, a.btn").forEach((control) => {
+                    control.style.pointerEvents = "none";
+                    control.tabIndex = -1;
+                    control.setAttribute("aria-disabled", "true");
+                });
+
+                if (planManejoTabLink && !planManejoTabLink.querySelector(".censo-nav__closed-badge")) {
+                    const badge = document.createElement("span");
+                    badge.className = "censo-nav__closed-badge";
+                    badge.textContent = "Kardex cerrado";
+                    planManejoTabLink.querySelector(".censo-nav__content")?.appendChild(badge);
+                }
+            };
+
             const loadDocumentosState = async (recordId) => {
                 const resp = await fetch(`${obtenerDocumentosUrl}?id=${recordId}`);
                 if (!resp.ok) return null;
                 documentosState = await resp.json();
+                setPlanManejoClosedMode(!!documentosState?.principalCerrado || !!initialKardexInicialCerrado);
                 return documentosState;
             };
 
@@ -4574,6 +4705,11 @@
                 };
 
                 const update = () => {
+                    if (input.readOnly || input.disabled) {
+                        hide();
+                        return;
+                    }
+
                     const query = normalizeOptionValue(input.value);
                     const terms = query.split(" ").filter((term) => term);
                     visibleOptions = options
@@ -6397,6 +6533,8 @@
             }
 
             syncGestionAltaVisibility();
+
+            setPlanManejoClosedMode(!!initialKardexInicialCerrado);
 
             if (isEstadoAlta() && editingRecordIdInput?.value) {
                 lockSections123();

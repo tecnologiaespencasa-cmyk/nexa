@@ -255,7 +255,7 @@ public class ReportesController : Controller
         };
     }
 
-    private static List<ReportesTrendPointViewModel> BuildTrend(IEnumerable<DateTime> dates, ReportesFilterViewModel filters)
+    private static ReportesTrendSeriesViewModel BuildTrend(IEnumerable<DateTime> dates, ReportesFilterViewModel filters)
     {
         var desde = filters.Desde ?? DateTime.Today.AddDays(-29);
         var hasta = filters.Hasta ?? DateTime.Today;
@@ -278,16 +278,45 @@ public class ReportesController : Controller
             })
             .ToList();
 
-        var max = Math.Max(1, points.Max(x => x.Value));
-        return points
-            .Select(x => new ReportesTrendPointViewModel
-            {
-                Date = x.Date,
-                Label = x.Label,
-                Value = x.Value,
-                Percentage = Math.Round(x.Value * 100d / max, 2)
-            })
-            .ToList();
+        var scaleMax = CalculateTrendScaleMax(points.Max(x => x.Value));
+        return new ReportesTrendSeriesViewModel
+        {
+            ScaleMax = scaleMax,
+            ScaleTicks = Enumerable.Range(0, 6)
+                .Select(index => scaleMax - (scaleMax / 5 * index))
+                .ToList(),
+            Points = points
+                .Select(x => new ReportesTrendPointViewModel
+                {
+                    Date = x.Date,
+                    Label = x.Label,
+                    Value = x.Value,
+                    Percentage = Math.Round(x.Value * 100d / scaleMax, 2)
+                })
+                .ToList()
+        };
+    }
+
+    private static int CalculateTrendScaleMax(int highestValue)
+    {
+        if (highestValue <= 100)
+        {
+            return 100;
+        }
+
+        var rawStep = highestValue / 5d;
+        var magnitude = Math.Pow(10, Math.Floor(Math.Log10(rawStep)));
+        var normalizedStep = rawStep / magnitude;
+        var niceStep = normalizedStep <= 1
+            ? 1
+            : normalizedStep <= 2
+                ? 2
+                : normalizedStep <= 5
+                    ? 5
+                    : 10;
+        var step = Math.Max(1, (int)(niceStep * magnitude));
+
+        return Math.Max(100, (int)Math.Ceiling(highestValue / (double)step) * step);
     }
 
     private static List<ReportesCategoryCountViewModel> BuildCategoryCounts(

@@ -601,9 +601,21 @@ public class CensoReceptionViewModel
     public IReadOnlyList<string> BarrioOptions { get; set; } = [];
     public IReadOnlyList<CensoListItemViewModel> CensoListItems { get; set; } = [];
     public IReadOnlyList<CensoRecord> CensoTableRecords { get; set; } = [];
+    public IReadOnlyList<CensoTableRowViewModel> CensoTableRows { get; set; } = [];
+    public IReadOnlyList<string> CensoProrrogaTableColumns { get; set; } = [];
     public IReadOnlyCollection<long> RecordIdsConAdjuntos { get; set; } = [];
 
     public bool TieneProrrogaActiva { get; set; }
+}
+
+public class CensoTableRowViewModel
+{
+    public required CensoRecord Record { get; set; }
+
+    public IReadOnlyDictionary<string, string> ProrrogaValues { get; set; }
+        = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    public bool TieneProrroga => ProrrogaValues.Count > 0;
 }
 
 public class MedicamentoCatalogItemViewModel
