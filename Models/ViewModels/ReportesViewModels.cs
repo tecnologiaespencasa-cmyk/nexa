@@ -25,6 +25,10 @@ public class ReportesDashboardViewModel
 
     public int TotalIngresosPeriodo { get; init; }
 
+    public int PromedioNovedadesPorDia { get; init; }
+
+    public int PromedioIngresosPorDia { get; init; }
+
     public int TotalNovedadesResueltas { get; init; }
 
     public double PorcentajeGestionPendiente { get; init; }
@@ -83,9 +87,9 @@ public class ReportesFilterViewModel
 
     public string? EstadoGestion { get; init; }
 
-    public string? TipoNovedad { get; init; }
+    public string? EstadoCenso { get; init; }
 
-    public string? Vista { get; init; }
+    public string? TipoNovedad { get; init; }
 }
 
 public class ReportesFilterOptionsViewModel
@@ -96,9 +100,9 @@ public class ReportesFilterOptionsViewModel
 
     public IReadOnlyList<SelectListItem> EstadosGestion { get; init; } = [];
 
-    public IReadOnlyList<SelectListItem> TiposNovedad { get; init; } = [];
+    public IReadOnlyList<SelectListItem> EstadosCenso { get; init; } = [];
 
-    public IReadOnlyList<SelectListItem> Vistas { get; init; } = [];
+    public IReadOnlyList<SelectListItem> TiposNovedad { get; init; } = [];
 }
 
 public class ReportesCategoryCountViewModel

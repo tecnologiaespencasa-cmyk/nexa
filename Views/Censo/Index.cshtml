@@ -6505,6 +6505,7 @@
 
             const lockSections123 = () => {
                 const sectionIds = ["tab-recepcion", "tab-datos-basicos", "tab-plan-manejo"];
+                const keepEstadoEditable = !!initialKardexInicialCerrado || !!documentosState?.principalCerrado;
                 sectionIds.forEach((id) => {
                     const pane = document.getElementById(id);
                     if (!pane) return;
@@ -6522,6 +6523,7 @@
                         if (!el.closest("[data-censo-no-lock]")) el.readOnly = true;
                     });
                     pane.querySelectorAll("select, input[type=checkbox], input[type=radio]").forEach((el) => {
+                        if (keepEstadoEditable && el === estadoSelect) return;
                         if (!el.closest("[data-censo-no-lock]")) el.style.pointerEvents = "none";
                     });
                     pane.querySelectorAll("button, a.btn").forEach((el) => {

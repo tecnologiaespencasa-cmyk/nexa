@@ -54,8 +54,8 @@
             <select name="TipoNovedad" asp-items="Model.FilterOptions.TiposNovedad"></select>
         </label>
         <label>
-            <span>Vista</span>
-            <select name="Vista" asp-items="Model.FilterOptions.Vistas"></select>
+            <span>Estado</span>
+            <select name="EstadoCenso" asp-items="Model.FilterOptions.EstadosCenso"></select>
         </label>
         <div class="reportes-filter-actions">
             <button type="submit">Aplicar</button>
@@ -113,7 +113,16 @@
                     <span>Portal Administrativo</span>
                     <h2>Novedades reportadas por día</h2>
                 </div>
-                <strong>@Model.TotalNovedades.ToString("N0", culture)</strong>
+                <div class="reportes-chart-metrics">
+                    <div>
+                        <span>Total</span>
+                        <strong>@Model.TotalNovedades.ToString("N0", culture)</strong>
+                    </div>
+                    <div class="reportes-chart-average">
+                        <span>Promedio por día</span>
+                        <strong>@Model.PromedioNovedadesPorDia.ToString("N0", culture)</strong>
+                    </div>
+                </div>
             </div>
 
             @if (Model.TotalNovedades == 0)
@@ -184,7 +193,16 @@
                     <span>Censo</span>
                     <h2>Ingresos por día</h2>
                 </div>
-                <strong>@Model.TotalIngresosPeriodo.ToString("N0", culture)</strong>
+                <div class="reportes-chart-metrics">
+                    <div>
+                        <span>Total</span>
+                        <strong>@Model.TotalIngresosPeriodo.ToString("N0", culture)</strong>
+                    </div>
+                    <div class="reportes-chart-average">
+                        <span>Promedio por día</span>
+                        <strong>@Model.PromedioIngresosPorDia.ToString("N0", culture)</strong>
+                    </div>
+                </div>
             </div>
 
             <div class="reportes-chart-frame">

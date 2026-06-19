@@ -89,6 +89,9 @@ public class ReportesController : Controller
         var promedioResolucionHoras = resolvedPortalRows.Count == 0
             ? (double?)null
             : resolvedPortalRows.Average(x => (x.UpdatedAt - x.CreatedAt).TotalHours);
+        var totalDiasPeriodo = Math.Max(
+            1,
+            (normalizedFilters.Hasta!.Value.Date - normalizedFilters.Desde!.Value.Date).Days + 1);
 
         var filterOptions = await BuildFilterOptionsAsync(normalizedFilters, cancellationToken);
 
@@ -104,6 +107,8 @@ public class ReportesController : Controller
             TotalGestionesCompletas = totalGestionesCompletas,
             TotalPendientesCriticos = totalPendientesCriticos,
             TotalIngresosPeriodo = censoRows.Count,
+            PromedioNovedadesPorDia = portalRows.Count / totalDiasPeriodo,
+            PromedioIngresosPorDia = censoRows.Count / totalDiasPeriodo,
             TotalNovedadesResueltas = resolvedPortalRows.Count,
             PorcentajeGestionPendiente = totalRegistrosCenso == 0 ? 0 : Math.Round(totalGestionesPendientes * 100d / totalRegistrosCenso, 2),
             PorcentajeResolucionNovedades = portalRows.Count == 0 ? 0 : Math.Round(resolvedPortalRows.Count * 100d / portalRows.Count, 2),
@@ -167,6 +172,11 @@ public class ReportesController : Controller
             query = query.Where(x => x.GestionCompletaPendiente == filters.EstadoGestion);
         }
 
+        if (!string.IsNullOrWhiteSpace(filters.EstadoCenso))
+        {
+            query = query.Where(x => x.Estado == filters.EstadoCenso);
+        }
+
         return query;
     }
 
@@ -178,6 +188,14 @@ public class ReportesController : Controller
             .AsNoTracking()
             .Where(x => x.MunicipioResidencia != string.Empty)
             .Select(x => x.MunicipioResidencia)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToListAsync(cancellationToken);
+
+        var estadosCenso = await _context.Censos
+            .AsNoTracking()
+            .Where(x => x.Estado != null && x.Estado != string.Empty)
+            .Select(x => x.Estado!)
             .Distinct()
             .OrderBy(x => x)
             .ToListAsync(cancellationToken);
@@ -204,43 +222,23 @@ public class ReportesController : Controller
             Municipios = BuildSelectOptions(municipios, filters.Municipio, "Todos"),
             Auxiliares = BuildSelectOptions(auxiliares, filters.Auxiliar, "Todos"),
             EstadosGestion = BuildSelectOptions(["Pendiente", "Completa"], filters.EstadoGestion, "Todos"),
+            EstadosCenso = BuildSelectOptions(estadosCenso, filters.EstadoCenso, "Todos"),
             TiposNovedad = BuildSelectOptions(
                 categoriasPortal.Select(x => (x, GetCategoriaLabel(x))),
                 filters.TipoNovedad,
-                "Todas"),
-            Vistas = BuildSelectOptions(
-                [
-                    ("dia", "Día"),
-                    ("semana", "Semana"),
-                    ("mes", "Mes")
-                ],
-                filters.Vista ?? VistaDia)
+                "Todas")
         };
     }
 
     private static ReportesFilterViewModel NormalizeFilters(ReportesFilterViewModel filters)
     {
         var today = DateTime.Today;
-        var desde = filters.Desde?.Date ?? today.AddDays(-29);
+        var desde = filters.Desde?.Date ?? today.AddDays(-13);
         var hasta = filters.Hasta?.Date ?? today;
 
         if (desde > hasta)
         {
             (desde, hasta) = (hasta, desde);
-        }
-
-        var vista = NormalizeText(filters.Vista);
-        if (string.IsNullOrWhiteSpace(vista))
-        {
-            var totalDays = Math.Max(1, (hasta - desde).TotalDays);
-            vista = totalDays > 120 ? VistaMes : totalDays > 45 ? VistaSemana : VistaDia;
-        }
-
-        if (!string.Equals(vista, VistaDia, StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(vista, VistaSemana, StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(vista, VistaMes, StringComparison.OrdinalIgnoreCase))
-        {
-            vista = VistaDia;
         }
 
         return new ReportesFilterViewModel
@@ -250,16 +248,16 @@ public class ReportesController : Controller
             Municipio = NormalizeText(filters.Municipio),
             Auxiliar = NormalizeText(filters.Auxiliar),
             EstadoGestion = NormalizeText(filters.EstadoGestion),
+            EstadoCenso = NormalizeText(filters.EstadoCenso),
             TipoNovedad = NormalizeText(filters.TipoNovedad),
-            Vista = vista
         };
     }
 
     private static ReportesTrendSeriesViewModel BuildTrend(IEnumerable<DateTime> dates, ReportesFilterViewModel filters)
     {
-        var desde = filters.Desde ?? DateTime.Today.AddDays(-29);
+        var desde = filters.Desde ?? DateTime.Today.AddDays(-13);
         var hasta = filters.Hasta ?? DateTime.Today;
-        var vista = filters.Vista ?? VistaDia;
+        var vista = ResolveTrendView(desde, hasta);
         var grouped = dates
             .Where(x => x.Date >= desde.Date && x.Date <= hasta.Date)
             .GroupBy(x => GetPeriodStart(x.Date, vista))
@@ -459,6 +457,11 @@ public class ReportesController : Controller
             labels.Add(filters.EstadoGestion);
         }
 
+        if (!string.IsNullOrWhiteSpace(filters.EstadoCenso))
+        {
+            labels.Add(filters.EstadoCenso);
+        }
+
         if (!string.IsNullOrWhiteSpace(filters.TipoNovedad))
         {
             labels.Add(GetCategoriaLabel(filters.TipoNovedad));
@@ -514,20 +517,6 @@ public class ReportesController : Controller
         return options;
     }
 
-    private static IReadOnlyList<SelectListItem> BuildSelectOptions(
-        IEnumerable<(string Value, string Text)> values,
-        string selected)
-    {
-        return values
-            .Select(x => new SelectListItem
-            {
-                Value = x.Value,
-                Text = x.Text,
-                Selected = string.Equals(x.Value, selected, StringComparison.OrdinalIgnoreCase)
-            })
-            .ToList();
-    }
-
     private static IEnumerable<DateTime> EnumeratePeriods(DateTime desde, DateTime hasta, string vista)
     {
         var current = GetPeriodStart(desde, vista);
@@ -553,6 +542,16 @@ public class ReportesController : Controller
             VistaSemana => date.AddDays(-(((int)date.DayOfWeek + 6) % 7)).Date,
             _ => date.Date
         };
+    }
+
+    private static string ResolveTrendView(DateTime desde, DateTime hasta)
+    {
+        var totalDays = Math.Max(1, (hasta.Date - desde.Date).TotalDays + 1);
+        return totalDays > 120
+            ? VistaMes
+            : totalDays > 45
+                ? VistaSemana
+                : VistaDia;
     }
 
     private static string FormatPeriodLabel(DateTime date, string vista)
