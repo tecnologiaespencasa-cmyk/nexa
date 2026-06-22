@@ -3321,11 +3321,20 @@ public class CensoController : Controller
         }
 
         AddRequiredFieldErrorIfBlank(model.Estado, nameof(model.Estado), "Selecciona el estado.");
-        if (IsEstadoAlta(model.Estado) && string.IsNullOrWhiteSpace(model.AutorizacionEvento))
+        if (IsEstadoAlta(model.Estado))
         {
-            ModelState.AddModelError(
-                nameof(model.AutorizacionEvento),
-                "Debes diligenciar la autorización evento antes de seleccionar un estado de alta.");
+            if (string.IsNullOrWhiteSpace(model.AutorizacionEvento))
+            {
+                ModelState.AddModelError(
+                    nameof(model.AutorizacionEvento),
+                    "Debes diligenciar la autorización evento antes de seleccionar un estado de alta.");
+            }
+            if (hasMedicationAdministration && string.IsNullOrWhiteSpace(model.AuxiliarAsignado))
+            {
+                ModelState.AddModelError(
+                    nameof(model.AuxiliarAsignado),
+                    "Debes diligenciar el auxiliar asignado en la sección 3 antes de seleccionar un estado de alta.");
+            }
         }
         AddRequiredFieldErrorIfBlank(model.ResponsableLlamadaBienvenida, nameof(model.ResponsableLlamadaBienvenida), "Selecciona el responsable de llamada de bienvenida.");
         AddRequiredFieldErrorIfBlank(model.EstadoLlamadaBienvenida, nameof(model.EstadoLlamadaBienvenida), "Selecciona el estado de llamada de bienvenida.");

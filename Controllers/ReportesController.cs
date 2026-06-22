@@ -147,6 +147,8 @@ public class ReportesController : Controller
         IQueryable<Data.Entities.CensoRecord> query,
         ReportesFilterViewModel filters)
     {
+        query = ExcludeCancelledAndRejected(query);
+
         if (filters.Desde.HasValue)
         {
             query = query.Where(x => x.FechaIngreso >= filters.Desde.Value.Date);
@@ -192,8 +194,7 @@ public class ReportesController : Controller
             .OrderBy(x => x)
             .ToListAsync(cancellationToken);
 
-        var estadosCenso = await _context.Censos
-            .AsNoTracking()
+        var estadosCenso = await ExcludeCancelledAndRejected(_context.Censos.AsNoTracking())
             .Where(x => x.Estado != null && x.Estado != string.Empty)
             .Select(x => x.Estado!)
             .Distinct()
@@ -228,6 +229,14 @@ public class ReportesController : Controller
                 filters.TipoNovedad,
                 "Todas")
         };
+    }
+
+    private static IQueryable<Data.Entities.CensoRecord> ExcludeCancelledAndRejected(
+        IQueryable<Data.Entities.CensoRecord> query)
+    {
+        return query.Where(x => x.Estado == null
+            || (!EF.Functions.ILike(x.Estado, "%cancelado%")
+                && !EF.Functions.ILike(x.Estado, "%rechazado%")));
     }
 
     private static ReportesFilterViewModel NormalizeFilters(ReportesFilterViewModel filters)
