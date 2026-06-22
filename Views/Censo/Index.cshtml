@@ -2572,6 +2572,42 @@
     </div>
 </div>
 
+<div class="modal fade" id="censoNuevoIngresoConflictModal" tabindex="-1" aria-labelledby="censoNuevoIngresoConflictModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="censoNuevoIngresoConflictModalTitle">Atenci&oacute;n anterior abierta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">&iquest;Est&aacute;s seguro de que esta atenci&oacute;n es un evento nuevo?</p>
+                <p class="text-muted small mb-0" id="censoNuevoIngresoConflictDetail"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="censoNuevoIngresoNoBtn">No</button>
+                <button type="button" class="btn btn-primary" id="censoNuevoIngresoSiBtn">S&iacute;</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="censoNuevoIngresoGuidanceModal" tabindex="-1" aria-labelledby="censoNuevoIngresoGuidanceModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="censoNuevoIngresoGuidanceModalTitle">Atenci&oacute;n anterior abierta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0" id="censoNuevoIngresoGuidanceMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="censoAdicionalProrrogaConfirmModal" tabindex="-1" aria-labelledby="censoAdicionalProrrogaConfirmModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -2610,6 +2646,7 @@
             const descargarAdjuntoUrl = "@Url.Action("DescargarAdjunto", "Censo")";
             const obtenerAdjuntosUrl = "@Url.Action("ObtenerAdjuntos", "Censo")";
             const obtenerDatosSeccion2Url = "@Url.Action("ObtenerDatosSeccion2", "Censo")";
+            const validarNuevoIngresoUrl = "@Url.Action("ValidarNuevoIngreso", "Censo")";
             const medicamentoCatalog = @Html.Raw(medicamentoCatalogJson);
             const initialKardexInicialCerrado = @Json.Serialize(Model.KardexInicialCerrado);
             const initialProrrogaCerrada = @Json.Serialize(Model.ProrrogaCerrada);
@@ -2756,6 +2793,12 @@
             const feedbackModalHeader = document.getElementById("censoFeedbackModalHeader");
             const feedbackModalTitle = document.getElementById("censoFeedbackModalTitle");
             const feedbackModalBody = document.getElementById("censoFeedbackModalBody");
+            const nuevoIngresoConflictModalElement = document.getElementById("censoNuevoIngresoConflictModal");
+            const nuevoIngresoConflictDetail = document.getElementById("censoNuevoIngresoConflictDetail");
+            const nuevoIngresoSiBtn = document.getElementById("censoNuevoIngresoSiBtn");
+            const nuevoIngresoNoBtn = document.getElementById("censoNuevoIngresoNoBtn");
+            const nuevoIngresoGuidanceModalElement = document.getElementById("censoNuevoIngresoGuidanceModal");
+            const nuevoIngresoGuidanceMessage = document.getElementById("censoNuevoIngresoGuidanceMessage");
             const serverSuccessMessage = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(successMessage ?? string.Empty));
             const serverErrorMessages = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(saveErrorMessages));
             const serverMissingMandatorySections = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(missingMandatorySections));
@@ -4139,6 +4182,163 @@
                 window.alert(`${title}\n${stripHtml(bodyHtml)}`);
             };
 
+            let lastNewAdmissionDocument = "";
+            let lastNewAdmissionResult = null;
+            let currentOpenAttention = null;
+            let pendingNewAdmissionGuidance = null;
+            let guidanceRedirectUrl = "";
+            let allowValidatedNewAdmissionSubmit = false;
+            let newAdmissionValidationPromise = null;
+            let newAdmissionValidationDocument = "";
+
+            const isCreatingNewAdmission = () => !Number(editingRecordIdInput?.value || "0");
+
+            const resetNewAdmissionValidation = () => {
+                lastNewAdmissionDocument = "";
+                lastNewAdmissionResult = null;
+                currentOpenAttention = null;
+            };
+
+            const showNewAdmissionConflict = (attention) => {
+                currentOpenAttention = attention || null;
+                if (nuevoIngresoConflictDetail) {
+                    const details = [
+                        attention?.nombrePaciente ? `Paciente: ${attention.nombrePaciente}` : "",
+                        attention?.estado ? `Estado actual: ${attention.estado}` : "",
+                        attention?.recordId ? `Registro #${attention.recordId}` : ""
+                    ].filter((value) => value);
+                    nuevoIngresoConflictDetail.textContent = details.join(" · ");
+                }
+
+                if (nuevoIngresoConflictModalElement && window.bootstrap?.Modal) {
+                    if (!nuevoIngresoConflictModalElement.classList.contains("show")) {
+                        window.bootstrap.Modal.getOrCreateInstance(nuevoIngresoConflictModalElement).show();
+                    }
+                    return;
+                }
+
+                const isNewEvent = window.confirm("¿Estás seguro de que esta atención es un evento nuevo?");
+                const message = isNewEvent
+                    ? "Cierre la atención anterior de este paciente."
+                    : "Diligencia el nuevo medicamento como prórroga de la atención abierta.";
+                window.alert(message);
+                const targetUrl = isNewEvent ? attention?.estadoUrl : attention?.prorrogaUrl;
+                if (targetUrl) window.location.assign(targetUrl);
+            };
+
+            const validateNewAdmissionDocument = async (forceRefresh = false) => {
+                if (!isCreatingNewAdmission()) {
+                    return true;
+                }
+
+                const documentNumber = normalizeDocumentValue(numeroIdentificacionInput?.value || "");
+                if (!documentNumber) {
+                    return true;
+                }
+
+                if (!forceRefresh
+                    && lastNewAdmissionDocument === documentNumber
+                    && lastNewAdmissionResult) {
+                    if (lastNewAdmissionResult.hasOpenAttention) {
+                        showNewAdmissionConflict(lastNewAdmissionResult.attention);
+                        return false;
+                    }
+                    return true;
+                }
+
+                try {
+                    if (!newAdmissionValidationPromise || newAdmissionValidationDocument !== documentNumber) {
+                        newAdmissionValidationDocument = documentNumber;
+                        newAdmissionValidationPromise = (async () => {
+                            const url = new URL(validarNuevoIngresoUrl, window.location.origin);
+                            url.searchParams.set("numeroDocumento", documentNumber);
+                            const response = await fetch(url.toString(), {
+                                headers: { "Accept": "application/json" }
+                            });
+                            const data = await response.json().catch(() => ({}));
+                            if (!response.ok) {
+                                throw new Error(data.message || "No fue posible validar el documento.");
+                            }
+                            return data;
+                        })();
+                    }
+
+                    const result = await newAdmissionValidationPromise;
+                    if (normalizeDocumentValue(numeroIdentificacionInput?.value || "") !== documentNumber) {
+                        return true;
+                    }
+
+                    lastNewAdmissionDocument = documentNumber;
+                    lastNewAdmissionResult = result;
+                    if (result.hasOpenAttention) {
+                        showNewAdmissionConflict(result.attention);
+                        return false;
+                    }
+
+                    return true;
+                } catch (error) {
+                    showFeedbackModal(
+                        "No se pudo validar el documento",
+                        `<p class="mb-0">${escapeHtml(error?.message || "Intenta nuevamente antes de guardar el ingreso.")}</p>`,
+                        "warning");
+                    return false;
+                } finally {
+                    if (newAdmissionValidationDocument === documentNumber) {
+                        newAdmissionValidationPromise = null;
+                        newAdmissionValidationDocument = "";
+                    }
+                }
+            };
+
+            const queueNewAdmissionGuidance = (isNewEvent) => {
+                if (!currentOpenAttention) {
+                    return;
+                }
+
+                pendingNewAdmissionGuidance = {
+                    message: isNewEvent
+                        ? "Cierre la atención anterior de este paciente."
+                        : "Diligencia el nuevo medicamento como prórroga de la atención abierta.",
+                    targetUrl: isNewEvent
+                        ? currentOpenAttention.estadoUrl
+                        : currentOpenAttention.prorrogaUrl
+                };
+
+                if (nuevoIngresoConflictModalElement && window.bootstrap?.Modal) {
+                    window.bootstrap.Modal.getOrCreateInstance(nuevoIngresoConflictModalElement).hide();
+                }
+            };
+
+            nuevoIngresoSiBtn?.addEventListener("click", () => queueNewAdmissionGuidance(true));
+            nuevoIngresoNoBtn?.addEventListener("click", () => queueNewAdmissionGuidance(false));
+
+            nuevoIngresoConflictModalElement?.addEventListener("hidden.bs.modal", () => {
+                if (!pendingNewAdmissionGuidance) {
+                    return;
+                }
+
+                const guidance = pendingNewAdmissionGuidance;
+                pendingNewAdmissionGuidance = null;
+                guidanceRedirectUrl = guidance.targetUrl || "";
+                if (nuevoIngresoGuidanceMessage) {
+                    nuevoIngresoGuidanceMessage.textContent = guidance.message;
+                }
+
+                if (nuevoIngresoGuidanceModalElement && window.bootstrap?.Modal) {
+                    window.bootstrap.Modal.getOrCreateInstance(nuevoIngresoGuidanceModalElement).show();
+                    return;
+                }
+
+                window.alert(guidance.message);
+                if (guidanceRedirectUrl) window.location.assign(guidanceRedirectUrl);
+            });
+
+            nuevoIngresoGuidanceModalElement?.addEventListener("hidden.bs.modal", () => {
+                const targetUrl = guidanceRedirectUrl;
+                guidanceRedirectUrl = "";
+                if (targetUrl) window.location.assign(targetUrl);
+            });
+
             const buildListHtml = (items) => {
                 const safeItems = (items || [])
                     .map((item) => String(item || "").trim())
@@ -4360,6 +4560,7 @@
                         );
 
                         const required = [
+                            "Asegurador",
                             "ClasificacionRiesgo",
                             "AdministracionMedicamentos",
                             "Estado",
@@ -4379,6 +4580,10 @@
                             "CateterismoOSv",
                             "CateterPicc"
                         ];
+
+                        if (estadoSelect && String(estadoSelect.value || "").toLowerCase().includes("alta")) {
+                            required.push("AutorizacionEvento");
+                        }
 
                         if (isCallEfectivo) {
                             required.push("NumeroTelefonoLlamadaBienvenida");
@@ -5214,11 +5419,20 @@
             initializeCensoSelectPlaceholders();
 
             if (numeroIdentificacionInput) {
-                numeroIdentificacionInput.addEventListener("input", syncNumeroIdentificacionMode);
+                numeroIdentificacionInput.addEventListener("input", () => {
+                    syncNumeroIdentificacionMode();
+                    resetNewAdmissionValidation();
+                });
+                numeroIdentificacionInput.addEventListener("blur", () => {
+                    void validateNewAdmissionDocument(false);
+                });
             }
 
             if (tipoIdentificacionSelect) {
-                tipoIdentificacionSelect.addEventListener("change", syncNumeroIdentificacionMode);
+                tipoIdentificacionSelect.addEventListener("change", () => {
+                    syncNumeroIdentificacionMode();
+                    resetNewAdmissionValidation();
+                });
             }
 
             syncNumeroIdentificacionMode();
@@ -5461,7 +5675,19 @@
             }
 
             if (form && asumirDireccionCheck) {
-                form.addEventListener("submit", (event) => {
+                form.addEventListener("submit", async (event) => {
+                    if (isCreatingNewAdmission() && !allowValidatedNewAdmissionSubmit) {
+                        event.preventDefault();
+                        const submitter = event.submitter;
+                        const canContinue = await validateNewAdmissionDocument(true);
+                        if (canContinue) {
+                            allowValidatedNewAdmissionSubmit = true;
+                            form.requestSubmit(submitter || undefined);
+                        }
+                        return;
+                    }
+                    allowValidatedNewAdmissionSubmit = false;
+
                     uppercaseAllCensoTextFields();
                     [telefono1Input, telefono2Input, telefono3Input, numeroTelefonoLlamadaBienvenidaInput].forEach((input) => sanitizePhoneInput(input));
                     [diasMedicamentoPrincipalInput, diasMedicamento2Input, diasMedicamento3Input, diasMedicamento4Input, diasMedicamento5Input, diasMedicamento6Input].forEach((input) => sanitizeDaysInput(input));
@@ -7307,6 +7533,24 @@
                 }
             }
             // ── End prorroga section ──────────────────────────────────────
+
+            const requestedCensoSection = new URLSearchParams(window.location.search).get("abrirSeccion");
+            if (requestedCensoSection === "estado") {
+                window.setTimeout(() => {
+                    openSectionTab("tab-plan-manejo-link");
+                    window.setTimeout(() => {
+                        estadoSelect?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        estadoSelect?.focus();
+                    }, 250);
+                }, 100);
+            } else if (requestedCensoSection === "prorroga") {
+                window.setTimeout(() => {
+                    openSectionTab("tab-prorroga-link");
+                    window.setTimeout(() => {
+                        prorrogaTabPane?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 250);
+                }, 100);
+            }
 
             if (shouldShowSaveErrorModal) {
                 const normalizedErrors = Array.from(new Set((serverErrorMessages || [])

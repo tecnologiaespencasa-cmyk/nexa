@@ -1065,35 +1065,26 @@ public class CensoController : Controller
         }
         else
         {
-            // No EditingRecordId: look for an existing active record for this patient
-            // to avoid creating duplicates when the form context was lost.
-            // A new record is only created when there is no active record (or the patient
-            // is discharged / cancelled / rejected, per business rules).
             CensoRecord? existingActiveRecord = null;
             var trimmedDocumento = model.NumeroIdentificacion.Trim();
             if (!string.IsNullOrWhiteSpace(trimmedDocumento))
             {
                 var candidatos = await _context.Censos
+                    .Where(IsEditableCensoRecordExpression())
                     .Where(x => x.NumeroIdentificacion == trimmedDocumento)
                     .OrderByDescending(x => x.Id)
                     .ToListAsync(cancellationToken);
-                existingActiveRecord = candidatos.FirstOrDefault(x => !IsEstadoTerminado(x.Estado));
+                existingActiveRecord = candidatos.FirstOrDefault(x => !IsEstadoAlta(x.Estado));
             }
 
             if (existingActiveRecord != null)
             {
-                ApplyModelToCensoRecord(
-                    existingActiveRecord,
-                    model,
-                    direccionParaGuardar,
-                    indicadorTiempoRespuestaMinutos,
-                    existingActiveRecord.IndicadorTiempoGestionMinutos);
-                await _context.SaveChangesAsync(cancellationToken);
-                savedRecordId = existingActiveRecord.Id;
-                TempData["SuccessMessage"] = "Registro de censo actualizado correctamente.";
-                await _auditService.LogAsync("CENSO_ACTUALIZADO", "Censo",
-                    $"Paciente: {existingActiveRecord.NombrePaciente}, Doc: {existingActiveRecord.NumeroIdentificacion}",
-                    auditUserId, auditIp, cancellationToken);
+                ModelState.AddModelError(
+                    nameof(model.NumeroIdentificacion),
+                    "Este paciente tiene una atención anterior sin alta. Debes cerrarla o registrar el nuevo medicamento como prórroga.");
+                ViewData["ShowSaveErrorModal"] = true;
+                await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: false);
+                return View(model);
             }
             else
             {
@@ -1169,7 +1160,8 @@ public class CensoController : Controller
                 x.ProrrogaRequisicionFarmaciaJson,
                 x.ProrrogaJson,
                 x.KardexCerradoAtUtc,
-                x.ProrrogaCerradaAtUtc
+                x.ProrrogaCerradaAtUtc,
+                x.ProrrogaCerradaPorFarmaciaId
             })
             .FirstOrDefaultAsync(cancellationToken);
         if (record is null) return NotFound();
@@ -1177,8 +1169,14 @@ public class CensoController : Controller
         var prorrogaJson = record.ProrrogaJson;
         var prorrogaKardexJson = record.ProrrogaKardexEdicionJson;
         var prorrogaRequisicionJson = record.ProrrogaRequisicionFarmaciaJson;
-        var prorrogaCerrada = record.ProrrogaCerradaAtUtc != null;
-        var prorrogaCerradaAtUtc = record.ProrrogaCerradaAtUtc;
+        var prorrogaCerrada = record.ProrrogaCerradaPorFarmaciaId.HasValue
+            && await _context.Censos.AsNoTracking().AnyAsync(
+                dispatch => dispatch.Id == record.ProrrogaCerradaPorFarmaciaId.Value
+                    && dispatch.FarmaciaProrrogaDeId == id
+                    && dispatch.FarmaciaProrrogaVersionId == null
+                    && dispatch.FarmaciaOkKardex,
+                cancellationToken);
+        var prorrogaCerradaAtUtc = prorrogaCerrada ? record.ProrrogaCerradaAtUtc : null;
         var prorrogaNumero = 1;
 
         var prorrogas = await _context.CensoProrrogas
@@ -1316,7 +1314,10 @@ public class CensoController : Controller
         {
             if (record.EsProrroga && !string.IsNullOrWhiteSpace(record.ProrrogaJson))
             {
-                if (record.ProrrogaCerradaAtUtc.HasValue) return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya no se puede editar." });
+                if (await IsBaseProrrogaClosedAsync(record, clearInvalidMarker: true, cancellationToken: cancellationToken))
+                {
+                    return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya no se puede editar." });
+                }
                 record.ProrrogaKardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
                 record.ProrrogaRequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
                 await _context.SaveChangesAsync(cancellationToken);
@@ -1404,7 +1405,7 @@ public class CensoController : Controller
             return Json(new { message = $"Prórroga #{prorroga.Numero} guardada correctamente.", prorrogaId = prorroga.Id, numero = prorroga.Numero });
         }
 
-        if (record.ProrrogaCerradaAtUtc.HasValue)
+        if (await IsBaseProrrogaClosedAsync(record, clearInvalidMarker: true, cancellationToken: cancellationToken))
         {
             return BadRequest(new { message = "Kardex cerrado. La prórroga actual ya no se puede editar. Usa Adicionar prórroga para crear una nueva." });
         }
@@ -1496,7 +1497,7 @@ public class CensoController : Controller
         // Si el documento se generó desde prórroga, reusar o crear siempre un despacho separado de prórroga.
         else if (documentoProrroga && record.EsProrroga && !string.IsNullOrWhiteSpace(record.ProrrogaJson))
         {
-            if (record.ProrrogaCerradaAtUtc.HasValue)
+            if (await IsBaseProrrogaClosedAsync(record, clearInvalidMarker: true, cancellationToken: cancellationToken))
             {
                 return BadRequest(new { message = "Kardex cerrado. Esta prórroga ya fue aprobada por farmacia." });
             }
@@ -2067,6 +2068,60 @@ public class CensoController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> ValidarNuevoIngreso(string? numeroDocumento, CancellationToken cancellationToken)
+    {
+        var normalizedDocument = NormalizeCedulaFilter(numeroDocumento);
+        if (string.IsNullOrWhiteSpace(normalizedDocument))
+        {
+            return BadRequest(new { message = "Ingresa el número de documento del paciente." });
+        }
+
+        var records = await _context.Censos
+            .AsNoTracking()
+            .Where(IsEditableCensoRecordExpression())
+            .Where(record => record.NumeroIdentificacion == normalizedDocument)
+            .OrderByDescending(record => record.FechaIngreso)
+            .ThenByDescending(record => record.HoraIngreso)
+            .ThenByDescending(record => record.Id)
+            .ToListAsync(cancellationToken);
+
+        var openAttention = records.FirstOrDefault(record => !IsEstadoAlta(record.Estado));
+        if (openAttention is null)
+        {
+            return Json(new
+            {
+                hasOpenAttention = false,
+                hasPreviousAttention = records.Count > 0
+            });
+        }
+
+        return Json(new
+        {
+            hasOpenAttention = true,
+            hasPreviousAttention = true,
+            attention = new
+            {
+                recordId = openAttention.Id,
+                openAttention.NombrePaciente,
+                openAttention.Estado,
+                fechaIngreso = openAttention.FechaIngreso.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                estadoUrl = Url.Action(nameof(Index), new
+                {
+                    cedulaPaciente = normalizedDocument,
+                    recordId = openAttention.Id,
+                    abrirSeccion = "estado"
+                }),
+                prorrogaUrl = Url.Action(nameof(Index), new
+                {
+                    cedulaPaciente = normalizedDocument,
+                    recordId = openAttention.Id,
+                    abrirSeccion = "prorroga"
+                })
+            }
+        });
+    }
+
+    [HttpGet]
     public async Task<IActionResult> BuscarDatosPacienteProrroga(string documento, CancellationToken cancellationToken)
     {
         var normalizedDocument = NormalizeCedulaFilter(documento);
@@ -2298,6 +2353,18 @@ public class CensoController : Controller
 
         var tableRecordIds = records.Select(r => r.Id).ToList();
         model.CensoProrrogaTableColumns = ProrrogaTableColumns;
+        var approvedBaseProrrogaRecordIds = tableRecordIds.Count == 0
+            ? []
+            : await _context.Censos
+                .AsNoTracking()
+                .Where(dispatch => dispatch.FarmaciaOkKardex
+                    && dispatch.FarmaciaProrrogaDeId.HasValue
+                    && dispatch.FarmaciaProrrogaVersionId == null
+                    && tableRecordIds.Contains(dispatch.FarmaciaProrrogaDeId.Value))
+                .Select(dispatch => dispatch.FarmaciaProrrogaDeId!.Value)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+        var approvedBaseProrrogaRecordIdSet = approvedBaseProrrogaRecordIds.ToHashSet();
         var prorrogaVersions = tableRecordIds.Count == 0
             ? []
             : await _context.CensoProrrogas
@@ -2328,7 +2395,7 @@ public class CensoController : Controller
                     ProrrogaValues = BuildProrrogaTableValues(
                         record.ProrrogaJson,
                         numero: 1,
-                        cerrada: record.ProrrogaCerradaAtUtc.HasValue)
+                        cerrada: approvedBaseProrrogaRecordIdSet.Contains(record.Id))
                 });
                 hasProrroga = true;
             }
@@ -2411,6 +2478,10 @@ public class CensoController : Controller
         }
 
         ApplyCensoRecordToModel(model, latestRecord);
+        model.ProrrogaCerrada = await IsBaseProrrogaClosedAsync(
+            latestRecord,
+            clearInvalidMarker: false,
+            cancellationToken);
     }
 
     private static IReadOnlyDictionary<string, string> BuildProrrogaTableValues(
@@ -2903,12 +2974,32 @@ public class CensoController : Controller
             && estado.Contains("alta", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsEstadoTerminado(string? estado)
+    private async Task<bool> IsBaseProrrogaClosedAsync(
+        CensoRecord record,
+        bool clearInvalidMarker,
+        CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(estado)) return false;
-        return estado.Contains("alta", StringComparison.OrdinalIgnoreCase)
-            || estado.StartsWith("Cancelado", StringComparison.OrdinalIgnoreCase)
-            || estado.StartsWith("Rechazado", StringComparison.OrdinalIgnoreCase);
+        if (!record.ProrrogaCerradaAtUtc.HasValue || !record.ProrrogaCerradaPorFarmaciaId.HasValue)
+        {
+            return false;
+        }
+
+        var hasApprovedProrrogaDispatch = await _context.Censos
+            .AsNoTracking()
+            .AnyAsync(
+                dispatch => dispatch.Id == record.ProrrogaCerradaPorFarmaciaId.Value
+                    && dispatch.FarmaciaProrrogaDeId == record.Id
+                    && dispatch.FarmaciaProrrogaVersionId == null
+                    && dispatch.FarmaciaOkKardex,
+                cancellationToken);
+
+        if (!hasApprovedProrrogaDispatch && clearInvalidMarker)
+        {
+            record.ProrrogaCerradaAtUtc = null;
+            record.ProrrogaCerradaPorFarmaciaId = null;
+        }
+
+        return hasApprovedProrrogaDispatch;
     }
 
     private static string NormalizeCedulaFilter(string? value)
