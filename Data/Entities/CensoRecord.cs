@@ -292,6 +292,9 @@ public class CensoRecord
     [StringLength(2)]
     public string? RequiereServiciosComplementarios { get; set; }
 
+    [StringLength(10)]
+    public string? Programa { get; set; }
+
     [StringLength(500)]
     public string? ServicioComplementario { get; set; }
 

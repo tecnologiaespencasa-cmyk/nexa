@@ -128,6 +128,7 @@
         nameof(CensoRecord.NumeroTelefonoLlamadaBienvenida),
         nameof(CensoRecord.NumeroDiasAutorizado),
         nameof(CensoRecord.RequiereServiciosComplementarios),
+        nameof(CensoRecord.Programa),
         nameof(CensoRecord.ServicioComplementario),
         nameof(CensoRecord.PacienteGestante),
         nameof(CensoRecord.Nebulizaciones),
@@ -947,19 +948,31 @@
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
-                                    <div class="col-lg-4">
+                                    <div class="col-xl-3 col-lg-4">
+                                        <label asp-for="Asegurador" class="form-label"></label>
+                                        <select asp-for="Asegurador" asp-items="Model.AseguradorOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                            @if (!string.IsNullOrWhiteSpace(Model.Asegurador)
+                                                && !Model.AseguradorOptions.Any(option => string.Equals(option.Value, Model.Asegurador, StringComparison.OrdinalIgnoreCase)))
+                                            {
+                                                <option value="@Model.Asegurador">@Model.Asegurador</option>
+                                            }
+                                        </select>
+                                        <span asp-validation-for="Asegurador" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-xl-3 col-lg-4">
                                         <label asp-for="ClasificacionRiesgo" class="form-label"></label>
                                         <select asp-for="ClasificacionRiesgo" asp-items="Model.ClasificacionRiesgoOptions" class="form-select">
                                             <option value="">Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="ClasificacionRiesgo" class="text-danger"></span>
                                     </div>
-                                    <div class="col-lg-4">
+                                    <div class="col-xl-3 col-lg-4">
                                         <label asp-for="AdministracionMedicamentos" class="form-label"></label>
                                         <select asp-for="AdministracionMedicamentos" asp-items="Model.AdministracionMedicamentosOptions" class="form-select" id="administracionMedicamentosSelect"></select>
                                         <span asp-validation-for="AdministracionMedicamentos" class="text-danger"></span>
                                     </div>
-                                    <div class="col-lg-4 d-none" id="diasTratamientoNoMedicamentosContainer">
+                                    <div class="col-xl-3 col-lg-4 d-none" id="diasTratamientoNoMedicamentosContainer">
                                         <label class="form-label" for="diasTratamientoNoMedicamentosInput">D&iacute;as de tratamiento</label>
                                         <input class="form-control" type="number" id="diasTratamientoNoMedicamentosInput" min="1" max="9999" step="1" inputmode="numeric" />
                                     </div>
@@ -1350,12 +1363,12 @@
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="AutorizacionEvento" class="form-label"></label>
-                                        <input asp-for="AutorizacionEvento" class="form-control" maxlength="100" />
+                                        <input asp-for="AutorizacionEvento" class="form-control" maxlength="100" id="autorizacionEventoInput" />
                                         <span asp-validation-for="AutorizacionEvento" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="NumeroDiasAutorizado" class="form-label"></label>
-                                        <input asp-for="NumeroDiasAutorizado" class="form-control" maxlength="50" />
+                                        <input asp-for="NumeroDiasAutorizado" class="form-control" maxlength="50" id="numeroDiasAutorizadoInput" />
                                         <span asp-validation-for="NumeroDiasAutorizado" class="text-danger"></span>
                                     </div>
                                     <div class="col-xl-4 col-lg-4">
@@ -1386,6 +1399,13 @@
                                         <label asp-for="RequiereServiciosComplementarios" class="form-label"></label>
                                         <select asp-for="RequiereServiciosComplementarios" asp-items="Model.SiNoOptions" class="form-select" id="requiereServiciosComplementariosSelect"></select>
                                         <span asp-validation-for="RequiereServiciosComplementarios" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="Programa" class="form-label"></label>
+                                        <select asp-for="Programa" asp-items="Model.ProgramaOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="Programa" class="text-danger"></span>
                                     </div>
                                     <div class="col-12 d-none" id="servicioComplementarioContainer">
                                         <label class="form-label">Servicio complementario</label>
@@ -2343,7 +2363,7 @@
                         <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Paciente:</label>
                         <input class="censo-kardex-patient-table__cell" data-kardex-field="paciente" value="@Model.NombrePaciente" />
                         <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Asegurador:</label>
-                        <input class="censo-kardex-patient-table__cell" data-kardex-field="asegurador" value="SURA" />
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="asegurador" value="@Model.Asegurador" />
                         <textarea class="censo-kardex-patient-table__cell censo-kardex-patient-table__diagnosis" data-kardex-field="diagnostico" aria-label="Diagn&oacute;stico descriptivo">@Model.DiagnosticoDescriptivo</textarea>
 
                         <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Documento de identidad:</label>
@@ -2541,8 +2561,8 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar" id="censoAltaCancelarBtnClose"></button>
             </div>
             <div class="modal-body">
-                <p>La atenci&oacute;n de este paciente ser&aacute; cerrada. &iquest;Est&aacute;s seguro que deseas continuar?</p>
-                <p class="text-muted small mb-0">Las secciones 1, 2 y 3 quedar&aacute;n bloqueadas en modo de solo lectura.</p>
+                <p id="censoAltaConfirmModalMessage">La atenci&oacute;n de este paciente ser&aacute; cerrada. &iquest;Est&aacute;s seguro que deseas continuar?</p>
+                <p class="text-muted small mb-0" id="censoAltaConfirmModalDetail">Las secciones 1, 2 y 3 quedar&aacute;n bloqueadas en modo de solo lectura.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="censoAltaCancelarBtn" data-bs-dismiss="modal">Cancelar</button>
@@ -2721,6 +2741,11 @@
             const diasNoMedicamentosContainer = document.getElementById("diasTratamientoNoMedicamentosContainer");
             const diasNoMedicamentosInput = document.getElementById("diasTratamientoNoMedicamentosInput");
             const estadoSelect = document.getElementById("estadoSelect");
+            const autorizacionEventoInput = document.getElementById("autorizacionEventoInput");
+            const numeroDiasAutorizadoInput = document.getElementById("numeroDiasAutorizadoInput");
+            const isClosedPlanEditableControl = (control) => control === estadoSelect
+                || control === autorizacionEventoInput
+                || control === numeroDiasAutorizadoInput;
             const gestionAltaTabLink = document.getElementById("tab-gestion-alta-link");
             const gestionAltaPane = document.getElementById("tab-gestion-alta");
             const fechaAltaInput = document.getElementById("fechaAltaInput");
@@ -3233,6 +3258,7 @@
                 const fechaFin = formatDateForKardex(getFormValue("FechaFinTratamiento"));
 
                 setKardexFieldValue("paciente", getFormValue("NombrePaciente"));
+                setKardexFieldValue("asegurador", getFormValue("Asegurador"));
                 setKardexFieldValue("documento", [tipoDocumento, numeroDocumento].filter((value) => value).join(" "));
                 setKardexFieldValue("direccion", [getFormValue("Direccion"), getFormValue("DetalleDireccion")].filter((v) => v).join(" "));
                 setKardexFieldValue("telefonos", telefonos);
@@ -3324,6 +3350,7 @@
                 const auxiliarProrroga = (p.auxiliarAsignado || "").trim() || getFormValue("AuxiliarAsignado");
 
                 setKardexFieldValue("paciente", getFormValue("NombrePaciente"));
+                setKardexFieldValue("asegurador", getFormValue("Asegurador"));
                 setKardexFieldValue("documento", [tipoDocumento, numeroDocumento].filter((v) => v).join(" "));
                 setKardexFieldValue("direccion", [getFormValue("Direccion"), getFormValue("DetalleDireccion")].filter((v) => v).join(" "));
                 setKardexFieldValue("telefonos", telefonos);
@@ -3571,6 +3598,7 @@
                 if (!payload) return;
                 if (payload.fields) {
                     Object.entries(payload.fields).forEach(([key, value]) => {
+                        if (key === "asegurador") return;
                         if (key === "observaciones"
                             && String(value || "").trim() === getFormValue("ObservacionesPlanManejo")) {
                             const observationControl = document.querySelector("#censoKardexModal [data-kardex-field='observaciones']");
@@ -3712,11 +3740,16 @@
                     const banner = document.createElement("div");
                     banner.className = "alert alert-warning censo-plan-manejo-closed-banner mb-3";
                     banner.setAttribute("role", "alert");
-                    banner.innerHTML = "<strong>Plan de manejo cerrado.</strong> El Kardex del ingreso inicial fue aprobado por farmacia. Esta sección queda disponible solo para consulta, excepto el campo <strong>Estado</strong> que permanece editable para gestionar altas.";
+                    banner.innerHTML = "<strong>Plan de manejo cerrado.</strong> El Kardex del ingreso inicial fue aprobado por farmacia. Solo permanecen editables los campos <strong>Estado</strong>, <strong>Autorización evento</strong> y <strong>Número de días autorizado</strong>.";
                     planManejoTabPane.querySelector(".card")?.before(banner);
                 }
 
                 planManejoTabPane.querySelectorAll("input:not([type=hidden]), textarea").forEach((control) => {
+                    if (isClosedPlanEditableControl(control)) {
+                        control.readOnly = false;
+                        control.removeAttribute("aria-readonly");
+                        return;
+                    }
                     if (control.matches("input[type=checkbox], input[type=radio]")) {
                         control.style.pointerEvents = "none";
                         control.tabIndex = -1;
@@ -6517,13 +6550,14 @@
                     const firstCard = pane.querySelector(".card");
                     if (firstCard) firstCard.before(banner);
                     pane.querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio])").forEach((el) => {
+                        if (keepEstadoEditable && isClosedPlanEditableControl(el)) return;
                         if (!el.closest("[data-censo-no-lock]")) el.readOnly = true;
                     });
                     pane.querySelectorAll("textarea").forEach((el) => {
                         if (!el.closest("[data-censo-no-lock]")) el.readOnly = true;
                     });
                     pane.querySelectorAll("select, input[type=checkbox], input[type=radio]").forEach((el) => {
-                        if (keepEstadoEditable && el === estadoSelect) return;
+                        if (keepEstadoEditable && isClosedPlanEditableControl(el)) return;
                         if (!el.closest("[data-censo-no-lock]")) el.style.pointerEvents = "none";
                     });
                     pane.querySelectorAll("button, a.btn").forEach((el) => {
@@ -6537,6 +6571,39 @@
 
             let pendingAltaValue = null;
             let previousEstadoValue = estadoSelect ? estadoSelect.value : "";
+            let altaModalIsAuthorizationError = false;
+            const altaModalEl = document.getElementById("censoAltaConfirmModal");
+            const altaModalTitle = document.getElementById("censoAltaConfirmModalTitle");
+            const altaModalMessage = document.getElementById("censoAltaConfirmModalMessage");
+            const altaModalDetail = document.getElementById("censoAltaConfirmModalDetail");
+            const altaModalCancelButton = document.getElementById("censoAltaCancelarBtn");
+            const censoAltaConfirmarBtn = document.getElementById("censoAltaConfirmarBtn");
+
+            const configureAltaModal = (authorizationError) => {
+                altaModalIsAuthorizationError = authorizationError;
+                if (authorizationError) {
+                    if (altaModalTitle) altaModalTitle.textContent = "Autorización requerida";
+                    if (altaModalMessage) altaModalMessage.textContent = "No se puede seleccionar un estado de alta sin diligenciar el campo Autorización evento.";
+                    if (altaModalDetail) altaModalDetail.textContent = "Completa la autorización evento en la sección 3 e intenta nuevamente.";
+                    altaModalCancelButton?.classList.add("d-none");
+                    if (censoAltaConfirmarBtn) {
+                        censoAltaConfirmarBtn.textContent = "Entendido";
+                        censoAltaConfirmarBtn.classList.remove("btn-warning");
+                        censoAltaConfirmarBtn.classList.add("btn-primary");
+                    }
+                    return;
+                }
+
+                if (altaModalTitle) altaModalTitle.textContent = "Cerrar atención";
+                if (altaModalMessage) altaModalMessage.textContent = "La atención de este paciente será cerrada. ¿Estás seguro que deseas continuar?";
+                if (altaModalDetail) altaModalDetail.textContent = "Las secciones 1, 2 y 3 quedarán bloqueadas en modo de solo lectura.";
+                altaModalCancelButton?.classList.remove("d-none");
+                if (censoAltaConfirmarBtn) {
+                    censoAltaConfirmarBtn.textContent = "Sí, cerrar atención";
+                    censoAltaConfirmarBtn.classList.remove("btn-primary");
+                    censoAltaConfirmarBtn.classList.add("btn-warning");
+                }
+            };
 
             if (estadoSelect) {
                 estadoSelect.addEventListener("change", () => {
@@ -6544,10 +6611,20 @@
                     const newIsAlta = newValue.toLowerCase().includes("alta");
                     const prevIsAlta = previousEstadoValue.toLowerCase().includes("alta");
 
+                    if (newIsAlta && !String(autorizacionEventoInput?.value || "").trim()) {
+                        pendingAltaValue = null;
+                        estadoSelect.value = previousEstadoValue;
+                        configureAltaModal(true);
+                        if (altaModalEl && window.bootstrap?.Modal) {
+                            window.bootstrap.Modal.getOrCreateInstance(altaModalEl).show();
+                        }
+                        return;
+                    }
+
                     if (newIsAlta && !prevIsAlta) {
                         pendingAltaValue = newValue;
                         estadoSelect.value = previousEstadoValue;
-                        const altaModalEl = document.getElementById("censoAltaConfirmModal");
+                        configureAltaModal(false);
                         if (altaModalEl && window.bootstrap?.Modal) {
                             window.bootstrap.Modal.getOrCreateInstance(altaModalEl).show();
                         }
@@ -6558,20 +6635,32 @@
                 });
             }
 
-            const censoAltaConfirmarBtn = document.getElementById("censoAltaConfirmarBtn");
             if (censoAltaConfirmarBtn) {
                 censoAltaConfirmarBtn.addEventListener("click", () => {
-                    const altaModalEl = document.getElementById("censoAltaConfirmModal");
                     if (altaModalEl && window.bootstrap?.Modal) {
                         window.bootstrap.Modal.getOrCreateInstance(altaModalEl).hide();
                     }
-                    if (pendingAltaValue !== null && estadoSelect) {
+                    const shouldCloseAttention = !altaModalIsAuthorizationError
+                        && pendingAltaValue !== null
+                        && !!estadoSelect;
+                    if (shouldCloseAttention && estadoSelect) {
                         estadoSelect.value = pendingAltaValue;
                         previousEstadoValue = pendingAltaValue;
                         pendingAltaValue = null;
                     }
                     syncGestionAltaVisibility();
-                    lockSections123();
+                    if (shouldCloseAttention) {
+                        lockSections123();
+                    } else {
+                        window.setTimeout(() => autorizacionEventoInput?.focus(), 200);
+                    }
+                });
+            }
+
+            if (altaModalEl) {
+                altaModalEl.addEventListener("hidden.bs.modal", () => {
+                    pendingAltaValue = null;
+                    configureAltaModal(false);
                 });
             }
 

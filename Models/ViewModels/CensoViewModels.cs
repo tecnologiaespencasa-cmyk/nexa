@@ -128,6 +128,11 @@ public class CensoReceptionViewModel
     [Display(Name = "Teléfono adicional 2")]
     public string? Telefono3 { get; set; }
 
+    [Required(ErrorMessage = "Selecciona el asegurador.")]
+    [StringLength(120, ErrorMessage = "El asegurador no puede superar 120 caracteres.")]
+    [Display(Name = "Asegurador")]
+    public string Asegurador { get; set; } = string.Empty;
+
     [Required(ErrorMessage = "Selecciona la clasificación de riesgo.")]
     [Display(Name = "Clasificación de riesgo")]
     public string ClasificacionRiesgo { get; set; } = string.Empty;
@@ -362,6 +367,10 @@ public class CensoReceptionViewModel
     [Display(Name = "Requiere servicios complementarios")]
     public string? RequiereServiciosComplementarios { get; set; }
 
+    [StringLength(10, ErrorMessage = "El programa no puede superar 10 caracteres.")]
+    [Display(Name = "Programa")]
+    public string? Programa { get; set; }
+
     [StringLength(500, ErrorMessage = "Los servicios complementarios no pueden superar 500 caracteres.")]
     [Display(Name = "Servicio complementario")]
     public string? ServicioComplementario { get; set; }
@@ -579,11 +588,13 @@ public class CensoReceptionViewModel
     public IReadOnlyList<SelectListItem> AreaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> IpsQueRemiteOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> VistoBuenoOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> AseguradorOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> ClasificacionRiesgoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AdministracionMedicamentosOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> CambioFrecuenciaAdministracionTtoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> FrecuenciaAjustadaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> SiNoOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> ProgramaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> TipoAislamientoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> ServicioComplementarioOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoOptions { get; set; } = [];

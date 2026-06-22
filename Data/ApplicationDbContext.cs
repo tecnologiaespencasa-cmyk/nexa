@@ -199,6 +199,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.NumeroTelefonoLlamadaBienvenida).HasMaxLength(20);
             entity.Property(x => x.NumeroDiasAutorizado).HasMaxLength(50);
             entity.Property(x => x.RequiereServiciosComplementarios).HasMaxLength(2);
+            entity.Property(x => x.Programa).HasMaxLength(10);
             entity.Property(x => x.ServicioComplementario).HasMaxLength(80);
             entity.Property(x => x.PacienteGestante).HasMaxLength(2);
             entity.Property(x => x.Nebulizaciones).HasMaxLength(2);

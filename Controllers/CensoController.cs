@@ -21,7 +21,7 @@ namespace IntranetPrueba.Controllers;
 [Authorize(Policy = SystemPermissions.Censo)]
 public class CensoController : Controller
 {
-    private const string AseguradorSuraEps = "Sura EPS";
+    private const string AseguradorSuraEpsLegacy = "Sura EPS";
     private const string GestionPendiente = "Pendiente";
     private const string GestionCompleta = "Completa";
     private const string MunicipioNoParametrizado = "NO PARAMETRIZADO";
@@ -79,6 +79,7 @@ public class CensoController : Controller
         [nameof(CensoReceptionViewModel.Telefono2)] = 2,
         [nameof(CensoReceptionViewModel.Telefono3)] = 2,
 
+        [nameof(CensoReceptionViewModel.Asegurador)] = 3,
         [nameof(CensoReceptionViewModel.ClasificacionRiesgo)] = 3,
         [nameof(CensoReceptionViewModel.AdministracionMedicamentos)] = 3,
         [nameof(CensoReceptionViewModel.NombreMedicamentoPrincipalTratante)] = 3,
@@ -149,6 +150,7 @@ public class CensoController : Controller
         [nameof(CensoReceptionViewModel.ObservacionesPlanManejo)] = 3,
         [nameof(CensoReceptionViewModel.NumeroDiasAutorizado)] = 3,
         [nameof(CensoReceptionViewModel.RequiereServiciosComplementarios)] = 3,
+        [nameof(CensoReceptionViewModel.Programa)] = 3,
         [nameof(CensoReceptionViewModel.ServicioComplementario)] = 3,
         [nameof(CensoReceptionViewModel.PacienteGestante)] = 3,
         [nameof(CensoReceptionViewModel.Nebulizaciones)] = 3,
@@ -265,8 +267,10 @@ public class CensoController : Controller
     private static readonly string[] TiposIdentificacion = ["CC", "RC", "PA", "CE", "TI", "PE", "PPT"];
     private static readonly string[] ClasificacionZonaSuraValues = ["Valle de aburra", "Oriente"];
     private static readonly string[] VistoBuenoValues = ["Si", "No"];
+    private static readonly string[] AseguradorValues = ["EPS SURA", "PAN-AMERICAN LIFE DE COLOMBIA", "PARTICULAR"];
     private static readonly string[] ClasificacionRiesgoValues = ["Bajo", "Medio", "Alto"];
     private static readonly string[] AdministracionMedicamentosValues = ["Si", "No"];
+    private static readonly string[] ProgramaValues = ["Agudo", "Cronico"];
     private static readonly string[] CambioFrecuenciaAdministracionTtoValues = ["Si", "No"];
     private static readonly string[] ServicioComplementarioValues =
     [
@@ -684,6 +688,7 @@ public class CensoController : Controller
         model.DiagnosticoDescriptivo = model.DiagnosticoDescriptivo?.Trim() ?? string.Empty;
         model.IpsQueRemite = model.IpsQueRemite?.Trim() ?? string.Empty;
         model.VistoBuenoRangoFueraAnexo = model.VistoBuenoRangoFueraAnexo?.Trim() ?? string.Empty;
+        model.Asegurador = model.Asegurador?.Trim() ?? string.Empty;
         model.ClasificacionRiesgo = model.ClasificacionRiesgo?.Trim() ?? string.Empty;
         model.AdministracionMedicamentos = model.AdministracionMedicamentos?.Trim() ?? string.Empty;
         model.NombreMedicamentoPrincipalTratante = model.NombreMedicamentoPrincipalTratante?.Trim();
@@ -734,6 +739,7 @@ public class CensoController : Controller
         model.NumeroTelefonoLlamadaBienvenida = model.NumeroTelefonoLlamadaBienvenida?.Trim();
         model.NumeroDiasAutorizado = model.NumeroDiasAutorizado?.Trim();
         model.RequiereServiciosComplementarios = model.RequiereServiciosComplementarios?.Trim();
+        model.Programa = model.Programa?.Trim();
         model.ServicioComplementario = NormalizeServiciosComplementarios(model.ServicioComplementario);
         model.PacienteGestante = model.PacienteGestante?.Trim();
         model.Nebulizaciones = model.Nebulizaciones?.Trim();
@@ -2579,6 +2585,7 @@ public class CensoController : Controller
         model.Telefono1 = record.Telefono1;
         model.Telefono2 = record.Telefono2;
         model.Telefono3 = record.Telefono3;
+        model.Asegurador = record.Asegurador;
         model.ClasificacionRiesgo = record.ClasificacionRiesgo;
         model.AdministracionMedicamentos = record.AdministracionMedicamentos;
         model.NombreMedicamentoPrincipalTratante = record.NombreMedicamentoPrincipalTratante;
@@ -2674,6 +2681,7 @@ public class CensoController : Controller
         model.NumeroTelefonoLlamadaBienvenida = record.NumeroTelefonoLlamadaBienvenida;
         model.NumeroDiasAutorizado = record.NumeroDiasAutorizado;
         model.RequiereServiciosComplementarios = record.RequiereServiciosComplementarios;
+        model.Programa = record.Programa;
         model.ServicioComplementario = record.ServicioComplementario;
         model.PacienteGestante = record.PacienteGestante;
         model.Nebulizaciones = record.Nebulizaciones;
@@ -2733,7 +2741,6 @@ public class CensoController : Controller
         int indicadorTiempoRespuestaMinutos,
         int indicadorTiempoGestionMinutos)
     {
-        censoRecord.Asegurador = AseguradorSuraEps;
         // EsProrroga is managed exclusively via GuardarProrroga; never overwrite from main form
         censoRecord.FechaIngreso = model.FechaIngreso.Date;
         censoRecord.HoraIngreso = model.HoraIngreso;
@@ -2765,6 +2772,7 @@ public class CensoController : Controller
         censoRecord.Telefono3 = string.IsNullOrWhiteSpace(model.Telefono3) ? null : model.Telefono3;
         if (!censoRecord.KardexCerradoAtUtc.HasValue)
         {
+        censoRecord.Asegurador = model.Asegurador;
         censoRecord.ClasificacionRiesgo = model.ClasificacionRiesgo;
         censoRecord.AdministracionMedicamentos = model.AdministracionMedicamentos;
         censoRecord.NombreMedicamentoPrincipalTratante = string.IsNullOrWhiteSpace(model.NombreMedicamentoPrincipalTratante) ? null : model.NombreMedicamentoPrincipalTratante;
@@ -2819,13 +2827,12 @@ public class CensoController : Controller
         censoRecord.FechaPromesaInicioTto = model.FechaPromesaInicioTto?.Date;
         censoRecord.HoraPromesaInicioTto = string.IsNullOrWhiteSpace(model.HoraPromesaInicioTto) ? null : model.HoraPromesaInicioTto;
         censoRecord.AuxiliarAsignado = string.IsNullOrWhiteSpace(model.AuxiliarAsignado) ? null : model.AuxiliarAsignado;
-        censoRecord.AutorizacionEvento = string.IsNullOrWhiteSpace(model.AutorizacionEvento) ? null : model.AutorizacionEvento;
         censoRecord.ResponsableLlamadaBienvenida = string.IsNullOrWhiteSpace(model.ResponsableLlamadaBienvenida) ? null : model.ResponsableLlamadaBienvenida;
         censoRecord.EstadoLlamadaBienvenida = string.IsNullOrWhiteSpace(model.EstadoLlamadaBienvenida) ? null : model.EstadoLlamadaBienvenida;
         censoRecord.ObservacionesPlanManejo = string.IsNullOrWhiteSpace(model.ObservacionesPlanManejo) ? null : model.ObservacionesPlanManejo;
         censoRecord.NumeroTelefonoLlamadaBienvenida = string.IsNullOrWhiteSpace(model.NumeroTelefonoLlamadaBienvenida) ? null : model.NumeroTelefonoLlamadaBienvenida;
-        censoRecord.NumeroDiasAutorizado = string.IsNullOrWhiteSpace(model.NumeroDiasAutorizado) ? null : model.NumeroDiasAutorizado;
         censoRecord.RequiereServiciosComplementarios = string.IsNullOrWhiteSpace(model.RequiereServiciosComplementarios) ? null : model.RequiereServiciosComplementarios;
+        censoRecord.Programa = string.IsNullOrWhiteSpace(model.Programa) ? null : model.Programa;
         censoRecord.ServicioComplementario = string.IsNullOrWhiteSpace(model.ServicioComplementario) ? null : model.ServicioComplementario;
         censoRecord.PacienteGestante = string.IsNullOrWhiteSpace(model.PacienteGestante) ? null : model.PacienteGestante;
         censoRecord.Nebulizaciones = string.IsNullOrWhiteSpace(model.Nebulizaciones) ? null : model.Nebulizaciones;
@@ -2846,6 +2853,8 @@ public class CensoController : Controller
         censoRecord.FechaUltimaCuracionPicc = model.FechaUltimaCuracionPicc?.Date;
         }
         censoRecord.Estado = string.IsNullOrWhiteSpace(model.Estado) ? null : model.Estado;
+        censoRecord.AutorizacionEvento = string.IsNullOrWhiteSpace(model.AutorizacionEvento) ? null : model.AutorizacionEvento;
+        censoRecord.NumeroDiasAutorizado = string.IsNullOrWhiteSpace(model.NumeroDiasAutorizado) ? null : model.NumeroDiasAutorizado;
         censoRecord.FechaAlta = model.FechaAlta?.Date;
         censoRecord.NombreQuienGestionaAlta = string.IsNullOrWhiteSpace(model.NombreQuienGestionaAlta) ? null : model.NombreQuienGestionaAlta;
         censoRecord.AltaTardia = string.IsNullOrWhiteSpace(model.AltaTardia) ? null : model.AltaTardia;
@@ -2942,11 +2951,13 @@ public class CensoController : Controller
         model.AreaOptions = BuildOptions(AreaValues);
         model.IpsQueRemiteOptions = BuildOptions(IpsQueRemiteValues);
         model.VistoBuenoOptions = BuildOptions(VistoBuenoValues);
+        model.AseguradorOptions = BuildOptions(AseguradorValues);
         model.ClasificacionRiesgoOptions = BuildOptions(ClasificacionRiesgoValues);
         model.AdministracionMedicamentosOptions = BuildOptions(AdministracionMedicamentosValues);
         model.CambioFrecuenciaAdministracionTtoOptions = BuildOptions(CambioFrecuenciaAdministracionTtoValues);
         model.FrecuenciaAjustadaOptions = BuildOptions(FrecuenciaAjustadaValues);
         model.SiNoOptions = BuildOptions(AdministracionMedicamentosValues);
+        model.ProgramaOptions = BuildOptions(ProgramaValues);
         model.TipoAislamientoOptions = BuildOptions(TipoAislamientoValues);
         model.ServicioComplementarioOptions = BuildOptions(ServicioComplementarioValues);
         model.EstadoOptions = BuildOptions(EstadoValues);
@@ -3192,6 +3203,7 @@ public class CensoController : Controller
 
     private void ValidateRequiredPlanManejoFields(CensoReceptionViewModel model)
     {
+        AddRequiredFieldErrorIfBlank(model.Asegurador, nameof(model.Asegurador), "Selecciona el asegurador.");
         var hasMedicationAdministration = string.Equals(model.AdministracionMedicamentos, "Si", StringComparison.OrdinalIgnoreCase);
         if (hasMedicationAdministration)
         {
@@ -3218,6 +3230,12 @@ public class CensoController : Controller
         }
 
         AddRequiredFieldErrorIfBlank(model.Estado, nameof(model.Estado), "Selecciona el estado.");
+        if (IsEstadoAlta(model.Estado) && string.IsNullOrWhiteSpace(model.AutorizacionEvento))
+        {
+            ModelState.AddModelError(
+                nameof(model.AutorizacionEvento),
+                "Debes diligenciar la autorización evento antes de seleccionar un estado de alta.");
+        }
         AddRequiredFieldErrorIfBlank(model.ResponsableLlamadaBienvenida, nameof(model.ResponsableLlamadaBienvenida), "Selecciona el responsable de llamada de bienvenida.");
         AddRequiredFieldErrorIfBlank(model.EstadoLlamadaBienvenida, nameof(model.EstadoLlamadaBienvenida), "Selecciona el estado de llamada de bienvenida.");
         if (string.Equals(model.EstadoLlamadaBienvenida, "Efectivo", StringComparison.OrdinalIgnoreCase))
@@ -3318,6 +3336,14 @@ public class CensoController : Controller
         if (!VistoBuenoValues.Contains(model.VistoBuenoRangoFueraAnexo, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.VistoBuenoRangoFueraAnexo), "Selecciona un valor válido para visto bueno rango fuera del anexo.");
+        }
+
+        var isLegacyAsegurador = model.EditingRecordId.HasValue
+            && string.Equals(model.Asegurador, AseguradorSuraEpsLegacy, StringComparison.OrdinalIgnoreCase);
+        if (!isLegacyAsegurador
+            && !AseguradorValues.Contains(model.Asegurador, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.Asegurador), "Selecciona un asegurador válido.");
         }
 
         if (!ClasificacionRiesgoValues.Contains(model.ClasificacionRiesgo, StringComparer.OrdinalIgnoreCase))
@@ -3573,6 +3599,7 @@ public class CensoController : Controller
 
         ValidateHoraPromesaInicioTto(model);
         ValidateSiNoField(model.RequiereServiciosComplementarios, nameof(model.RequiereServiciosComplementarios), "requiere servicios complementarios");
+        ValidateOptionField(model.Programa, ProgramaValues, nameof(model.Programa), "un programa válido");
         if (string.Equals(model.RequiereServiciosComplementarios, "Si", StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(model.ServicioComplementario))
@@ -4647,6 +4674,7 @@ public class CensoController : Controller
         AppendHeaderCell(sb, "NumeroTelefonoLlamadaBienvenida");
         AppendHeaderCell(sb, "NumeroDiasAutorizado");
         AppendHeaderCell(sb, "RequiereServiciosComplementarios");
+        AppendHeaderCell(sb, "Programa");
         AppendHeaderCell(sb, "ServicioComplementario");
         AppendHeaderCell(sb, "PacienteGestante");
         AppendHeaderCell(sb, "Nebulizaciones");
@@ -4846,6 +4874,7 @@ public class CensoController : Controller
             AppendDataCell(sb, item.NumeroTelefonoLlamadaBienvenida ?? string.Empty);
             AppendDataCell(sb, item.NumeroDiasAutorizado ?? string.Empty);
             AppendDataCell(sb, item.RequiereServiciosComplementarios ?? string.Empty);
+            AppendDataCell(sb, item.Programa ?? string.Empty);
             AppendDataCell(sb, item.ServicioComplementario ?? string.Empty);
             AppendDataCell(sb, item.PacienteGestante ?? string.Empty);
             AppendDataCell(sb, item.Nebulizaciones ?? string.Empty);

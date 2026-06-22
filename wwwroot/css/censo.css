@@ -3170,7 +3170,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   opacity: 0.82;
 }
 
-#tab-plan-manejo.is-plan-manejo-closed input,
+#tab-plan-manejo.is-plan-manejo-closed input:not(#autorizacionEventoInput):not(#numeroDiasAutorizadoInput),
 #tab-plan-manejo.is-plan-manejo-closed select:not(#estadoSelect),
 #tab-plan-manejo.is-plan-manejo-closed textarea {
   cursor: not-allowed;
