@@ -466,7 +466,7 @@
                 </form>
             </div>
             <div class="censo-section-strip__actions">
-                <a class="btn btn-success btn-sm censo-export-button" asp-action="ExportarExcel">
+                <a class="btn btn-success btn-sm censo-export-button" asp-action="ExportarExcel" download>
                     <span class="censo-export-button__icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" focusable="false">
                             <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
@@ -2226,7 +2226,7 @@
                     <a class="btn btn-outline-secondary censo-history-filter__reset" asp-action="Index" asp-route-cedulaPaciente="@Model.CedulaFiltro">Limpiar rango</a>
                     @if (Model.TieneFiltroFechaIngreso)
                     {
-                        <a class="btn censo-history-filter__export" asp-action="ExportarExcelFiltroPersonalizado" asp-route-cedulaPaciente="@Model.CedulaFiltro" asp-route-fechaIngresoDesde="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")" asp-route-fechaIngresoHasta="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")">Exportar a Excel filtro personalizado</a>
+                        <a class="btn censo-history-filter__export" asp-action="ExportarExcelFiltroPersonalizado" asp-route-cedulaPaciente="@Model.CedulaFiltro" asp-route-fechaIngresoDesde="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")" asp-route-fechaIngresoHasta="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")" download>Exportar a Excel filtro personalizado</a>
                     }
                 </div>
             </form>
