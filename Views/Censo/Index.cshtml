@@ -181,6 +181,8 @@
         nameof(CensoRecord.ProrrogaKardexEdicionJson),
         nameof(CensoRecord.ProrrogaRequisicionFarmaciaJson),
         nameof(CensoRecord.ProrrogaJson),
+        nameof(CensoRecord.DireccionValidada),
+        nameof(CensoRecord.AsumirDireccionErrada),
         nameof(CensoRecord.FarmaciaEnviadoAtUtc),
         nameof(CensoRecord.FarmaciaKardexVistoAtUtc),
         nameof(CensoRecord.FarmaciaRequisicionVistoAtUtc),
@@ -2803,6 +2805,9 @@
             const serverErrorMessages = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(saveErrorMessages));
             const serverMissingMandatorySections = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(missingMandatorySections));
             const shouldShowSaveErrorModal = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(shouldShowSaveErrorModal));
+            const initialDireccionValidada = @Model.DireccionEsValida.ToString().ToLowerInvariant();
+            const initialAsumirDireccionErrada = @Model.AsumirDireccionErrada.ToString().ToLowerInvariant();
+            const initialDireccionValue = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Direccion ?? string.Empty));
             let direccionValidada = @Model.DireccionEsValida.ToString().ToLowerInvariant();
             let lastValidationDistrict = "";
             let barriosLoaded = [];
@@ -2896,6 +2901,10 @@
                 .toUpperCase()
                 .replace(/[^A-Z0-9]/g, "")
                 .trim();
+            const normalizeAddressForComparison = (value) => String(value || "")
+                .trim()
+                .replace(/\s+/g, " ")
+                .toLocaleUpperCase("es-CO");
             const normalizeCedulaFilter = (value) => normalizeDocumentValue(value);
             const allowsAlphaNumericIdentification = (value) => alphanumericIdentificationTypes.has(String(value || "").trim().toUpperCase());
             const syncNumeroIdentificacionMode = () => {
@@ -5562,7 +5571,14 @@
 
             if (direccionInput) {
                 direccionInput.addEventListener("input", () => {
-                    direccionValidada = false;
+                    const restoredOriginalAddress = normalizeAddressForComparison(direccionInput.value)
+                        === normalizeAddressForComparison(initialDireccionValue);
+                    direccionValidada = restoredOriginalAddress ? initialDireccionValidada : false;
+                    if (asumirDireccionCheck) {
+                        asumirDireccionCheck.checked = restoredOriginalAddress
+                            ? initialAsumirDireccionErrada
+                            : false;
+                    }
                     latestAddressCandidates = [];
                     clearDireccionMessage();
                     clearServerDireccionMessage();

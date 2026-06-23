@@ -996,9 +996,35 @@ public class CensoController : Controller
         ValidatePhoneFields(model);
         ValidateGestionCompleta(model);
 
-        var direccionValidation = await _addressValidationService.ValidateAddressAsync(model.Direccion, cancellationToken);
         var direccionParaGuardar = model.Direccion;
-        ApplyAddressValidationResult(model, direccionValidation, ref direccionParaGuardar);
+        CensoRecord? existingAddressRecord = null;
+        if (model.EditingRecordId.HasValue)
+        {
+            existingAddressRecord = await _context.Censos
+                .AsNoTracking()
+                .FirstOrDefaultAsync(record => record.Id == model.EditingRecordId.Value, cancellationToken);
+        }
+
+        var addressIsUnchanged = existingAddressRecord is not null
+            && AreEquivalentAddresses(existingAddressRecord.Direccion, model.Direccion);
+        var canReusePersistedAddressDecision = addressIsUnchanged
+            && (existingAddressRecord!.DireccionValidada
+                || (existingAddressRecord.AsumirDireccionErrada && model.AsumirDireccionErrada));
+
+        if (canReusePersistedAddressDecision)
+        {
+            model.DireccionEsValida = existingAddressRecord!.DireccionValidada;
+            model.AsumirDireccionErrada = existingAddressRecord.AsumirDireccionErrada;
+            model.DireccionSugerida = null;
+            model.DireccionMensajeValidacion = model.AsumirDireccionErrada
+                ? "Dirección aceptada manualmente."
+                : "Dirección validada previamente.";
+        }
+        else
+        {
+            var direccionValidation = await _addressValidationService.ValidateAddressAsync(model.Direccion, cancellationToken);
+            ApplyAddressValidationResult(model, direccionValidation, ref direccionParaGuardar);
+        }
 
         ValidateDateTimes(model);
 
@@ -2799,10 +2825,14 @@ public class CensoController : Controller
         model.FechaGestionFarmacia = record.FechaGestionFarmacia != default ? record.FechaGestionFarmacia.Date : null;
         model.HoraGestionFarmacia = record.HoraGestionFarmacia != default ? record.HoraGestionFarmacia : null;
         model.GestionCompleta = string.Equals(record.GestionCompletaPendiente, GestionCompleta, StringComparison.OrdinalIgnoreCase);
-        model.AsumirDireccionErrada = false;
-        model.DireccionEsValida = true;
+        model.AsumirDireccionErrada = record.AsumirDireccionErrada;
+        model.DireccionEsValida = record.DireccionValidada;
         model.DireccionSugerida = null;
-        model.DireccionMensajeValidacion = null;
+        model.DireccionMensajeValidacion = record.AsumirDireccionErrada
+            ? "Dirección aceptada manualmente."
+            : record.DireccionValidada
+                ? "Dirección validada previamente."
+                : null;
     }
 
     private void ApplyModelToCensoRecord(
@@ -2830,6 +2860,8 @@ public class CensoController : Controller
         censoRecord.Edad = model.Edad;
         censoRecord.CorreoElectronico = model.CorreoElectronico;
         censoRecord.Direccion = direccionParaGuardar.Trim();
+        censoRecord.DireccionValidada = model.DireccionEsValida;
+        censoRecord.AsumirDireccionErrada = model.AsumirDireccionErrada;
         censoRecord.DetalleDireccion = string.IsNullOrWhiteSpace(model.DetalleDireccion) ? null : model.DetalleDireccion.Trim();
         censoRecord.ClasificacionZonaSura = model.ClasificacionZonaSura;
         censoRecord.MunicipioResidencia = model.MunicipioResidencia;
@@ -4400,6 +4432,7 @@ public class CensoController : Controller
         if (direccionValidation.Outcome == AddressValidationOutcome.Valid)
         {
             model.DireccionEsValida = true;
+            model.AsumirDireccionErrada = false;
             model.DireccionSugerida = direccionValidation.FormattedAddress;
             model.DireccionMensajeValidacion = direccionValidation.Message;
 
@@ -4431,6 +4464,16 @@ public class CensoController : Controller
 
         mensaje += " Corrige la dirección o marca 'Asumir dirección errada y continuar'.";
         ModelState.AddModelError(nameof(model.Direccion), mensaje);
+    }
+
+    private static bool AreEquivalentAddresses(string? first, string? second)
+    {
+        static string Normalize(string? value) => Regex.Replace(
+            value?.Trim() ?? string.Empty,
+            @"\s+",
+            " ");
+
+        return string.Equals(Normalize(first), Normalize(second), StringComparison.OrdinalIgnoreCase);
     }
 
     private void ValidateDateTimes(CensoReceptionViewModel model)

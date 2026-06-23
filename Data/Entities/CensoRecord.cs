@@ -75,6 +75,10 @@ public class CensoRecord
     [StringLength(300)]
     public string Direccion { get; set; } = string.Empty;
 
+    public bool DireccionValidada { get; set; }
+
+    public bool AsumirDireccionErrada { get; set; }
+
     [StringLength(200)]
     public string? DetalleDireccion { get; set; }
 

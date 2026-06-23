@@ -152,6 +152,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.DiagnosticoDescriptivo).HasMaxLength(300).IsRequired();
             entity.Property(x => x.CorreoElectronico).HasMaxLength(150).IsRequired();
             entity.Property(x => x.Direccion).HasMaxLength(300).IsRequired();
+            entity.Property(x => x.DireccionValidada).HasDefaultValue(false);
+            entity.Property(x => x.AsumirDireccionErrada).HasDefaultValue(false);
             entity.Property(x => x.ClasificacionZonaSura).HasMaxLength(30).IsRequired();
             entity.Property(x => x.MunicipioResidencia).HasMaxLength(120).IsRequired();
             entity.Property(x => x.Barrio).HasMaxLength(120).IsRequired();
