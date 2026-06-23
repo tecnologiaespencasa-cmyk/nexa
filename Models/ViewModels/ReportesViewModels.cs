@@ -148,6 +148,10 @@ public class ReportesResolutionByTypeViewModel
 
     public double Percentage { get; init; }
 
+    public string BarWidthCss => AverageHours.HasValue
+        ? $"{Math.Max(5, Percentage).ToString("0.##", CultureInfo.InvariantCulture)}%"
+        : "0%";
+
     public string AverageDisplay => AverageHours.HasValue
         ? AverageHours.Value < 48
             ? $"{AverageHours.Value.ToString("0.0", CultureInfo.GetCultureInfo("es-CO"))} h"

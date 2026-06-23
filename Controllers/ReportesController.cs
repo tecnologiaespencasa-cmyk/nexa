@@ -2,6 +2,8 @@ using System.Globalization;
 using IntranetPrueba.Data;
 using IntranetPrueba.Data.Repositories.Interfaces;
 using IntranetPrueba.Data.Repositories.Models;
+using IntranetPrueba.Helpers;
+using IntranetPrueba.Models.Reports;
 using IntranetPrueba.Models.Security;
 using IntranetPrueba.Models.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -59,6 +61,7 @@ public class ReportesController : Controller
                 NombrePaciente = x.NombrePaciente,
                 TipoIdentificacion = x.TipoIdentificacion,
                 NumeroIdentificacion = x.NumeroIdentificacion,
+                NombreRecepcionaCaso = x.NombreRecepcionaCaso,
                 NombreRealizaKardex = x.NombreRealizaKardex,
                 AuxiliarAsignado = x.AuxiliarAsignado,
                 MunicipioResidencia = x.MunicipioResidencia,
@@ -115,15 +118,14 @@ public class ReportesController : Controller
             PromedioResolucionHoras = promedioResolucionHoras,
             NovedadesPorDia = BuildTrend(portalRows.Select(x => x.CreatedAt), normalizedFilters),
             IngresosPorDia = BuildTrend(censoRows.Select(x => x.FechaIngreso), normalizedFilters),
-            NovedadesPorTipo = BuildCategoryCounts(
-                portalRows
-                    .GroupBy(x => GetCategoriaLabel(x.Categoria))
-                    .Select(x => (x.Key, x.Count())),
-                portalRows.Count),
+            NovedadesPorTipo = BuildPortalCategoryCounts(
+                portalRows,
+                portalRows.Count,
+                normalizedFilters.TipoNovedad),
             EventosPendientesPorAuxiliar = BuildCategoryCounts(
                 censoRows
                     .Where(IsWithoutAuthorization)
-                    .GroupBy(x => NormalizeLabel(FirstNonEmpty(x.AuxiliarAsignado, x.NombreRealizaKardex), "Sin auxiliar asignado"))
+                    .GroupBy(x => NormalizeLabel(x.NombreRecepcionaCaso, "Sin responsable de recepción"))
                     .Select(x => (x.Key, x.Count())),
                 totalEventosPendientesSinAutorizacion),
             GestionPendientePorMunicipio = BuildCategoryCounts(
@@ -134,13 +136,68 @@ public class ReportesController : Controller
                 totalGestionesPendientes)
                 .Take(8)
                 .ToList(),
-            ResolucionPorTipo = BuildResolutionByType(resolvedPortalRows),
+            ResolucionPorTipo = BuildResolutionByType(resolvedPortalRows, normalizedFilters.TipoNovedad),
             FocosOperativos = BuildOperationalFocus(censoRows),
             RegistrosPrioritarios = BuildPriorityRecords(censoRows),
             ActiveFilterLabels = BuildActiveFilterLabels(normalizedFilters)
         };
 
         return View(model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportarPacientesActivos(CancellationToken cancellationToken)
+    {
+        var currentDate = ColombiaTime.Convert(DateTime.UtcNow).Date;
+        var candidates = await _context.Censos
+            .AsNoTracking()
+            .Where(x => x.Estado != null
+                && (EF.Functions.ILike(x.Estado, "Aceptado activo")
+                    || EF.Functions.ILike(x.Estado, "Aceptado cronico")
+                    || EF.Functions.ILike(x.Estado, "Aceptado crónico")
+                    || EF.Functions.ILike(x.Estado, "Activo Estancia prolongada")
+                    || EF.Functions.ILike(x.Estado, "Aceptado estancia prolongada")))
+            .Select(x => new
+            {
+                x.Id,
+                x.FechaIngreso,
+                x.NombrePaciente,
+                x.TipoIdentificacion,
+                x.NumeroIdentificacion,
+                x.ClasificacionZonaSura,
+                x.DiagnosticoDescriptivo,
+                x.Programa,
+                x.Estado
+            })
+            .ToListAsync(cancellationToken);
+
+        var rows = candidates
+            .GroupBy(x => x.NumeroIdentificacion, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(x => x.FechaIngreso)
+                .ThenByDescending(x => x.Id)
+                .First())
+            .OrderBy(x => x.NombrePaciente)
+            .Select(x => new ActivePatientReportRow
+            {
+                CurrentDate = currentDate,
+                FullName = x.NombrePaciente,
+                IdentificationType = x.TipoIdentificacion,
+                IdentificationNumber = x.NumeroIdentificacion,
+                Zone = x.ClasificacionZonaSura,
+                AdmissionDate = x.FechaIngreso.Date,
+                LengthOfStayDays = Math.Max(0, (currentDate - x.FechaIngreso.Date).Days),
+                Diagnosis = x.DiagnosticoDescriptivo,
+                Program = NormalizeActivePatientProgram(x.Programa, x.Estado)
+            })
+            .ToList();
+
+        var workbook = ExcelWorkbookWriter.BuildActivePatientsWorkbook(rows, DateTime.UtcNow);
+        var fileName = $"Informe_pacientes_activos_{currentDate:yyyyMMdd}.xlsx";
+        return File(
+            workbook,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            fileName);
     }
 
     private static IQueryable<Data.Entities.CensoRecord> ApplyBaseFilters(
@@ -344,29 +401,78 @@ public class ReportesController : Controller
             .ToList();
     }
 
-    private static List<ReportesResolutionByTypeViewModel> BuildResolutionByType(IReadOnlyList<PortalNovedadRow> resolvedRows)
+    private static List<ReportesCategoryCountViewModel> BuildPortalCategoryCounts(
+        IReadOnlyList<PortalNovedadRow> rows,
+        int total,
+        string? selectedCategory)
     {
-        var resolvedByType = resolvedRows
-            .GroupBy(x => GetCategoriaLabel(x.Categoria))
-            .Select(x => new
+        var categories = GetVisiblePortalCategories(selectedCategory);
+        var counts = rows
+            .GroupBy(x => x.Categoria, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
+
+        return categories
+            .Select(category => new
             {
-                Type = x.Key,
-                Count = x.Count(),
-                Average = x.Average(item => (item.UpdatedAt - item.CreatedAt).TotalHours)
+                Label = GetCategoriaLabel(category),
+                Value = counts.GetValueOrDefault(category)
+            })
+            .OrderByDescending(x => x.Value)
+            .ThenBy(x => x.Label)
+            .Select((x, index) => new ReportesCategoryCountViewModel
+            {
+                Label = x.Label,
+                Value = x.Value,
+                Percentage = total == 0 ? 0 : Math.Round(x.Value * 100d / total, 2),
+                Color = DashboardPalette[index % DashboardPalette.Length]
+            })
+            .ToList();
+    }
+
+    private static List<ReportesResolutionByTypeViewModel> BuildResolutionByType(
+        IReadOnlyList<PortalNovedadRow> resolvedRows,
+        string? selectedCategory)
+    {
+        var groupedRows = resolvedRows
+            .GroupBy(x => x.Categoria, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.ToList(), StringComparer.OrdinalIgnoreCase);
+        var resolvedByType = GetVisiblePortalCategories(selectedCategory)
+            .Select(category =>
+            {
+                groupedRows.TryGetValue(category, out var categoryRows);
+                categoryRows ??= [];
+                return new
+                {
+                    Type = GetCategoriaLabel(category),
+                    Count = categoryRows.Count,
+                    Average = categoryRows.Count == 0
+                        ? (double?)null
+                        : categoryRows.Average(item => (item.UpdatedAt - item.CreatedAt).TotalHours)
+                };
             })
             .OrderByDescending(x => x.Count)
+            .ThenBy(x => x.Type)
             .ToList();
 
-        var maxAverage = Math.Max(1, resolvedByType.Count == 0 ? 1 : resolvedByType.Max(x => x.Average));
+        var maxAverage = Math.Max(1, resolvedByType.Max(x => x.Average ?? 0));
         return resolvedByType
             .Select(x => new ReportesResolutionByTypeViewModel
             {
                 Type = x.Type,
                 ResolvedCount = x.Count,
                 AverageHours = x.Average,
-                Percentage = Math.Round(x.Average * 100d / maxAverage, 2)
+                Percentage = x.Average.HasValue
+                    ? Math.Round(x.Average.Value * 100d / maxAverage, 2)
+                    : 0
             })
             .ToList();
+    }
+
+    private static IReadOnlyList<string> GetVisiblePortalCategories(string? selectedCategory)
+    {
+        return string.IsNullOrWhiteSpace(selectedCategory)
+            ? CategoriaNovedadLabels.Keys.ToList()
+            : [selectedCategory];
     }
 
     private static List<ReportesOperationalFocusViewModel> BuildOperationalFocus(IReadOnlyList<ReportesCensoRow> rows)
@@ -600,6 +706,20 @@ public class ReportesController : Controller
         };
     }
 
+    private static string NormalizeActivePatientProgram(string? program, string? state)
+    {
+        if (!string.IsNullOrWhiteSpace(program))
+        {
+            return program.Contains("cron", StringComparison.OrdinalIgnoreCase)
+                ? "Cronico"
+                : "Agudo";
+        }
+
+        return state?.Contains("cron", StringComparison.OrdinalIgnoreCase) == true
+            ? "Cronico"
+            : "Agudo";
+    }
+
     private static bool IsResolved(PortalNovedadRow row)
     {
         return string.Equals(row.Estado, "RESUELTA", StringComparison.OrdinalIgnoreCase);
@@ -637,6 +757,7 @@ public class ReportesController : Controller
         public string NombrePaciente { get; init; } = string.Empty;
         public string TipoIdentificacion { get; init; } = string.Empty;
         public string NumeroIdentificacion { get; init; } = string.Empty;
+        public string NombreRecepcionaCaso { get; init; } = string.Empty;
         public string NombreRealizaKardex { get; init; } = string.Empty;
         public string? AuxiliarAsignado { get; init; }
         public string MunicipioResidencia { get; init; } = string.Empty;

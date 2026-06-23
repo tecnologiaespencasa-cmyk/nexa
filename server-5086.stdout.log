@@ -355,3 +355,719 @@ info: Microsoft.EntityFrameworkCore.Database.Command[20101]
       WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
 warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
       Failed to determine the https port for redirect.
+warn: Microsoft.EntityFrameworkCore.Query[20504]
+      Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (118ms) [Parameters=[@normalizedUsername='?'], CommandType='Text', CommandTimeout='30']
+      SELECT u2."Id", u2."CreatedAtUtc", u2."Email", u2."FirstName", u2."FullName", u2."IsActive", u2."LastLoginAtUtc", u2."LastName1", u2."LastName2", u2."NationalId", u2."NormalizedEmail", u2."NormalizedNationalId", u2."NormalizedUsername", u2."PasswordHash", u2."Username", s0."UserId", s0."RoleId", s0."Id", s0."Description", s0."Name", s0."NormalizedName", s0."RoleId0", s0."PermissionId", s0."Id0", s0."Code", s0."Description0", s1."UserId", s1."PermissionId", s1."GrantedAtUtc", s1."Id", s1."Code", s1."Description"
+      FROM (
+          SELECT u."Id", u."CreatedAtUtc", u."Email", u."FirstName", u."FullName", u."IsActive", u."LastLoginAtUtc", u."LastName1", u."LastName2", u."NationalId", u."NormalizedEmail", u."NormalizedNationalId", u."NormalizedUsername", u."PasswordHash", u."Username"
+          FROM "Users" AS u
+          WHERE u."NormalizedUsername" = @normalizedUsername
+          LIMIT 1
+      ) AS u2
+      LEFT JOIN (
+          SELECT u0."UserId", u0."RoleId", r."Id", r."Description", r."Name", r."NormalizedName", s."RoleId" AS "RoleId0", s."PermissionId", s."Id" AS "Id0", s."Code", s."Description" AS "Description0"
+          FROM "UserRoles" AS u0
+          INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+          LEFT JOIN (
+              SELECT r0."RoleId", r0."PermissionId", p."Id", p."Code", p."Description"
+              FROM "RolePermissions" AS r0
+              INNER JOIN "Permissions" AS p ON r0."PermissionId" = p."Id"
+          ) AS s ON r."Id" = s."RoleId"
+      ) AS s0 ON u2."Id" = s0."UserId"
+      LEFT JOIN (
+          SELECT u1."UserId", u1."PermissionId", u1."GrantedAtUtc", p0."Id", p0."Code", p0."Description"
+          FROM "UserPermissions" AS u1
+          INNER JOIN "Permissions" AS p0 ON u1."PermissionId" = p0."Id"
+      ) AS s1 ON u2."Id" = s1."UserId"
+      ORDER BY u2."Id", s0."UserId", s0."RoleId", s0."Id", s0."RoleId0", s0."PermissionId", s0."Id0", s1."UserId", s1."PermissionId"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@p0='?', @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      INSERT INTO "AuditLogs" ("Action", "Details", "Entity", "IpAddress", "PerformedAtUtc", "PerformedByUserId")
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5)
+      RETURNING "Id";
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (114ms) [Parameters=[@normalizedUsername='?'], CommandType='Text', CommandTimeout='30']
+      SELECT u2."Id", u2."CreatedAtUtc", u2."Email", u2."FirstName", u2."FullName", u2."IsActive", u2."LastLoginAtUtc", u2."LastName1", u2."LastName2", u2."NationalId", u2."NormalizedEmail", u2."NormalizedNationalId", u2."NormalizedUsername", u2."PasswordHash", u2."Username", s0."UserId", s0."RoleId", s0."Id", s0."Description", s0."Name", s0."NormalizedName", s0."RoleId0", s0."PermissionId", s0."Id0", s0."Code", s0."Description0", s1."UserId", s1."PermissionId", s1."GrantedAtUtc", s1."Id", s1."Code", s1."Description"
+      FROM (
+          SELECT u."Id", u."CreatedAtUtc", u."Email", u."FirstName", u."FullName", u."IsActive", u."LastLoginAtUtc", u."LastName1", u."LastName2", u."NationalId", u."NormalizedEmail", u."NormalizedNationalId", u."NormalizedUsername", u."PasswordHash", u."Username"
+          FROM "Users" AS u
+          WHERE u."NormalizedUsername" = @normalizedUsername
+          LIMIT 1
+      ) AS u2
+      LEFT JOIN (
+          SELECT u0."UserId", u0."RoleId", r."Id", r."Description", r."Name", r."NormalizedName", s."RoleId" AS "RoleId0", s."PermissionId", s."Id" AS "Id0", s."Code", s."Description" AS "Description0"
+          FROM "UserRoles" AS u0
+          INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+          LEFT JOIN (
+              SELECT r0."RoleId", r0."PermissionId", p."Id", p."Code", p."Description"
+              FROM "RolePermissions" AS r0
+              INNER JOIN "Permissions" AS p ON r0."PermissionId" = p."Id"
+          ) AS s ON r."Id" = s."RoleId"
+      ) AS s0 ON u2."Id" = s0."UserId"
+      LEFT JOIN (
+          SELECT u1."UserId", u1."PermissionId", u1."GrantedAtUtc", p0."Id", p0."Code", p0."Description"
+          FROM "UserPermissions" AS u1
+          INNER JOIN "Permissions" AS p0 ON u1."PermissionId" = p0."Id"
+      ) AS s1 ON u2."Id" = s1."UserId"
+      ORDER BY u2."Id", s0."UserId", s0."RoleId", s0."Id", s0."RoleId0", s0."PermissionId", s0."Id0", s1."UserId", s1."PermissionId"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (108ms) [Parameters=[@p14='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?', @p4='?' (DbType = Boolean), @p5='?' (DbType = DateTime), @p6='?', @p7='?', @p8='?', @p9='?', @p10='?', @p11='?', @p12='?', @p13='?'], CommandType='Text', CommandTimeout='30']
+      UPDATE "Users" SET "CreatedAtUtc" = @p0, "Email" = @p1, "FirstName" = @p2, "FullName" = @p3, "IsActive" = @p4, "LastLoginAtUtc" = @p5, "LastName1" = @p6, "LastName2" = @p7, "NationalId" = @p8, "NormalizedEmail" = @p9, "NormalizedNationalId" = @p10, "NormalizedUsername" = @p11, "PasswordHash" = @p12, "Username" = @p13
+      WHERE "Id" = @p14;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (105ms) [Parameters=[@p0='?', @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      INSERT INTO "AuditLogs" ("Action", "Details", "Entity", "IpAddress", "PerformedAtUtc", "PerformedByUserId")
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5)
+      RETURNING "Id";
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (103ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (198ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (123ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (147ms) [Parameters=[@filters_Desde_Value_Date='?' (DbType = Date), @filters_Hasta_Value_Date='?' (DbType = Date)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."FechaIngreso", c."NombrePaciente", c."TipoIdentificacion", c."NumeroIdentificacion", c."NombreRealizaKardex", c."AuxiliarAsignado", c."MunicipioResidencia", c."Estado", c."AutorizacionEvento", c."GestionCompletaPendiente", c."CreatedAtUtc"
+      FROM censo AS c
+      WHERE (c."Estado" IS NULL OR (c."Estado" NOT ILIKE '%cancelado%' AND c."Estado" NOT ILIKE '%rechazado%')) AND c."FechaIngreso" >= @filters_Desde_Value_Date AND c."FechaIngreso" <= @filters_Hasta_Value_Date
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (127ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT c0."MunicipioResidencia"
+      FROM (
+          SELECT DISTINCT c."MunicipioResidencia"
+          FROM censo AS c
+          WHERE c."MunicipioResidencia" <> ''
+      ) AS c0
+      ORDER BY c0."MunicipioResidencia"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (123ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT c0."Estado"
+      FROM (
+          SELECT DISTINCT c."Estado"
+          FROM censo AS c
+          WHERE (c."Estado" IS NULL OR (c."Estado" NOT ILIKE '%cancelado%' AND c."Estado" NOT ILIKE '%rechazado%')) AND c."Estado" IS NOT NULL AND c."Estado" <> ''
+      ) AS c0
+      ORDER BY c0."Estado"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (153ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT c."AuxiliarAsignado", c."NombreRealizaKardex"
+      FROM censo AS c
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (117ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (122ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@today='?' (DbType = Date), @AddDays='?' (DbType = Date)], CommandType='Text', CommandTimeout='30']
+      SELECT count(*)::int
+      FROM censo AS c
+      WHERE c."FarmaciaProrrogaDeId" IS NULL AND c."FarmaciaProrrogaVersionId" IS NULL AND c."FechaIngreso" >= @today AND c."FechaIngreso" < @AddDays
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (152ms) [Parameters=[@p='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaProrrogaDeId" IS NULL AND c."FarmaciaProrrogaVersionId" IS NULL
+      ORDER BY c."FechaIngreso" DESC, c."HoraIngreso" DESC, c."Id" DESC
+      LIMIT @p
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (129ms) [Parameters=[@tableRecordIds='?' (DbType = Object)], CommandType='Text', CommandTimeout='30']
+      SELECT DISTINCT c."FarmaciaProrrogaDeId"
+      FROM censo AS c
+      WHERE c."FarmaciaOkKardex" AND c."FarmaciaProrrogaDeId" IS NOT NULL AND c."FarmaciaProrrogaVersionId" IS NULL AND c."FarmaciaProrrogaDeId" = ANY (@tableRecordIds)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (126ms) [Parameters=[@tableRecordIds='?' (DbType = Object)], CommandType='Text', CommandTimeout='30']
+      SELECT c."CensoRecordId", c."Numero", c."ProrrogaJson", c."CerradaAtUtc"
+      FROM censo_prorrogas AS c
+      WHERE c."CensoRecordId" = ANY (@tableRecordIds)
+      ORDER BY c."CensoRecordId", c."Numero"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (121ms) [Parameters=[@tableRecordIds='?' (DbType = Object)], CommandType='Text', CommandTimeout='30']
+      SELECT DISTINCT c."CensoRecordId"
+      FROM censo_adjuntos AS c
+      WHERE c."CensoRecordId" = ANY (@tableRecordIds)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (116ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT n."Id", n."CreatedAtUtc", n."IsActive", n."Name", n."NormalizedName"
+      FROM "NursingAssistants" AS n
+      WHERE n."IsActive"
+      ORDER BY n."Name"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (114ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT m."Nombre", m."NormalizedNombre", m."PresentacionRequisicion", m."ConcentracionMiligramos", m."Jeringa", m."SolucionParaDilucion", m."DilucionRecomendada", m."VehiculoReconstitucion", m."TiempoEstabilidad", m."TiempoInfusionMinutos", m."BombaInfusion", m."MarcacionRiesgo", m."Flebozantes", m."EquipoFotosensible", m."CadenaFrio"
+      FROM "Medicamentos" AS m
+      WHERE m."IsActive"
+      ORDER BY m."Nombre"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (105ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (117ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (125ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (143ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (105ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (103ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[100]
+      Start processing HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[100]
+      Sending HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[101]
+      Received HTTP response headers after 599.08ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[101]
+      End processing HTTP request after 648.078ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[100]
+      Start processing HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[100]
+      Sending HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[101]
+      Received HTTP response headers after 227.0208ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[101]
+      End processing HTTP request after 227.4451ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[100]
+      Start processing HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[100]
+      Sending HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[101]
+      Received HTTP response headers after 237.2532ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[101]
+      End processing HTTP request after 237.5319ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[100]
+      Start processing HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[100]
+      Sending HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[101]
+      Received HTTP response headers after 275.3815ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[101]
+      End processing HTTP request after 275.6671ms - 200
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (106ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (103ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (105ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (103ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[100]
+      Start processing HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[100]
+      Sending HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[101]
+      Received HTTP response headers after 135.1793ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[101]
+      End processing HTTP request after 135.54ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[100]
+      Start processing HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[100]
+      Sending HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[101]
+      Received HTTP response headers after 282.7678ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[101]
+      End processing HTTP request after 283.0061ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[100]
+      Start processing HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[100]
+      Sending HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[101]
+      Received HTTP response headers after 162.1477ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[101]
+      End processing HTTP request after 162.5212ms - 200
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (106ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (100ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (103ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (106ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@today='?' (DbType = Date), @AddDays='?' (DbType = Date)], CommandType='Text', CommandTimeout='30']
+      SELECT count(*)::int
+      FROM censo AS c
+      WHERE c."FarmaciaProrrogaDeId" IS NULL AND c."FarmaciaProrrogaVersionId" IS NULL AND c."FechaIngreso" >= @today AND c."FechaIngreso" < @AddDays
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (103ms) [Parameters=[@p='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaProrrogaDeId" IS NULL AND c."FarmaciaProrrogaVersionId" IS NULL
+      ORDER BY c."FechaIngreso" DESC, c."HoraIngreso" DESC, c."Id" DESC
+      LIMIT @p
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (109ms) [Parameters=[@tableRecordIds='?' (DbType = Object)], CommandType='Text', CommandTimeout='30']
+      SELECT DISTINCT c."FarmaciaProrrogaDeId"
+      FROM censo AS c
+      WHERE c."FarmaciaOkKardex" AND c."FarmaciaProrrogaDeId" IS NOT NULL AND c."FarmaciaProrrogaVersionId" IS NULL AND c."FarmaciaProrrogaDeId" = ANY (@tableRecordIds)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (100ms) [Parameters=[@tableRecordIds='?' (DbType = Object)], CommandType='Text', CommandTimeout='30']
+      SELECT c."CensoRecordId", c."Numero", c."ProrrogaJson", c."CerradaAtUtc"
+      FROM censo_prorrogas AS c
+      WHERE c."CensoRecordId" = ANY (@tableRecordIds)
+      ORDER BY c."CensoRecordId", c."Numero"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (108ms) [Parameters=[@tableRecordIds='?' (DbType = Object)], CommandType='Text', CommandTimeout='30']
+      SELECT DISTINCT c."CensoRecordId"
+      FROM censo_adjuntos AS c
+      WHERE c."CensoRecordId" = ANY (@tableRecordIds)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (100ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT n."Id", n."CreatedAtUtc", n."IsActive", n."Name", n."NormalizedName"
+      FROM "NursingAssistants" AS n
+      WHERE n."IsActive"
+      ORDER BY n."Name"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (121ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT m."Nombre", m."NormalizedNombre", m."PresentacionRequisicion", m."ConcentracionMiligramos", m."Jeringa", m."SolucionParaDilucion", m."DilucionRecomendada", m."VehiculoReconstitucion", m."TiempoEstabilidad", m."TiempoInfusionMinutos", m."BombaInfusion", m."MarcacionRiesgo", m."Flebozantes", m."EquipoFotosensible", m."CadenaFrio"
+      FROM "Medicamentos" AS m
+      WHERE m."IsActive"
+      ORDER BY m."Nombre"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (102ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (105ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (105ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (108ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (109ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@today='?' (DbType = Date), @AddDays='?' (DbType = Date)], CommandType='Text', CommandTimeout='30']
+      SELECT count(*)::int
+      FROM censo AS c
+      WHERE c."FarmaciaProrrogaDeId" IS NULL AND c."FarmaciaProrrogaVersionId" IS NULL AND c."FechaIngreso" >= @today AND c."FechaIngreso" < @AddDays
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (330ms) [Parameters=[@cedulaFiltro='?'], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaProrrogaDeId" IS NULL AND c."FarmaciaProrrogaVersionId" IS NULL AND c."NumeroIdentificacion" = @cedulaFiltro
+      ORDER BY c."FechaIngreso", c."HoraIngreso", c."Id"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (102ms) [Parameters=[@tableRecordIds='?' (DbType = Object)], CommandType='Text', CommandTimeout='30']
+      SELECT DISTINCT c."FarmaciaProrrogaDeId"
+      FROM censo AS c
+      WHERE c."FarmaciaOkKardex" AND c."FarmaciaProrrogaDeId" IS NOT NULL AND c."FarmaciaProrrogaVersionId" IS NULL AND c."FarmaciaProrrogaDeId" = ANY (@tableRecordIds)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (105ms) [Parameters=[@tableRecordIds='?' (DbType = Object)], CommandType='Text', CommandTimeout='30']
+      SELECT c."CensoRecordId", c."Numero", c."ProrrogaJson", c."CerradaAtUtc"
+      FROM censo_prorrogas AS c
+      WHERE c."CensoRecordId" = ANY (@tableRecordIds)
+      ORDER BY c."CensoRecordId", c."Numero"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (105ms) [Parameters=[@tableRecordIds='?' (DbType = Object)], CommandType='Text', CommandTimeout='30']
+      SELECT DISTINCT c."CensoRecordId"
+      FROM censo_adjuntos AS c
+      WHERE c."CensoRecordId" = ANY (@tableRecordIds)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (166ms) [Parameters=[@cedulaFiltro='?'], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaProrrogaDeId" IS NULL AND c."FarmaciaProrrogaVersionId" IS NULL AND c."NumeroIdentificacion" = @cedulaFiltro
+      ORDER BY c."FechaIngreso" DESC, c."HoraIngreso" DESC, c."Id" DESC
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (101ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT n."Id", n."CreatedAtUtc", n."IsActive", n."Name", n."NormalizedName"
+      FROM "NursingAssistants" AS n
+      WHERE n."IsActive"
+      ORDER BY n."Name"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (110ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT m."Nombre", m."NormalizedNombre", m."PresentacionRequisicion", m."ConcentracionMiligramos", m."Jeringa", m."SolucionParaDilucion", m."DilucionRecomendada", m."VehiculoReconstitucion", m."TiempoEstabilidad", m."TiempoInfusionMinutos", m."BombaInfusion", m."MarcacionRiesgo", m."Flebozantes", m."EquipoFotosensible", m."CadenaFrio"
+      FROM "Medicamentos" AS m
+      WHERE m."IsActive"
+      ORDER BY m."Nombre"
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[100]
+      Start processing HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[100]
+      Sending HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[101]
+      Received HTTP response headers after 173.2912ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[101]
+      End processing HTTP request after 173.5877ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[100]
+      Start processing HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[100]
+      Sending HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[101]
+      Received HTTP response headers after 319.9541ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[101]
+      End processing HTTP request after 320.1981ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[100]
+      Start processing HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[100]
+      Sending HTTP request GET https://maps.googleapis.com/maps/api/geocode/json?*
+info: System.Net.Http.HttpClient.IAddressValidationService.ClientHandler[101]
+      Received HTTP response headers after 194.4959ms - 200
+info: System.Net.Http.HttpClient.IAddressValidationService.LogicalHandler[101]
+      End processing HTTP request after 194.6584ms - 200
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (102ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (102ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (111ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (110ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (105ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (101ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (113ms) [Parameters=[@id='?' (DbType = Int64)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."NumeroIdentificacion", c."KardexEdicionJson", c."RequisicionFarmaciaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."ProrrogaJson", c."KardexCerradoAtUtc", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId"
+      FROM censo AS c
+      WHERE c."Id" = @id
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@id='?' (DbType = Int64)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id" AS id, c."Numero" AS numero, c."ProrrogaJson" AS "prorrogaJson", c."KardexEdicionJson" AS "kardexJson", c."RequisicionFarmaciaJson" AS "requisicionJson", c."CerradaAtUtc" IS NOT NULL AS cerrada, c."CerradaAtUtc" AS "cerradaAtUtc"
+      FROM censo_prorrogas AS c
+      WHERE c."CensoRecordId" = @id
+      ORDER BY c."Numero"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (109ms) [Parameters=[@record_NumeroIdentificacion='?', @id='?' (DbType = Int64)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id"
+      FROM censo AS c
+      WHERE c."NumeroIdentificacion" = @record_NumeroIdentificacion AND c."Id" <> @id AND ((c."ProrrogaJson" IS NOT NULL AND c."ProrrogaJson" <> '') OR EXISTS (
+          SELECT 1
+          FROM censo_prorrogas AS c0
+          WHERE c0."CensoRecordId" = c."Id" AND c0."ProrrogaJson" <> ''))
+      ORDER BY c."FechaIngreso" DESC, c."HoraIngreso" DESC, c."Id" DESC
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (143ms) [Parameters=[@cutoffEmpacado='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (148ms) [Parameters=[@cutoffEmpacado='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (147ms) [Parameters=[@cutoffEmpacado='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (146ms) [Parameters=[@cutoffEmpacado='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (145ms) [Parameters=[@cutoffEmpacado='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (154ms) [Parameters=[@cutoffEmpacado='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (147ms) [Parameters=[@cutoffEmpacado='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (149ms) [Parameters=[@cutoffEmpacado='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (146ms) [Parameters=[@cutoffEmpacado='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (122ms) [Parameters=[@normalizedUsername='?'], CommandType='Text', CommandTimeout='30']
+      SELECT u2."Id", u2."CreatedAtUtc", u2."Email", u2."FirstName", u2."FullName", u2."IsActive", u2."LastLoginAtUtc", u2."LastName1", u2."LastName2", u2."NationalId", u2."NormalizedEmail", u2."NormalizedNationalId", u2."NormalizedUsername", u2."PasswordHash", u2."Username", s0."UserId", s0."RoleId", s0."Id", s0."Description", s0."Name", s0."NormalizedName", s0."RoleId0", s0."PermissionId", s0."Id0", s0."Code", s0."Description0", s1."UserId", s1."PermissionId", s1."GrantedAtUtc", s1."Id", s1."Code", s1."Description"
+      FROM (
+          SELECT u."Id", u."CreatedAtUtc", u."Email", u."FirstName", u."FullName", u."IsActive", u."LastLoginAtUtc", u."LastName1", u."LastName2", u."NationalId", u."NormalizedEmail", u."NormalizedNationalId", u."NormalizedUsername", u."PasswordHash", u."Username"
+          FROM "Users" AS u
+          WHERE u."NormalizedUsername" = @normalizedUsername
+          LIMIT 1
+      ) AS u2
+      LEFT JOIN (
+          SELECT u0."UserId", u0."RoleId", r."Id", r."Description", r."Name", r."NormalizedName", s."RoleId" AS "RoleId0", s."PermissionId", s."Id" AS "Id0", s."Code", s."Description" AS "Description0"
+          FROM "UserRoles" AS u0
+          INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+          LEFT JOIN (
+              SELECT r0."RoleId", r0."PermissionId", p."Id", p."Code", p."Description"
+              FROM "RolePermissions" AS r0
+              INNER JOIN "Permissions" AS p ON r0."PermissionId" = p."Id"
+          ) AS s ON r."Id" = s."RoleId"
+      ) AS s0 ON u2."Id" = s0."UserId"
+      LEFT JOIN (
+          SELECT u1."UserId", u1."PermissionId", u1."GrantedAtUtc", p0."Id", p0."Code", p0."Description"
+          FROM "UserPermissions" AS u1
+          INNER JOIN "Permissions" AS p0 ON u1."PermissionId" = p0."Id"
+      ) AS s1 ON u2."Id" = s1."UserId"
+      ORDER BY u2."Id", s0."UserId", s0."RoleId", s0."Id", s0."RoleId0", s0."PermissionId", s0."Id0", s1."UserId", s1."PermissionId"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (108ms) [Parameters=[@p14='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?', @p4='?' (DbType = Boolean), @p5='?' (DbType = DateTime), @p6='?', @p7='?', @p8='?', @p9='?', @p10='?', @p11='?', @p12='?', @p13='?'], CommandType='Text', CommandTimeout='30']
+      UPDATE "Users" SET "CreatedAtUtc" = @p0, "Email" = @p1, "FirstName" = @p2, "FullName" = @p3, "IsActive" = @p4, "LastLoginAtUtc" = @p5, "LastName1" = @p6, "LastName2" = @p7, "NationalId" = @p8, "NormalizedEmail" = @p9, "NormalizedNationalId" = @p10, "NormalizedUsername" = @p11, "PasswordHash" = @p12, "Username" = @p13
+      WHERE "Id" = @p14;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (111ms) [Parameters=[@p0='?', @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      INSERT INTO "AuditLogs" ("Action", "Details", "Entity", "IpAddress", "PerformedAtUtc", "PerformedByUserId")
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5)
+      RETURNING "Id";
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (106ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (105ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (119ms) [Parameters=[@filters_Desde_Value_Date='?' (DbType = Date), @filters_Hasta_Value_Date='?' (DbType = Date)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."FechaIngreso", c."NombrePaciente", c."TipoIdentificacion", c."NumeroIdentificacion", c."NombreRealizaKardex", c."AuxiliarAsignado", c."MunicipioResidencia", c."Estado", c."AutorizacionEvento", c."GestionCompletaPendiente", c."CreatedAtUtc"
+      FROM censo AS c
+      WHERE (c."Estado" IS NULL OR (c."Estado" NOT ILIKE '%cancelado%' AND c."Estado" NOT ILIKE '%rechazado%')) AND c."FechaIngreso" >= @filters_Desde_Value_Date AND c."FechaIngreso" <= @filters_Hasta_Value_Date
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (106ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT c0."MunicipioResidencia"
+      FROM (
+          SELECT DISTINCT c."MunicipioResidencia"
+          FROM censo AS c
+          WHERE c."MunicipioResidencia" <> ''
+      ) AS c0
+      ORDER BY c0."MunicipioResidencia"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (106ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT c0."Estado"
+      FROM (
+          SELECT DISTINCT c."Estado"
+          FROM censo AS c
+          WHERE (c."Estado" IS NULL OR (c."Estado" NOT ILIKE '%cancelado%' AND c."Estado" NOT ILIKE '%rechazado%')) AND c."Estado" IS NOT NULL AND c."Estado" <> ''
+      ) AS c0
+      ORDER BY c0."Estado"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (110ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT c."AuxiliarAsignado", c."NombreRealizaKardex"
+      FROM censo AS c
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (119ms) [Parameters=[@cutoffEmpacado='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (103ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM "Users" AS u
+          WHERE u."Id" = @userId AND u."IsActive")
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT p."Code"
+      FROM "UserPermissions" AS u
+      INNER JOIN "Permissions" AS p ON u."PermissionId" = p."Id"
+      WHERE u."UserId" = @userId
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (129ms) [Parameters=[@filters_Desde_Value_Date='?' (DbType = Date), @filters_Hasta_Value_Date='?' (DbType = Date)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."FechaIngreso", c."NombrePaciente", c."TipoIdentificacion", c."NumeroIdentificacion", c."NombreRealizaKardex", c."AuxiliarAsignado", c."MunicipioResidencia", c."Estado", c."AutorizacionEvento", c."GestionCompletaPendiente", c."CreatedAtUtc"
+      FROM censo AS c
+      WHERE (c."Estado" IS NULL OR (c."Estado" NOT ILIKE '%cancelado%' AND c."Estado" NOT ILIKE '%rechazado%')) AND c."FechaIngreso" >= @filters_Desde_Value_Date AND c."FechaIngreso" <= @filters_Hasta_Value_Date
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (108ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT c0."MunicipioResidencia"
+      FROM (
+          SELECT DISTINCT c."MunicipioResidencia"
+          FROM censo AS c
+          WHERE c."MunicipioResidencia" <> ''
+      ) AS c0
+      ORDER BY c0."MunicipioResidencia"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (104ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT c0."Estado"
+      FROM (
+          SELECT DISTINCT c."Estado"
+          FROM censo AS c
+          WHERE (c."Estado" IS NULL OR (c."Estado" NOT ILIKE '%cancelado%' AND c."Estado" NOT ILIKE '%rechazado%')) AND c."Estado" IS NOT NULL AND c."Estado" <> ''
+      ) AS c0
+      ORDER BY c0."Estado"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (109ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT c."AuxiliarAsignado", c."NombreRealizaKardex"
+      FROM censo AS c
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (142ms) [Parameters=[@cutoffEmpacado='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SELECT c."Id", c."AdministracionMedicamentos", c."Aislamiento", c."AltaTardia", c."AmpliacionMotivoRehospitalizacion", c."AplicacionesTotales", c."Area", c."Asegurador", c."AsumirDireccionErrada", c."AutorizacionEvento", c."AuxiliarAsignado", c."AuxiliarAsignadoCateterismo", c."Barrio", c."CambioFrecuenciaAdministracionTto", c."CateterPicc", c."CateterismoOSv", c."ClasificacionRiesgo", c."ClasificacionZonaSura", c."ClinicaHeridas", c."CodigoCie10", c."CorreoElectronico", c."CreatedAtUtc", c."DetalleDireccion", c."DiagnosticoDescriptivo", c."DiasMedicamento2", c."DiasMedicamento3", c."DiasMedicamento4", c."DiasMedicamento5", c."DiasMedicamento6", c."DiasMedicamentoPrincipal", c."DiasTratamientoIv", c."Direccion", c."DireccionValidada", c."DosisMedicamento2", c."DosisMedicamento3", c."DosisMedicamento4", c."DosisMedicamento5", c."DosisMedicamento6", c."DosisMedicamentoPrincipal", c."Edad", c."EsProrroga", c."Estado", c."EstadoDevolucionServicioFarmaceutico", c."EstadoLlamadaBienvenida", c."FarmaciaBolsaDesempacada", c."FarmaciaCantidadEntregas", c."FarmaciaEmpacadoAtUtc", c."FarmaciaEntregaActual", c."FarmaciaEnviadoAtUtc", c."FarmaciaEsEntregaParcial", c."FarmaciaEstado", c."FarmaciaFacturado", c."FarmaciaFechaHoraRecepcionUtc", c."FarmaciaFirmaActualizadaAtUtc", c."FarmaciaFirmaEntregaDataUrl", c."FarmaciaFirmaRecibeDataUrl", c."FarmaciaKardexVistoAtUtc", c."FarmaciaNombreRecibe", c."FarmaciaNotif24hRestanteUtc", c."FarmaciaNotifAuxiliarUltimaUtc", c."FarmaciaOkKardex", c."FarmaciaProrrogaDeId", c."FarmaciaProrrogaVersionId", c."FarmaciaRequisicionVistoAtUtc", c."FechaAlta", c."FechaAltaHospitalizacion", c."FechaFinTratamiento", c."FechaGestionFarmacia", c."FechaIngreso", c."FechaInicioTratamiento", c."FechaMaximaDevolucionProductos", c."FechaNacimiento", c."FechaNovedadDevolucionProductos", c."FechaPrimerSeguimiento24Horas", c."FechaPrimerSeguimientoRehospitalizacion", c."FechaPromesaInicioTto", c."FechaProximoCambioSonda", c."FechaRegistroReporteRehospitalizacion", c."FechaRehospitalizacion", c."FechaRespuesta", c."FechaSegundoSeguimiento48Horas", c."FechaSegundoSeguimientoRehospitalizacion", c."FechaTercerSeguimiento72Horas", c."FechaTercerSeguimientoRehospitalizacion", c."FechaUltimaCuracionPicc", c."FechaUltimoCambioSonda", c."FrecuenciaAdministracionMedicamento2", c."FrecuenciaAdministracionMedicamento3", c."FrecuenciaAdministracionMedicamento4", c."FrecuenciaAdministracionMedicamento5", c."FrecuenciaAdministracionMedicamento6", c."FrecuenciaAdministracionMxPrincipal", c."FrecuenciaAjustada", c."GestionCompletaPendiente", c."HoraGestionFarmacia", c."HoraIngreso", c."HoraPromesaInicioTto", c."HoraRespuesta", c."IndicadorTiempoGestionMinutos", c."IndicadorTiempoRespuestaMinutos", c."IpsIntramuralRehospitalizacion", c."IpsQueRemite", c."KardexCerradoAtUtc", c."KardexCerradoPorFarmaciaId", c."KardexEdicionJson", c."LaboratorioClinicoProcedimiento", c."MedicamentoFrecuenciaAjustada", c."MedidaMedicamento2", c."MedidaMedicamento3", c."MedidaMedicamento4", c."MedidaMedicamento5", c."MedidaMedicamento6", c."MedidaMedicamentoPrincipal", c."MotivoNovedadDevolucionProductos", c."MotivoRehospitalizacion", c."MunicipioResidencia", c."Nebulizaciones", c."NombreMedicamentoNumero2", c."NombreMedicamentoNumero3", c."NombreMedicamentoNumero4", c."NombreMedicamentoNumero5", c."NombreMedicamentoNumero6", c."NombreMedicamentoPrincipalTratante", c."NombrePaciente", c."NombrePerfilGestionaCaso", c."NombreQuienGestionaAlta", c."NombreQuienRealizaSeguimientoAltaTardia", c."NombreRealizaKardex", c."NombreRecepcionaCaso", c."NotificacionAuxiliarDevolucionProductos", c."NumeroCalibreSonda", c."NumeroDiasAutorizado", c."NumeroDosisDiaMedicamentoPrincipal", c."NumeroDosisMedicamento2", c."NumeroDosisMedicamento3", c."NumeroDosisMedicamento4", c."NumeroDosisMedicamento5", c."NumeroDosisMedicamento6", c."NumeroIdentificacion", c."NumeroTelefonoLlamadaBienvenida", c."NutricionEnteral", c."NutricionParenteral", c."ObservacionAltaTardia", c."ObservacionRehospitalizacion", c."ObservacionesPlanManejo", c."PacienteAnticoagulado", c."PacienteGestante", c."PacienteRehospitalizado", c."Programa", c."ProrrogaCerradaAtUtc", c."ProrrogaCerradaPorFarmaciaId", c."ProrrogaJson", c."ProrrogaKardexEdicionJson", c."ProrrogaRequisicionFarmaciaJson", c."RemitidoPorRehospitalizacion", c."RequiereServiciosComplementarios", c."RequisicionFarmaciaJson", c."ResponsableLlamadaBienvenida", c."ServicioComplementario", c."SistemasPresionNegativaVac", c."Telefono1", c."Telefono2", c."Telefono3", c."TipoAislamiento", c."TipoIdentificacion", c."ViaAdministracionMedicamento2", c."ViaAdministracionMedicamento3", c."ViaAdministracionMedicamento4", c."ViaAdministracionMedicamento5", c."ViaAdministracionMedicamento6", c."ViaAdministracionMedicamentoPrincipal", c."VistoBuenoRangoFueraAnexo", c."ZonaDireccionSegunMunicipio"
+      FROM censo AS c
+      WHERE c."FarmaciaEstado" = 'Empacado' AND c."FarmaciaEmpacadoAtUtc" IS NOT NULL AND c."FarmaciaEmpacadoAtUtc" > @cutoffEmpacado
