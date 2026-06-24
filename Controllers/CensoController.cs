@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace IntranetPrueba.Controllers;
 
@@ -591,6 +593,7 @@ public class CensoController : Controller
     private readonly IAddressValidationService _addressValidationService;
     private readonly IFarmaciaDispatchNotificationService _farmaciaDispatchNotificationService;
     private readonly IAuditService _auditService;
+    private readonly ILogger<CensoController> _logger;
     private readonly IReadOnlyList<string> _medicamentoFallbackValues;
     private readonly IReadOnlyDictionary<string, string> _cie10Catalog;
     private readonly IReadOnlyDictionary<string, string> _medellinNeighborhoodZoneMap;
@@ -601,6 +604,7 @@ public class CensoController : Controller
         IAddressValidationService addressValidationService,
         IFarmaciaDispatchNotificationService farmaciaDispatchNotificationService,
         IAuditService auditService,
+        ILogger<CensoController> logger,
         IWebHostEnvironment webHostEnvironment)
     {
         _context = context;
@@ -608,6 +612,7 @@ public class CensoController : Controller
         _addressValidationService = addressValidationService;
         _farmaciaDispatchNotificationService = farmaciaDispatchNotificationService;
         _auditService = auditService;
+        _logger = logger;
         _medicamentoFallbackValues = LoadMedicamentoPrincipalValues(webHostEnvironment.ContentRootPath);
         _cie10Catalog = LoadCie10Catalog(webHostEnvironment.ContentRootPath);
         _medellinNeighborhoodZoneMap = LoadMedellinNeighborhoodZoneMap(webHostEnvironment.ContentRootPath);
@@ -1027,6 +1032,7 @@ public class CensoController : Controller
         }
 
         ValidateDateTimes(model);
+        ValidateCensoStringLengths(model);
 
         if (!ModelState.IsValid)
         {
@@ -1082,7 +1088,11 @@ public class CensoController : Controller
                 recordToNotifyAssistant = existingRecord;
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            if (!await TrySaveCensoChangesAsync(model, cancellationToken))
+            {
+                await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: false);
+                return View(model);
+            }
             savedRecordId = editingRecordId;
             TempData["SuccessMessage"] = "Registro de censo actualizado correctamente.";
             await _auditService.LogAsync("CENSO_ACTUALIZADO", "Censo",
@@ -1100,7 +1110,7 @@ public class CensoController : Controller
                     .Where(x => x.NumeroIdentificacion == trimmedDocumento)
                     .OrderByDescending(x => x.Id)
                     .ToListAsync(cancellationToken);
-                existingActiveRecord = candidatos.FirstOrDefault(x => !IsEstadoAlta(x.Estado));
+                existingActiveRecord = candidatos.FirstOrDefault(x => !IsEstadoAtencionCerrada(x.Estado));
             }
 
             if (existingActiveRecord != null)
@@ -1127,7 +1137,11 @@ public class CensoController : Controller
                     0);
 
                 await _context.Censos.AddAsync(censoRecord, cancellationToken);
-                await _context.SaveChangesAsync(cancellationToken);
+                if (!await TrySaveCensoChangesAsync(model, cancellationToken))
+                {
+                    await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: false);
+                    return View(model);
+                }
                 newRecordId = censoRecord.Id;
                 savedRecordId = censoRecord.Id;
                 TempData["SuccessMessage"] = "Registro de censo guardado correctamente.";
@@ -2111,7 +2125,7 @@ public class CensoController : Controller
             .ThenByDescending(record => record.Id)
             .ToListAsync(cancellationToken);
 
-        var openAttention = records.FirstOrDefault(record => !IsEstadoAlta(record.Estado));
+        var openAttention = records.FirstOrDefault(record => !IsEstadoAtencionCerrada(record.Estado));
         if (openAttention is null)
         {
             return Json(new
@@ -3004,6 +3018,14 @@ public class CensoController : Controller
     {
         return !string.IsNullOrWhiteSpace(estado)
             && estado.Contains("alta", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsEstadoAtencionCerrada(string? estado)
+    {
+        return IsEstadoAlta(estado)
+            || (!string.IsNullOrWhiteSpace(estado)
+                && (estado.Contains("cancelado", StringComparison.OrdinalIgnoreCase)
+                    || estado.Contains("rechazado", StringComparison.OrdinalIgnoreCase)));
     }
 
     private async Task<bool> IsBaseProrrogaClosedAsync(
@@ -4474,6 +4496,79 @@ public class CensoController : Controller
             " ");
 
         return string.Equals(Normalize(first), Normalize(second), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ValidateCensoStringLengths(CensoReceptionViewModel model)
+    {
+        var entityType = _context.Model.FindEntityType(typeof(CensoRecord));
+        if (entityType is null)
+        {
+            return;
+        }
+
+        var viewModelType = typeof(CensoReceptionViewModel);
+        foreach (var entityProperty in entityType.GetProperties())
+        {
+            var maxLength = entityProperty.GetMaxLength();
+            if (!maxLength.HasValue || entityProperty.ClrType != typeof(string))
+            {
+                continue;
+            }
+
+            var viewModelProperty = viewModelType.GetProperty(entityProperty.Name);
+            if (viewModelProperty?.GetValue(model) is not string value || value.Length <= maxLength.Value)
+            {
+                continue;
+            }
+
+            if (ModelState.TryGetValue(entityProperty.Name, out var entry) && entry.Errors.Count > 0)
+            {
+                continue;
+            }
+
+            var displayName = viewModelProperty
+                .GetCustomAttributes(typeof(DisplayAttribute), inherit: true)
+                .OfType<DisplayAttribute>()
+                .FirstOrDefault()
+                ?.GetName()
+                ?? Regex.Replace(entityProperty.Name, "([a-z0-9])([A-Z])", "$1 $2");
+
+            ModelState.AddModelError(
+                entityProperty.Name,
+                $"El campo '{displayName}' admite máximo {maxLength.Value} caracteres. El texto ingresado tiene {value.Length}.");
+        }
+    }
+
+    private async Task<bool> TrySaveCensoChangesAsync(
+        CensoReceptionViewModel model,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateException exception)
+        {
+            var isTextTooLong = exception.InnerException is PostgresException
+            {
+                SqlState: PostgresErrorCodes.StringDataRightTruncation
+            };
+
+            _logger.LogError(
+                exception,
+                "No se pudo guardar el censo del documento {Documento} por una restricción de base de datos.",
+                model.NumeroIdentificacion);
+
+            _context.ChangeTracker.Clear();
+            ModelState.AddModelError(
+                string.Empty,
+                isTextTooLong
+                    ? "Uno de los textos supera la longitud permitida. Revisa los campos marcados, reduce el contenido e intenta guardar nuevamente."
+                    : "No fue posible guardar el censo por una restricción de los datos. Revisa los campos diligenciados e intenta nuevamente.");
+            ViewData["ShowSaveErrorModal"] = true;
+            return false;
+        }
     }
 
     private void ValidateDateTimes(CensoReceptionViewModel model)

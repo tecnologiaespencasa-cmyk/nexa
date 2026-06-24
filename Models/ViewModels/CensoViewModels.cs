@@ -337,6 +337,7 @@ public class CensoReceptionViewModel
     [Display(Name = "Auxiliar asignado")]
     public string? AuxiliarAsignado { get; set; }
 
+    [StringLength(80, ErrorMessage = "El estado no puede superar 80 caracteres.")]
     [Display(Name = "Estado")]
     public string? Estado { get; set; }
 
@@ -473,6 +474,7 @@ public class CensoReceptionViewModel
     [Display(Name = "Fecha de rehospitalización")]
     public DateTime? FechaRehospitalizacion { get; set; }
 
+    [StringLength(80, ErrorMessage = "El motivo de la rehospitalización no puede superar 80 caracteres.")]
     [Display(Name = "Motivo de la rehospitalización")]
     public string? MotivoRehospitalizacion { get; set; }
 
@@ -480,6 +482,7 @@ public class CensoReceptionViewModel
     [Display(Name = "Ampliación del motivo")]
     public string? AmpliacionMotivoRehospitalizacion { get; set; }
 
+    [StringLength(50, ErrorMessage = "El campo remitido por no puede superar 50 caracteres.")]
     [Display(Name = "Remitido por")]
     public string? RemitidoPorRehospitalizacion { get; set; }
 
@@ -511,6 +514,7 @@ public class CensoReceptionViewModel
     [Display(Name = "Fecha de la novedad")]
     public DateTime? FechaNovedadDevolucionProductos { get; set; }
 
+    [StringLength(40, ErrorMessage = "El motivo de la novedad no puede superar 40 caracteres.")]
     [Display(Name = "Motivo de la novedad")]
     public string? MotivoNovedadDevolucionProductos { get; set; }
 
