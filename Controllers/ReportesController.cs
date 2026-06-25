@@ -167,6 +167,7 @@ public class ReportesController : Controller
                 x.ClasificacionZonaSura,
                 x.DiagnosticoDescriptivo,
                 x.Programa,
+                x.Asegurador,
                 x.Estado
             })
             .ToListAsync(cancellationToken);
@@ -188,7 +189,8 @@ public class ReportesController : Controller
                 AdmissionDate = x.FechaIngreso.Date,
                 LengthOfStayDays = Math.Max(0, (currentDate - x.FechaIngreso.Date).Days),
                 Diagnosis = x.DiagnosticoDescriptivo,
-                Program = NormalizeActivePatientProgram(x.Programa, x.Estado)
+                Program = NormalizeActivePatientProgram(x.Programa, x.Estado),
+                Insurer = x.Asegurador
             })
             .ToList();
 

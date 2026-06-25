@@ -19,4 +19,6 @@ public class ActivePatientReportRow
     public string Diagnosis { get; init; } = string.Empty;
 
     public string Program { get; init; } = string.Empty;
+
+    public string Insurer { get; init; } = string.Empty;
 }

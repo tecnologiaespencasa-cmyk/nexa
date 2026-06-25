@@ -21,10 +21,11 @@ public static class ExcelWorkbookWriter
         "FECHA DE INGRESO",
         "DÍAS DE ESTANCIA",
         "DIAGNÓSTICO",
-        "PROGRAMA"
+        "PROGRAMA",
+        "ASEGURADOR"
     ];
 
-    private static readonly double[] ColumnWidths = [12.33, 39.44, 11.89, 20.44, 21.66, 16, 14.44, 33.44, 19.66];
+    private static readonly double[] ColumnWidths = [12.33, 39.44, 11.89, 20.44, 21.66, 16, 14.44, 33.44, 19.66, 28];
 
     public static byte[] BuildActivePatientsWorkbook(IReadOnlyList<ActivePatientReportRow> rows, DateTime generatedAt)
     {
@@ -56,7 +57,7 @@ public static class ExcelWorkbookWriter
         writer.WriteAttributeString("xmlns", "r", null, RelationshipNamespace);
 
         writer.WriteStartElement("dimension");
-        writer.WriteAttributeString("ref", $"A1:I{lastRow}");
+        writer.WriteAttributeString("ref", $"A1:J{lastRow}");
         writer.WriteEndElement();
 
         writer.WriteStartElement("sheetViews");
@@ -96,7 +97,7 @@ public static class ExcelWorkbookWriter
         writer.WriteEndElement();
 
         writer.WriteStartElement("autoFilter");
-        writer.WriteAttributeString("ref", $"A1:I{lastRow}");
+        writer.WriteAttributeString("ref", $"A1:J{lastRow}");
         writer.WriteEndElement();
 
         writer.WriteStartElement("pageMargins");
@@ -143,6 +144,7 @@ public static class ExcelWorkbookWriter
         WriteNumberCell(writer, $"G{rowNumber}", row.LengthOfStayDays, 3);
         WriteInlineStringCell(writer, $"H{rowNumber}", row.Diagnosis, 4);
         WriteInlineStringCell(writer, $"I{rowNumber}", row.Program, 4);
+        WriteInlineStringCell(writer, $"J{rowNumber}", row.Insurer, 4);
 
         writer.WriteEndElement();
     }
