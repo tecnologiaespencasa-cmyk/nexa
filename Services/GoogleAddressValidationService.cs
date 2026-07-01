@@ -14,6 +14,9 @@ public class GoogleAddressValidationService : IAddressValidationService
 {
     private const string GeocodingBaseUrl = "https://maps.googleapis.com/maps/api/geocode/";
     private const string AntioquiaComponents = "administrative_area:Antioquia|country:CO";
+    private const int SupplementalCandidateTarget = 3;
+    private const int MaxSupplementalAddressQueries = 5;
+    private static readonly TimeSpan SupplementalAddressQueryTimeout = TimeSpan.FromMilliseconds(1200);
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> StaticNeighborhoodCatalog =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
         {
@@ -171,7 +174,7 @@ public class GoogleAddressValidationService : IAddressValidationService
                 };
             }
 
-            var candidates = BuildAddressCandidates(resultsElement);
+            var candidates = OrderAddressCandidatesByInputMatch(normalizedAddress, BuildAddressCandidates(resultsElement));
             if (candidates.Count == 0)
             {
                 return new AddressValidationResult
@@ -182,6 +185,19 @@ public class GoogleAddressValidationService : IAddressValidationService
             }
 
             var bestCandidate = candidates[0];
+            var preservesHouseNumber = DoesFormattedAddressPreserveInputHouseNumber(normalizedAddress, bestCandidate.FormattedAddress);
+            if (candidates.Count < SupplementalCandidateTarget && !preservesHouseNumber)
+            {
+                candidates = await AddSupplementalAddressCandidatesAsync(
+                    normalizedAddress,
+                    apiKey,
+                    candidates,
+                    cancellationToken);
+                candidates = OrderAddressCandidatesByInputMatch(normalizedAddress, candidates);
+                bestCandidate = candidates[0];
+                preservesHouseNumber = DoesFormattedAddressPreserveInputHouseNumber(normalizedAddress, bestCandidate.FormattedAddress);
+            }
+
             if (candidates.Count > 1)
             {
                 return new AddressValidationResult
@@ -193,8 +209,24 @@ public class GoogleAddressValidationService : IAddressValidationService
                     Neighborhood = bestCandidate.Neighborhood,
                     District = bestCandidate.District,
                     RequiresSelection = true,
-                    Candidates = candidates,
+                    Candidates = TakeSelectionCandidates(candidates),
                     Message = "Se encontraron varias direcciones coincidentes. Selecciona la direccion correcta."
+                };
+            }
+
+            if (!preservesHouseNumber)
+            {
+                return new AddressValidationResult
+                {
+                    Outcome = AddressValidationOutcome.Doubtful,
+                    FormattedAddress = bestCandidate.FormattedAddress,
+                    SuggestedAddress = bestCandidate.FormattedAddress,
+                    Municipality = bestCandidate.Municipality,
+                    Neighborhood = bestCandidate.Neighborhood,
+                    District = bestCandidate.District,
+                    RequiresSelection = true,
+                    Candidates = TakeSelectionCandidates(candidates),
+                    Message = "Google encontro una direccion, pero cambio parte de la nomenclatura escrita. Confirma que corresponde al barrio y direccion correctos antes de continuar."
                 };
             }
 
@@ -208,7 +240,7 @@ public class GoogleAddressValidationService : IAddressValidationService
                     Municipality = bestCandidate.Municipality,
                     Neighborhood = bestCandidate.Neighborhood,
                     District = bestCandidate.District,
-                    Candidates = candidates,
+                    Candidates = TakeSelectionCandidates(candidates),
                     Message = "Direccion validada correctamente."
                 };
             }
@@ -221,7 +253,7 @@ public class GoogleAddressValidationService : IAddressValidationService
                 Municipality = bestCandidate.Municipality,
                 Neighborhood = bestCandidate.Neighborhood,
                 District = bestCandidate.District,
-                Candidates = candidates,
+                Candidates = TakeSelectionCandidates(candidates),
                 Message = "La direccion parece incompleta o dudosa. Revisa la sugerencia."
             };
         }
@@ -293,6 +325,315 @@ public class GoogleAddressValidationService : IAddressValidationService
             .Take(8)
             .ToList();
     }
+
+    private async Task<IReadOnlyList<AddressValidationCandidate>> AddSupplementalAddressCandidatesAsync(
+        string address,
+        string apiKey,
+        IReadOnlyList<AddressValidationCandidate> currentCandidates,
+        CancellationToken cancellationToken)
+    {
+        var merged = currentCandidates.ToList();
+        var seen = new HashSet<string>(
+            merged.Select(candidate => NormalizeLookup(candidate.FormattedAddress)),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var query in BuildSupplementalAddressQueries(address, currentCandidates.FirstOrDefault()))
+        {
+            if (CountCandidatesPreservingInput(address, merged) >= SupplementalCandidateTarget)
+            {
+                break;
+            }
+
+            var supplementalCandidates = await SearchAddressCandidatesAsync(query, apiKey, cancellationToken);
+            foreach (var candidate in supplementalCandidates)
+            {
+                if (string.IsNullOrWhiteSpace(candidate.FormattedAddress))
+                {
+                    continue;
+                }
+
+                if (!seen.Add(NormalizeLookup(candidate.FormattedAddress)))
+                {
+                    continue;
+                }
+
+                merged.Add(candidate);
+                if (CountCandidatesPreservingInput(address, merged) >= SupplementalCandidateTarget)
+                {
+                    break;
+                }
+            }
+        }
+
+        return OrderAddressCandidatesByInputMatch(address, merged)
+            .Take(SupplementalCandidateTarget)
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<AddressValidationCandidate>> SearchAddressCandidatesAsync(
+        string query,
+        string apiKey,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var requestUri =
+                $"json?address={Uri.EscapeDataString(query)}" +
+                $"&components={Uri.EscapeDataString(AntioquiaComponents)}" +
+                $"&key={Uri.EscapeDataString(apiKey)}&language=es&region=co";
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(SupplementalAddressQueryTimeout);
+
+            using var response = await _httpClient.GetAsync(requestUri, timeoutCts.Token);
+            if (!response.IsSuccessStatusCode)
+            {
+                return [];
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: timeoutCts.Token);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("status", out var statusElement)
+                || !string.Equals(statusElement.GetString(), "OK", StringComparison.OrdinalIgnoreCase)
+                || !root.TryGetProperty("results", out var resultsElement)
+                || resultsElement.GetArrayLength() == 0)
+            {
+                return [];
+            }
+
+            return BuildAddressCandidates(resultsElement);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo consultar una direccion complementaria en Google.");
+            return [];
+        }
+    }
+
+    private IReadOnlyList<string> BuildSupplementalAddressQueries(
+        string address,
+        AddressValidationCandidate? bestCandidate)
+    {
+        var queries = new List<string>();
+        var municipality = bestCandidate?.Municipality?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(bestCandidate?.Neighborhood))
+        {
+            AddNeighborhoodQuery(bestCandidate.Neighborhood);
+        }
+
+        if (!string.IsNullOrWhiteSpace(bestCandidate?.District))
+        {
+            AddNeighborhoodQuery(bestCandidate.District);
+        }
+
+        if (!string.IsNullOrWhiteSpace(municipality)
+            && _neighborhoodCatalog.TryGetValue(NormalizeLookup(municipality), out var municipalityNeighborhoods))
+        {
+            foreach (var neighborhood in PrioritizeSupplementalNeighborhoods(
+                         municipalityNeighborhoods,
+                         bestCandidate?.Neighborhood,
+                         bestCandidate?.District))
+            {
+                AddNeighborhoodQuery(neighborhood);
+            }
+        }
+
+        AddQuery(!string.IsNullOrWhiteSpace(municipality)
+            ? $"{address}, {municipality}, Antioquia, Colombia"
+            : $"{address}, Antioquia, Colombia");
+
+        return queries;
+
+        void AddNeighborhoodQuery(string? neighborhood)
+        {
+            if (string.IsNullOrWhiteSpace(neighborhood))
+            {
+                return;
+            }
+
+            AddQuery(!string.IsNullOrWhiteSpace(municipality)
+                ? $"{address} {neighborhood}, {municipality}, Antioquia, Colombia"
+                : $"{address} {neighborhood}, Antioquia, Colombia");
+        }
+
+        void AddQuery(string query)
+        {
+            if (queries.Count >= MaxSupplementalAddressQueries)
+            {
+                return;
+            }
+
+            if (queries.Any(existing => string.Equals(NormalizeLookup(existing), NormalizeLookup(query), StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            queries.Add(query);
+        }
+    }
+
+    private static IReadOnlyList<string> PrioritizeSupplementalNeighborhoods(
+        IReadOnlyList<string> municipalityNeighborhoods,
+        string? candidateNeighborhood,
+        string? candidateDistrict)
+    {
+        var selected = new List<string>();
+        var selectedKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        Add(candidateNeighborhood);
+        Add(candidateDistrict);
+
+        foreach (var neighborhood in municipalityNeighborhoods)
+        {
+            if (selected.Count >= MaxSupplementalAddressQueries)
+            {
+                break;
+            }
+
+            Add(neighborhood);
+        }
+
+        return selected;
+
+        void Add(string? neighborhood)
+        {
+            if (selected.Count >= MaxSupplementalAddressQueries || string.IsNullOrWhiteSpace(neighborhood))
+            {
+                return;
+            }
+
+            var key = NormalizeLookup(neighborhood);
+            if (string.IsNullOrWhiteSpace(key) || !selectedKeys.Add(key))
+            {
+                return;
+            }
+
+            selected.Add(neighborhood.Trim());
+        }
+    }
+
+    private static IReadOnlyList<AddressValidationCandidate> OrderAddressCandidatesByInputMatch(
+        string address,
+        IReadOnlyList<AddressValidationCandidate> candidates)
+    {
+        return candidates
+            .OrderByDescending(candidate => DoesFormattedAddressPreserveInputHouseNumber(address, candidate.FormattedAddress))
+            .ThenByDescending(candidate => candidate.IsReliable)
+            .ToList();
+    }
+
+    private static IReadOnlyList<AddressValidationCandidate> TakeSelectionCandidates(
+        IReadOnlyList<AddressValidationCandidate> candidates)
+    {
+        return candidates
+            .Take(SupplementalCandidateTarget)
+            .ToList();
+    }
+
+    private static int CountCandidatesPreservingInput(
+        string address,
+        IReadOnlyList<AddressValidationCandidate> candidates)
+    {
+        return candidates.Count(candidate => DoesFormattedAddressPreserveInputHouseNumber(address, candidate.FormattedAddress));
+    }
+
+    private static bool DoesFormattedAddressPreserveInputHouseNumber(string originalAddress, string formattedAddress)
+    {
+        var originalCore = TryParseColombianAddressCore(originalAddress);
+        if (originalCore is null)
+        {
+            return true;
+        }
+
+        var formattedCore = TryParseColombianAddressCore(formattedAddress);
+        if (formattedCore is null)
+        {
+            return false;
+        }
+
+        return AddressPartMatches(originalCore.RouteNumber, formattedCore.RouteNumber)
+               && AddressPartMatches(originalCore.PrimaryNumber, formattedCore.PrimaryNumber)
+               && AddressPartMatches(originalCore.SecondaryNumber, formattedCore.SecondaryNumber);
+    }
+
+    private static ColombianAddressCore? TryParseColombianAddressCore(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = RemoveDiacritics(value).ToUpperInvariant();
+        var routeMatch = System.Text.RegularExpressions.Regex.Match(
+            normalized,
+            @"\b(?:CARRERA|CRA|KR|KRA|CALLE|CLL|CL|AVENIDA|AV|TRANSVERSAL|TV|DIAGONAL|DG|CIRCULAR|CIR)\.?\s*(\d+[A-Z]?)\b",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        var plateMatch = System.Text.RegularExpressions.Regex.Match(
+            normalized,
+            @"#\s*(\d+[A-Z]?)\s*-?\s*(\d+[A-Z]?)",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        if (!routeMatch.Success && !plateMatch.Success)
+        {
+            return null;
+        }
+
+        return new ColombianAddressCore(
+            routeMatch.Success ? NormalizeAddressPart(routeMatch.Groups[1].Value) : null,
+            plateMatch.Success ? NormalizeAddressPart(plateMatch.Groups[1].Value) : null,
+            plateMatch.Success ? NormalizeAddressPart(plateMatch.Groups[2].Value) : null);
+    }
+
+    private static bool AddressPartMatches(string? expected, string? actual)
+    {
+        return string.IsNullOrWhiteSpace(expected)
+               || (!string.IsNullOrWhiteSpace(actual)
+                   && string.Equals(expected, actual, StringComparison.Ordinal));
+    }
+
+    private static string NormalizeAddressPart(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = RemoveDiacritics(value).ToUpperInvariant();
+        var builder = new StringBuilder();
+        foreach (var c in normalized)
+        {
+            if (char.IsLetterOrDigit(c))
+            {
+                builder.Append(c);
+            }
+        }
+
+        var result = builder.ToString().TrimStart('0');
+        return string.IsNullOrWhiteSpace(result) ? "0" : result;
+    }
+
+    private static string RemoveDiacritics(string value)
+    {
+        var normalized = value.Trim().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder();
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(c);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private sealed record ColombianAddressCore(string? RouteNumber, string? PrimaryNumber, string? SecondaryNumber);
 
     private static bool IsReliableLocationType(string? locationType)
     {
@@ -582,19 +923,7 @@ public class GoogleAddressValidationService : IAddressValidationService
             return string.Empty;
         }
 
-        var normalized = value.Trim().Normalize(NormalizationForm.FormD);
-        var builder = new StringBuilder();
-        foreach (var c in normalized)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-            {
-                builder.Append(c);
-            }
-        }
-
-        return builder
-            .ToString()
-            .Normalize(NormalizationForm.FormC)
+        return RemoveDiacritics(value)
             .Replace(" ", string.Empty, StringComparison.Ordinal)
             .Replace("-", string.Empty, StringComparison.Ordinal)
             .ToUpperInvariant();

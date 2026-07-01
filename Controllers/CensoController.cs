@@ -2005,6 +2005,7 @@ public class CensoController : Controller
             ? InferZonaDireccionSegunMunicipio(municipioCanonical, barrioSugerido, districtSugerido, result.FormattedAddress)
             : null;
         var candidateDtos = result.Candidates
+            .Take(3)
             .Select(candidate =>
             {
                 var candidateMunicipio = ToCanonicalMunicipality(candidate.Municipality);

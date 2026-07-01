@@ -5314,7 +5314,7 @@
                 setDireccionMessage("success", "Direccion seleccionada correctamente desde las coincidencias de Google.");
             };
 
-            const renderAddressCandidates = (candidates) => {
+            const renderAddressCandidates = (candidates, message) => {
                 const safeCandidates = (candidates || []).filter((x) => !!x && !!x.formattedAddress);
                 latestAddressCandidates = safeCandidates;
 
@@ -5331,7 +5331,7 @@
 
                 setDireccionMessage(
                     "warning",
-                    `Se encontraron varias direcciones coincidentes. Selecciona la correcta:<div class="mt-2">${optionsHtml}</div>`);
+                    `${escapeHtml(message || "Selecciona la direccion correcta antes de continuar:")}<div class="mt-2">${optionsHtml}</div>`);
 
                 document.querySelectorAll(".js-direccion-candidate").forEach((button) => {
                     button.addEventListener("click", async () => {
@@ -5624,7 +5624,7 @@
                         const shouldClearDerivedData = data.outcome === "invalid" || data.outcome === "unavailable";
                         const hasAddressCandidates = data.requiresSelection === true
                             && Array.isArray(data.candidates)
-                            && data.candidates.length > 1;
+                            && data.candidates.length > 0;
                         const suggestedBarrio = (data.neighborhood || data.district || "").trim();
 
                         if (shouldClearDerivedData) {
@@ -5634,7 +5634,7 @@
                         if (!shouldClearDerivedData && hasAddressCandidates) {
                             clearAddressDerivedFields();
                             direccionValidada = false;
-                            renderAddressCandidates(data.candidates);
+                            renderAddressCandidates(data.candidates, data.message);
                             return;
                         }
 
