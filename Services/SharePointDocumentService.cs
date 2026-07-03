@@ -55,14 +55,16 @@ public class SharePointDocumentService : ISharePointDocumentService
         var config = GetConfig();
         if (!config.IsComplete)
         {
-            return ServiceResult.Failure("SharePoint no esta configurado. Define SHAREPOINT_LIBRARY_ID, SHAREPOINT_SITE_ID y las credenciales Graph.");
+            return ServiceResult.Failure("SharePoint no esta configurado. Define SHAREPOINT_LIBRARY, SHAREPOINT_LIBRARY_ID, SHAREPOINT_SITE_ID y las credenciales Graph.");
         }
 
         try
         {
             var token = await GetAccessTokenAsync(config, cancellationToken);
             var folderName = BuildPatientFolderName(patientName, documentNumber);
-            var ensured = await EnsureFolderAsync(config.LibraryId!, folderName, token, cancellationToken);
+            var folderSegments = BuildFolderSegments(config.LibraryName!, folderName);
+            var folderPath = string.Join("/", folderSegments);
+            var ensured = await EnsureFolderPathAsync(config.LibraryId!, folderSegments, token, cancellationToken);
             if (!ensured.Succeeded)
             {
                 return ensured;
@@ -71,7 +73,7 @@ public class SharePointDocumentService : ISharePointDocumentService
             foreach (var file in validFiles)
             {
                 var fileName = SanitizeSharePointName(Path.GetFileName(file.FileName), "documento-adjunto");
-                var path = EscapeGraphPath($"{folderName}/{fileName}");
+                var path = EscapeGraphPath($"{folderPath}/{fileName}");
                 using var uploadRequest = new HttpRequestMessage(
                     HttpMethod.Put,
                     $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(config.LibraryId!)}/root:/{path}:/content");
@@ -107,14 +109,15 @@ public class SharePointDocumentService : ISharePointDocumentService
         if (!config.IsComplete)
         {
             return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Failure(
-                "SharePoint no esta configurado. Define SHAREPOINT_LIBRARY_ID, SHAREPOINT_SITE_ID y las credenciales Graph.");
+                "SharePoint no esta configurado. Define SHAREPOINT_LIBRARY, SHAREPOINT_LIBRARY_ID, SHAREPOINT_SITE_ID y las credenciales Graph.");
         }
 
         try
         {
             var token = await GetAccessTokenAsync(config, cancellationToken);
             var folderName = BuildPatientFolderName(patientName, documentNumber);
-            var path = EscapeGraphPath(folderName);
+            var folderSegments = BuildFolderSegments(config.LibraryName!, folderName);
+            var path = EscapeGraphPath(string.Join("/", folderSegments));
             using var request = new HttpRequestMessage(
                 HttpMethod.Get,
                 $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(config.LibraryId!)}/root:/{path}:/children?$select=name,webUrl,size,lastModifiedDateTime,file&$orderby=name");
@@ -156,52 +159,60 @@ public class SharePointDocumentService : ISharePointDocumentService
         }
     }
 
-    private async Task<ServiceResult> EnsureFolderAsync(
+    private async Task<ServiceResult> EnsureFolderPathAsync(
         string driveId,
-        string folderName,
+        IReadOnlyList<string> folderSegments,
         string token,
         CancellationToken cancellationToken)
     {
-        var escapedFolder = EscapeGraphPath(folderName);
-        using (var getRequest = new HttpRequestMessage(
-            HttpMethod.Get,
-            $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(driveId)}/root:/{escapedFolder}"))
+        for (var index = 0; index < folderSegments.Count; index++)
         {
-            getRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            using var getResponse = await _httpClient.SendAsync(getRequest, cancellationToken);
-            if (getResponse.IsSuccessStatusCode)
+            var currentSegments = folderSegments.Take(index + 1).ToList();
+            var currentPath = EscapeGraphPath(string.Join("/", currentSegments));
+            using (var getRequest = new HttpRequestMessage(
+                HttpMethod.Get,
+                $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(driveId)}/root:/{currentPath}"))
             {
-                return ServiceResult.Success();
+                getRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                using var getResponse = await _httpClient.SendAsync(getRequest, cancellationToken);
+                if (getResponse.IsSuccessStatusCode)
+                {
+                    continue;
+                }
+
+                if (getResponse.StatusCode != HttpStatusCode.NotFound)
+                {
+                    var body = await getResponse.Content.ReadAsStringAsync(cancellationToken);
+                    _logger.LogWarning("SharePoint folder lookup failed with status {StatusCode}: {Body}", getResponse.StatusCode, body);
+                    return ServiceResult.Failure($"No fue posible validar la carpeta en SharePoint. Estado: {(int)getResponse.StatusCode}.");
+                }
             }
 
-            if (getResponse.StatusCode != HttpStatusCode.NotFound)
+            var parentSegments = folderSegments.Take(index).ToList();
+            var createUrl = parentSegments.Count == 0
+                ? $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(driveId)}/root/children"
+                : $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(driveId)}/root:/{EscapeGraphPath(string.Join("/", parentSegments))}:/children";
+            using var createRequest = new HttpRequestMessage(HttpMethod.Post, createUrl);
+            createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            createRequest.Content = JsonContent.Create(new Dictionary<string, object?>
             {
-                var body = await getResponse.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogWarning("SharePoint folder lookup failed with status {StatusCode}: {Body}", getResponse.StatusCode, body);
-                return ServiceResult.Failure($"No fue posible validar la carpeta del paciente en SharePoint. Estado: {(int)getResponse.StatusCode}.");
+                ["name"] = folderSegments[index],
+                ["folder"] = new { },
+                ["@microsoft.graph.conflictBehavior"] = "fail"
+            });
+
+            using var createResponse = await _httpClient.SendAsync(createRequest, cancellationToken);
+            if (createResponse.IsSuccessStatusCode || createResponse.StatusCode == HttpStatusCode.Conflict)
+            {
+                continue;
             }
+
+            var createBody = await createResponse.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning("SharePoint folder create failed with status {StatusCode}: {Body}", createResponse.StatusCode, createBody);
+            return ServiceResult.Failure($"No fue posible crear la carpeta en SharePoint. Estado: {(int)createResponse.StatusCode}.");
         }
 
-        using var createRequest = new HttpRequestMessage(
-            HttpMethod.Post,
-            $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(driveId)}/root/children");
-        createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        createRequest.Content = JsonContent.Create(new Dictionary<string, object?>
-        {
-            ["name"] = folderName,
-            ["folder"] = new { },
-            ["@microsoft.graph.conflictBehavior"] = "fail"
-        });
-
-        using var createResponse = await _httpClient.SendAsync(createRequest, cancellationToken);
-        if (createResponse.IsSuccessStatusCode || createResponse.StatusCode == HttpStatusCode.Conflict)
-        {
-            return ServiceResult.Success();
-        }
-
-        var createBody = await createResponse.Content.ReadAsStringAsync(cancellationToken);
-        _logger.LogWarning("SharePoint folder create failed with status {StatusCode}: {Body}", createResponse.StatusCode, createBody);
-        return ServiceResult.Failure($"No fue posible crear la carpeta del paciente en SharePoint. Estado: {(int)createResponse.StatusCode}.");
+        return ServiceResult.Success();
     }
 
     private async Task<string> GetAccessTokenAsync(SharePointConfig config, CancellationToken cancellationToken)
@@ -230,6 +241,7 @@ public class SharePointDocumentService : ISharePointDocumentService
     {
         return new SharePointConfig
         {
+            LibraryName = GetConfigValue("SHAREPOINT_LIBRARY", "SharePoint:Library"),
             LibraryId = GetConfigValue("SHAREPOINT_LIBRARY_ID", "SharePoint:LibraryId"),
             SiteId = GetConfigValue("SHAREPOINT_SITE_ID", "SharePoint:SiteId"),
             TenantId = GetConfigValue("SHAREPOINT_TENANT_ID", "SharePoint:TenantId")
@@ -253,6 +265,23 @@ public class SharePointDocumentService : ISharePointDocumentService
         return SanitizeSharePointName(rawName, "paciente");
     }
 
+    private static IReadOnlyList<string> BuildFolderSegments(string baseFolderPath, string patientFolderName)
+    {
+        var baseSegments = baseFolderPath
+            .Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(segment => SanitizeSharePointName(segment, "TerapiasAmbulatorias"))
+            .Where(segment => !string.IsNullOrWhiteSpace(segment))
+            .ToList();
+
+        if (baseSegments.Count == 0)
+        {
+            baseSegments.Add("TerapiasAmbulatorias");
+        }
+
+        baseSegments.Add(patientFolderName);
+        return baseSegments;
+    }
+
     private static string SanitizeSharePointName(string value, string fallback)
     {
         var sanitized = InvalidNameCharacters.Replace(value, "-");
@@ -272,6 +301,7 @@ public class SharePointDocumentService : ISharePointDocumentService
 
     private sealed class SharePointConfig
     {
+        public string? LibraryName { get; init; }
         public string? LibraryId { get; init; }
         public string? SiteId { get; init; }
         public string? TenantId { get; init; }
@@ -279,7 +309,8 @@ public class SharePointDocumentService : ISharePointDocumentService
         public string? ClientSecret { get; init; }
 
         public bool IsComplete =>
-            !string.IsNullOrWhiteSpace(LibraryId)
+            !string.IsNullOrWhiteSpace(LibraryName)
+            && !string.IsNullOrWhiteSpace(LibraryId)
             && !string.IsNullOrWhiteSpace(SiteId)
             && !string.IsNullOrWhiteSpace(TenantId)
             && !string.IsNullOrWhiteSpace(ClientId)
