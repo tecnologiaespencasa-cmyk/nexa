@@ -83,7 +83,7 @@ public class FarmaciaController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Documento(long id, string tipo = DocumentoKardex, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Documento(long id, string tipo = DocumentoKardex, string? documento = null, CancellationToken cancellationToken = default)
     {
         var normalizedType = NormalizeDocumentType(tipo);
         var record = await _context.Censos.FirstOrDefaultAsync(
@@ -118,7 +118,9 @@ public class FarmaciaController : Controller
             .Select(x => new FarmaciaAdjuntoDto { Id = x.Id, FileName = x.FileName })
             .ToListAsync(cancellationToken);
 
-        return View(BuildDocumentModel(record, medicamentos, normalizedType, adjuntos));
+        var model = BuildDocumentModel(record, medicamentos, normalizedType, adjuntos);
+        ViewData["DocumentoFiltro"] = documento?.Trim();
+        return View(model);
     }
 
     [HttpGet]

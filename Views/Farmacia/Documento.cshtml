@@ -1,6 +1,7 @@
 @model FarmaciaDocumentViewModel
 @{
     var isRequisicion = string.Equals(Model.TipoDocumento, "requisicion", StringComparison.OrdinalIgnoreCase);
+    var documentoFiltro = ViewData["DocumentoFiltro"]?.ToString();
     ViewData["Title"] = isRequisicion ? "Requisicion farmacia" : "Kardex farmacia";
 }
 
@@ -11,7 +12,7 @@
 
 <section class="farmacia-document-page">
     <header class="farmacia-document-toolbar">
-        <a class="btn btn-outline-secondary" asp-action="Index">
+        <a class="btn btn-outline-secondary" asp-action="Index" asp-route-documento="@documentoFiltro">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                 <path d="M19 12H5"></path>
                 <path d="m12 19-7-7 7-7"></path>
@@ -30,8 +31,8 @@
             <p>@Model.NombrePaciente - @Model.TipoIdentificacion @Model.NumeroIdentificacion</p>
         </div>
         <div class="farmacia-document-toolbar__switch">
-            <a class="btn @(isRequisicion ? "btn-primary" : "btn-outline-primary")" asp-action="Documento" asp-route-id="@Model.Id" asp-route-tipo="requisicion">Requisici&oacute;n</a>
-            <a class="btn @(!isRequisicion ? "btn-primary" : "btn-outline-primary")" asp-action="Documento" asp-route-id="@Model.Id" asp-route-tipo="kardex">Kardex</a>
+            <a class="btn @(isRequisicion ? "btn-primary" : "btn-outline-primary")" asp-action="Documento" asp-route-id="@Model.Id" asp-route-tipo="requisicion" asp-route-documento="@documentoFiltro">Requisici&oacute;n</a>
+            <a class="btn @(!isRequisicion ? "btn-primary" : "btn-outline-primary")" asp-action="Documento" asp-route-id="@Model.Id" asp-route-tipo="kardex" asp-route-documento="@documentoFiltro">Kardex</a>
         </div>
     </header>
 

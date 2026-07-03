@@ -86,15 +86,15 @@
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex" })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
@@ -149,15 +149,15 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex" })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
@@ -231,15 +231,15 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex" })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
@@ -296,15 +296,15 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex" })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
@@ -351,15 +351,15 @@
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex" })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
@@ -425,15 +425,15 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>Visto</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>Visto</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex" })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
@@ -533,6 +533,7 @@
 {
     <script>
         (() => {
+            const SCROLL_POS_KEY = "farmacia-scroll-position";
             const page = document.querySelector(".farmacia-page");
             const newCount = document.getElementById("farmaciaNewCount");
             const snapshotUrl = "@Url.Action("PendientesSnapshot", "Farmacia")";
@@ -557,6 +558,28 @@
             const actionMsg = document.getElementById("farmaciaActionMsg");
             let lastPedidoId = Number(page?.dataset.lastPedidoId || "0") || 0;
             let audioContext = null;
+
+            const restoreScrollPosition = () => {
+                const pos = sessionStorage.getItem(SCROLL_POS_KEY);
+                if (pos) {
+                    setTimeout(() => window.scrollTo(0, Number(pos)), 0);
+                    sessionStorage.removeItem(SCROLL_POS_KEY);
+                }
+            };
+
+            const saveScrollPosition = () => {
+                sessionStorage.setItem(SCROLL_POS_KEY, String(window.scrollY || 0));
+            };
+
+            document.addEventListener("click", (e) => {
+                const link = e.target.closest("a[href^='/']") || e.target.closest("a[href*='Farmacia/Documento']");
+                if (link) {
+                    saveScrollPosition();
+                }
+            });
+
+            window.addEventListener("load", restoreScrollPosition);
+            restoreScrollPosition();
 
             const getToken = () =>
                 document.querySelector("input[name='__RequestVerificationToken']")?.value || "";
