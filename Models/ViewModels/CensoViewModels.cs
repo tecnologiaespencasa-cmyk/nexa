@@ -662,7 +662,7 @@ public class CensoTerapiaAmbulatoriaViewModel
     [Display(Name = "Cantidad")]
     public int? Cantidad { get; set; }
 
-    [Required(ErrorMessage = "La frecuencia de terapia es obligatoria.")]
+    [Required(ErrorMessage = "Selecciona la frecuencia de terapia.")]
     [StringLength(200, ErrorMessage = "La frecuencia de terapia no puede superar 200 caracteres.")]
     [Display(Name = "Frecuencia de terapia")]
     public string FrecuenciaTerapia { get; set; } = string.Empty;
@@ -717,10 +717,6 @@ public class CensoTerapiaAmbulatoriaViewModel
     [StringLength(200, ErrorMessage = "La IPS que remite no puede superar 200 caracteres.")]
     [Display(Name = "IPS que remite")]
     public string IpsQueRemite { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Selecciona el visto bueno rango fuera del anexo.")]
-    [Display(Name = "Visto bueno rango fuera del anexo")]
-    public string VistoBuenoRangoFueraAnexo { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El teléfono principal es obligatorio.")]
     [StringLength(10, ErrorMessage = "El teléfono principal no puede superar 10 dígitos.")]
@@ -777,10 +773,10 @@ public class CensoTerapiaAmbulatoriaViewModel
     public IReadOnlyList<SelectListItem> MunicipioResidenciaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> ZonaDireccionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AreaOptions { get; set; } = [];
-    public IReadOnlyList<SelectListItem> VistoBuenoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> FisioterapeutaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoGestionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoPacienteOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> FrecuenciaTerapiaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> TipoTerapiaOptions { get; set; } = [];
     public IReadOnlyList<string> BarrioOptions { get; set; } = [];
     public IReadOnlyList<CensoTerapiaAmbulatoriaRecord> UltimosRegistros { get; set; } = [];

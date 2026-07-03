@@ -85,10 +85,6 @@ public class CensoTerapiaAmbulatoriaRecord
     public string IpsQueRemite { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(2)]
-    public string VistoBuenoRangoFueraAnexo { get; set; } = string.Empty;
-
-    [Required]
     [StringLength(10)]
     public string TelefonoPrincipal { get; set; } = string.Empty;
 

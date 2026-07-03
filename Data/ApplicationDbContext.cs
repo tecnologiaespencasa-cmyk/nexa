@@ -276,7 +276,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.ZonaDireccionSegunMunicipio).HasMaxLength(50).IsRequired();
             entity.Property(x => x.Area).HasMaxLength(10).IsRequired();
             entity.Property(x => x.IpsQueRemite).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.VistoBuenoRangoFueraAnexo).HasMaxLength(2).IsRequired();
             entity.Property(x => x.TelefonoPrincipal).HasMaxLength(10).IsRequired();
             entity.Property(x => x.TelefonoAdicional1).HasMaxLength(10);
             entity.Property(x => x.TelefonoAdicional2).HasMaxLength(10);

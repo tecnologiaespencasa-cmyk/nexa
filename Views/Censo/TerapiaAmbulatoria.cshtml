@@ -134,7 +134,7 @@
                                     <div class="col-lg-3">
                                         <label asp-for="TipoIdentificacion" class="form-label"></label>
                                         <select asp-for="TipoIdentificacion" asp-items="Model.TipoIdentificacionOptions" class="form-select">
-                                            <option value="">Selecciona...</option>
+                                            <option value="" disabled hidden>Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="TipoIdentificacion" class="text-danger"></span>
                                     </div>
@@ -152,11 +152,6 @@
                                         <label asp-for="Edad" class="form-label"></label>
                                         <input asp-for="Edad" class="form-control" id="edadInput" readonly />
                                     </div>
-                                    <div class="col-lg-6">
-                                        <label asp-for="CorreoElectronico" class="form-label"></label>
-                                        <input asp-for="CorreoElectronico" class="form-control" type="email" autocomplete="off" />
-                                        <span asp-validation-for="CorreoElectronico" class="text-danger"></span>
-                                    </div>
                                 </div>
                             </section>
 
@@ -172,21 +167,6 @@
                                     <h3>Tratamiento</h3>
                                 </div>
                                 <div class="row g-3 censo-field-section__grid">
-                                    <div class="col-lg-3">
-                                        <label asp-for="Cantidad" class="form-label"></label>
-                                        <input asp-for="Cantidad" class="form-control" type="number" min="1" step="1" />
-                                        <span asp-validation-for="Cantidad" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-5">
-                                        <label asp-for="FrecuenciaTerapia" class="form-label"></label>
-                                        <input asp-for="FrecuenciaTerapia" class="form-control" maxlength="200" autocomplete="off" />
-                                        <span asp-validation-for="FrecuenciaTerapia" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-4">
-                                        <label asp-for="NumeroAutorizacion" class="form-label"></label>
-                                        <input asp-for="NumeroAutorizacion" class="form-control" maxlength="100" autocomplete="off" />
-                                        <span asp-validation-for="NumeroAutorizacion" class="text-danger"></span>
-                                    </div>
                                     <div class="col-12">
                                         <label class="form-label">Tipo de terapia</label>
                                         <div class="censo-check-grid">
@@ -206,6 +186,23 @@
                                             }
                                         </div>
                                         <span asp-validation-for="TiposTerapiaSeleccionados" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="Cantidad" class="form-label"></label>
+                                        <input asp-for="Cantidad" class="form-control" type="number" min="1" step="1" />
+                                        <span asp-validation-for="Cantidad" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-5">
+                                        <label asp-for="FrecuenciaTerapia" class="form-label"></label>
+                                        <select asp-for="FrecuenciaTerapia" asp-items="Model.FrecuenciaTerapiaOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="FrecuenciaTerapia" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="NumeroAutorizacion" class="form-label"></label>
+                                        <input asp-for="NumeroAutorizacion" class="form-control" maxlength="100" autocomplete="off" />
+                                        <span asp-validation-for="NumeroAutorizacion" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="CodigoCie10" class="form-label"></label>
@@ -270,21 +267,21 @@
                                     <div class="col-lg-4">
                                         <label asp-for="ClasificacionZonaSura" class="form-label"></label>
                                         <select asp-for="ClasificacionZonaSura" asp-items="Model.ClasificacionZonaSuraOptions" class="form-select" id="clasificacionZonaSuraSelect">
-                                            <option value="">Selecciona...</option>
+                                            <option value="" disabled hidden>Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="ClasificacionZonaSura" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="MunicipioResidencia" class="form-label"></label>
                                         <select asp-for="MunicipioResidencia" asp-items="Model.MunicipioResidenciaOptions" class="form-select" id="municipioResidenciaSelect">
-                                            <option value="">Selecciona...</option>
+                                            <option value="" disabled hidden>Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="MunicipioResidencia" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="Barrio" class="form-label"></label>
                                         <select asp-for="Barrio" class="form-select" id="barrioSelect">
-                                            <option value="">Selecciona barrio...</option>
+                                            <option value="" disabled hidden>Selecciona barrio...</option>
                                             @foreach (var barrioOption in Model.BarrioOptions)
                                             {
                                                 <option value="@barrioOption">@barrioOption</option>
@@ -295,14 +292,14 @@
                                     <div class="col-lg-4">
                                         <label asp-for="ZonaDireccionSegunMunicipio" class="form-label"></label>
                                         <select asp-for="ZonaDireccionSegunMunicipio" asp-items="Model.ZonaDireccionOptions" class="form-select" id="zonaDireccionSelect">
-                                            <option value="">Selecciona...</option>
+                                            <option value="" disabled hidden>Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="ZonaDireccionSegunMunicipio" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="Area" class="form-label"></label>
                                         <select asp-for="Area" asp-items="Model.AreaOptions" class="form-select" id="areaSelect">
-                                            <option value="">Selecciona...</option>
+                                            <option value="" disabled hidden>Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="Area" class="text-danger"></span>
                                     </div>
@@ -312,11 +309,9 @@
                                         <span asp-validation-for="IpsQueRemite" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="VistoBuenoRangoFueraAnexo" class="form-label"></label>
-                                        <select asp-for="VistoBuenoRangoFueraAnexo" asp-items="Model.VistoBuenoOptions" class="form-select">
-                                            <option value="">Selecciona...</option>
-                                        </select>
-                                        <span asp-validation-for="VistoBuenoRangoFueraAnexo" class="text-danger"></span>
+                                        <label asp-for="CorreoElectronico" class="form-label"></label>
+                                        <input asp-for="CorreoElectronico" class="form-control" type="email" autocomplete="off" />
+                                        <span asp-validation-for="CorreoElectronico" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="TelefonoPrincipal" class="form-label"></label>
@@ -354,7 +349,7 @@
                                     <div class="col-lg-4">
                                         <label asp-for="EstadoGestion" class="form-label"></label>
                                         <select asp-for="EstadoGestion" asp-items="Model.EstadoGestionOptions" class="form-select" id="estadoGestionSelect">
-                                            <option value="">Selecciona...</option>
+                                            <option value="" disabled hidden>Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="EstadoGestion" class="text-danger"></span>
                                     </div>
@@ -377,7 +372,7 @@
                                     <div class="col-lg-4">
                                         <label asp-for="EstadoPaciente" class="form-label"></label>
                                         <select asp-for="EstadoPaciente" asp-items="Model.EstadoPacienteOptions" class="form-select" id="estadoPacienteSelect">
-                                            <option value="">Selecciona...</option>
+                                            <option value="" disabled hidden>Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="EstadoPaciente" class="text-danger"></span>
                                     </div>

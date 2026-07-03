@@ -289,6 +289,13 @@ public class CensoController : Controller
         "Fonoaudiologia",
         "Terapia ocupacional"
     ];
+    private static readonly string[] TerapiaAmbulatoriaFrecuenciaTerapiaValues =
+    [
+        "Diaria",
+        "Tres veces por semana",
+        "Dos veces por semana",
+        "Una vez por semana"
+    ];
     private static readonly string[] TerapiaAmbulatoriaEstadoGestionValues =
     [
         "Iniciado",
@@ -3320,10 +3327,10 @@ public class CensoController : Controller
         model.MunicipioResidenciaOptions = BuildOptions(MunicipiosResidenciaValues);
         model.ZonaDireccionOptions = BuildOptions(ZonaDireccionValues);
         model.AreaOptions = BuildOptions(AreaValues);
-        model.VistoBuenoOptions = BuildOptions(VistoBuenoValues);
         model.FisioterapeutaOptions = await GetOpsAssistantOptionsAsync(cancellationToken);
         model.EstadoGestionOptions = BuildOptions(TerapiaAmbulatoriaEstadoGestionValues);
         model.EstadoPacienteOptions = BuildOptions(TerapiaAmbulatoriaEstadoPacienteValues);
+        model.FrecuenciaTerapiaOptions = BuildOptions(TerapiaAmbulatoriaFrecuenciaTerapiaValues);
         model.TipoTerapiaOptions = BuildOptions(TerapiaAmbulatoriaTipoTerapiaValues);
 
         model.MunicipioResidencia = ToCanonicalMunicipality(model.MunicipioResidencia) ?? MunicipioNoParametrizado;
@@ -3405,7 +3412,6 @@ public class CensoController : Controller
         model.ZonaDireccionSegunMunicipio = model.ZonaDireccionSegunMunicipio?.Trim() ?? string.Empty;
         model.Area = model.Area?.Trim() ?? string.Empty;
         model.IpsQueRemite = model.IpsQueRemite?.Trim() ?? string.Empty;
-        model.VistoBuenoRangoFueraAnexo = model.VistoBuenoRangoFueraAnexo?.Trim() ?? string.Empty;
         model.TelefonoPrincipal = NormalizePhone(model.TelefonoPrincipal);
         model.TelefonoAdicional1 = string.IsNullOrWhiteSpace(model.TelefonoAdicional1) ? null : NormalizePhone(model.TelefonoAdicional1);
         model.TelefonoAdicional2 = string.IsNullOrWhiteSpace(model.TelefonoAdicional2) ? null : NormalizePhone(model.TelefonoAdicional2);
@@ -3464,6 +3470,16 @@ public class CensoController : Controller
         }
 
         var allowedTiposTerapia = TerapiaAmbulatoriaTipoTerapiaValues.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var allowedFrecuenciasTerapia = TerapiaAmbulatoriaFrecuenciaTerapiaValues.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(model.FrecuenciaTerapia))
+        {
+            ModelState.AddModelError(nameof(model.FrecuenciaTerapia), "Selecciona la frecuencia de terapia.");
+        }
+        else if (!allowedFrecuenciasTerapia.Contains(model.FrecuenciaTerapia))
+        {
+            ModelState.AddModelError(nameof(model.FrecuenciaTerapia), "Selecciona una frecuencia de terapia válida.");
+        }
+
         if (model.TiposTerapiaSeleccionados.Count == 0)
         {
             ModelState.AddModelError(nameof(model.TiposTerapiaSeleccionados), "Selecciona al menos un tipo de terapia.");
@@ -3566,10 +3582,6 @@ public class CensoController : Controller
             ModelState.AddModelError(nameof(model.Area), "Selecciona un area valida.");
         }
 
-        if (!VistoBuenoValues.Contains(model.VistoBuenoRangoFueraAnexo, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.VistoBuenoRangoFueraAnexo), "Selecciona un valor válido para visto bueno rango fuera del anexo.");
-        }
     }
 
     private static bool IsTerapiaSinDireccion(CensoTerapiaAmbulatoriaViewModel model)
@@ -3586,8 +3598,7 @@ public class CensoController : Controller
             nameof(CensoTerapiaAmbulatoriaViewModel.MunicipioResidencia),
             nameof(CensoTerapiaAmbulatoriaViewModel.Barrio),
             nameof(CensoTerapiaAmbulatoriaViewModel.ZonaDireccionSegunMunicipio),
-            nameof(CensoTerapiaAmbulatoriaViewModel.Area),
-            nameof(CensoTerapiaAmbulatoriaViewModel.VistoBuenoRangoFueraAnexo)
+            nameof(CensoTerapiaAmbulatoriaViewModel.Area)
         })
         {
             ModelState.Remove(key);
@@ -3602,7 +3613,6 @@ public class CensoController : Controller
         model.Barrio = string.IsNullOrWhiteSpace(model.Barrio) ? "NO PARAMETRIZADO" : model.Barrio;
         model.ZonaDireccionSegunMunicipio = string.IsNullOrWhiteSpace(model.ZonaDireccionSegunMunicipio) ? InferZonaDireccionSegunMunicipio(MunicipioNoParametrizado) : model.ZonaDireccionSegunMunicipio;
         model.Area = string.IsNullOrWhiteSpace(model.Area) ? AreaValues[0] : model.Area;
-        model.VistoBuenoRangoFueraAnexo = string.IsNullOrWhiteSpace(model.VistoBuenoRangoFueraAnexo) ? VistoBuenoValues[1] : model.VistoBuenoRangoFueraAnexo;
         model.DireccionEsValida = false;
         model.AsumirDireccionErrada = true;
         model.DireccionMensajeValidacion = "Registro guardado con estado Sin direccion.";
@@ -3706,7 +3716,6 @@ public class CensoController : Controller
             ZonaDireccionSegunMunicipio = model.ZonaDireccionSegunMunicipio,
             Area = model.Area,
             IpsQueRemite = model.IpsQueRemite,
-            VistoBuenoRangoFueraAnexo = model.VistoBuenoRangoFueraAnexo,
             TelefonoPrincipal = model.TelefonoPrincipal,
             TelefonoAdicional1 = model.TelefonoAdicional1,
             TelefonoAdicional2 = model.TelefonoAdicional2,
