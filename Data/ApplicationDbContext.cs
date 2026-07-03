@@ -15,6 +15,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<AppUserPermission> UserPermissions => Set<AppUserPermission>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<CensoRecord> Censos => Set<CensoRecord>();
+    public DbSet<CensoTerapiaAmbulatoriaRecord> CensoTerapiasAmbulatorias => Set<CensoTerapiaAmbulatoriaRecord>();
     public DbSet<CensoAdjunto> CensoAdjuntos => Set<CensoAdjunto>();
     public DbSet<CensoProrroga> CensoProrrogas => Set<CensoProrroga>();
     public DbSet<Medicamento> Medicamentos => Set<Medicamento>();
@@ -248,6 +249,47 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(x => x.FechaIngreso);
             entity.HasIndex(x => x.FarmaciaEnviadoAtUtc);
             entity.HasIndex(x => x.FarmaciaProrrogaVersionId);
+            entity.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<CensoTerapiaAmbulatoriaRecord>(entity =>
+        {
+            entity.ToTable("censo_terapias_ambulatorias");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.NombrePaciente).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.TipoIdentificacion).HasMaxLength(3).IsRequired();
+            entity.Property(x => x.NumeroIdentificacion).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.FechaNacimiento).HasColumnType("date");
+            entity.Property(x => x.CorreoElectronico).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.FrecuenciaTerapia).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.TipoTerapia).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.CodigoCie10).HasMaxLength(4).IsRequired();
+            entity.Property(x => x.DiagnosticoDescriptivo).HasMaxLength(300).IsRequired();
+            entity.Property(x => x.NumeroAutorizacion).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Direccion).HasMaxLength(300).IsRequired();
+            entity.Property(x => x.DireccionValidada).HasDefaultValue(false);
+            entity.Property(x => x.AsumirDireccionErrada).HasDefaultValue(false);
+            entity.Property(x => x.DetalleDireccion).HasMaxLength(200);
+            entity.Property(x => x.ClasificacionZonaSura).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.MunicipioResidencia).HasMaxLength(120).IsRequired();
+            entity.Property(x => x.Barrio).HasMaxLength(120).IsRequired();
+            entity.Property(x => x.ZonaDireccionSegunMunicipio).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.Area).HasMaxLength(10).IsRequired();
+            entity.Property(x => x.IpsQueRemite).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.VistoBuenoRangoFueraAnexo).HasMaxLength(2).IsRequired();
+            entity.Property(x => x.TelefonoPrincipal).HasMaxLength(10).IsRequired();
+            entity.Property(x => x.TelefonoAdicional1).HasMaxLength(10);
+            entity.Property(x => x.TelefonoAdicional2).HasMaxLength(10);
+            entity.Property(x => x.Fisioterapeuta).HasMaxLength(120).IsRequired();
+            entity.Property(x => x.EstadoGestion).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.EstadoPaciente).HasMaxLength(30).IsRequired().HasDefaultValue("Activo");
+            entity.Property(x => x.FechaIngreso).HasColumnType("date");
+            entity.Property(x => x.FechaInicio).HasColumnType("date");
+            entity.Property(x => x.FechaFin).HasColumnType("date");
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.HasIndex(x => x.NumeroIdentificacion);
+            entity.HasIndex(x => x.FechaInicio);
             entity.HasIndex(x => x.CreatedAtUtc);
         });
 

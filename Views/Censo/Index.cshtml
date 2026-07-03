@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="~/css/censo.css" asp-append-version="true" />
 }
 @{
-    ViewData["Title"] = "Censo";
+    ViewData["Title"] = "Programa Agudos";
     var hasNursingAssistants = Model.NursingAssistantOptions.Any();
     var successMessage = TempData["SuccessMessage"] as string;
     var saveErrorMessages = ViewData.ModelState.Values
@@ -447,7 +447,7 @@
                 </div>
             </div>
             <div class="censo-section-strip__tools">
-                <form method="get" asp-action="Index" class="censo-filter-panel">
+                <form method="get" asp-action="ProgramaAgudos" class="censo-filter-panel">
                     <h2 class="censo-filter-panel__title">Filtros r&aacute;pidos</h2>
                     <label for="cedulaFiltroInput" class="form-label censo-filter-panel__label">Buscar por documento</label>
                     <div class="censo-filter-panel__input-wrap">
@@ -461,7 +461,7 @@
                     </div>
                     <div class="censo-filter-panel__actions">
                         <button type="submit" class="btn btn-outline-primary censo-filter-panel__button" id="buscarCedulaBtn">Buscar</button>
-                        <a class="btn btn-outline-secondary censo-filter-panel__button" asp-action="Index" id="limpiarCedulaBtn">Limpiar</a>
+                        <a class="btn btn-outline-secondary censo-filter-panel__button" asp-action="ProgramaAgudos" id="limpiarCedulaBtn">Limpiar</a>
                     </div>
                 </form>
             </div>
@@ -539,7 +539,7 @@
                         <span>Cambiar paciente</span>
                     </button>
                     <div class="dropdown-menu dropdown-menu-end censo-current-patient__dropdown">
-                        <form method="get" asp-action="Index" class="censo-current-patient__search">
+                        <form method="get" asp-action="ProgramaAgudos" class="censo-current-patient__search">
                             <label for="cambiarPacienteDocumento" class="form-label">Documento</label>
                             <div class="input-group">
                                 <input class="form-control" id="cambiarPacienteDocumento" name="cedulaPaciente" inputmode="text" maxlength="20" placeholder="Ingrese documento" />
@@ -554,7 +554,7 @@
                     </div>
                 </div>
 
-                <a class="btn censo-current-patient__button censo-current-patient__button--primary" asp-action="Index">
+                <a class="btn censo-current-patient__button censo-current-patient__button--primary" asp-action="ProgramaAgudos">
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                         <path d="M12 5v14"></path>
                         <path d="M5 12h14"></path>
@@ -566,7 +566,7 @@
     }
 
     <section class="censo-content">
-        <form asp-action="Index" method="post" id="censoForm" class="censo-form-shell">
+        <form asp-action="ProgramaAgudos" method="post" id="censoForm" class="censo-form-shell">
             <div asp-validation-summary="ModelOnly" class="alert alert-danger censo-validation-summary mb-4" role="alert"></div>
             <input asp-for="EditingRecordId" type="hidden" />
             <input type="hidden" name="CedulaFiltro" value="@Model.CedulaFiltro" />
@@ -2150,7 +2150,7 @@
                 </div>
 
                 <div class="censo-form-actions">
-                    <a class="btn btn-outline-secondary censo-cancel-button" asp-action="Index">Cancelar</a>
+                    <a class="btn btn-outline-secondary censo-cancel-button" asp-action="ProgramaAgudos">Cancelar</a>
                     <button type="button" class="btn censo-kardex-button" data-bs-toggle="modal" data-bs-target="#censoKardexModal">
                         <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                             <path d="M9 3h6"></path>
@@ -2206,7 +2206,7 @@
                 <strong>@Model.IngresosHoyCount</strong>
                 <small>Calculado por la fecha de ingreso del día actual.</small>
             </div>
-            <form method="get" asp-action="Index" class="censo-history-filter" aria-label="Filtro por rango de fecha de ingreso">
+            <form method="get" asp-action="ProgramaAgudos" class="censo-history-filter" aria-label="Filtro por rango de fecha de ingreso">
                 @if (!string.IsNullOrWhiteSpace(Model.CedulaFiltro))
                 {
                     <input type="hidden" name="cedulaPaciente" value="@Model.CedulaFiltro" />
@@ -2223,7 +2223,7 @@
                 </div>
                 <div class="censo-history-filter__actions">
                     <button type="submit" class="btn btn-primary censo-history-filter__submit">Filtrar rango</button>
-                    <a class="btn btn-outline-secondary censo-history-filter__reset" asp-action="Index" asp-route-cedulaPaciente="@Model.CedulaFiltro">Limpiar rango</a>
+                    <a class="btn btn-outline-secondary censo-history-filter__reset" asp-action="ProgramaAgudos" asp-route-cedulaPaciente="@Model.CedulaFiltro">Limpiar rango</a>
                     @if (Model.TieneFiltroFechaIngreso)
                     {
                         <a class="btn censo-history-filter__export" asp-action="ExportarExcelFiltroPersonalizado" asp-route-cedulaPaciente="@Model.CedulaFiltro" asp-route-fechaIngresoDesde="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")" asp-route-fechaIngresoHasta="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")" download>Exportar a Excel filtro personalizado</a>
@@ -2278,7 +2278,7 @@
         : string.Empty;
                     <tr class="@(alertaFarmacia ? "censo-row--alerta-farmacia" : null)">
                         <td>
-                            <a class="censo-history-table__open" asp-action="Index" asp-route-recordId="@record.Id" asp-route-cedulaPaciente="@Model.CedulaFiltro" asp-route-fechaIngresoDesde="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")" asp-route-fechaIngresoHasta="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")" title="Cargar registro @record.Id para editar" aria-label="Cargar registro @record.Id para editar">
+                            <a class="censo-history-table__open" asp-action="ProgramaAgudos" asp-route-recordId="@record.Id" asp-route-cedulaPaciente="@Model.CedulaFiltro" asp-route-fechaIngresoDesde="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")" asp-route-fechaIngresoHasta="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")" title="Cargar registro @record.Id para editar" aria-label="Cargar registro @record.Id para editar">
                                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                                     <circle cx="11" cy="11" r="6"></circle>
                                     <path d="M16 16l5 5"></path>
@@ -2642,7 +2642,7 @@
             const enviarFarmaciaUrl = "@Url.Action("EnviarAFarmacia", "Censo")";
             const guardarDocumentosUrl = "@Url.Action("GuardarDocumentos", "Censo")";
             const obtenerDocumentosUrl = "@Url.Action("ObtenerDocumentos", "Censo")";
-            const indexUrl = "@Url.Action("Index", "Censo")";
+            const indexUrl = "@Url.Action("ProgramaAgudos", "Censo")";
             const subirAdjuntoUrl = "@Url.Action("SubirAdjunto", "Censo")";
             const eliminarAdjuntoUrl = "@Url.Action("EliminarAdjunto", "Censo")";
             const descargarAdjuntoUrl = "@Url.Action("DescargarAdjunto", "Censo")";

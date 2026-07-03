@@ -74,7 +74,6 @@ public class CensoReceptionViewModel
     [Display(Name = "Correo electrónico")]
     public string CorreoElectronico { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "La dirección es obligatoria.")]
     [StringLength(300, ErrorMessage = "La dirección no puede superar 300 caracteres.")]
     [Display(Name = "Dirección")]
     public string Direccion { get; set; } = string.Empty;
@@ -83,23 +82,18 @@ public class CensoReceptionViewModel
     [Display(Name = "Detalle de dirección")]
     public string? DetalleDireccion { get; set; }
 
-    [Required(ErrorMessage = "Selecciona la clasificación zona Sura.")]
     [Display(Name = "Clasificación zona Sura")]
     public string ClasificacionZonaSura { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Selecciona el municipio de residencia.")]
     [Display(Name = "Municipio de residencia")]
     public string MunicipioResidencia { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Selecciona o escribe el barrio.")]
     [Display(Name = "Barrio")]
     public string Barrio { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Selecciona la zona de dirección según municipio.")]
     [Display(Name = "Zona de dirección según municipio")]
     public string ZonaDireccionSegunMunicipio { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Selecciona el area.")]
     [Display(Name = "Area")]
     public string Area { get; set; } = string.Empty;
 
@@ -107,7 +101,6 @@ public class CensoReceptionViewModel
     [Display(Name = "IPS que remite")]
     public string IpsQueRemite { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Selecciona el visto bueno rango fuera del anexo.")]
     [Display(Name = "Visto bueno rango fuera del anexo")]
     public string VistoBuenoRangoFueraAnexo { get; set; } = string.Empty;
 
@@ -631,6 +624,166 @@ public class CensoTableRowViewModel
         = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     public bool TieneProrroga => ProrrogaValues.Count > 0;
+}
+
+public class CensoTerapiaAmbulatoriaViewModel
+{
+    [Required(ErrorMessage = "El nombre del paciente es obligatorio.")]
+    [StringLength(200, ErrorMessage = "El nombre del paciente no puede superar 200 caracteres.")]
+    [Display(Name = "Nombre del paciente")]
+    public string NombrePaciente { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Selecciona el tipo de identificación.")]
+    [StringLength(3)]
+    [Display(Name = "Tipo de identificación")]
+    public string TipoIdentificacion { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "El número de identificación es obligatorio.")]
+    [StringLength(20, ErrorMessage = "El número de identificación no puede superar 20 caracteres.")]
+    [Display(Name = "Número de identificación")]
+    public string NumeroIdentificacion { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La fecha de nacimiento es obligatoria.")]
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha de nacimiento")]
+    public DateTime FechaNacimiento { get; set; } = DateTime.Today;
+
+    [Display(Name = "Edad")]
+    public int Edad { get; set; }
+
+    [Required(ErrorMessage = "El correo electrónico es obligatorio.")]
+    [StringLength(150, ErrorMessage = "El correo electrónico no puede superar 150 caracteres.")]
+    [EmailAddress(ErrorMessage = "Ingresa un correo electrónico válido.")]
+    [Display(Name = "Correo electrónico")]
+    public string CorreoElectronico { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La cantidad es obligatoria.")]
+    [Range(1, 9999, ErrorMessage = "La cantidad debe estar entre 1 y 9999.")]
+    [Display(Name = "Cantidad")]
+    public int? Cantidad { get; set; }
+
+    [Required(ErrorMessage = "La frecuencia de terapia es obligatoria.")]
+    [StringLength(200, ErrorMessage = "La frecuencia de terapia no puede superar 200 caracteres.")]
+    [Display(Name = "Frecuencia de terapia")]
+    public string FrecuenciaTerapia { get; set; } = string.Empty;
+
+    [Display(Name = "Tipo de terapia")]
+    public List<string> TiposTerapiaSeleccionados { get; set; } = [];
+
+    [Required(ErrorMessage = "El código CIE10 es obligatorio.")]
+    [StringLength(4, ErrorMessage = "El código CIE10 debe tener 4 caracteres.")]
+    [RegularExpression(@"^[A-Za-z][0-9]{3}$", ErrorMessage = "El código CIE10 debe iniciar con letra y continuar con 3 dígitos.")]
+    [Display(Name = "Código CIE10")]
+    public string CodigoCie10 { get; set; } = string.Empty;
+
+    [Display(Name = "Diagnóstico descriptivo")]
+    public string? DiagnosticoDescriptivo { get; set; }
+
+    [Required(ErrorMessage = "El número de autorización es obligatorio.")]
+    [StringLength(100, ErrorMessage = "El número de autorización no puede superar 100 caracteres.")]
+    [Display(Name = "Número de autorización")]
+    public string NumeroAutorizacion { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La dirección es obligatoria.")]
+    [StringLength(300, ErrorMessage = "La dirección no puede superar 300 caracteres.")]
+    [Display(Name = "Dirección")]
+    public string Direccion { get; set; } = string.Empty;
+
+    [StringLength(200, ErrorMessage = "El detalle de dirección no puede superar 200 caracteres.")]
+    [Display(Name = "Detalle de dirección")]
+    public string? DetalleDireccion { get; set; }
+
+    [Required(ErrorMessage = "Selecciona la clasificación zona Sura.")]
+    [Display(Name = "Clasificación zona Sura")]
+    public string ClasificacionZonaSura { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Selecciona el municipio de residencia.")]
+    [Display(Name = "Municipio de residencia")]
+    public string MunicipioResidencia { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Selecciona o escribe el barrio.")]
+    [Display(Name = "Barrio")]
+    public string Barrio { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Selecciona la zona de dirección según municipio.")]
+    [Display(Name = "Zona de dirección según municipio")]
+    public string ZonaDireccionSegunMunicipio { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Selecciona el area.")]
+    [Display(Name = "Area")]
+    public string Area { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La IPS que remite es obligatoria.")]
+    [StringLength(200, ErrorMessage = "La IPS que remite no puede superar 200 caracteres.")]
+    [Display(Name = "IPS que remite")]
+    public string IpsQueRemite { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Selecciona el visto bueno rango fuera del anexo.")]
+    [Display(Name = "Visto bueno rango fuera del anexo")]
+    public string VistoBuenoRangoFueraAnexo { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "El teléfono principal es obligatorio.")]
+    [StringLength(10, ErrorMessage = "El teléfono principal no puede superar 10 dígitos.")]
+    [RegularExpression(@"^[0-9]+$", ErrorMessage = "El teléfono principal solo permite dígitos.")]
+    [Display(Name = "Teléfono principal")]
+    public string TelefonoPrincipal { get; set; } = string.Empty;
+
+    [StringLength(10, ErrorMessage = "El teléfono adicional 1 no puede superar 10 dígitos.")]
+    [RegularExpression(@"^[0-9]*$", ErrorMessage = "El teléfono adicional 1 solo permite dígitos.")]
+    [Display(Name = "Teléfono adicional 1")]
+    public string? TelefonoAdicional1 { get; set; }
+
+    [StringLength(10, ErrorMessage = "El teléfono adicional 2 no puede superar 10 dígitos.")]
+    [RegularExpression(@"^[0-9]*$", ErrorMessage = "El teléfono adicional 2 solo permite dígitos.")]
+    [Display(Name = "Teléfono adicional 2")]
+    public string? TelefonoAdicional2 { get; set; }
+
+    [Required(ErrorMessage = "Selecciona el fisioterapeuta.")]
+    [Display(Name = "Fisioterapeuta")]
+    public string Fisioterapeuta { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Selecciona el estado de gestión.")]
+    [Display(Name = "Estado de gestión")]
+    public string EstadoGestion { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Selecciona el estado del paciente.")]
+    [Display(Name = "Estado del paciente")]
+    public string EstadoPaciente { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La fecha de ingreso es obligatoria.")]
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha de ingreso")]
+    public DateTime FechaIngreso { get; set; } = DateTime.Today;
+
+    [Required(ErrorMessage = "La fecha de inicio es obligatoria.")]
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha de inicio")]
+    public DateTime FechaInicio { get; set; } = DateTime.Today;
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha fin")]
+    public DateTime? FechaFin { get; set; }
+
+    public bool AsumirDireccionErrada { get; set; }
+
+    public string? DireccionSugerida { get; set; }
+
+    public string? DireccionMensajeValidacion { get; set; }
+
+    public bool DireccionEsValida { get; set; }
+
+    public IReadOnlyList<SelectListItem> TipoIdentificacionOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> ClasificacionZonaSuraOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> MunicipioResidenciaOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> ZonaDireccionOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> AreaOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> VistoBuenoOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> FisioterapeutaOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> EstadoGestionOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> EstadoPacienteOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> TipoTerapiaOptions { get; set; } = [];
+    public IReadOnlyList<string> BarrioOptions { get; set; } = [];
+    public IReadOnlyList<CensoTerapiaAmbulatoriaRecord> UltimosRegistros { get; set; } = [];
 }
 
 public class MedicamentoCatalogItemViewModel

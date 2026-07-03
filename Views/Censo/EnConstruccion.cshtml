@@ -1,0 +1,26 @@
+@{
+    var sectionTitle = ViewData["CensoSectionTitle"] as string ?? "Censo";
+    ViewData["Title"] = sectionTitle;
+}
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/censo.css" asp-append-version="true" />
+}
+
+<section class="censo-construction">
+    <div class="censo-construction__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M4 20h16"></path>
+            <path d="M6 20 9 8h6l3 12"></path>
+            <path d="M8 14h8"></path>
+            <path d="M10 4h4"></path>
+            <path d="M12 4v4"></path>
+        </svg>
+    </div>
+    <div>
+        <span class="censo-construction__eyebrow">@sectionTitle</span>
+        <h2>En construcción</h2>
+        <p>Este censo tendrá su propio contenido y flujo de trabajo.</p>
+    </div>
+</section>
