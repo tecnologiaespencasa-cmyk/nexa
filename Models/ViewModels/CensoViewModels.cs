@@ -628,6 +628,10 @@ public class CensoTableRowViewModel
 
 public class CensoTerapiaAmbulatoriaViewModel
 {
+    public long? EditingRecordId { get; set; }
+
+    public string? CedulaFiltro { get; set; }
+
     [Required(ErrorMessage = "El nombre del paciente es obligatorio.")]
     [StringLength(200, ErrorMessage = "El nombre del paciente no puede superar 200 caracteres.")]
     [Display(Name = "Nombre del paciente")]
@@ -734,13 +738,15 @@ public class CensoTerapiaAmbulatoriaViewModel
     [Display(Name = "Teléfono adicional 2")]
     public string? TelefonoAdicional2 { get; set; }
 
-    [Required(ErrorMessage = "Selecciona el fisioterapeuta.")]
+    [StringLength(120, ErrorMessage = "El fisioterapeuta no puede superar 120 caracteres.")]
     [Display(Name = "Fisioterapeuta")]
-    public string Fisioterapeuta { get; set; } = string.Empty;
+    public string? Fisioterapeuta { get; set; }
 
-    [Required(ErrorMessage = "Selecciona el estado de gestión.")]
     [Display(Name = "Estado de gestión")]
     public string EstadoGestion { get; set; } = string.Empty;
+
+    [Display(Name = "Gestión en el sistema")]
+    public bool GestionEnSistema { get; set; }
 
     [Required(ErrorMessage = "Selecciona el estado del paciente.")]
     [Display(Name = "Estado del paciente")]
@@ -760,6 +766,30 @@ public class CensoTerapiaAmbulatoriaViewModel
     [Display(Name = "Fecha fin")]
     public DateTime? FechaFin { get; set; }
 
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha de solicitud de prórroga")]
+    public DateTime? ProrrogaFechaSolicitud { get; set; }
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha de solicitud del asegurador")]
+    public DateTime? ProrrogaFechaSolicitudAsegurador { get; set; }
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha de entrega de autorización")]
+    public DateTime? ProrrogaFechaEntregaAutorizacion { get; set; }
+
+    [StringLength(100, ErrorMessage = "El código de autorización no puede superar 100 caracteres.")]
+    [Display(Name = "Código de autorización")]
+    public string? ProrrogaCodigoAutorizacion { get; set; }
+
+    [Range(1, 9999, ErrorMessage = "La frecuencia debe estar entre 1 y 9999.")]
+    [Display(Name = "Frecuencia")]
+    public int? ProrrogaFrecuencia { get; set; }
+
+    [StringLength(100, ErrorMessage = "La cantidad no puede superar 100 caracteres.")]
+    [Display(Name = "Cantidad")]
+    public string? ProrrogaCantidad { get; set; }
+
     public bool AsumirDireccionErrada { get; set; }
 
     public string? DireccionSugerida { get; set; }
@@ -774,12 +804,25 @@ public class CensoTerapiaAmbulatoriaViewModel
     public IReadOnlyList<SelectListItem> ZonaDireccionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AreaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> FisioterapeutaOptions { get; set; } = [];
-    public IReadOnlyList<SelectListItem> EstadoGestionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoPacienteOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> FrecuenciaTerapiaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> TipoTerapiaOptions { get; set; } = [];
     public IReadOnlyList<string> BarrioOptions { get; set; } = [];
     public IReadOnlyList<CensoTerapiaAmbulatoriaRecord> UltimosRegistros { get; set; } = [];
+    public IReadOnlyList<CensoTerapiaAmbulatoriaProrroga> ProrrogasTerapia { get; set; } = [];
+    public IReadOnlyList<CensoTerapiaAdjuntoViewModel> AdjuntosTerapia { get; set; } = [];
+    public string? AdjuntosTerapiaError { get; set; }
+}
+
+public class CensoTerapiaAdjuntoViewModel
+{
+    public string Name { get; set; } = string.Empty;
+
+    public string WebUrl { get; set; } = string.Empty;
+
+    public long Size { get; set; }
+
+    public DateTimeOffset? LastModifiedAt { get; set; }
 }
 
 public class MedicamentoCatalogItemViewModel

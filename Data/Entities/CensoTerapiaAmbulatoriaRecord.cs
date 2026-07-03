@@ -94,9 +94,10 @@ public class CensoTerapiaAmbulatoriaRecord
     [StringLength(10)]
     public string? TelefonoAdicional2 { get; set; }
 
-    [Required]
     [StringLength(120)]
     public string Fisioterapeuta { get; set; } = string.Empty;
+
+    public bool GestionEnSistema { get; set; }
 
     [Required]
     [StringLength(30)]
@@ -115,4 +116,6 @@ public class CensoTerapiaAmbulatoriaRecord
     public DateTime CreatedAtUtc { get; set; }
 
     public DateTime? UpdatedAtUtc { get; set; }
+
+    public ICollection<CensoTerapiaAmbulatoriaProrroga> Prorrogas { get; set; } = [];
 }

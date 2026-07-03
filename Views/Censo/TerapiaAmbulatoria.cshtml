@@ -9,7 +9,11 @@
 @{
     ViewData["Title"] = "Terapia Ambulatoria";
     var successMessage = TempData["SuccessMessage"] as string;
+    var errorMessage = TempData["ErrorMessage"] as string;
     var hasFisioterapeutas = Model.FisioterapeutaOptions.Any();
+    var estadoGestionInicial = string.IsNullOrWhiteSpace(Model.EstadoGestion)
+        ? "Pendiente confirmar datos"
+        : Model.EstadoGestion;
 }
 
 <div class="censo-page">
@@ -85,6 +89,38 @@
                     </button>
                 </div>
             </div>
+            <div class="censo-section-strip__tools">
+                <form method="get" asp-action="TerapiaAmbulatoria" class="censo-filter-panel">
+                    <h2 class="censo-filter-panel__title">Filtros rápidos</h2>
+                    <label for="cedulaTerapiaFiltroInput" class="form-label censo-filter-panel__label">Buscar por documento</label>
+                    <div class="censo-filter-panel__input-wrap">
+                        <input class="form-control censo-filter-panel__input" id="cedulaTerapiaFiltroInput" name="cedulaPaciente" value="@Model.CedulaFiltro" inputmode="text" maxlength="20" placeholder="Ingrese documento" />
+                        <span class="censo-filter-panel__search-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <circle cx="11" cy="11" r="7"></circle>
+                                <path d="m20 20-3.5-3.5"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <div class="censo-filter-panel__actions">
+                        <button type="submit" class="btn btn-outline-primary censo-filter-panel__button">Buscar</button>
+                        <a class="btn btn-outline-secondary censo-filter-panel__button" asp-action="TerapiaAmbulatoria">Limpiar</a>
+                    </div>
+                </form>
+            </div>
+            <div class="censo-section-strip__actions">
+                <a class="btn btn-success btn-sm censo-export-button" asp-action="ExportarTerapiasAmbulatoriasExcel" asp-route-cedulaPaciente="@Model.CedulaFiltro" download>
+                    <span class="censo-export-button__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                            <path d="M14 3v5h5"></path>
+                            <path d="M9 10l4 6"></path>
+                            <path d="M13 10l-4 6"></path>
+                        </svg>
+                    </span>
+                    <span>Exportar censo</span>
+                </a>
+            </div>
         </section>
     </aside>
 
@@ -93,10 +129,39 @@
         {
             <div class="alert alert-success">@successMessage</div>
         }
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="alert alert-warning">@errorMessage</div>
+        }
 
-        <form asp-action="TerapiaAmbulatoria" method="post" id="terapiaAmbulatoriaForm" class="censo-form-shell">
-            <div asp-validation-summary="ModelOnly" class="alert alert-danger censo-validation-summary mb-4" role="alert"></div>
+        <form asp-action="TerapiaAmbulatoria" method="post" enctype="multipart/form-data" id="terapiaAmbulatoriaForm" class="censo-form-shell">
+            <input asp-for="EditingRecordId" type="hidden" />
+            <input asp-for="CedulaFiltro" type="hidden" />
             <input asp-for="DireccionEsValida" type="hidden" id="direccionEsValidaInput" />
+            <input asp-for="EstadoGestion" type="hidden" id="estadoGestionInput" />
+
+            <section class="censo-gestion-progress is-pending" id="gestionProgress" aria-live="polite">
+                <div class="censo-gestion-progress__summary">
+                    <span>Estado de gestión</span>
+                    <strong id="gestionProgressLabel">@estadoGestionInicial</strong>
+                </div>
+                <div class="censo-gestion-progress__track" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1">
+                    <span class="censo-gestion-progress__step" data-step="1">
+                        <span>Pendiente</span>
+                    </span>
+                    <span class="censo-gestion-progress__step" data-step="2">
+                        <span>Confirmado</span>
+                    </span>
+                    <span class="censo-gestion-progress__step" data-step="3">
+                        <span>Completa</span>
+                    </span>
+                </div>
+                <div class="censo-gestion-progress__meta" id="gestionProgressDetail">
+                    Pendiente confirmar datos
+                </div>
+            </section>
+
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger censo-validation-summary mb-4" role="alert"></div>
 
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="tab-paciente" role="tabpanel" aria-labelledby="tab-paciente-link">
@@ -111,7 +176,7 @@
                             @if (!hasFisioterapeutas)
                             {
                                 <div class="alert alert-warning">
-                                    No hay auxiliares OPS activos. Debes registrarlos en Administración de usuarios.
+                                    No hay auxiliares OPS activos para asignar. Puedes guardar el registro y asignarlo después.
                                 </div>
                             }
 
@@ -343,15 +408,15 @@
                                                 <option value="@assistant.Value">@assistant.Text</option>
                                             }
                                         </datalist>
-                                        <div class="form-text">Selecciona un auxiliar OPS activo. Si no aparece, debe registrarse primero en administración de usuarios.</div>
+                                        <div class="form-text">Selecciona un fisioterapeuta activo</div>
                                         <span asp-validation-for="Fisioterapeuta" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="EstadoGestion" class="form-label"></label>
-                                        <select asp-for="EstadoGestion" asp-items="Model.EstadoGestionOptions" class="form-select" id="estadoGestionSelect">
-                                            <option value="" disabled hidden>Selecciona...</option>
-                                        </select>
-                                        <span asp-validation-for="EstadoGestion" class="text-danger"></span>
+                                        <label asp-for="GestionEnSistema" class="form-label"></label>
+                                        <div class="form-check form-switch censo-switch-field">
+                                            <input asp-for="GestionEnSistema" class="form-check-input" type="checkbox" role="switch" id="gestionSistemaSwitch" />
+                                            <label class="form-check-label" for="gestionSistemaSwitch">Gestionado en sistema</label>
+                                        </div>
                                     </div>
                                 </div>
                             </section>
@@ -383,35 +448,190 @@
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="FechaInicio" class="form-label"></label>
-                                        <input asp-for="FechaInicio" type="date" class="form-control" />
+                                        <input asp-for="FechaInicio" type="date" class="form-control" id="fechaInicioInput" />
                                         <span asp-validation-for="FechaInicio" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="FechaFin" class="form-label"></label>
-                                        <input asp-for="FechaFin" type="date" class="form-control" />
+                                        <input asp-for="FechaFin" type="date" class="form-control" id="fechaFinInput" readonly />
                                         <span asp-validation-for="FechaFin" class="text-danger"></span>
                                     </div>
                                 </div>
                             </section>
+
+                            <section class="censo-field-section censo-sharepoint-documents">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                            <path d="M14 3v5h5"></path>
+                                            <path d="M12 12v6"></path>
+                                            <path d="m9 15 3-3 3 3"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Documentos adjuntos</h3>
+                                </div>
+
+                                @if (!Model.EditingRecordId.HasValue)
+                                {
+                                    <div class="alert alert-info mb-0">
+                                        Guarda primero el paciente para crear su carpeta y adjuntar documentos en SharePoint.
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="censo-sharepoint-documents__upload">
+                                        <div>
+                                            <label for="terapiaAdjuntosInput" class="form-label">Adjuntar documentos</label>
+                                            <input class="form-control"
+                                                   type="file"
+                                                   id="terapiaAdjuntosInput"
+                                                   name="terapiaAdjuntos"
+                                                   multiple
+                                                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+                                            <div class="form-text">Los archivos se guardarán en SharePoint dentro de la carpeta del paciente.</div>
+                                        </div>
+                                        <button type="submit"
+                                                class="btn btn-outline-primary censo-sharepoint-documents__button"
+                                                formaction="@Url.Action("SubirTerapiaAmbulatoriaAdjuntos", "Censo")"
+                                                formmethod="post"
+                                                formenctype="multipart/form-data"
+                                                formnovalidate>
+                                            <span>Subir adjuntos</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M12 3v12"></path>
+                                                <path d="m7 8 5-5 5 5"></path>
+                                                <path d="M5 21h14"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    @if (!string.IsNullOrWhiteSpace(Model.AdjuntosTerapiaError))
+                                    {
+                                        <div class="alert alert-warning mt-3 mb-0">@Model.AdjuntosTerapiaError</div>
+                                    }
+                                    else if (!Model.AdjuntosTerapia.Any())
+                                    {
+                                        <div class="censo-sharepoint-documents__empty">
+                                            No hay documentos adjuntos para este paciente.
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="censo-sharepoint-documents__list">
+                                            @foreach (var adjunto in Model.AdjuntosTerapia)
+                                            {
+                                                <a class="censo-sharepoint-documents__item" href="@adjunto.WebUrl" target="_blank" rel="noopener">
+                                                    <span class="censo-sharepoint-documents__file-icon" aria-hidden="true">
+                                                        <svg viewBox="0 0 24 24" focusable="false">
+                                                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                            <path d="M14 3v5h5"></path>
+                                                        </svg>
+                                                    </span>
+                                                    <span class="censo-sharepoint-documents__file-copy">
+                                                        <strong>@adjunto.Name</strong>
+                                                        <small>
+                                                            @($"{Math.Max(1, (int)Math.Ceiling(adjunto.Size / 1024d))} KB")
+                                                            @if (adjunto.LastModifiedAt.HasValue)
+                                                            {
+                                                                <span> · @adjunto.LastModifiedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                                            }
+                                                        </small>
+                                                    </span>
+                                                </a>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </section>
+
+                            <div class="censo-form-actions">
+                                <button type="submit" class="btn btn-primary censo-save-button">
+                                    <span>@(Model.EditingRecordId.HasValue ? "Actualizar registro" : "Guardar registro")</span>
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                        <path d="M5 12h14"></path>
+                                        <path d="m13 6 6 6-6 6"></path>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="tab-pane fade" id="tab-programacion" role="tabpanel" aria-labelledby="tab-programacion-link">
-                    <section class="censo-construction">
-                        <div class="censo-construction__icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" focusable="false">
-                                <path d="M4 20h16"></path>
-                                <path d="M6 20 9 8h6l3 12"></path>
-                                <path d="M8 14h8"></path>
-                            </svg>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Terapia Ambulatoria</span>
+                                <h2 class="h5 mb-0">Prórroga</h2>
+                            </div>
                         </div>
-                        <div>
-                            <span class="censo-construction__eyebrow">Prórroga</span>
-                            <h2>En construcción</h2>
-                            <p>Esta sección tendrá su propio contenido para terapia ambulatoria.</p>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda o abre un paciente desde el historial para registrar prórrogas asociadas.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                                <path d="M8 3v4"></path>
+                                                <path d="M16 3v4"></path>
+                                                <path d="M4 10h16"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Datos de prórroga</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaFechaSolicitud" class="form-label"></label>
+                                            <input asp-for="ProrrogaFechaSolicitud" type="date" class="form-control" />
+                                            <span asp-validation-for="ProrrogaFechaSolicitud" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaFechaSolicitudAsegurador" class="form-label"></label>
+                                            <input asp-for="ProrrogaFechaSolicitudAsegurador" type="date" class="form-control" />
+                                            <span asp-validation-for="ProrrogaFechaSolicitudAsegurador" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaFechaEntregaAutorizacion" class="form-label"></label>
+                                            <input asp-for="ProrrogaFechaEntregaAutorizacion" type="date" class="form-control" />
+                                            <span asp-validation-for="ProrrogaFechaEntregaAutorizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaCodigoAutorizacion" class="form-label"></label>
+                                            <input asp-for="ProrrogaCodigoAutorizacion" class="form-control" maxlength="100" autocomplete="off" />
+                                            <span asp-validation-for="ProrrogaCodigoAutorizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaFrecuencia" class="form-label"></label>
+                                            <input asp-for="ProrrogaFrecuencia" class="form-control" type="number" min="1" step="1" />
+                                            <span asp-validation-for="ProrrogaFrecuencia" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaCantidad" class="form-label"></label>
+                                            <input asp-for="ProrrogaCantidad" class="form-control" maxlength="100" autocomplete="off" />
+                                            <span asp-validation-for="ProrrogaCantidad" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarTerapiaAmbulatoriaProrroga", "Censo")" formmethod="post" formnovalidate>
+                                            <span>@(Model.ProrrogasTerapia.Any() ? "Actualizar prórroga" : "Guardar prórroga")</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
                         </div>
-                    </section>
+                    </div>
                 </div>
 
                 <div class="tab-pane fade" id="tab-seguimiento" role="tabpanel" aria-labelledby="tab-seguimiento-link">
@@ -431,16 +651,6 @@
                     </section>
                 </div>
             </div>
-
-            <div class="censo-form-actions">
-                <button type="submit" class="btn btn-primary censo-save-button" @(hasFisioterapeutas ? null : "disabled")>
-                    <span>Guardar registro</span>
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M5 12h14"></path>
-                        <path d="m13 6 6 6-6 6"></path>
-                    </svg>
-                </button>
-            </div>
         </form>
     </section>
 </div>
@@ -450,13 +660,21 @@
         <div class="censo-history-shell__header-copy">
             <span class="censo-history-shell__eyebrow">Historial</span>
             <h2>Últimos registros de terapia ambulatoria</h2>
-            <p>Se muestran los últimos 50 registros creados en este censo.</p>
+            <p>
+                @(string.IsNullOrWhiteSpace(Model.CedulaFiltro)
+                    ? "Se muestran los últimos 50 registros creados en este censo."
+                    : $"Resultados para el documento {Model.CedulaFiltro}.")
+            </p>
         </div>
     </div>
 
     @if (!Model.UltimosRegistros.Any())
     {
-        <div class="alert alert-warning mb-0">No hay registros de terapia ambulatoria para mostrar.</div>
+        <div class="alert alert-warning mb-0">
+            @(string.IsNullOrWhiteSpace(Model.CedulaFiltro)
+                ? "No hay registros de terapia ambulatoria para mostrar."
+                : "No se encontraron registros de terapia ambulatoria para la cédula consultada.")
+        </div>
     }
     else
     {
@@ -464,6 +682,7 @@
             <table class="table table-sm table-bordered censo-history-table mb-0">
                 <thead>
                     <tr>
+                        <th>Abrir</th>
                         <th>Registro</th>
                         <th>Paciente</th>
                         <th>Documento</th>
@@ -479,6 +698,18 @@
                     @foreach (var record in Model.UltimosRegistros)
                     {
                         <tr>
+                            <td>
+                                <a class="censo-history-table__open" asp-action="TerapiaAmbulatoria" asp-route-recordId="@record.Id" asp-route-cedulaPaciente="@Model.CedulaFiltro" title="Cargar registro @record.Id" aria-label="Cargar registro @record.Id">
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                        <circle cx="11" cy="11" r="6"></circle>
+                                        <path d="M16 16l5 5"></path>
+                                    </svg>
+                                </a>
+                                @if (record.Prorrogas.Any())
+                                {
+                                    <span class="badge bg-warning text-dark ms-1" style="font-size:0.65em;">PRÓRROGA</span>
+                                }
+                            </td>
                             <td>@record.Id</td>
                             <td>@record.NombrePaciente</td>
                             <td>@record.TipoIdentificacion @record.NumeroIdentificacion</td>
@@ -519,10 +750,21 @@
             const clasificacionSelect = document.getElementById("clasificacionZonaSuraSelect");
             const barrioSelect = document.getElementById("barrioSelect");
             const zonaSelect = document.getElementById("zonaDireccionSelect");
+            const areaSelect = document.getElementById("areaSelect");
             const codigoCie10Input = document.getElementById("codigoCie10Input");
             const diagnosticoInput = document.getElementById("diagnosticoDescriptivoInput");
             const fechaNacimientoInput = document.getElementById("fechaNacimientoInput");
             const edadInput = document.getElementById("edadInput");
+            const cantidadInput = document.getElementById("Cantidad");
+            const frecuenciaTerapiaSelect = document.getElementById("FrecuenciaTerapia");
+            const fechaInicioInput = document.getElementById("fechaInicioInput");
+            const fechaFinInput = document.getElementById("fechaFinInput");
+            const estadoGestionInput = document.getElementById("estadoGestionInput");
+            const gestionSistemaSwitch = document.getElementById("gestionSistemaSwitch");
+            const gestionProgress = document.getElementById("gestionProgress");
+            const gestionProgressLabel = document.getElementById("gestionProgressLabel");
+            const gestionProgressDetail = document.getElementById("gestionProgressDetail");
+            const gestionProgressTrack = gestionProgress?.querySelector(".censo-gestion-progress__track");
             const fisioterapeutaInput = document.getElementById("fisioterapeutaInput");
             const telefonoAdicional2Toggle = document.getElementById("telefonoAdicional2Toggle");
             const telefonoAdicional2Container = document.getElementById("telefonoAdicional2Container");
@@ -571,11 +813,13 @@
 
                 if (!value) {
                     if (messageElement) messageElement.textContent = "";
-                    return false;
+                    return true;
                 }
 
                 if (showInvalidMessage && messageElement) {
-                    messageElement.textContent = "Selecciona un auxiliar OPS válido.";
+                    messageElement.textContent = fisioterapeutaOptions.length === 0
+                        ? "No hay auxiliares OPS activos para asignar."
+                        : "Selecciona un auxiliar OPS válido.";
                 }
 
                 return false;
@@ -976,15 +1220,144 @@
             fechaNacimientoInput?.addEventListener("change", updateEdad);
             updateEdad();
 
-            form?.addEventListener("submit", (event) => {
-                if (!syncFisioterapeutaValidation(true)) {
-                    event.preventDefault();
-                    fisioterapeutaInput?.focus();
+            const getTerapiasPorSemana = (frecuencia) => {
+                const normalized = String(frecuencia || "").trim().toLocaleLowerCase("es-CO");
+                if (normalized === "diaria") return 5;
+                if (normalized === "tres veces por semana") return 3;
+                if (normalized === "dos veces por semana") return 2;
+                if (normalized === "una vez por semana") return 1;
+                return 0;
+            };
+
+            const formatDateInputValue = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, "0");
+                const day = String(date.getDate()).padStart(2, "0");
+                return `${year}-${month}-${day}`;
+            };
+
+            const updateFechaFin = () => {
+                if (!cantidadInput || !frecuenciaTerapiaSelect || !fechaInicioInput || !fechaFinInput) return;
+
+                const cantidad = Number.parseInt(cantidadInput.value || "", 10);
+                const terapiasPorSemana = getTerapiasPorSemana(frecuenciaTerapiaSelect.value);
+                if (!Number.isFinite(cantidad) || cantidad < 1 || terapiasPorSemana < 1 || !fechaInicioInput.value) {
+                    fechaFinInput.value = "";
                     return;
                 }
 
-                const estado = document.getElementById("estadoGestionSelect")?.value || "";
-                if (estado.toLowerCase() === "sin direccion") {
+                const semanas = Math.ceil(cantidad / terapiasPorSemana);
+                const fechaFin = new Date(`${fechaInicioInput.value}T00:00:00`);
+                fechaFin.setDate(fechaFin.getDate() + (semanas * 7));
+                fechaFinInput.value = formatDateInputValue(fechaFin);
+            };
+
+            cantidadInput?.addEventListener("input", updateFechaFin);
+            frecuenciaTerapiaSelect?.addEventListener("change", updateFechaFin);
+            fechaInicioInput?.addEventListener("change", updateFechaFin);
+            updateFechaFin();
+
+            const gestionStates = {
+                pending: {
+                    value: "Pendiente confirmar datos",
+                    className: "is-pending",
+                    step: 1,
+                    detail: "Pendiente confirmar datos"
+                },
+                confirmed: {
+                    value: "Datos confirmados",
+                    className: "is-confirmed",
+                    step: 2,
+                    detail: "Datos confirmados"
+                },
+                complete: {
+                    value: "Gestión completa",
+                    className: "is-complete",
+                    step: 3,
+                    detail: "Gestión completa"
+                }
+            };
+
+            const hasFieldValue = (element) => !!String(element?.value || "").trim();
+
+            const hasConfirmedBaseData = () => {
+                const requiredElements = [
+                    document.getElementById("NombrePaciente"),
+                    document.getElementById("TipoIdentificacion"),
+                    document.getElementById("NumeroIdentificacion"),
+                    fechaNacimientoInput,
+                    document.getElementById("CorreoElectronico"),
+                    cantidadInput,
+                    frecuenciaTerapiaSelect,
+                    document.getElementById("NumeroAutorizacion"),
+                    codigoCie10Input,
+                    diagnosticoInput,
+                    direccionInput,
+                    clasificacionSelect,
+                    municipioSelect,
+                    barrioSelect,
+                    zonaSelect,
+                    areaSelect,
+                    document.getElementById("IpsQueRemite"),
+                    document.getElementById("TelefonoPrincipal"),
+                    document.getElementById("TelefonoAdicional1"),
+                    document.getElementById("estadoPacienteSelect"),
+                    document.getElementById("FechaIngreso"),
+                    fechaInicioInput,
+                    fechaFinInput
+                ];
+
+                const hasRequiredValues = requiredElements.every(hasFieldValue);
+                const hasTipoTerapia = document.querySelectorAll("input[name='TiposTerapiaSeleccionados']:checked").length > 0;
+                const hasAddressDecision = direccionValidada || asumirDireccionCheck?.checked === true;
+                return hasRequiredValues && hasTipoTerapia && hasAddressDecision;
+            };
+
+            const resolveGestionState = () => {
+                if (!hasConfirmedBaseData()) return gestionStates.pending;
+
+                const hasFisioterapeuta = !!getCanonicalFisioterapeutaValue(fisioterapeutaInput?.value || "");
+                if (!hasFisioterapeuta || !gestionSistemaSwitch?.checked) return gestionStates.confirmed;
+
+                return gestionStates.complete;
+            };
+
+            const updateGestionProgress = () => {
+                updateFechaFin();
+                const state = resolveGestionState();
+                if (estadoGestionInput) estadoGestionInput.value = state.value;
+                if (gestionProgressLabel) gestionProgressLabel.textContent = state.value;
+                if (gestionProgressDetail) gestionProgressDetail.textContent = state.detail;
+                if (gestionProgressTrack) gestionProgressTrack.setAttribute("aria-valuenow", state.step.toString());
+
+                if (gestionProgress) {
+                    gestionProgress.classList.remove("is-pending", "is-confirmed", "is-complete");
+                    gestionProgress.classList.add(state.className);
+                }
+
+                gestionProgress?.querySelectorAll(".censo-gestion-progress__step").forEach((stepElement) => {
+                    const step = Number(stepElement.getAttribute("data-step"));
+                    stepElement.classList.toggle("is-done", step < state.step);
+                    stepElement.classList.toggle("is-active", step === state.step);
+                });
+            };
+
+            form?.addEventListener("input", updateGestionProgress);
+            form?.addEventListener("change", updateGestionProgress);
+            updateGestionProgress();
+
+            form?.addEventListener("submit", (event) => {
+                const submitAction = event.submitter?.getAttribute("formaction") || "";
+                if (submitAction.includes("GuardarTerapiaAmbulatoriaProrroga")
+                    || submitAction.includes("SubirTerapiaAmbulatoriaAdjuntos")) {
+                    return;
+                }
+
+                updateGestionProgress();
+
+                if (!syncFisioterapeutaValidation(true)) {
+                    event.preventDefault();
+                    fisioterapeutaInput?.focus();
                     return;
                 }
 

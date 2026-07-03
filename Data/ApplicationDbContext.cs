@@ -16,6 +16,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<CensoRecord> Censos => Set<CensoRecord>();
     public DbSet<CensoTerapiaAmbulatoriaRecord> CensoTerapiasAmbulatorias => Set<CensoTerapiaAmbulatoriaRecord>();
+    public DbSet<CensoTerapiaAmbulatoriaProrroga> CensoTerapiaAmbulatoriaProrrogas => Set<CensoTerapiaAmbulatoriaProrroga>();
     public DbSet<CensoAdjunto> CensoAdjuntos => Set<CensoAdjunto>();
     public DbSet<CensoProrroga> CensoProrrogas => Set<CensoProrroga>();
     public DbSet<Medicamento> Medicamentos => Set<Medicamento>();
@@ -279,7 +280,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.TelefonoPrincipal).HasMaxLength(10).IsRequired();
             entity.Property(x => x.TelefonoAdicional1).HasMaxLength(10);
             entity.Property(x => x.TelefonoAdicional2).HasMaxLength(10);
-            entity.Property(x => x.Fisioterapeuta).HasMaxLength(120).IsRequired();
+            entity.Property(x => x.Fisioterapeuta).HasMaxLength(120);
+            entity.Property(x => x.GestionEnSistema).HasDefaultValue(false);
             entity.Property(x => x.EstadoGestion).HasMaxLength(30).IsRequired();
             entity.Property(x => x.EstadoPaciente).HasMaxLength(30).IsRequired().HasDefaultValue("Activo");
             entity.Property(x => x.FechaIngreso).HasColumnType("date");
@@ -289,6 +291,25 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
             entity.HasIndex(x => x.NumeroIdentificacion);
             entity.HasIndex(x => x.FechaInicio);
+            entity.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<CensoTerapiaAmbulatoriaProrroga>(entity =>
+        {
+            entity.ToTable("censo_terapia_ambulatoria_prorrogas");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.FechaSolicitudProrroga).HasColumnType("date");
+            entity.Property(x => x.FechaSolicitudAsegurador).HasColumnType("date");
+            entity.Property(x => x.FechaEntregaAutorizacion).HasColumnType("date");
+            entity.Property(x => x.CodigoAutorizacion).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Cantidad).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.HasOne(x => x.CensoTerapiaAmbulatoriaRecord)
+                .WithMany(x => x.Prorrogas)
+                .HasForeignKey(x => x.CensoTerapiaAmbulatoriaRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => x.CensoTerapiaAmbulatoriaRecordId).IsUnique();
             entity.HasIndex(x => x.CreatedAtUtc);
         });
 

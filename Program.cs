@@ -49,6 +49,7 @@ builder.Services.AddHostedService<EmpacadoNotificationHostedService>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddHttpClient<IAddressValidationService, GoogleAddressValidationService>();
 builder.Services.AddHttpClient<IEmailService, GraphEmailService>();
+builder.Services.AddHttpClient<ISharePointDocumentService, SharePointDocumentService>();
 builder.Services.AddSingleton<IPasswordService, PasswordService>();
 builder.Services.AddHttpContextAccessor();
 

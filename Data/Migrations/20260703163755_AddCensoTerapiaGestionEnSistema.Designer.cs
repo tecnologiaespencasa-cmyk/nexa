@@ -3,6 +3,7 @@ using System;
 using IntranetPrueba.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IntranetPrueba.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260703163755_AddCensoTerapiaGestionEnSistema")]
+    partial class AddCensoTerapiaGestionEnSistema
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1074,55 +1077,6 @@ namespace IntranetPrueba.Data.Migrations
                     b.ToTable("censo", (string)null);
                 });
 
-            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoTerapiaAmbulatoriaProrroga", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Cantidad")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<long>("CensoTerapiaAmbulatoriaRecordId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("CodigoAutorizacion")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("FechaEntregaAutorizacion")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime>("FechaSolicitudAsegurador")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime>("FechaSolicitudProrroga")
-                        .HasColumnType("date");
-
-                    b.Property<int>("Frecuencia")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CensoTerapiaAmbulatoriaRecordId")
-                        .IsUnique();
-
-                    b.HasIndex("CreatedAtUtc");
-
-                    b.ToTable("censo_terapia_ambulatoria_prorrogas", (string)null);
-                });
-
             modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoTerapiaAmbulatoriaRecord", b =>
                 {
                     b.Property<long>("Id")
@@ -1538,17 +1492,6 @@ namespace IntranetPrueba.Data.Migrations
                     b.Navigation("CensoRecord");
                 });
 
-            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoTerapiaAmbulatoriaProrroga", b =>
-                {
-                    b.HasOne("IntranetPrueba.Data.Entities.CensoTerapiaAmbulatoriaRecord", "CensoTerapiaAmbulatoriaRecord")
-                        .WithMany("Prorrogas")
-                        .HasForeignKey("CensoTerapiaAmbulatoriaRecordId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CensoTerapiaAmbulatoriaRecord");
-                });
-
             modelBuilder.Entity("IntranetPrueba.Data.Entities.AppPermission", b =>
                 {
                     b.Navigation("RolePermissions");
@@ -1576,11 +1519,6 @@ namespace IntranetPrueba.Data.Migrations
                 {
                     b.Navigation("Adjuntos");
 
-                    b.Navigation("Prorrogas");
-                });
-
-            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoTerapiaAmbulatoriaRecord", b =>
-                {
                     b.Navigation("Prorrogas");
                 });
 #pragma warning restore 612, 618
