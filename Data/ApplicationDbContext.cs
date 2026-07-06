@@ -287,10 +287,15 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.FechaIngreso).HasColumnType("date");
             entity.Property(x => x.FechaInicio).HasColumnType("date");
             entity.Property(x => x.FechaFin).HasColumnType("date");
+            entity.Property(x => x.FechaAlta).HasColumnType("date");
+            entity.Property(x => x.MotivoAlta).HasMaxLength(80);
+            entity.Property(x => x.EstadoAlta).HasMaxLength(30).IsRequired().HasDefaultValue("Activo");
+            entity.Property(x => x.AltaNotificacionEnviadaAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
             entity.HasIndex(x => x.NumeroIdentificacion);
             entity.HasIndex(x => x.FechaInicio);
+            entity.HasIndex(x => x.EstadoAlta);
             entity.HasIndex(x => x.CreatedAtUtc);
         });
 

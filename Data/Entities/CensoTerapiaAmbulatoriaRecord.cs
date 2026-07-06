@@ -113,6 +113,16 @@ public class CensoTerapiaAmbulatoriaRecord
 
     public DateTime? FechaFin { get; set; }
 
+    public DateTime? FechaAlta { get; set; }
+
+    [StringLength(80)]
+    public string? MotivoAlta { get; set; }
+
+    [StringLength(30)]
+    public string EstadoAlta { get; set; } = "Activo";
+
+    public DateTime? AltaNotificacionEnviadaAtUtc { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
 
     public DateTime? UpdatedAtUtc { get; set; }
