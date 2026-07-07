@@ -19,6 +19,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CensoTerapiaAmbulatoriaProrroga> CensoTerapiaAmbulatoriaProrrogas => Set<CensoTerapiaAmbulatoriaProrroga>();
     public DbSet<CensoAdjunto> CensoAdjuntos => Set<CensoAdjunto>();
     public DbSet<CensoProrroga> CensoProrrogas => Set<CensoProrroga>();
+    public DbSet<CensoKardexReaperturaSolicitud> CensoKardexReaperturas => Set<CensoKardexReaperturaSolicitud>();
     public DbSet<Medicamento> Medicamentos => Set<Medicamento>();
     public DbSet<NursingAssistant> NursingAssistants => Set<NursingAssistant>();
     public DbSet<OpsAssistant> OpsAssistants => Set<OpsAssistant>();
@@ -334,6 +335,26 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(x => new { x.CensoRecordId, x.Numero }).IsUnique();
             entity.HasIndex(x => x.FarmaciaDispatchRecordId);
+        });
+
+        modelBuilder.Entity<CensoKardexReaperturaSolicitud>(entity =>
+        {
+            entity.ToTable("censo_kardex_reaperturas");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.TipoDocumento).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.Motivo).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.SolicitadoPorNombre).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.ResueltoPorNombre).HasMaxLength(200);
+            entity.Property(x => x.ObservacionResolucion).HasMaxLength(500);
+            entity.Property(x => x.SolicitadoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.ResueltoAtUtc).HasColumnType("timestamp with time zone");
+            entity.HasOne(x => x.CensoRecord)
+                .WithMany()
+                .HasForeignKey(x => x.CensoRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => new { x.CensoRecordId, x.Estado });
+            entity.HasIndex(x => x.ProrrogaVersionId);
         });
 
         modelBuilder.Entity<CensoAdjunto>(entity =>

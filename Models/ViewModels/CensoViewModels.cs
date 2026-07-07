@@ -575,6 +575,10 @@ public class CensoReceptionViewModel
 
     public bool ProrrogaCerrada { get; set; }
 
+    public bool PuedeAprobarReapertura { get; set; }
+
+    public IReadOnlyList<string> ReaperturaMotivos { get; set; } = [];
+
     public IReadOnlyList<SelectListItem> NursingAssistantOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> OpsAssistantOptions { get; set; } = [];
 

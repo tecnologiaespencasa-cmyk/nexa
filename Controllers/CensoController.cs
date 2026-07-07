@@ -598,6 +598,7 @@ public partial class CensoController : Controller
     private readonly ISharePointDocumentService _sharePointDocumentService;
     private readonly IEmailService _emailService;
     private readonly IAuditService _auditService;
+    private readonly ICurrentUserPermissionService _currentUserPermissionService;
     private readonly ILogger<CensoController> _logger;
     private readonly IReadOnlyList<string> _medicamentoFallbackValues;
     private readonly IReadOnlyDictionary<string, string> _cie10Catalog;
@@ -611,6 +612,7 @@ public partial class CensoController : Controller
         ISharePointDocumentService sharePointDocumentService,
         IEmailService emailService,
         IAuditService auditService,
+        ICurrentUserPermissionService currentUserPermissionService,
         ILogger<CensoController> logger,
         IWebHostEnvironment webHostEnvironment)
     {
@@ -621,6 +623,7 @@ public partial class CensoController : Controller
         _sharePointDocumentService = sharePointDocumentService;
         _emailService = emailService;
         _auditService = auditService;
+        _currentUserPermissionService = currentUserPermissionService;
         _logger = logger;
         _medicamentoFallbackValues = LoadMedicamentoPrincipalValues(webHostEnvironment.ContentRootPath);
         _cie10Catalog = LoadCie10Catalog(webHostEnvironment.ContentRootPath);
@@ -1356,6 +1359,33 @@ public partial class CensoController : Controller
             maxProrrogaNumero = Math.Max(maxProrrogaNumero, prorrogaNumero);
         }
 
+        var reaperturasPendientes = await _context.CensoKardexReaperturas
+            .AsNoTracking()
+            .Where(r => r.CensoRecordId == id && r.Estado == ReaperturaKardexEstado.Pendiente)
+            .OrderByDescending(r => r.SolicitadoAtUtc)
+            .ToListAsync(cancellationToken);
+
+        var reaperturaPrincipal = reaperturasPendientes
+            .FirstOrDefault(r => r.TipoDocumento == ReaperturaKardexTipoDocumento.KardexPrincipal);
+        var reaperturaProrrogaBase = reaperturasPendientes
+            .FirstOrDefault(r => r.TipoDocumento == ReaperturaKardexTipoDocumento.ProrrogaBase);
+
+        var prorrogasConReapertura = prorrogas
+            .Select(p => new
+            {
+                p.id,
+                p.numero,
+                p.prorrogaJson,
+                p.kardexJson,
+                p.requisicionJson,
+                p.cerrada,
+                p.cerradaAtUtc,
+                reaperturaSolicitud = MapReaperturaDto(reaperturasPendientes.FirstOrDefault(r =>
+                    r.TipoDocumento == ReaperturaKardexTipoDocumento.ProrrogaVersion
+                    && r.ProrrogaVersionId == p.id))
+            })
+            .ToList();
+
         return Json(new
         {
             kardexJson = record.KardexEdicionJson,
@@ -1369,7 +1399,9 @@ public partial class CensoController : Controller
             principalCerradoAtUtc = record.KardexCerradoAtUtc,
             prorrogaCerrada,
             prorrogaCerradaAtUtc,
-            prorrogas
+            reaperturaPrincipal = MapReaperturaDto(reaperturaPrincipal),
+            reaperturaProrrogaBase = MapReaperturaDto(reaperturaProrrogaBase),
+            prorrogas = prorrogasConReapertura
         });
     }
 
@@ -3135,6 +3167,9 @@ public partial class CensoController : Controller
     private async Task PopulateDropdownsAsync(CensoReceptionViewModel model, CancellationToken cancellationToken)
     {
         ApplyPlanManejoDefaultValues(model);
+        model.PuedeAprobarReapertura = await _currentUserPermissionService.HasPermissionAsync(
+            User, SystemPermissions.Aprobacion, cancellationToken);
+        model.ReaperturaMotivos = ReaperturaKardexMotivos.Todos;
         model.NursingAssistantOptions = await GetNursingAssistantOptionsAsync(cancellationToken);
         model.OpsAssistantOptions = await GetOpsAssistantOptionsAsync(cancellationToken);
         model.TipoIdentificacionOptions = BuildOptions(TiposIdentificacion);

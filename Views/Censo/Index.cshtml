@@ -2520,6 +2520,19 @@
                     <label class="form-check-label fw-semibold" for="serviciosCargadosSwitch">Servicios cargados</label>
                 </div>
                 <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <span id="reaperturaStatusNote" class="small text-warning-emphasis fw-semibold d-none" aria-live="polite"></span>
+                    <button type="button" class="btn btn-outline-warning d-none" id="solicitarReaperturaBtn" title="Solicitar reapertura de kardex">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>
+                        <span>Solicitar reapertura de kardex</span>
+                    </button>
+                    <button type="button" class="btn btn-success d-none" id="aprobarReaperturaBtn" title="Aprobar reapertura de kardex">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Aprobar reapertura</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger d-none" id="rechazarReaperturaBtn" title="Rechazar reapertura de kardex">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <span>Rechazar</span>
+                    </button>
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
                     <button type="button" class="btn btn-outline-success" id="guardarDocumentosBtn">
                         <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -2535,6 +2548,36 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="censoReaperturaModal" tabindex="-1" aria-labelledby="censoReaperturaModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="censoReaperturaModalTitle">Solicitar reapertura de kardex</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Selecciona el motivo de la reapertura. La solicitud se enviar&aacute; a gerencia y requiere la aprobaci&oacute;n de un supervisor.</p>
+                <div id="reaperturaMotivosContainer">
+                    @for (var motivoIndex = 0; motivoIndex < Model.ReaperturaMotivos.Count; motivoIndex++)
+                    {
+                        var motivo = Model.ReaperturaMotivos[motivoIndex];
+                        var motivoId = $"reaperturaMotivo_{motivoIndex}";
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="reaperturaMotivo" id="@motivoId" value="@motivo" />
+                            <label class="form-check-label" for="@motivoId">@motivo</label>
+                        </div>
+                    }
+                </div>
+                <div id="reaperturaMotivoError" class="text-danger small mt-2 d-none">Selecciona un motivo.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="confirmarReaperturaBtn">Enviar solicitud</button>
             </div>
         </div>
     </div>
@@ -2649,6 +2692,10 @@
             const obtenerAdjuntosUrl = "@Url.Action("ObtenerAdjuntos", "Censo")";
             const obtenerDatosSeccion2Url = "@Url.Action("ObtenerDatosSeccion2", "Censo")";
             const validarNuevoIngresoUrl = "@Url.Action("ValidarNuevoIngreso", "Censo")";
+            const solicitarReaperturaUrl = "@Url.Action("SolicitarReaperturaKardex", "Censo")";
+            const aprobarReaperturaUrl = "@Url.Action("AprobarReaperturaKardex", "Censo")";
+            const rechazarReaperturaUrl = "@Url.Action("RechazarReaperturaKardex", "Censo")";
+            const puedeAprobarReapertura = @Json.Serialize(Model.PuedeAprobarReapertura);
             const medicamentoCatalog = @Html.Raw(medicamentoCatalogJson);
             const initialKardexInicialCerrado = @Json.Serialize(Model.KardexInicialCerrado);
             const initialProrrogaCerrada = @Json.Serialize(Model.ProrrogaCerrada);
@@ -3995,6 +4042,150 @@
                         if (enviarFarmaciaKardexBtn) enviarFarmaciaKardexBtn.disabled = true;
                     }
                     setDocumentClosedMode(isActiveDocumentClosed());
+                    updateReaperturaControls();
+                });
+            }
+
+            const solicitarReaperturaBtn = document.getElementById("solicitarReaperturaBtn");
+            const aprobarReaperturaBtn = document.getElementById("aprobarReaperturaBtn");
+            const rechazarReaperturaBtn = document.getElementById("rechazarReaperturaBtn");
+            const reaperturaStatusNote = document.getElementById("reaperturaStatusNote");
+            const reaperturaModalEl = document.getElementById("censoReaperturaModal");
+
+            // Determina el documento activo del modal (principal / prórroga base / versión) y su solicitud pendiente.
+            const getReaperturaContext = () => {
+                if (isProrrogaDocumentContext()) {
+                    if (activeProrrogaVersionId) {
+                        const version = (documentosState?.prorrogas || [])
+                            .find((p) => String(p.id) === String(activeProrrogaVersionId));
+                        return {
+                            payload: { documentoProrroga: true, prorrogaVersionId: String(activeProrrogaVersionId) },
+                            solicitud: version?.reaperturaSolicitud || null
+                        };
+                    }
+                    return {
+                        payload: { documentoProrroga: true },
+                        solicitud: documentosState?.reaperturaProrrogaBase || null
+                    };
+                }
+                return {
+                    payload: {},
+                    solicitud: documentosState?.reaperturaPrincipal || null
+                };
+            };
+
+            const updateReaperturaControls = () => {
+                if (!solicitarReaperturaBtn) return;
+                const closed = isActiveDocumentClosed();
+                const ctx = getReaperturaContext();
+                const pendiente = !!(ctx.solicitud && ctx.solicitud.estado === "Pendiente");
+
+                solicitarReaperturaBtn.classList.toggle("d-none", !(closed && !pendiente));
+
+                if (reaperturaStatusNote) {
+                    if (pendiente) {
+                        const quien = ctx.solicitud.solicitante ? ` por ${ctx.solicitud.solicitante}` : "";
+                        reaperturaStatusNote.textContent = `Reapertura solicitada${quien} — pendiente de aprobación.`;
+                    }
+                    reaperturaStatusNote.classList.toggle("d-none", !pendiente);
+                }
+
+                const puedeGestionar = pendiente && puedeAprobarReapertura;
+                aprobarReaperturaBtn?.classList.toggle("d-none", !puedeGestionar);
+                rechazarReaperturaBtn?.classList.toggle("d-none", !puedeGestionar);
+            };
+
+            const postReapertura = async (url, extraFields) => {
+                const formData = new FormData();
+                Object.entries(extraFields || {}).forEach(([k, v]) => formData.append(k, String(v)));
+                const response = await fetch(url, {
+                    method: "POST",
+                    body: formData,
+                    headers: csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {}
+                });
+                const data = await response.json().catch(() => ({}));
+                return { ok: response.ok, data };
+            };
+
+            if (solicitarReaperturaBtn && reaperturaModalEl) {
+                solicitarReaperturaBtn.addEventListener("click", () => {
+                    document.querySelectorAll("#reaperturaMotivosContainer input[name='reaperturaMotivo']").forEach((r) => { r.checked = false; });
+                    document.getElementById("reaperturaMotivoError")?.classList.add("d-none");
+                    if (window.bootstrap && window.bootstrap.Modal) {
+                        window.bootstrap.Modal.getOrCreateInstance(reaperturaModalEl).show();
+                    }
+                });
+
+                const confirmarReaperturaBtn = document.getElementById("confirmarReaperturaBtn");
+                confirmarReaperturaBtn?.addEventListener("click", async () => {
+                    const seleccionado = document.querySelector("#reaperturaMotivosContainer input[name='reaperturaMotivo']:checked");
+                    if (!seleccionado) {
+                        document.getElementById("reaperturaMotivoError")?.classList.remove("d-none");
+                        return;
+                    }
+                    const recordId = Number(editingRecordIdInput?.value || "0") || 0;
+                    if (recordId <= 0) return;
+                    const ctx = getReaperturaContext();
+                    confirmarReaperturaBtn.disabled = true;
+                    try {
+                        const { ok, data } = await postReapertura(solicitarReaperturaUrl, {
+                            id: recordId,
+                            motivo: seleccionado.value,
+                            ...ctx.payload
+                        });
+                        if (window.bootstrap && window.bootstrap.Modal) {
+                            window.bootstrap.Modal.getOrCreateInstance(reaperturaModalEl).hide();
+                        }
+                        if (!ok) {
+                            showFeedbackModal("No se pudo solicitar", `<p class="mb-0">${escapeHtml(data.message || "Error al solicitar la reapertura.")}</p>`, "danger");
+                            return;
+                        }
+                        await loadDocumentosState(recordId);
+                        updateReaperturaControls();
+                        showFeedbackModal("Solicitud enviada", `<p class="mb-0">${escapeHtml(data.message || "Solicitud de reapertura enviada.")}</p>`, "success");
+                    } finally {
+                        confirmarReaperturaBtn.disabled = false;
+                    }
+                });
+            }
+
+            if (aprobarReaperturaBtn) {
+                aprobarReaperturaBtn.addEventListener("click", async () => {
+                    const ctx = getReaperturaContext();
+                    if (!ctx.solicitud) return;
+                    aprobarReaperturaBtn.disabled = true;
+                    try {
+                        const { ok, data } = await postReapertura(aprobarReaperturaUrl, { solicitudId: ctx.solicitud.id });
+                        if (!ok) {
+                            showFeedbackModal("No se pudo aprobar", `<p class="mb-0">${escapeHtml(data.message || "Error al aprobar la reapertura.")}</p>`, "danger");
+                            return;
+                        }
+                        // Recargar la página para desbloquear completamente las secciones 1, 2 y 3.
+                        window.location.reload();
+                    } finally {
+                        aprobarReaperturaBtn.disabled = false;
+                    }
+                });
+            }
+
+            if (rechazarReaperturaBtn) {
+                rechazarReaperturaBtn.addEventListener("click", async () => {
+                    const ctx = getReaperturaContext();
+                    if (!ctx.solicitud) return;
+                    rechazarReaperturaBtn.disabled = true;
+                    try {
+                        const { ok, data } = await postReapertura(rechazarReaperturaUrl, { solicitudId: ctx.solicitud.id });
+                        if (!ok) {
+                            showFeedbackModal("No se pudo rechazar", `<p class="mb-0">${escapeHtml(data.message || "Error al rechazar la reapertura.")}</p>`, "danger");
+                            return;
+                        }
+                        const recordId = Number(editingRecordIdInput?.value || "0") || 0;
+                        if (recordId > 0) await loadDocumentosState(recordId);
+                        updateReaperturaControls();
+                        showFeedbackModal("Solicitud rechazada", `<p class="mb-0">${escapeHtml(data.message || "Solicitud de reapertura rechazada.")}</p>`, "success");
+                    } finally {
+                        rechazarReaperturaBtn.disabled = false;
+                    }
                 });
             }
 
@@ -7441,6 +7632,7 @@
                     loadSelectedProrrogaIntoForm();
                     if (kardexModal?.classList.contains("show")) {
                         setDocumentClosedMode(isActiveDocumentClosed());
+                        updateReaperturaControls();
                     }
                 };
 

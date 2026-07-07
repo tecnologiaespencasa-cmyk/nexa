@@ -220,7 +220,8 @@ public static class DataSeeder
             new { Code = SystemPermissions.Censo, Description = "Censo" },
             new { Code = SystemPermissions.Reportes, Description = "Reportes" },
             new { Code = SystemPermissions.InventarioBiomedico, Description = "Inventario biomedico" },
-            new { Code = SystemPermissions.Farmacia, Description = "Farmacia" }
+            new { Code = SystemPermissions.Farmacia, Description = "Farmacia" },
+            new { Code = SystemPermissions.Aprobacion, Description = "Aprobacion" }
         };
 
         var existingCodes = await context.Permissions

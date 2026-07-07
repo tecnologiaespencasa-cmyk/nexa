@@ -8,6 +8,7 @@ public static class SystemPermissions
     public const string Reportes = "SCREEN_REPORTES";
     public const string InventarioBiomedico = "SCREEN_INVENTARIO_BIOMEDICO";
     public const string Farmacia = "SCREEN_FARMACIA";
+    public const string Aprobacion = "APPROVAL_REAPERTURA_KARDEX";
 
     public static readonly string[] ScreenPermissions =
     {
@@ -16,6 +17,7 @@ public static class SystemPermissions
         Censo,
         Reportes,
         InventarioBiomedico,
-        Farmacia
+        Farmacia,
+        Aprobacion
     };
 }
