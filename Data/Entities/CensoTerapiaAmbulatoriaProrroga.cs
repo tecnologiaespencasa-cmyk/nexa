@@ -11,6 +11,10 @@ public class CensoTerapiaAmbulatoriaProrroga
 
     public CensoTerapiaAmbulatoriaRecord? CensoTerapiaAmbulatoriaRecord { get; set; }
 
+    [Required]
+    [StringLength(200)]
+    public string TipoTerapia { get; set; } = string.Empty;
+
     public DateTime FechaSolicitudProrroga { get; set; }
 
     public DateTime FechaSolicitudAsegurador { get; set; }

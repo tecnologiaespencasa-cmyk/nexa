@@ -3,6 +3,7 @@ using System;
 using IntranetPrueba.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IntranetPrueba.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260708150711_AddCensoTerapiaTratamientosAdicionales")]
+    partial class AddCensoTerapiaTratamientosAdicionales
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1173,11 +1176,6 @@ namespace IntranetPrueba.Data.Migrations
                     b.Property<int>("Frecuencia")
                         .HasColumnType("integer");
 
-                    b.Property<string>("TipoTerapia")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -1203,6 +1201,7 @@ namespace IntranetPrueba.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Area")
+                        .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
@@ -1212,6 +1211,7 @@ namespace IntranetPrueba.Data.Migrations
                         .HasDefaultValue(false);
 
                     b.Property<string>("Barrio")
+                        .IsRequired()
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
@@ -1219,6 +1219,7 @@ namespace IntranetPrueba.Data.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("ClasificacionZonaSura")
+                        .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
@@ -1245,6 +1246,7 @@ namespace IntranetPrueba.Data.Migrations
                         .HasColumnType("character varying(300)");
 
                     b.Property<string>("Direccion")
+                        .IsRequired()
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
@@ -1315,6 +1317,7 @@ namespace IntranetPrueba.Data.Migrations
                         .HasColumnType("character varying(80)");
 
                     b.Property<string>("MunicipioResidencia")
+                        .IsRequired()
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
@@ -1392,6 +1395,7 @@ namespace IntranetPrueba.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ZonaDireccionSegunMunicipio")
+                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 

@@ -37,6 +37,26 @@ public class CensoTerapiaAmbulatoriaRecord
     [StringLength(200)]
     public string TipoTerapia { get; set; } = string.Empty;
 
+    public bool TieneSegundoTratamiento { get; set; }
+
+    [StringLength(200)]
+    public string? SegundoTratamientoTipoTerapia { get; set; }
+
+    public int? SegundoTratamientoCantidad { get; set; }
+
+    [StringLength(200)]
+    public string? SegundoTratamientoFrecuenciaTerapia { get; set; }
+
+    public bool TieneTercerTratamiento { get; set; }
+
+    [StringLength(200)]
+    public string? TercerTratamientoTipoTerapia { get; set; }
+
+    public int? TercerTratamientoCantidad { get; set; }
+
+    [StringLength(200)]
+    public string? TercerTratamientoFrecuenciaTerapia { get; set; }
+
     [Required]
     [StringLength(4)]
     public string CodigoCie10 { get; set; } = string.Empty;
@@ -49,9 +69,8 @@ public class CensoTerapiaAmbulatoriaRecord
     [StringLength(100)]
     public string NumeroAutorizacion { get; set; } = string.Empty;
 
-    [Required]
     [StringLength(300)]
-    public string Direccion { get; set; } = string.Empty;
+    public string? Direccion { get; set; }
 
     public bool DireccionValidada { get; set; }
 
@@ -60,25 +79,20 @@ public class CensoTerapiaAmbulatoriaRecord
     [StringLength(200)]
     public string? DetalleDireccion { get; set; }
 
-    [Required]
     [StringLength(30)]
-    public string ClasificacionZonaSura { get; set; } = string.Empty;
+    public string? ClasificacionZonaSura { get; set; }
 
-    [Required]
     [StringLength(120)]
-    public string MunicipioResidencia { get; set; } = string.Empty;
+    public string? MunicipioResidencia { get; set; }
 
-    [Required]
     [StringLength(120)]
-    public string Barrio { get; set; } = string.Empty;
+    public string? Barrio { get; set; }
 
-    [Required]
     [StringLength(50)]
-    public string ZonaDireccionSegunMunicipio { get; set; } = string.Empty;
+    public string? ZonaDireccionSegunMunicipio { get; set; }
 
-    [Required]
     [StringLength(10)]
-    public string Area { get; set; } = string.Empty;
+    public string? Area { get; set; }
 
     [Required]
     [StringLength(200)]

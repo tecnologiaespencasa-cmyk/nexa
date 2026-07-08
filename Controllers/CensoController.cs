@@ -3407,7 +3407,7 @@ public partial class CensoController : Controller
             }
         }
 
-        if (model.FechaNacimiento.Date > DateTime.Today)
+        if (model.FechaNacimiento.Date >= DateTime.Today)
         {
             model.Edad = 0;
         }
@@ -4656,9 +4656,9 @@ public partial class CensoController : Controller
 
     private void ValidateDateTimes(CensoReceptionViewModel model)
     {
-        if (model.FechaNacimiento.Date > DateTime.Today)
+        if (model.FechaNacimiento.Date >= DateTime.Today)
         {
-            ModelState.AddModelError(nameof(model.FechaNacimiento), "La fecha de nacimiento no puede ser mayor a la fecha actual.");
+            ModelState.AddModelError(nameof(model.FechaNacimiento), "La fecha de nacimiento debe ser anterior a la fecha actual.");
         }
 
         var fechaHoraIngreso = model.FechaIngreso.Date + model.HoraIngreso;

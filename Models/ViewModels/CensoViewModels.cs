@@ -636,6 +636,14 @@ public class CensoTerapiaAmbulatoriaViewModel
 
     public string? CedulaFiltro { get; set; }
 
+    public string? EstadoGestionFiltro { get; set; }
+
+    public int PendientesConfirmarDatosCount { get; set; }
+
+    public int DatosConfirmadosCount { get; set; }
+
+    public int GestionCompletaCount { get; set; }
+
     [Required(ErrorMessage = "El nombre del paciente es obligatorio.")]
     [StringLength(200, ErrorMessage = "El nombre del paciente no puede superar 200 caracteres.")]
     [Display(Name = "Nombre del paciente")]
@@ -678,6 +686,34 @@ public class CensoTerapiaAmbulatoriaViewModel
     [Display(Name = "Tipo de terapia")]
     public List<string> TiposTerapiaSeleccionados { get; set; } = [];
 
+    [Display(Name = "Tiene segundo tratamiento")]
+    public bool TieneSegundoTratamiento { get; set; }
+
+    [Display(Name = "Tipo de terapia")]
+    public List<string> SegundoTratamientoTiposTerapiaSeleccionados { get; set; } = [];
+
+    [Range(1, 9999, ErrorMessage = "La cantidad debe estar entre 1 y 9999.")]
+    [Display(Name = "Cantidad")]
+    public int? SegundoTratamientoCantidad { get; set; }
+
+    [StringLength(200, ErrorMessage = "La frecuencia de terapia no puede superar 200 caracteres.")]
+    [Display(Name = "Frecuencia de terapia")]
+    public string? SegundoTratamientoFrecuenciaTerapia { get; set; }
+
+    [Display(Name = "Tiene tercer tratamiento")]
+    public bool TieneTercerTratamiento { get; set; }
+
+    [Display(Name = "Tipo de terapia")]
+    public List<string> TercerTratamientoTiposTerapiaSeleccionados { get; set; } = [];
+
+    [Range(1, 9999, ErrorMessage = "La cantidad debe estar entre 1 y 9999.")]
+    [Display(Name = "Cantidad")]
+    public int? TercerTratamientoCantidad { get; set; }
+
+    [StringLength(200, ErrorMessage = "La frecuencia de terapia no puede superar 200 caracteres.")]
+    [Display(Name = "Frecuencia de terapia")]
+    public string? TercerTratamientoFrecuenciaTerapia { get; set; }
+
     [Required(ErrorMessage = "El código CIE10 es obligatorio.")]
     [StringLength(4, ErrorMessage = "El código CIE10 debe tener 4 caracteres.")]
     [RegularExpression(@"^[A-Za-z][0-9]{3}$", ErrorMessage = "El código CIE10 debe iniciar con letra y continuar con 3 dígitos.")]
@@ -687,39 +723,32 @@ public class CensoTerapiaAmbulatoriaViewModel
     [Display(Name = "Diagnóstico descriptivo")]
     public string? DiagnosticoDescriptivo { get; set; }
 
-    [Required(ErrorMessage = "El número de autorización es obligatorio.")]
     [StringLength(100, ErrorMessage = "El número de autorización no puede superar 100 caracteres.")]
     [Display(Name = "Número de autorización")]
-    public string NumeroAutorizacion { get; set; } = string.Empty;
+    public string? NumeroAutorizacion { get; set; }
 
-    [Required(ErrorMessage = "La dirección es obligatoria.")]
     [StringLength(300, ErrorMessage = "La dirección no puede superar 300 caracteres.")]
     [Display(Name = "Dirección")]
-    public string Direccion { get; set; } = string.Empty;
+    public string? Direccion { get; set; }
 
     [StringLength(200, ErrorMessage = "El detalle de dirección no puede superar 200 caracteres.")]
     [Display(Name = "Detalle de dirección")]
     public string? DetalleDireccion { get; set; }
 
-    [Required(ErrorMessage = "Selecciona la clasificación zona Sura.")]
     [Display(Name = "Clasificación zona Sura")]
-    public string ClasificacionZonaSura { get; set; } = string.Empty;
+    public string? ClasificacionZonaSura { get; set; }
 
-    [Required(ErrorMessage = "Selecciona el municipio de residencia.")]
     [Display(Name = "Municipio de residencia")]
-    public string MunicipioResidencia { get; set; } = string.Empty;
+    public string? MunicipioResidencia { get; set; }
 
-    [Required(ErrorMessage = "Selecciona o escribe el barrio.")]
     [Display(Name = "Barrio")]
-    public string Barrio { get; set; } = string.Empty;
+    public string? Barrio { get; set; }
 
-    [Required(ErrorMessage = "Selecciona la zona de dirección según municipio.")]
     [Display(Name = "Zona de dirección según municipio")]
-    public string ZonaDireccionSegunMunicipio { get; set; } = string.Empty;
+    public string? ZonaDireccionSegunMunicipio { get; set; }
 
-    [Required(ErrorMessage = "Selecciona el area.")]
     [Display(Name = "Area")]
-    public string Area { get; set; } = string.Empty;
+    public string? Area { get; set; }
 
     [Required(ErrorMessage = "La IPS que remite es obligatoria.")]
     [StringLength(200, ErrorMessage = "La IPS que remite no puede superar 200 caracteres.")]
@@ -769,6 +798,9 @@ public class CensoTerapiaAmbulatoriaViewModel
     [DataType(DataType.Date)]
     [Display(Name = "Fecha fin")]
     public DateTime? FechaFin { get; set; }
+
+    [Display(Name = "Tipo de terapia")]
+    public List<string> ProrrogaTiposTerapiaSeleccionados { get; set; } = [];
 
     [DataType(DataType.Date)]
     [Display(Name = "Fecha de solicitud de prórroga")]

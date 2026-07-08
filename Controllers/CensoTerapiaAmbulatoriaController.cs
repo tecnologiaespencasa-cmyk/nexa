@@ -13,6 +13,7 @@ namespace IntranetPrueba.Controllers;
 
 public partial class CensoController
 {
+    private static readonly CultureInfo TerapiaAmbulatoriaTextCulture = CultureInfo.GetCultureInfo("es-CO");
     private static readonly string[] TerapiaAmbulatoriaTipoTerapiaValues =
     [
         "Terapia fisica",
@@ -51,10 +52,15 @@ public partial class CensoController
     private const string TerapiaAmbulatoriaAltaNotificationRecipient = "liderdetecnologia@especialistasencasa.com";
 
     [HttpGet]
-    public async Task<IActionResult> TerapiaAmbulatoria(string? cedulaPaciente, long? recordId, CancellationToken cancellationToken)
+    public async Task<IActionResult> TerapiaAmbulatoria(
+        string? cedulaPaciente,
+        string? estadoGestion,
+        long? recordId,
+        CancellationToken cancellationToken)
     {
         var model = BuildDefaultTerapiaAmbulatoriaModel();
         model.CedulaFiltro = NormalizeCedulaFilter(cedulaPaciente);
+        model.EstadoGestionFiltro = NormalizeTerapiaAmbulatoriaEstadoGestionFiltro(estadoGestion);
 
         if (recordId.HasValue)
         {
@@ -96,17 +102,20 @@ public partial class CensoController
         await PopulateTerapiaAmbulatoriaDropdownsAsync(model, cancellationToken);
         ValidateTerapiaAmbulatoriaModel(model);
 
-        var direccionParaGuardar = model.Direccion;
-        if (IsTerapiaSinDireccion(model))
+        var direccionParaGuardar = model.Direccion ?? string.Empty;
+        if (ShouldValidateTerapiaAddress(model))
         {
-            ClearTerapiaAddressModelState();
-            ApplyTerapiaAddressDefaultsForMissingAddress(model);
-            direccionParaGuardar = model.Direccion;
+            var direccionValidation = await _addressValidationService.ValidateAddressAsync(direccionParaGuardar, cancellationToken);
+            ApplyTerapiaAddressValidationResult(model, direccionValidation, ref direccionParaGuardar);
         }
         else
         {
-            var direccionValidation = await _addressValidationService.ValidateAddressAsync(model.Direccion, cancellationToken);
-            ApplyTerapiaAddressValidationResult(model, direccionValidation, ref direccionParaGuardar);
+            ClearTerapiaAddressModelState();
+            model.DireccionEsValida = false;
+            model.AsumirDireccionErrada = false;
+            model.DireccionSugerida = null;
+            model.DireccionMensajeValidacion = null;
+            direccionParaGuardar = model.Direccion ?? string.Empty;
         }
 
         model.EstadoGestion = CalculateTerapiaAmbulatoriaEstadoGestion(model);
@@ -159,7 +168,15 @@ public partial class CensoController
     public async Task<IActionResult> GuardarTerapiaAmbulatoriaProrroga(CensoTerapiaAmbulatoriaViewModel model, CancellationToken cancellationToken)
     {
         model.CedulaFiltro = NormalizeCedulaFilter(model.CedulaFiltro);
+        model.ProrrogaCodigoAutorizacion = NormalizeOptionalTerapiaAmbulatoriaText(model.ProrrogaCodigoAutorizacion);
+        model.ProrrogaCantidad = NormalizeOptionalTerapiaAmbulatoriaText(model.ProrrogaCantidad);
+        model.ProrrogaTiposTerapiaSeleccionados = (model.ProrrogaTiposTerapiaSeleccionados ?? [])
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         ValidateTerapiaAmbulatoriaProrrogaModel(model);
+        var postedTiposTerapiaSeleccionados = model.ProrrogaTiposTerapiaSeleccionados;
         var postedFechaSolicitud = model.ProrrogaFechaSolicitud;
         var postedFechaSolicitudAsegurador = model.ProrrogaFechaSolicitudAsegurador;
         var postedFechaEntregaAutorizacion = model.ProrrogaFechaEntregaAutorizacion;
@@ -188,6 +205,7 @@ public partial class CensoController
         }
 
         await PopulateTerapiaAmbulatoriaDropdownsAsync(model, cancellationToken);
+        model.ProrrogaTiposTerapiaSeleccionados = postedTiposTerapiaSeleccionados;
         model.ProrrogaFechaSolicitud = postedFechaSolicitud;
         model.ProrrogaFechaSolicitudAsegurador = postedFechaSolicitudAsegurador;
         model.ProrrogaFechaEntregaAutorizacion = postedFechaEntregaAutorizacion;
@@ -210,6 +228,7 @@ public partial class CensoController
             CreatedAtUtc = DateTime.UtcNow
         };
 
+        prorroga.TipoTerapia = string.Join(", ", model.ProrrogaTiposTerapiaSeleccionados);
         prorroga.FechaSolicitudProrroga = model.ProrrogaFechaSolicitud!.Value.Date;
         prorroga.FechaSolicitudAsegurador = model.ProrrogaFechaSolicitudAsegurador!.Value.Date;
         prorroga.FechaEntregaAutorizacion = model.ProrrogaFechaEntregaAutorizacion!.Value.Date;
@@ -370,14 +389,16 @@ public partial class CensoController
 
 
     [HttpGet]
-    public async Task<IActionResult> ExportarTerapiasAmbulatoriasExcel(string? cedulaPaciente, CancellationToken cancellationToken)
+    public async Task<IActionResult> ExportarTerapiasAmbulatoriasExcel(string? cedulaPaciente, string? estadoGestion, CancellationToken cancellationToken)
     {
         var cedulaFiltro = NormalizeCedulaFilter(cedulaPaciente);
+        var estadoGestionFiltro = NormalizeTerapiaAmbulatoriaEstadoGestionFiltro(estadoGestion);
         var query = ApplyTerapiaAmbulatoriaHistoryFilters(
             _context.CensoTerapiasAmbulatorias
                 .AsNoTracking()
                 .Include(x => x.Prorrogas),
-            cedulaFiltro);
+            cedulaFiltro,
+            estadoGestionFiltro);
 
         var records = await query
             .OrderBy(x => x.Id)
@@ -486,17 +507,75 @@ public partial class CensoController
     private async Task PopulateTerapiaAmbulatoriaLatestRecordsAsync(CensoTerapiaAmbulatoriaViewModel model, CancellationToken cancellationToken)
     {
         model.CedulaFiltro = NormalizeCedulaFilter(model.CedulaFiltro);
+        model.EstadoGestionFiltro = NormalizeTerapiaAmbulatoriaEstadoGestionFiltro(model.EstadoGestionFiltro);
+
+        var baseQuery = ApplyTerapiaAmbulatoriaHistoryFilters(
+            _context.CensoTerapiasAmbulatorias
+                .AsNoTracking(),
+            model.CedulaFiltro,
+            estadoGestionFiltro: null);
+
+        model.PendientesConfirmarDatosCount = await baseQuery
+            .CountAsync(x => x.EstadoGestion == TerapiaAmbulatoriaEstadoPendiente, cancellationToken);
+        model.DatosConfirmadosCount = await baseQuery
+            .CountAsync(x => x.EstadoGestion == TerapiaAmbulatoriaEstadoDatosConfirmados, cancellationToken);
+        model.GestionCompletaCount = await baseQuery
+            .CountAsync(x => x.EstadoGestion == TerapiaAmbulatoriaEstadoGestionCompleta, cancellationToken);
+
         var query = ApplyTerapiaAmbulatoriaHistoryFilters(
             _context.CensoTerapiasAmbulatorias
                 .AsNoTracking()
                 .Include(x => x.Prorrogas),
-            model.CedulaFiltro);
+            model.CedulaFiltro,
+            model.EstadoGestionFiltro);
 
         model.UltimosRegistros = await query
             .OrderByDescending(x => x.CreatedAtUtc)
             .ThenByDescending(x => x.Id)
-            .Take(string.IsNullOrWhiteSpace(model.CedulaFiltro) ? 50 : 100)
+            .Take(100)
             .ToListAsync(cancellationToken);
+    }
+
+    private static string? NormalizeTerapiaAmbulatoriaEstadoGestionFiltro(string? estadoGestion)
+    {
+        if (string.IsNullOrWhiteSpace(estadoGestion))
+        {
+            return null;
+        }
+
+        var normalized = estadoGestion.Trim();
+        return GetTerapiaAmbulatoriaEstadosGestion().FirstOrDefault(x =>
+            string.Equals(x, normalized, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IReadOnlyList<string> GetTerapiaAmbulatoriaEstadosGestion()
+    {
+        return
+        [
+            TerapiaAmbulatoriaEstadoPendiente,
+            TerapiaAmbulatoriaEstadoDatosConfirmados,
+            TerapiaAmbulatoriaEstadoGestionCompleta
+        ];
+    }
+
+    private static IQueryable<CensoTerapiaAmbulatoriaRecord> ApplyTerapiaAmbulatoriaHistoryFilters(
+        IQueryable<CensoTerapiaAmbulatoriaRecord> query,
+        string? cedulaFiltro,
+        string? estadoGestionFiltro)
+    {
+        var normalizedCedula = NormalizeCedulaFilter(cedulaFiltro);
+        if (!string.IsNullOrWhiteSpace(normalizedCedula))
+        {
+            query = query.Where(x => x.NumeroIdentificacion == normalizedCedula);
+        }
+
+        var normalizedEstadoGestion = NormalizeTerapiaAmbulatoriaEstadoGestionFiltro(estadoGestionFiltro);
+        if (!string.IsNullOrWhiteSpace(normalizedEstadoGestion))
+        {
+            query = query.Where(x => x.EstadoGestion == normalizedEstadoGestion);
+        }
+
+        return query;
     }
 
     private async Task PopulateTerapiaAmbulatoriaProrrogasAsync(CensoTerapiaAmbulatoriaViewModel model, CancellationToken cancellationToken)
@@ -517,6 +596,9 @@ public partial class CensoController
         var prorroga = model.ProrrogasTerapia.FirstOrDefault();
         if (prorroga is not null)
         {
+            model.ProrrogaTiposTerapiaSeleccionados = prorroga.TipoTerapia
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
             model.ProrrogaFechaSolicitud = prorroga.FechaSolicitudProrroga.Date;
             model.ProrrogaFechaSolicitudAsegurador = prorroga.FechaSolicitudAsegurador.Date;
             model.ProrrogaFechaEntregaAutorizacion = prorroga.FechaEntregaAutorizacion.Date;
@@ -525,7 +607,6 @@ public partial class CensoController
             model.ProrrogaCantidad = prorroga.Cantidad;
         }
     }
-
     private void ValidateTerapiaAmbulatoriaGestionAltaModel(CensoTerapiaAmbulatoriaViewModel model)
     {
         if (!model.EditingRecordId.HasValue)
@@ -593,53 +674,104 @@ public partial class CensoController
         model.AdjuntosTerapiaError = null;
     }
 
-    private static IQueryable<CensoTerapiaAmbulatoriaRecord> ApplyTerapiaAmbulatoriaHistoryFilters(
-        IQueryable<CensoTerapiaAmbulatoriaRecord> query,
-        string? cedulaFiltro)
-    {
-        var normalizedCedula = NormalizeCedulaFilter(cedulaFiltro);
-        if (!string.IsNullOrWhiteSpace(normalizedCedula))
-        {
-            query = query.Where(x => x.NumeroIdentificacion == normalizedCedula);
-        }
-
-        return query;
-    }
-
     private void NormalizeTerapiaAmbulatoriaModel(CensoTerapiaAmbulatoriaViewModel model)
     {
-        model.NombrePaciente = model.NombrePaciente?.Trim() ?? string.Empty;
-        model.TipoIdentificacion = model.TipoIdentificacion?.Trim() ?? string.Empty;
+        model.NombrePaciente = NormalizeTerapiaAmbulatoriaText(model.NombrePaciente);
+        model.TipoIdentificacion = NormalizeTerapiaAmbulatoriaText(model.TipoIdentificacion);
         model.NumeroIdentificacion = NormalizeIdentificationNumber(model.TipoIdentificacion, model.NumeroIdentificacion);
-        model.CorreoElectronico = model.CorreoElectronico?.Trim() ?? string.Empty;
+        model.CorreoElectronico = NormalizeTerapiaAmbulatoriaText(model.CorreoElectronico);
         model.FrecuenciaTerapia = model.FrecuenciaTerapia?.Trim() ?? string.Empty;
         model.CodigoCie10 = NormalizeCie10(model.CodigoCie10);
-        model.DiagnosticoDescriptivo = model.DiagnosticoDescriptivo?.Trim();
-        model.NumeroAutorizacion = model.NumeroAutorizacion?.Trim() ?? string.Empty;
-        model.Direccion = model.Direccion?.Trim() ?? string.Empty;
-        model.DetalleDireccion = string.IsNullOrWhiteSpace(model.DetalleDireccion) ? null : model.DetalleDireccion.Trim();
+        model.DiagnosticoDescriptivo = NormalizeOptionalTerapiaAmbulatoriaText(model.DiagnosticoDescriptivo);
+        model.NumeroAutorizacion = NormalizeTerapiaAmbulatoriaText(model.NumeroAutorizacion);
+        model.Direccion = NormalizeTerapiaAmbulatoriaText(model.Direccion);
+        model.DetalleDireccion = NormalizeOptionalTerapiaAmbulatoriaText(model.DetalleDireccion);
         model.ClasificacionZonaSura = model.ClasificacionZonaSura?.Trim() ?? string.Empty;
         model.MunicipioResidencia = model.MunicipioResidencia?.Trim() ?? string.Empty;
-        model.Barrio = model.Barrio?.Trim() ?? string.Empty;
+        model.Barrio = NormalizeTerapiaAmbulatoriaText(model.Barrio);
         model.ZonaDireccionSegunMunicipio = model.ZonaDireccionSegunMunicipio?.Trim() ?? string.Empty;
         model.Area = model.Area?.Trim() ?? string.Empty;
-        model.IpsQueRemite = model.IpsQueRemite?.Trim() ?? string.Empty;
+        model.IpsQueRemite = NormalizeTerapiaAmbulatoriaText(model.IpsQueRemite);
         model.TelefonoPrincipal = NormalizePhone(model.TelefonoPrincipal);
         model.TelefonoAdicional1 = string.IsNullOrWhiteSpace(model.TelefonoAdicional1) ? null : NormalizePhone(model.TelefonoAdicional1);
         model.TelefonoAdicional2 = string.IsNullOrWhiteSpace(model.TelefonoAdicional2) ? null : NormalizePhone(model.TelefonoAdicional2);
-        model.Fisioterapeuta = model.Fisioterapeuta?.Trim() ?? string.Empty;
+        model.Fisioterapeuta = NormalizeTerapiaAmbulatoriaText(model.Fisioterapeuta);
         model.EstadoGestion = model.EstadoGestion?.Trim() ?? TerapiaAmbulatoriaEstadoPendiente;
+        model.EstadoGestionFiltro = NormalizeTerapiaAmbulatoriaEstadoGestionFiltro(model.EstadoGestionFiltro);
         model.EstadoPaciente = model.EstadoPaciente?.Trim() ?? string.Empty;
         model.MotivoAlta = model.MotivoAlta?.Trim() ?? string.Empty;
         model.EstadoAlta = model.EstadoAlta?.Trim() ?? TerapiaAmbulatoriaEstadoAltaValues[0];
-        model.TiposTerapiaSeleccionados = model.TiposTerapiaSeleccionados
+        model.TiposTerapiaSeleccionados = (model.TiposTerapiaSeleccionados ?? [])
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => x.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+        model.SegundoTratamientoTiposTerapiaSeleccionados ??= [];
+        model.TercerTratamientoTiposTerapiaSeleccionados ??= [];
+        NormalizeTerapiaAmbulatoriaOptionalTreatment(
+            model.TieneSegundoTratamiento,
+            model.SegundoTratamientoTiposTerapiaSeleccionados,
+            value => model.SegundoTratamientoFrecuenciaTerapia = value,
+            model.SegundoTratamientoFrecuenciaTerapia);
+        NormalizeTerapiaAmbulatoriaOptionalTreatment(
+            model.TieneTercerTratamiento,
+            model.TercerTratamientoTiposTerapiaSeleccionados,
+            value => model.TercerTratamientoFrecuenciaTerapia = value,
+            model.TercerTratamientoFrecuenciaTerapia);
+        if (!model.TieneSegundoTratamiento)
+        {
+            model.SegundoTratamientoTiposTerapiaSeleccionados = [];
+            model.SegundoTratamientoCantidad = null;
+            model.SegundoTratamientoFrecuenciaTerapia = null;
+            model.TieneTercerTratamiento = false;
+        }
+
+        if (!model.TieneTercerTratamiento)
+        {
+            model.TercerTratamientoTiposTerapiaSeleccionados = [];
+            model.TercerTratamientoCantidad = null;
+            model.TercerTratamientoFrecuenciaTerapia = null;
+        }
+
         model.Edad = CalculateAge(model.FechaNacimiento.Date, GetColombiaNow().Date);
-        model.FechaFin = CalculateTerapiaAmbulatoriaFechaFin(model.FechaInicio, model.Cantidad, model.FrecuenciaTerapia);
+        model.FechaFin = CalculateTerapiaAmbulatoriaFechaFin(model);
         ModelState.Remove(nameof(model.FechaFin));
+    }
+
+    private static void NormalizeTerapiaAmbulatoriaOptionalTreatment(
+        bool isEnabled,
+        List<string> selectedTypes,
+        Action<string?> setFrequency,
+        string? frequency)
+    {
+        if (!isEnabled)
+        {
+            return;
+        }
+
+        var normalizedTypes = selectedTypes
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        selectedTypes.Clear();
+        selectedTypes.AddRange(normalizedTypes);
+        setFrequency(string.IsNullOrWhiteSpace(frequency) ? null : frequency.Trim());
+    }
+
+    private static string NormalizeTerapiaAmbulatoriaText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim().ToUpper(TerapiaAmbulatoriaTextCulture);
+    }
+
+    private static string? NormalizeOptionalTerapiaAmbulatoriaText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim().ToUpper(TerapiaAmbulatoriaTextCulture);
     }
 
     private void ValidateTerapiaAmbulatoriaModel(CensoTerapiaAmbulatoriaViewModel model)
@@ -664,9 +796,9 @@ public partial class CensoController
             }
         }
 
-        if (model.FechaNacimiento.Date > GetColombiaNow().Date)
+        if (model.FechaNacimiento.Date >= GetColombiaNow().Date)
         {
-            ModelState.AddModelError(nameof(model.FechaNacimiento), "La fecha de nacimiento no puede ser futura.");
+            ModelState.AddModelError(nameof(model.FechaNacimiento), "La fecha de nacimiento debe ser anterior a la fecha actual.");
         }
 
         if (model.FechaIngreso.Date > GetColombiaNow().Date)
@@ -682,28 +814,51 @@ public partial class CensoController
         }
         else
         {
-            model.DiagnosticoDescriptivo = diagnostico;
+            model.DiagnosticoDescriptivo = NormalizeTerapiaAmbulatoriaText(diagnostico);
         }
 
         var allowedTiposTerapia = TerapiaAmbulatoriaTipoTerapiaValues.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var allowedFrecuenciasTerapia = TerapiaAmbulatoriaFrecuenciaTerapiaValues.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (string.IsNullOrWhiteSpace(model.FrecuenciaTerapia))
+        ValidateTerapiaAmbulatoriaTreatment(
+            true,
+            model.Cantidad,
+            model.FrecuenciaTerapia,
+            model.TiposTerapiaSeleccionados,
+            nameof(model.Cantidad),
+            nameof(model.FrecuenciaTerapia),
+            nameof(model.TiposTerapiaSeleccionados),
+            allowedTiposTerapia,
+            allowedFrecuenciasTerapia,
+            "primer tratamiento");
+
+        ValidateTerapiaAmbulatoriaTreatment(
+            model.TieneSegundoTratamiento,
+            model.SegundoTratamientoCantidad,
+            model.SegundoTratamientoFrecuenciaTerapia,
+            model.SegundoTratamientoTiposTerapiaSeleccionados,
+            nameof(model.SegundoTratamientoCantidad),
+            nameof(model.SegundoTratamientoFrecuenciaTerapia),
+            nameof(model.SegundoTratamientoTiposTerapiaSeleccionados),
+            allowedTiposTerapia,
+            allowedFrecuenciasTerapia,
+            "segundo tratamiento");
+
+        if (model.TieneTercerTratamiento && !model.TieneSegundoTratamiento)
         {
-            ModelState.AddModelError(nameof(model.FrecuenciaTerapia), "Selecciona la frecuencia de terapia.");
-        }
-        else if (!allowedFrecuenciasTerapia.Contains(model.FrecuenciaTerapia))
-        {
-            ModelState.AddModelError(nameof(model.FrecuenciaTerapia), "Selecciona una frecuencia de terapia válida.");
+            ModelState.AddModelError(nameof(model.TieneTercerTratamiento), "Activa primero el segundo tratamiento para agregar un tercero.");
         }
 
-        if (model.TiposTerapiaSeleccionados.Count == 0)
-        {
-            ModelState.AddModelError(nameof(model.TiposTerapiaSeleccionados), "Selecciona al menos un tipo de terapia.");
-        }
-        else if (model.TiposTerapiaSeleccionados.Any(x => !allowedTiposTerapia.Contains(x)))
-        {
-            ModelState.AddModelError(nameof(model.TiposTerapiaSeleccionados), "Selecciona tipos de terapia válidos.");
-        }
+        ValidateTerapiaAmbulatoriaTreatment(
+            model.TieneTercerTratamiento,
+            model.TercerTratamientoCantidad,
+            model.TercerTratamientoFrecuenciaTerapia,
+            model.TercerTratamientoTiposTerapiaSeleccionados,
+            nameof(model.TercerTratamientoCantidad),
+            nameof(model.TercerTratamientoFrecuenciaTerapia),
+            nameof(model.TercerTratamientoTiposTerapiaSeleccionados),
+            allowedTiposTerapia,
+            allowedFrecuenciasTerapia,
+            "tercer tratamiento");
 
         if (!TerapiaAmbulatoriaEstadoPacienteValues.Contains(model.EstadoPaciente, StringComparer.OrdinalIgnoreCase))
         {
@@ -751,9 +906,47 @@ public partial class CensoController
             ModelState.AddModelError(nameof(model.TelefonoAdicional1), "El teléfono adicional 1 es obligatorio.");
         }
 
-        if (!IsTerapiaSinDireccion(model))
+        ValidateTerapiaAddressDropdowns(model);
+    }
+
+    private void ValidateTerapiaAmbulatoriaTreatment(
+        bool isRequired,
+        int? cantidad,
+        string? frecuenciaTerapia,
+        IReadOnlyCollection<string> tiposTerapia,
+        string cantidadKey,
+        string frecuenciaKey,
+        string tiposKey,
+        HashSet<string> allowedTiposTerapia,
+        HashSet<string> allowedFrecuenciasTerapia,
+        string label)
+    {
+        if (!isRequired)
         {
-            ValidateTerapiaAddressDropdowns(model);
+            return;
+        }
+
+        if (!cantidad.HasValue || cantidad.Value < 1)
+        {
+            ModelState.AddModelError(cantidadKey, $"Ingresa una cantidad válida para el {label}.");
+        }
+
+        if (string.IsNullOrWhiteSpace(frecuenciaTerapia))
+        {
+            ModelState.AddModelError(frecuenciaKey, $"Selecciona la frecuencia de terapia para el {label}.");
+        }
+        else if (!allowedFrecuenciasTerapia.Contains(frecuenciaTerapia))
+        {
+            ModelState.AddModelError(frecuenciaKey, $"Selecciona una frecuencia de terapia válida para el {label}.");
+        }
+
+        if (tiposTerapia.Count == 0)
+        {
+            ModelState.AddModelError(tiposKey, $"Selecciona al menos un tipo de terapia para el {label}.");
+        }
+        else if (tiposTerapia.Any(x => !allowedTiposTerapia.Contains(x)))
+        {
+            ModelState.AddModelError(tiposKey, $"Selecciona tipos de terapia válidos para el {label}.");
         }
     }
 
@@ -762,6 +955,16 @@ public partial class CensoController
         if (!model.EditingRecordId.HasValue)
         {
             ModelState.AddModelError(string.Empty, "Primero guarda o abre un paciente para registrar la prórroga.");
+        }
+
+        var allowedTiposTerapia = TerapiaAmbulatoriaTipoTerapiaValues.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (model.ProrrogaTiposTerapiaSeleccionados.Count == 0)
+        {
+            ModelState.AddModelError(nameof(model.ProrrogaTiposTerapiaSeleccionados), "Selecciona al menos un tipo de terapia para la prórroga.");
+        }
+        else if (model.ProrrogaTiposTerapiaSeleccionados.Any(x => !allowedTiposTerapia.Contains(x)))
+        {
+            ModelState.AddModelError(nameof(model.ProrrogaTiposTerapiaSeleccionados), "Selecciona tipos de terapia válidos para la prórroga.");
         }
 
         if (!model.ProrrogaFechaSolicitud.HasValue)
@@ -797,43 +1000,45 @@ public partial class CensoController
 
     private void ValidateTerapiaAddressDropdowns(CensoTerapiaAmbulatoriaViewModel model)
     {
-        if (string.IsNullOrWhiteSpace(model.Direccion))
-        {
-            ModelState.AddModelError(nameof(model.Direccion), "La dirección es obligatoria.");
-        }
-
-        if (string.IsNullOrWhiteSpace(model.Barrio))
-        {
-            ModelState.AddModelError(nameof(model.Barrio), "Selecciona o escribe el barrio.");
-        }
-
         model.MunicipioResidencia = ToCanonicalMunicipality(model.MunicipioResidencia) ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(model.MunicipioResidencia))
+        if (!string.IsNullOrWhiteSpace(model.MunicipioResidencia)
+            && !MunicipiosResidenciaValues.Contains(model.MunicipioResidencia, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.MunicipioResidencia), "Selecciona un municipio válido.");
         }
 
-        if (!ClasificacionZonaSuraValues.Contains(model.ClasificacionZonaSura, StringComparer.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(model.ClasificacionZonaSura)
+            && !ClasificacionZonaSuraValues.Contains(model.ClasificacionZonaSura, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.ClasificacionZonaSura), "Selecciona una clasificación zona Sura válida.");
         }
 
-        var zonaInferida = InferZonaDireccionSegunMunicipio(model.MunicipioResidencia, model.Barrio, direccion: model.Direccion);
-        if (!string.Equals(zonaInferida, "No Parametrizado", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(model.MunicipioResidencia))
         {
-            model.ZonaDireccionSegunMunicipio = zonaInferida;
+            var zonaInferida = InferZonaDireccionSegunMunicipio(model.MunicipioResidencia, model.Barrio, direccion: model.Direccion);
+            if (!string.Equals(zonaInferida, "No Parametrizado", StringComparison.OrdinalIgnoreCase))
+            {
+                model.ZonaDireccionSegunMunicipio = zonaInferida;
+            }
         }
 
-        if (!ZonaDireccionValues.Contains(model.ZonaDireccionSegunMunicipio, StringComparer.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(model.ZonaDireccionSegunMunicipio)
+            && !ZonaDireccionValues.Contains(model.ZonaDireccionSegunMunicipio, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.ZonaDireccionSegunMunicipio), "Selecciona una zona de dirección válida.");
         }
 
-        if (!AreaValues.Contains(model.Area, StringComparer.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(model.Area)
+            && !AreaValues.Contains(model.Area, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.Area), "Selecciona un area valida.");
         }
 
+    }
+
+    private static bool ShouldValidateTerapiaAddress(CensoTerapiaAmbulatoriaViewModel model)
+    {
+        return !string.IsNullOrWhiteSpace(model.Direccion);
     }
 
     private static bool IsTerapiaSinDireccion(CensoTerapiaAmbulatoriaViewModel model)
@@ -866,20 +1071,37 @@ public partial class CensoController
             && model.Cantidad.Value > 0
             && !string.IsNullOrWhiteSpace(model.FrecuenciaTerapia)
             && model.TiposTerapiaSeleccionados.Count > 0
+            && IsTerapiaAmbulatoriaOptionalTreatmentComplete(
+                model.TieneSegundoTratamiento,
+                model.SegundoTratamientoCantidad,
+                model.SegundoTratamientoFrecuenciaTerapia,
+                model.SegundoTratamientoTiposTerapiaSeleccionados)
+            && IsTerapiaAmbulatoriaOptionalTreatmentComplete(
+                model.TieneTercerTratamiento,
+                model.TercerTratamientoCantidad,
+                model.TercerTratamientoFrecuenciaTerapia,
+                model.TercerTratamientoTiposTerapiaSeleccionados)
             && !string.IsNullOrWhiteSpace(model.CodigoCie10)
             && !string.IsNullOrWhiteSpace(model.DiagnosticoDescriptivo)
             && !string.IsNullOrWhiteSpace(model.NumeroAutorizacion)
-            && !string.IsNullOrWhiteSpace(model.Direccion)
-            && !string.IsNullOrWhiteSpace(model.ClasificacionZonaSura)
-            && !string.IsNullOrWhiteSpace(model.MunicipioResidencia)
-            && !string.IsNullOrWhiteSpace(model.Barrio)
-            && !string.IsNullOrWhiteSpace(model.ZonaDireccionSegunMunicipio)
-            && !string.IsNullOrWhiteSpace(model.Area)
             && !string.IsNullOrWhiteSpace(model.IpsQueRemite)
             && !string.IsNullOrWhiteSpace(model.TelefonoPrincipal)
             && !string.IsNullOrWhiteSpace(model.TelefonoAdicional1)
             && !string.IsNullOrWhiteSpace(model.EstadoPaciente)
             && model.FechaFin.HasValue;
+    }
+
+    private static bool IsTerapiaAmbulatoriaOptionalTreatmentComplete(
+        bool isEnabled,
+        int? cantidad,
+        string? frecuenciaTerapia,
+        IReadOnlyCollection<string> tiposTerapia)
+    {
+        return !isEnabled
+            || (cantidad.HasValue
+                && cantidad.Value > 0
+                && !string.IsNullOrWhiteSpace(frecuenciaTerapia)
+                && tiposTerapia.Count > 0);
     }
 
     private void ClearTerapiaAddressModelState()
@@ -1005,10 +1227,22 @@ public partial class CensoController
         record.Cantidad = model.Cantidad!.Value;
         record.FrecuenciaTerapia = model.FrecuenciaTerapia;
         record.TipoTerapia = string.Join(", ", model.TiposTerapiaSeleccionados);
+        record.TieneSegundoTratamiento = model.TieneSegundoTratamiento;
+        record.SegundoTratamientoCantidad = model.TieneSegundoTratamiento ? model.SegundoTratamientoCantidad : null;
+        record.SegundoTratamientoFrecuenciaTerapia = model.TieneSegundoTratamiento ? model.SegundoTratamientoFrecuenciaTerapia : null;
+        record.SegundoTratamientoTipoTerapia = model.TieneSegundoTratamiento
+            ? string.Join(", ", model.SegundoTratamientoTiposTerapiaSeleccionados)
+            : null;
+        record.TieneTercerTratamiento = model.TieneSegundoTratamiento && model.TieneTercerTratamiento;
+        record.TercerTratamientoCantidad = record.TieneTercerTratamiento ? model.TercerTratamientoCantidad : null;
+        record.TercerTratamientoFrecuenciaTerapia = record.TieneTercerTratamiento ? model.TercerTratamientoFrecuenciaTerapia : null;
+        record.TercerTratamientoTipoTerapia = record.TieneTercerTratamiento
+            ? string.Join(", ", model.TercerTratamientoTiposTerapiaSeleccionados)
+            : null;
         record.CodigoCie10 = model.CodigoCie10;
         record.DiagnosticoDescriptivo = model.DiagnosticoDescriptivo ?? string.Empty;
-        record.NumeroAutorizacion = model.NumeroAutorizacion;
-        record.Direccion = direccionParaGuardar.Trim();
+        record.NumeroAutorizacion = model.NumeroAutorizacion ?? string.Empty;
+        record.Direccion = NormalizeOptionalTerapiaAmbulatoriaText(direccionParaGuardar);
         record.DireccionValidada = model.DireccionEsValida;
         record.AsumirDireccionErrada = model.AsumirDireccionErrada;
         record.DetalleDireccion = model.DetalleDireccion;
@@ -1058,6 +1292,18 @@ public partial class CensoController
         model.Cantidad = record.Cantidad;
         model.FrecuenciaTerapia = record.FrecuenciaTerapia;
         model.TiposTerapiaSeleccionados = record.TipoTerapia
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+        model.TieneSegundoTratamiento = record.TieneSegundoTratamiento;
+        model.SegundoTratamientoCantidad = record.SegundoTratamientoCantidad;
+        model.SegundoTratamientoFrecuenciaTerapia = record.SegundoTratamientoFrecuenciaTerapia;
+        model.SegundoTratamientoTiposTerapiaSeleccionados = (record.SegundoTratamientoTipoTerapia ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+        model.TieneTercerTratamiento = record.TieneTercerTratamiento;
+        model.TercerTratamientoCantidad = record.TercerTratamientoCantidad;
+        model.TercerTratamientoFrecuenciaTerapia = record.TercerTratamientoFrecuenciaTerapia;
+        model.TercerTratamientoTiposTerapiaSeleccionados = (record.TercerTratamientoTipoTerapia ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
         model.CodigoCie10 = record.CodigoCie10;
@@ -1145,6 +1391,36 @@ public partial class CensoController
         return fechaInicio.Date.AddDays(semanas * 7);
     }
 
+    private static DateTime? CalculateTerapiaAmbulatoriaFechaFin(CensoTerapiaAmbulatoriaViewModel model)
+    {
+        var fechas = new List<DateTime?>();
+        fechas.Add(CalculateTerapiaAmbulatoriaFechaFin(model.FechaInicio, model.Cantidad, model.FrecuenciaTerapia));
+
+        if (model.TieneSegundoTratamiento)
+        {
+            fechas.Add(CalculateTerapiaAmbulatoriaFechaFin(
+                model.FechaInicio,
+                model.SegundoTratamientoCantidad,
+                model.SegundoTratamientoFrecuenciaTerapia));
+        }
+
+        if (model.TieneSegundoTratamiento && model.TieneTercerTratamiento)
+        {
+            fechas.Add(CalculateTerapiaAmbulatoriaFechaFin(
+                model.FechaInicio,
+                model.TercerTratamientoCantidad,
+                model.TercerTratamientoFrecuenciaTerapia));
+        }
+
+        var validFechas = fechas
+            .Where(x => x.HasValue)
+            .Select(x => x!.Value.Date)
+            .OrderByDescending(x => x)
+            .ToList();
+
+        return validFechas.Count == 0 ? null : validFechas[0];
+    }
+
 
     private static string BuildTerapiaAmbulatoriaExcelXml(IReadOnlyList<CensoTerapiaAmbulatoriaRecord> records)
     {
@@ -1169,6 +1445,14 @@ public partial class CensoController
         AppendHeaderCell(sb, "Cantidad");
         AppendHeaderCell(sb, "FrecuenciaTerapia");
         AppendHeaderCell(sb, "TipoTerapia");
+        AppendHeaderCell(sb, "TieneSegundoTratamiento");
+        AppendHeaderCell(sb, "SegundoTratamientoCantidad");
+        AppendHeaderCell(sb, "SegundoTratamientoFrecuenciaTerapia");
+        AppendHeaderCell(sb, "SegundoTratamientoTipoTerapia");
+        AppendHeaderCell(sb, "TieneTercerTratamiento");
+        AppendHeaderCell(sb, "TercerTratamientoCantidad");
+        AppendHeaderCell(sb, "TercerTratamientoFrecuenciaTerapia");
+        AppendHeaderCell(sb, "TercerTratamientoTipoTerapia");
         AppendHeaderCell(sb, "CodigoCie10");
         AppendHeaderCell(sb, "DiagnosticoDescriptivo");
         AppendHeaderCell(sb, "NumeroAutorizacion");
@@ -1199,6 +1483,7 @@ public partial class CensoController
         AppendHeaderCell(sb, "CreatedAtUtc");
         AppendHeaderCell(sb, "UpdatedAtUtc");
         AppendHeaderCell(sb, "Prorroga_Id");
+        AppendHeaderCell(sb, "Prorroga_TipoTerapia");
         AppendHeaderCell(sb, "Prorroga_FechaSolicitudProrroga");
         AppendHeaderCell(sb, "Prorroga_FechaSolicitudAsegurador");
         AppendHeaderCell(sb, "Prorroga_FechaEntregaAutorizacion");
@@ -1227,18 +1512,26 @@ public partial class CensoController
                 AppendDataCell(sb, item.Cantidad.ToString(CultureInfo.InvariantCulture));
                 AppendDataCell(sb, item.FrecuenciaTerapia);
                 AppendDataCell(sb, item.TipoTerapia);
+                AppendDataCell(sb, item.TieneSegundoTratamiento ? "Sí" : "No");
+                AppendDataCell(sb, item.SegundoTratamientoCantidad?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+                AppendDataCell(sb, item.SegundoTratamientoFrecuenciaTerapia ?? string.Empty);
+                AppendDataCell(sb, item.SegundoTratamientoTipoTerapia ?? string.Empty);
+                AppendDataCell(sb, item.TieneTercerTratamiento ? "Sí" : "No");
+                AppendDataCell(sb, item.TercerTratamientoCantidad?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+                AppendDataCell(sb, item.TercerTratamientoFrecuenciaTerapia ?? string.Empty);
+                AppendDataCell(sb, item.TercerTratamientoTipoTerapia ?? string.Empty);
                 AppendDataCell(sb, item.CodigoCie10);
                 AppendDataCell(sb, item.DiagnosticoDescriptivo);
                 AppendDataCell(sb, item.NumeroAutorizacion);
-                AppendDataCell(sb, item.Direccion);
+                AppendDataCell(sb, item.Direccion ?? string.Empty);
                 AppendDataCell(sb, item.DireccionValidada ? "Sí" : "No");
                 AppendDataCell(sb, item.AsumirDireccionErrada ? "Sí" : "No");
                 AppendDataCell(sb, item.DetalleDireccion ?? string.Empty);
-                AppendDataCell(sb, item.ClasificacionZonaSura);
-                AppendDataCell(sb, item.MunicipioResidencia);
-                AppendDataCell(sb, item.Barrio);
-                AppendDataCell(sb, item.ZonaDireccionSegunMunicipio);
-                AppendDataCell(sb, item.Area);
+                AppendDataCell(sb, item.ClasificacionZonaSura ?? string.Empty);
+                AppendDataCell(sb, item.MunicipioResidencia ?? string.Empty);
+                AppendDataCell(sb, item.Barrio ?? string.Empty);
+                AppendDataCell(sb, item.ZonaDireccionSegunMunicipio ?? string.Empty);
+                AppendDataCell(sb, item.Area ?? string.Empty);
                 AppendDataCell(sb, item.IpsQueRemite);
                 AppendDataCell(sb, item.TelefonoPrincipal);
                 AppendDataCell(sb, item.TelefonoAdicional1 ?? string.Empty);
@@ -1257,6 +1550,7 @@ public partial class CensoController
                 AppendDataCell(sb, item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"));
                 AppendDataCell(sb, item.UpdatedAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty);
                 AppendDataCell(sb, prorroga?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+                AppendDataCell(sb, prorroga?.TipoTerapia ?? string.Empty);
                 AppendDataCell(sb, prorroga?.FechaSolicitudProrroga.ToString("yyyy-MM-dd") ?? string.Empty);
                 AppendDataCell(sb, prorroga?.FechaSolicitudAsegurador.ToString("yyyy-MM-dd") ?? string.Empty);
                 AppendDataCell(sb, prorroga?.FechaEntregaAutorizacion.ToString("yyyy-MM-dd") ?? string.Empty);

@@ -16,6 +16,35 @@
         : Model.EstadoGestion;
     var showCurrentPatientBar = Model.EditingRecordId.HasValue
         && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
+    var gestionSummaryCards = new[]
+    {
+        new
+        {
+            Estado = "Pendiente confirmar datos",
+            Titulo = "Casos pendientes por confirmar datos",
+            Conteo = Model.PendientesConfirmarDatosCount,
+            Css = "is-pending"
+        },
+        new
+        {
+            Estado = "Datos confirmados",
+            Titulo = "Casos datos confirmados",
+            Conteo = Model.DatosConfirmadosCount,
+            Css = "is-confirmed"
+        },
+        new
+        {
+            Estado = "Gestión completa",
+            Titulo = "Casos gestión completa",
+            Conteo = Model.GestionCompletaCount,
+            Css = "is-complete"
+        }
+    };
+}
+
+@functions {
+    private static Microsoft.AspNetCore.Html.IHtmlContent RequiredMark() =>
+        new Microsoft.AspNetCore.Html.HtmlString("<span class=\"text-danger ms-1\" aria-hidden=\"true\">*</span><span class=\"visually-hidden\">obligatorio</span>");
 }
 
 <div class="censo-page @(showCurrentPatientBar ? "censo-page--with-current-patient" : null)">
@@ -93,6 +122,7 @@
             </div>
             <div class="censo-section-strip__tools">
                 <form method="get" asp-action="TerapiaAmbulatoria" class="censo-filter-panel">
+                    <input type="hidden" name="estadoGestion" value="@Model.EstadoGestionFiltro" />
                     <h2 class="censo-filter-panel__title">Filtros rápidos</h2>
                     <label for="cedulaTerapiaFiltroInput" class="form-label censo-filter-panel__label">Buscar por documento</label>
                     <div class="censo-filter-panel__input-wrap">
@@ -111,7 +141,7 @@
                 </form>
             </div>
             <div class="censo-section-strip__actions">
-                <a class="btn btn-success btn-sm censo-export-button" asp-action="ExportarTerapiasAmbulatoriasExcel" asp-route-cedulaPaciente="@Model.CedulaFiltro" download>
+                <a class="btn btn-success btn-sm censo-export-button" asp-action="ExportarTerapiasAmbulatoriasExcel" asp-route-cedulaPaciente="@Model.CedulaFiltro" asp-route-estadoGestion="@Model.EstadoGestionFiltro" download>
                     <span class="censo-export-button__icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" focusable="false">
                             <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
@@ -219,6 +249,7 @@
         <form asp-action="TerapiaAmbulatoria" method="post" enctype="multipart/form-data" id="terapiaAmbulatoriaForm" class="censo-form-shell">
             <input asp-for="EditingRecordId" type="hidden" />
             <input asp-for="CedulaFiltro" type="hidden" />
+            <input asp-for="EstadoGestionFiltro" type="hidden" />
             <input asp-for="DireccionEsValida" type="hidden" id="direccionEsValidaInput" />
             <input asp-for="EstadoGestion" type="hidden" id="estadoGestionInput" />
 
@@ -274,25 +305,32 @@
                                 </div>
                                 <div class="row g-3 censo-field-section__grid">
                                     <div class="col-lg-6">
-                                        <label asp-for="NombrePaciente" class="form-label"></label>
+                                        <label asp-for="NombrePaciente" class="form-label"></label>@RequiredMark()
                                         <input asp-for="NombrePaciente" class="form-control" autocomplete="off" />
                                         <span asp-validation-for="NombrePaciente" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-3">
-                                        <label asp-for="TipoIdentificacion" class="form-label"></label>
-                                        <select asp-for="TipoIdentificacion" asp-items="Model.TipoIdentificacionOptions" class="form-select">
+                                        <label asp-for="TipoIdentificacion" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="TipoIdentificacion" asp-items="Model.TipoIdentificacionOptions" class="form-select" id="tipoIdentificacionSelect">
                                             <option value="" disabled hidden>Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="TipoIdentificacion" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-3">
-                                        <label asp-for="NumeroIdentificacion" class="form-label"></label>
-                                        <input asp-for="NumeroIdentificacion" class="form-control" inputmode="text" maxlength="20" autocomplete="off" />
+                                        <label asp-for="NumeroIdentificacion" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="NumeroIdentificacion" class="form-control" inputmode="numeric" maxlength="20" autocomplete="off" id="numeroIdentificacionInput" />
                                         <span asp-validation-for="NumeroIdentificacion" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="FechaNacimiento" class="form-label"></label>
-                                        <input asp-for="FechaNacimiento" type="date" class="form-control" id="fechaNacimientoInput" />
+                                        <label asp-for="FechaNacimiento" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="FechaNacimiento"
+                                               type="date"
+                                               class="form-control"
+                                               id="fechaNacimientoInput"
+                                               max="@DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd")"
+                                               data-msg-max="La fecha de nacimiento debe ser anterior a la fecha actual."
+                                               oninvalid="this.setCustomValidity('La fecha de nacimiento debe ser anterior a la fecha actual.')"
+                                               oninput="this.setCustomValidity('')" />
                                         <span asp-validation-for="FechaNacimiento" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-2">
@@ -315,7 +353,7 @@
                                 </div>
                                 <div class="row g-3 censo-field-section__grid">
                                     <div class="col-12">
-                                        <label class="form-label">Tipo de terapia</label>
+                                        <label class="form-label">Tipo de terapia @RequiredMark()</label>
                                         <div class="censo-check-grid">
                                             @for (var index = 0; index < Model.TipoTerapiaOptions.Count; index++)
                                             {
@@ -335,31 +373,117 @@
                                         <span asp-validation-for="TiposTerapiaSeleccionados" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-3">
-                                        <label asp-for="Cantidad" class="form-label"></label>
+                                        <label asp-for="Cantidad" class="form-label"></label>@RequiredMark()
                                         <input asp-for="Cantidad" class="form-control" type="number" min="1" step="1" />
                                         <span asp-validation-for="Cantidad" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-5">
-                                        <label asp-for="FrecuenciaTerapia" class="form-label"></label>
+                                        <label asp-for="FrecuenciaTerapia" class="form-label"></label>@RequiredMark()
                                         <select asp-for="FrecuenciaTerapia" asp-items="Model.FrecuenciaTerapiaOptions" class="form-select">
                                             <option value="" disabled hidden>Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="FrecuenciaTerapia" class="text-danger"></span>
                                     </div>
-                                    <div class="col-lg-4">
-                                        <label asp-for="NumeroAutorizacion" class="form-label"></label>
-                                        <input asp-for="NumeroAutorizacion" class="form-control" maxlength="100" autocomplete="off" />
-                                        <span asp-validation-for="NumeroAutorizacion" class="text-danger"></span>
+                                    <div class="col-12">
+                                        <div class="form-check form-switch censo-switch-field">
+                                            <input asp-for="TieneSegundoTratamiento" class="form-check-input" type="checkbox" role="switch" id="tieneSegundoTratamientoSwitch" />
+                                            <label class="form-check-label" for="tieneSegundoTratamientoSwitch">Tiene segundo tratamiento</label>
+                                        </div>
+                                        <span asp-validation-for="TieneSegundoTratamiento" class="text-danger"></span>
                                     </div>
-                                    <div class="col-lg-4">
-                                        <label asp-for="CodigoCie10" class="form-label"></label>
+                                    <div class="col-12 @(Model.TieneSegundoTratamiento ? "" : "d-none")" id="segundoTratamientoContainer">
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label class="form-label">Tipo de terapia segundo tratamiento @RequiredMark()</label>
+                                                <div class="censo-check-grid">
+                                                    @for (var index = 0; index < Model.TipoTerapiaOptions.Count; index++)
+                                                    {
+                                                        var option = Model.TipoTerapiaOptions[index];
+                                                        var inputId = $"segundoTipoTerapia_{index}";
+                                                        <div class="form-check">
+                                                            <input class="form-check-input js-segundo-tratamiento-field"
+                                                                   type="checkbox"
+                                                                   id="@inputId"
+                                                                   name="SegundoTratamientoTiposTerapiaSeleccionados"
+                                                                   value="@option.Value"
+                                                                   checked="@Model.SegundoTratamientoTiposTerapiaSeleccionados.Contains(option.Value, StringComparer.OrdinalIgnoreCase)" />
+                                                            <label class="form-check-label" for="@inputId">@option.Text</label>
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <span asp-validation-for="SegundoTratamientoTiposTerapiaSeleccionados" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <label asp-for="SegundoTratamientoCantidad" class="form-label"></label>@RequiredMark()
+                                                <input asp-for="SegundoTratamientoCantidad" class="form-control js-segundo-tratamiento-field" type="number" min="1" step="1" />
+                                                <span asp-validation-for="SegundoTratamientoCantidad" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-8">
+                                                <label asp-for="SegundoTratamientoFrecuenciaTerapia" class="form-label"></label>@RequiredMark()
+                                                <select asp-for="SegundoTratamientoFrecuenciaTerapia" asp-items="Model.FrecuenciaTerapiaOptions" class="form-select js-segundo-tratamiento-field">
+                                                    <option value="" disabled hidden>Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="SegundoTratamientoFrecuenciaTerapia" class="text-danger"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 @(Model.TieneSegundoTratamiento ? "" : "d-none")" id="tercerTratamientoSwitchContainer">
+                                        <div class="form-check form-switch censo-switch-field">
+                                            <input asp-for="TieneTercerTratamiento" class="form-check-input" type="checkbox" role="switch" id="tieneTercerTratamientoSwitch" />
+                                            <label class="form-check-label" for="tieneTercerTratamientoSwitch">Tiene tercer tratamiento</label>
+                                        </div>
+                                        <span asp-validation-for="TieneTercerTratamiento" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12 @(Model.TieneTercerTratamiento ? "" : "d-none")" id="tercerTratamientoContainer">
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label class="form-label">Tipo de terapia tercer tratamiento @RequiredMark()</label>
+                                                <div class="censo-check-grid">
+                                                    @for (var index = 0; index < Model.TipoTerapiaOptions.Count; index++)
+                                                    {
+                                                        var option = Model.TipoTerapiaOptions[index];
+                                                        var inputId = $"tercerTipoTerapia_{index}";
+                                                        <div class="form-check">
+                                                            <input class="form-check-input js-tercer-tratamiento-field"
+                                                                   type="checkbox"
+                                                                   id="@inputId"
+                                                                   name="TercerTratamientoTiposTerapiaSeleccionados"
+                                                                   value="@option.Value"
+                                                                   checked="@Model.TercerTratamientoTiposTerapiaSeleccionados.Contains(option.Value, StringComparer.OrdinalIgnoreCase)" />
+                                                            <label class="form-check-label" for="@inputId">@option.Text</label>
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <span asp-validation-for="TercerTratamientoTiposTerapiaSeleccionados" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <label asp-for="TercerTratamientoCantidad" class="form-label"></label>@RequiredMark()
+                                                <input asp-for="TercerTratamientoCantidad" class="form-control js-tercer-tratamiento-field" type="number" min="1" step="1" />
+                                                <span asp-validation-for="TercerTratamientoCantidad" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-8">
+                                                <label asp-for="TercerTratamientoFrecuenciaTerapia" class="form-label"></label>@RequiredMark()
+                                                <select asp-for="TercerTratamientoFrecuenciaTerapia" asp-items="Model.FrecuenciaTerapiaOptions" class="form-select js-tercer-tratamiento-field">
+                                                    <option value="" disabled hidden>Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="TercerTratamientoFrecuenciaTerapia" class="text-danger"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="CodigoCie10" class="form-label"></label>@RequiredMark()
                                         <input asp-for="CodigoCie10" class="form-control" id="codigoCie10Input" maxlength="4" autocomplete="off" />
                                         <span asp-validation-for="CodigoCie10" class="text-danger"></span>
                                     </div>
-                                    <div class="col-lg-8">
-                                        <label asp-for="DiagnosticoDescriptivo" class="form-label"></label>
+                                    <div class="col-lg-6">
+                                        <label asp-for="DiagnosticoDescriptivo" class="form-label"></label>@RequiredMark()
                                         <input asp-for="DiagnosticoDescriptivo" class="form-control" id="diagnosticoDescriptivoInput" readonly />
                                         <span asp-validation-for="DiagnosticoDescriptivo" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="NumeroAutorizacion" class="form-label"></label>
+                                        <input asp-for="NumeroAutorizacion" class="form-control" maxlength="100" autocomplete="off" />
+                                        <span asp-validation-for="NumeroAutorizacion" class="text-danger"></span>
                                     </div>
                                 </div>
                             </section>
@@ -451,22 +575,22 @@
                                         <span asp-validation-for="Area" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="IpsQueRemite" class="form-label"></label>
+                                        <label asp-for="IpsQueRemite" class="form-label"></label>@RequiredMark()
                                         <input asp-for="IpsQueRemite" class="form-control" maxlength="200" autocomplete="off" />
                                         <span asp-validation-for="IpsQueRemite" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="CorreoElectronico" class="form-label"></label>
+                                        <label asp-for="CorreoElectronico" class="form-label"></label>@RequiredMark()
                                         <input asp-for="CorreoElectronico" class="form-control" type="email" autocomplete="off" />
                                         <span asp-validation-for="CorreoElectronico" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="TelefonoPrincipal" class="form-label"></label>
+                                        <label asp-for="TelefonoPrincipal" class="form-label"></label>@RequiredMark()
                                         <input asp-for="TelefonoPrincipal" class="form-control terapia-phone-input" inputmode="numeric" maxlength="10" />
                                         <span asp-validation-for="TelefonoPrincipal" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="TelefonoAdicional1" class="form-label"></label>
+                                        <label asp-for="TelefonoAdicional1" class="form-label"></label>@RequiredMark()
                                         <input asp-for="TelefonoAdicional1" class="form-control terapia-phone-input" inputmode="numeric" maxlength="10" />
                                         <span asp-validation-for="TelefonoAdicional1" class="text-danger"></span>
                                         <div class="form-check mt-2">
@@ -517,19 +641,19 @@
                                 </div>
                                 <div class="row g-3 censo-field-section__grid">
                                     <div class="col-lg-4">
-                                        <label asp-for="EstadoPaciente" class="form-label"></label>
+                                        <label asp-for="EstadoPaciente" class="form-label"></label>@RequiredMark()
                                         <select asp-for="EstadoPaciente" asp-items="Model.EstadoPacienteOptions" class="form-select" id="estadoPacienteSelect">
                                             <option value="" disabled hidden>Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="EstadoPaciente" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="FechaIngreso" class="form-label"></label>
+                                        <label asp-for="FechaIngreso" class="form-label"></label>@RequiredMark()
                                         <input asp-for="FechaIngreso" type="date" class="form-control" />
                                         <span asp-validation-for="FechaIngreso" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="FechaInicio" class="form-label"></label>
+                                        <label asp-for="FechaInicio" class="form-label"></label>@RequiredMark()
                                         <input asp-for="FechaInicio" type="date" class="form-control" id="fechaInicioInput" />
                                         <span asp-validation-for="FechaInicio" class="text-danger"></span>
                                     </div>
@@ -670,33 +794,53 @@
                                         <h3>Datos de prórroga</h3>
                                     </div>
                                     <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-12">
+                                            <label class="form-label">Tipo de terapia @RequiredMark()</label>
+                                            <div class="censo-check-grid">
+                                                @for (var index = 0; index < Model.TipoTerapiaOptions.Count; index++)
+                                                {
+                                                    var option = Model.TipoTerapiaOptions[index];
+                                                    var inputId = $"prorrogaTipoTerapia_{index}";
+                                                    <div class="form-check">
+                                                        <input class="form-check-input"
+                                                               type="checkbox"
+                                                               id="@inputId"
+                                                               name="ProrrogaTiposTerapiaSeleccionados"
+                                                               value="@option.Value"
+                                                               checked="@Model.ProrrogaTiposTerapiaSeleccionados.Contains(option.Value, StringComparer.OrdinalIgnoreCase)" />
+                                                        <label class="form-check-label" for="@inputId">@option.Text</label>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <span asp-validation-for="ProrrogaTiposTerapiaSeleccionados" class="text-danger"></span>
+                                        </div>
                                         <div class="col-lg-4">
-                                            <label asp-for="ProrrogaFechaSolicitud" class="form-label"></label>
+                                            <label asp-for="ProrrogaFechaSolicitud" class="form-label"></label>@RequiredMark()
                                             <input asp-for="ProrrogaFechaSolicitud" type="date" class="form-control" />
                                             <span asp-validation-for="ProrrogaFechaSolicitud" class="text-danger"></span>
                                         </div>
                                         <div class="col-lg-4">
-                                            <label asp-for="ProrrogaFechaSolicitudAsegurador" class="form-label"></label>
+                                            <label asp-for="ProrrogaFechaSolicitudAsegurador" class="form-label"></label>@RequiredMark()
                                             <input asp-for="ProrrogaFechaSolicitudAsegurador" type="date" class="form-control" />
                                             <span asp-validation-for="ProrrogaFechaSolicitudAsegurador" class="text-danger"></span>
                                         </div>
                                         <div class="col-lg-4">
-                                            <label asp-for="ProrrogaFechaEntregaAutorizacion" class="form-label"></label>
+                                            <label asp-for="ProrrogaFechaEntregaAutorizacion" class="form-label"></label>@RequiredMark()
                                             <input asp-for="ProrrogaFechaEntregaAutorizacion" type="date" class="form-control" />
                                             <span asp-validation-for="ProrrogaFechaEntregaAutorizacion" class="text-danger"></span>
                                         </div>
                                         <div class="col-lg-4">
-                                            <label asp-for="ProrrogaCodigoAutorizacion" class="form-label"></label>
+                                            <label asp-for="ProrrogaCodigoAutorizacion" class="form-label"></label>@RequiredMark()
                                             <input asp-for="ProrrogaCodigoAutorizacion" class="form-control" maxlength="100" autocomplete="off" />
                                             <span asp-validation-for="ProrrogaCodigoAutorizacion" class="text-danger"></span>
                                         </div>
                                         <div class="col-lg-4">
-                                            <label asp-for="ProrrogaFrecuencia" class="form-label"></label>
+                                            <label asp-for="ProrrogaFrecuencia" class="form-label"></label>@RequiredMark()
                                             <input asp-for="ProrrogaFrecuencia" class="form-control" type="number" min="1" step="1" />
                                             <span asp-validation-for="ProrrogaFrecuencia" class="text-danger"></span>
                                         </div>
                                         <div class="col-lg-4">
-                                            <label asp-for="ProrrogaCantidad" class="form-label"></label>
+                                            <label asp-for="ProrrogaCantidad" class="form-label"></label>@RequiredMark()
                                             <input asp-for="ProrrogaCantidad" class="form-control" maxlength="100" autocomplete="off" />
                                             <span asp-validation-for="ProrrogaCantidad" class="text-danger"></span>
                                         </div>
@@ -749,12 +893,12 @@
 
                                     <div class="row g-3 censo-field-section__grid">
                                         <div class="col-lg-4">
-                                            <label asp-for="FechaAlta" class="form-label"></label>
+                                            <label asp-for="FechaAlta" class="form-label"></label>@RequiredMark()
                                             <input asp-for="FechaAlta" type="date" class="form-control" />
                                             <span asp-validation-for="FechaAlta" class="text-danger"></span>
                                         </div>
                                         <div class="col-12">
-                                            <label class="form-label">Motivo alta</label>
+                                            <label class="form-label">Motivo alta @RequiredMark()</label>
                                             <div class="censo-check-grid">
                                                 @for (var index = 0; index < Model.MotivoAltaOptions.Count; index++)
                                                 {
@@ -774,7 +918,7 @@
                                             <span asp-validation-for="MotivoAlta" class="text-danger"></span>
                                         </div>
                                         <div class="col-12">
-                                            <label class="form-label">Estado del alta</label>
+                                            <label class="form-label">Estado del alta @RequiredMark()</label>
                                             <div class="censo-check-grid">
                                                 @for (var index = 0; index < Model.EstadoAltaOptions.Count; index++)
                                                 {
@@ -814,25 +958,66 @@
     </section>
 </div>
 
-<section class="censo-history-shell">
+<section class="censo-history-shell" id="terapiaHistorial">
     <div class="censo-history-shell__header">
         <div class="censo-history-shell__header-copy">
             <span class="censo-history-shell__eyebrow">Historial</span>
             <h2>Últimos registros de terapia ambulatoria</h2>
             <p>
-                @(string.IsNullOrWhiteSpace(Model.CedulaFiltro)
-                    ? "Se muestran los últimos 50 registros creados en este censo."
-                    : $"Resultados para el documento {Model.CedulaFiltro}.")
+                @if (!string.IsNullOrWhiteSpace(Model.CedulaFiltro) && !string.IsNullOrWhiteSpace(Model.EstadoGestionFiltro))
+                {
+                    @($"Últimos 100 registros del documento {Model.CedulaFiltro} con gestión {Model.EstadoGestionFiltro}.")
+                }
+                else if (!string.IsNullOrWhiteSpace(Model.CedulaFiltro))
+                {
+                    @($"Últimos 100 registros para el documento {Model.CedulaFiltro}.")
+                }
+                else if (!string.IsNullOrWhiteSpace(Model.EstadoGestionFiltro))
+                {
+                    @($"Últimos 100 registros con gestión {Model.EstadoGestionFiltro}.")
+                }
+                else
+                {
+                    @("Se muestran los últimos 100 registros creados en este censo.")
+                }
             </p>
         </div>
+
+        <div class="censo-gestion-summary" aria-label="Filtros por gestión del caso">
+            @foreach (var card in gestionSummaryCards)
+            {
+                var isActive = string.Equals(Model.EstadoGestionFiltro, card.Estado, StringComparison.OrdinalIgnoreCase);
+                var targetEstado = isActive ? null : card.Estado;
+                <a class="censo-gestion-summary__card @card.Css @(isActive ? "is-active" : null)"
+                   href="@(Url.Action("TerapiaAmbulatoria", new { cedulaPaciente = Model.CedulaFiltro, estadoGestion = targetEstado }) + "#terapiaHistorial")"
+                   aria-pressed="@isActive.ToString().ToLowerInvariant()">
+                    <span>@card.Titulo</span>
+                    <strong>@card.Conteo.ToString("N0")</strong>
+                    <small>@(isActive ? "Filtro activo" : "Filtrar")</small>
+                </a>
+            }
+        </div>
     </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.EstadoGestionFiltro))
+    {
+        <div class="censo-history-shell__active-filter">
+            <span>Filtro aplicado: <strong>@Model.EstadoGestionFiltro</strong></span>
+            <a href="@(Url.Action("TerapiaAmbulatoria", new { cedulaPaciente = Model.CedulaFiltro }) + "#terapiaHistorial")">Limpiar filtro</a>
+        </div>
+    }
 
     @if (!Model.UltimosRegistros.Any())
     {
         <div class="alert alert-warning mb-0">
-            @(string.IsNullOrWhiteSpace(Model.CedulaFiltro)
-                ? "No hay registros de terapia ambulatoria para mostrar."
-                : "No se encontraron registros de terapia ambulatoria para la cédula consultada.")
+            @if (!string.IsNullOrWhiteSpace(Model.CedulaFiltro) || !string.IsNullOrWhiteSpace(Model.EstadoGestionFiltro))
+            {
+                @("No se encontraron registros de terapia ambulatoria con los filtros seleccionados.")
+            }
+            else
+            {
+                @("No hay registros de terapia ambulatoria para mostrar.")
+            }
         </div>
     }
     else
@@ -846,7 +1031,7 @@
                         <th>Paciente</th>
                         <th>Documento</th>
                         <th>Tipo terapia</th>
-                        <th>Estado</th>
+                        <th>Gestión</th>
                         <th>Estado paciente</th>
                         <th>Fecha ingreso</th>
                         <th>Fecha inicio</th>
@@ -858,7 +1043,7 @@
                     {
                         <tr>
                             <td>
-                                <a class="censo-history-table__open" asp-action="TerapiaAmbulatoria" asp-route-recordId="@record.Id" asp-route-cedulaPaciente="@Model.CedulaFiltro" title="Cargar registro @record.Id" aria-label="Cargar registro @record.Id">
+                                <a class="censo-history-table__open" asp-action="TerapiaAmbulatoria" asp-route-recordId="@record.Id" asp-route-cedulaPaciente="@Model.CedulaFiltro" asp-route-estadoGestion="@Model.EstadoGestionFiltro" title="Cargar registro @record.Id" aria-label="Cargar registro @record.Id">
                                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                                         <circle cx="11" cy="11" r="6"></circle>
                                         <path d="M16 16l5 5"></path>
@@ -912,10 +1097,23 @@
             const areaSelect = document.getElementById("areaSelect");
             const codigoCie10Input = document.getElementById("codigoCie10Input");
             const diagnosticoInput = document.getElementById("diagnosticoDescriptivoInput");
+            const tipoIdentificacionSelect = document.getElementById("tipoIdentificacionSelect");
+            const numeroIdentificacionInput = document.getElementById("numeroIdentificacionInput");
+            const cedulaTerapiaFiltroInput = document.getElementById("cedulaTerapiaFiltroInput");
+            const cambiarTerapiaPacienteDocumentoInput = document.getElementById("cambiarTerapiaPacienteDocumento");
             const fechaNacimientoInput = document.getElementById("fechaNacimientoInput");
             const edadInput = document.getElementById("edadInput");
             const cantidadInput = document.getElementById("Cantidad");
             const frecuenciaTerapiaSelect = document.getElementById("FrecuenciaTerapia");
+            const segundoTratamientoSwitch = document.getElementById("tieneSegundoTratamientoSwitch");
+            const segundoTratamientoContainer = document.getElementById("segundoTratamientoContainer");
+            const segundoTratamientoCantidadInput = document.getElementById("SegundoTratamientoCantidad");
+            const segundoTratamientoFrecuenciaSelect = document.getElementById("SegundoTratamientoFrecuenciaTerapia");
+            const tercerTratamientoSwitch = document.getElementById("tieneTercerTratamientoSwitch");
+            const tercerTratamientoSwitchContainer = document.getElementById("tercerTratamientoSwitchContainer");
+            const tercerTratamientoContainer = document.getElementById("tercerTratamientoContainer");
+            const tercerTratamientoCantidadInput = document.getElementById("TercerTratamientoCantidad");
+            const tercerTratamientoFrecuenciaSelect = document.getElementById("TercerTratamientoFrecuenciaTerapia");
             const fechaInicioInput = document.getElementById("fechaInicioInput");
             const fechaFinInput = document.getElementById("fechaFinInput");
             const estadoGestionInput = document.getElementById("estadoGestionInput");
@@ -945,7 +1143,84 @@
                 .replaceAll('"', "&quot;")
                 .replaceAll("'", "&#039;");
 
+            const shouldUppercaseControl = (control) => {
+                if (!control || control.disabled || control.readOnly) {
+                    return false;
+                }
+
+                if (control.matches("textarea")) {
+                    return true;
+                }
+
+                if (!control.matches("input")) {
+                    return false;
+                }
+
+                const type = String(control.getAttribute("type") || "text").toLowerCase();
+                return ["text", "search", "email", "tel", "url"].includes(type);
+            };
+
+            const uppercaseControlValue = (control) => {
+                if (!shouldUppercaseControl(control)) {
+                    return;
+                }
+
+                const currentValue = control.value || "";
+                const uppercaseValue = currentValue.toLocaleUpperCase("es-CO");
+                if (currentValue === uppercaseValue) {
+                    return;
+                }
+
+                const selectionStart = control.selectionStart;
+                const selectionEnd = control.selectionEnd;
+                control.value = uppercaseValue;
+
+                if (selectionStart !== null && selectionEnd !== null) {
+                    try {
+                        control.setSelectionRange(selectionStart, selectionEnd);
+                    } catch {
+                    }
+                }
+            };
+
+            document.addEventListener("input", (event) => {
+                const control = event.target;
+                if (!(control instanceof HTMLElement)
+                    || !control.closest("#terapiaAmbulatoriaForm, .censo-filter-panel, .censo-current-patient__search")) {
+                    return;
+                }
+
+                uppercaseControlValue(control);
+            });
+
+            const uppercaseAllTerapiaTextFields = () => {
+                document
+                    .querySelectorAll("#terapiaAmbulatoriaForm input, #terapiaAmbulatoriaForm textarea, .censo-filter-panel input, .censo-current-patient__search input")
+                    .forEach((control) => uppercaseControlValue(control));
+            };
+
             const normalizeCie10 = (value) => String(value || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 4);
+            const alphanumericIdentificationTypes = new Set(["PA", "CE"]);
+            const normalizeDocumentValue = (value) => String(value || "")
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, "")
+                .trim();
+            const allowsAlphaNumericIdentification = (value) =>
+                alphanumericIdentificationTypes.has(String(value || "").trim().toUpperCase());
+            const syncNumeroIdentificacionMode = () => {
+                if (!numeroIdentificacionInput) return;
+
+                const allowAlphaNumeric = allowsAlphaNumericIdentification(tipoIdentificacionSelect ? tipoIdentificacionSelect.value : "");
+                numeroIdentificacionInput.setAttribute("inputmode", allowAlphaNumeric ? "text" : "numeric");
+                numeroIdentificacionInput.title = allowAlphaNumeric
+                    ? "Permite letras y números para PA o CE."
+                    : "Solo permite dígitos para este tipo de identificación.";
+
+                const currentValue = String(numeroIdentificacionInput.value || "").toUpperCase();
+                numeroIdentificacionInput.value = allowAlphaNumeric
+                    ? currentValue.replace(/[^A-Z0-9]/g, "").slice(0, 20)
+                    : currentValue.replace(/\D/g, "").slice(0, 20);
+            };
 
             const getFisioterapeutaValidationMessage = () =>
                 document.querySelector("[data-valmsg-for='Fisioterapeuta']");
@@ -1364,10 +1639,36 @@
             fisioterapeutaInput?.addEventListener("change", () => syncFisioterapeutaValidation(true));
             fisioterapeutaInput?.addEventListener("blur", () => syncFisioterapeutaValidation(true));
 
+            numeroIdentificacionInput?.addEventListener("input", syncNumeroIdentificacionMode);
+            tipoIdentificacionSelect?.addEventListener("change", syncNumeroIdentificacionMode);
+            syncNumeroIdentificacionMode();
+
+            [cedulaTerapiaFiltroInput, cambiarTerapiaPacienteDocumentoInput].forEach((input) => {
+                if (!input) return;
+                input.value = normalizeDocumentValue(input.value);
+                input.addEventListener("input", () => {
+                    input.value = normalizeDocumentValue(input.value);
+                });
+            });
+            uppercaseAllTerapiaTextFields();
+
             const updateEdad = () => {
-                if (!fechaNacimientoInput || !edadInput || !fechaNacimientoInput.value) return;
-                const birth = new Date(`${fechaNacimientoInput.value}T00:00:00`);
+                if (!fechaNacimientoInput || !edadInput) return;
+
                 const today = new Date();
+                const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                if (!fechaNacimientoInput.value || fechaNacimientoInput.value >= todayValue) {
+                    fechaNacimientoInput.setCustomValidity("La fecha de nacimiento debe ser anterior a la fecha actual.");
+                } else {
+                    fechaNacimientoInput.setCustomValidity("");
+                }
+
+                if (!fechaNacimientoInput.value) {
+                    edadInput.value = "0";
+                    return;
+                }
+
+                const birth = new Date(`${fechaNacimientoInput.value}T00:00:00`);
                 let age = today.getFullYear() - birth.getFullYear();
                 const monthDiff = today.getMonth() - birth.getMonth();
                 if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
@@ -1377,6 +1678,7 @@
             };
 
             fechaNacimientoInput?.addEventListener("change", updateEdad);
+            fechaNacimientoInput?.addEventListener("input", updateEdad);
             updateEdad();
 
             const getTerapiasPorSemana = (frecuencia) => {
@@ -1395,25 +1697,88 @@
                 return `${year}-${month}-${day}`;
             };
 
-            const updateFechaFin = () => {
-                if (!cantidadInput || !frecuenciaTerapiaSelect || !fechaInicioInput || !fechaFinInput) return;
+            const calculateTreatmentFechaFin = (cantidadElement, frecuenciaElement) => {
+                if (!fechaInicioInput?.value || !cantidadElement || !frecuenciaElement) return null;
 
-                const cantidad = Number.parseInt(cantidadInput.value || "", 10);
-                const terapiasPorSemana = getTerapiasPorSemana(frecuenciaTerapiaSelect.value);
-                if (!Number.isFinite(cantidad) || cantidad < 1 || terapiasPorSemana < 1 || !fechaInicioInput.value) {
-                    fechaFinInput.value = "";
-                    return;
-                }
+                const cantidad = Number.parseInt(cantidadElement.value || "", 10);
+                const terapiasPorSemana = getTerapiasPorSemana(frecuenciaElement.value);
+                if (!Number.isFinite(cantidad) || cantidad < 1 || terapiasPorSemana < 1) return null;
 
                 const semanas = Math.ceil(cantidad / terapiasPorSemana);
                 const fechaFin = new Date(`${fechaInicioInput.value}T00:00:00`);
                 fechaFin.setDate(fechaFin.getDate() + (semanas * 7));
-                fechaFinInput.value = formatDateInputValue(fechaFin);
+                return fechaFin;
+            };
+
+            const updateFechaFin = () => {
+                if (!fechaFinInput) return;
+
+                const dates = [
+                    calculateTreatmentFechaFin(cantidadInput, frecuenciaTerapiaSelect)
+                ];
+
+                if (segundoTratamientoSwitch?.checked) {
+                    dates.push(calculateTreatmentFechaFin(segundoTratamientoCantidadInput, segundoTratamientoFrecuenciaSelect));
+                }
+
+                if (segundoTratamientoSwitch?.checked && tercerTratamientoSwitch?.checked) {
+                    dates.push(calculateTreatmentFechaFin(tercerTratamientoCantidadInput, tercerTratamientoFrecuenciaSelect));
+                }
+
+                const validDates = dates.filter((date) => date instanceof Date && !Number.isNaN(date.getTime()));
+                if (validDates.length === 0) {
+                    fechaFinInput.value = "";
+                    return;
+                }
+
+                validDates.sort((a, b) => b.getTime() - a.getTime());
+                fechaFinInput.value = formatDateInputValue(validDates[0]);
             };
 
             cantidadInput?.addEventListener("input", updateFechaFin);
             frecuenciaTerapiaSelect?.addEventListener("change", updateFechaFin);
+            segundoTratamientoCantidadInput?.addEventListener("input", updateFechaFin);
+            segundoTratamientoFrecuenciaSelect?.addEventListener("change", updateFechaFin);
+            tercerTratamientoCantidadInput?.addEventListener("input", updateFechaFin);
+            tercerTratamientoFrecuenciaSelect?.addEventListener("change", updateFechaFin);
             fechaInicioInput?.addEventListener("change", updateFechaFin);
+
+            const clearOptionalTreatmentFields = (container) => {
+                container?.querySelectorAll("input[type='checkbox']").forEach((input) => {
+                    input.checked = false;
+                });
+                container?.querySelectorAll("input[type='number'], select").forEach((input) => {
+                    input.value = "";
+                    syncSelectPlaceholderState(input);
+                });
+            };
+
+            const syncTreatmentVisibility = () => {
+                const hasSecond = segundoTratamientoSwitch?.checked === true;
+                const hasThird = hasSecond && tercerTratamientoSwitch?.checked === true;
+
+                segundoTratamientoContainer?.classList.toggle("d-none", !hasSecond);
+                tercerTratamientoSwitchContainer?.classList.toggle("d-none", !hasSecond);
+                if (!hasSecond) {
+                    clearOptionalTreatmentFields(segundoTratamientoContainer);
+                    if (tercerTratamientoSwitch) tercerTratamientoSwitch.checked = false;
+                }
+
+                if (tercerTratamientoSwitch) {
+                    tercerTratamientoSwitch.disabled = !hasSecond;
+                }
+
+                tercerTratamientoContainer?.classList.toggle("d-none", !hasThird);
+                if (!hasThird) {
+                    clearOptionalTreatmentFields(tercerTratamientoContainer);
+                }
+
+                updateFechaFin();
+            };
+
+            segundoTratamientoSwitch?.addEventListener("change", syncTreatmentVisibility);
+            tercerTratamientoSwitch?.addEventListener("change", syncTreatmentVisibility);
+            syncTreatmentVisibility();
             updateFechaFin();
 
             const gestionStates = {
@@ -1438,12 +1803,18 @@
             };
 
             const hasFieldValue = (element) => !!String(element?.value || "").trim();
+            const hasOptionalTreatmentData = (switchElement, cantidadElement, frecuenciaElement, typeInputName) => {
+                if (switchElement?.checked !== true) return true;
+                return hasFieldValue(cantidadElement)
+                    && hasFieldValue(frecuenciaElement)
+                    && document.querySelectorAll(`input[name='${typeInputName}']:checked`).length > 0;
+            };
 
             const hasConfirmedBaseData = () => {
                 const requiredElements = [
                     document.getElementById("NombrePaciente"),
-                    document.getElementById("TipoIdentificacion"),
-                    document.getElementById("NumeroIdentificacion"),
+                    tipoIdentificacionSelect,
+                    numeroIdentificacionInput,
                     fechaNacimientoInput,
                     document.getElementById("CorreoElectronico"),
                     cantidadInput,
@@ -1451,12 +1822,6 @@
                     document.getElementById("NumeroAutorizacion"),
                     codigoCie10Input,
                     diagnosticoInput,
-                    direccionInput,
-                    clasificacionSelect,
-                    municipioSelect,
-                    barrioSelect,
-                    zonaSelect,
-                    areaSelect,
                     document.getElementById("IpsQueRemite"),
                     document.getElementById("TelefonoPrincipal"),
                     document.getElementById("TelefonoAdicional1"),
@@ -1468,8 +1833,17 @@
 
                 const hasRequiredValues = requiredElements.every(hasFieldValue);
                 const hasTipoTerapia = document.querySelectorAll("input[name='TiposTerapiaSeleccionados']:checked").length > 0;
-                const hasAddressDecision = direccionValidada || asumirDireccionCheck?.checked === true;
-                return hasRequiredValues && hasTipoTerapia && hasAddressDecision;
+                const hasSecondTreatment = hasOptionalTreatmentData(
+                    segundoTratamientoSwitch,
+                    segundoTratamientoCantidadInput,
+                    segundoTratamientoFrecuenciaSelect,
+                    "SegundoTratamientoTiposTerapiaSeleccionados");
+                const hasThirdTreatment = hasOptionalTreatmentData(
+                    tercerTratamientoSwitch,
+                    tercerTratamientoCantidadInput,
+                    tercerTratamientoFrecuenciaSelect,
+                    "TercerTratamientoTiposTerapiaSeleccionados");
+                return hasRequiredValues && hasTipoTerapia && hasSecondTreatment && hasThirdTreatment;
             };
 
             const resolveGestionState = () => {
@@ -1521,7 +1895,7 @@
                     return;
                 }
 
-                if (!direccionValidada && !asumirDireccionCheck?.checked) {
+                if (direccionInput?.value.trim() && !direccionValidada && !asumirDireccionCheck?.checked) {
                     event.preventDefault();
                     setDireccionMessage("warning", "Debes validar la dirección o marcar 'Asumir dirección errada y continuar'.");
                     direccionInput?.focus();
