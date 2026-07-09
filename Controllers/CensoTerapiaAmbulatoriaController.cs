@@ -901,10 +901,6 @@ public partial class CensoController
         ValidatePhoneValue(model.TelefonoPrincipal, nameof(model.TelefonoPrincipal), "teléfono principal");
         ValidatePhoneValue(model.TelefonoAdicional1, nameof(model.TelefonoAdicional1), "teléfono adicional 1");
         ValidatePhoneValue(model.TelefonoAdicional2, nameof(model.TelefonoAdicional2), "teléfono adicional 2");
-        if (string.IsNullOrWhiteSpace(model.TelefonoAdicional1))
-        {
-            ModelState.AddModelError(nameof(model.TelefonoAdicional1), "El teléfono adicional 1 es obligatorio.");
-        }
 
         ValidateTerapiaAddressDropdowns(model);
     }
@@ -974,7 +970,7 @@ public partial class CensoController
 
         if (!model.ProrrogaFechaSolicitudAsegurador.HasValue)
         {
-            ModelState.AddModelError(nameof(model.ProrrogaFechaSolicitudAsegurador), "Selecciona la fecha de solicitud del asegurador.");
+            ModelState.AddModelError(nameof(model.ProrrogaFechaSolicitudAsegurador), "Selecciona la fecha de solicitud al asegurador.");
         }
 
         if (!model.ProrrogaFechaEntregaAutorizacion.HasValue)
@@ -1223,7 +1219,7 @@ public partial class CensoController
         record.NumeroIdentificacion = model.NumeroIdentificacion;
         record.FechaNacimiento = model.FechaNacimiento.Date;
         record.Edad = model.Edad;
-        record.CorreoElectronico = model.CorreoElectronico;
+        record.CorreoElectronico = model.CorreoElectronico ?? string.Empty;
         record.Cantidad = model.Cantidad!.Value;
         record.FrecuenciaTerapia = model.FrecuenciaTerapia;
         record.TipoTerapia = string.Join(", ", model.TiposTerapiaSeleccionados);

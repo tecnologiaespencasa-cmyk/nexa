@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using IntranetPrueba.Data;
 using IntranetPrueba.Data.Repositories.Interfaces;
 using IntranetPrueba.Data.Repositories.Models;
@@ -19,6 +20,20 @@ public class ReportesController : Controller
     private const string VistaDia = "dia";
     private const string VistaSemana = "semana";
     private const string VistaMes = "mes";
+    private const string ProgramaAgudos = "Agudos";
+    private const string ProgramaTerapiasAmbulatorias = "Terapias ambulatorias";
+    private const string TerapiaAmbulatoriaEstadoGestionCompleta = "Gestión completa";
+    private const string MunicipioNoParametrizado = "NO PARAMETRIZADO";
+
+    private static readonly IReadOnlyDictionary<string, string> UnparameterizedLocationAliasValues =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["ALTAVISTA"] = "Altavista",
+            ["PALMITAS"] = "Palmitas",
+            ["SANANTONIODEPRADO"] = "San Antonio de Prado",
+            ["SANCRISTOBAL"] = "San Cristóbal",
+            ["SANTAELENA"] = "Santa Elena"
+        };
 
     private static readonly string[] DashboardPalette =
     [
@@ -53,30 +68,53 @@ public class ReportesController : Controller
     public async Task<IActionResult> Index(ReportesFilterViewModel filters, CancellationToken cancellationToken)
     {
         var normalizedFilters = NormalizeFilters(filters);
-        var censoRows = await ApplyBaseFilters(_context.Censos.AsNoTracking(), normalizedFilters)
-            .Select(x => new ReportesCensoRow
-            {
-                Id = x.Id,
-                FechaIngreso = x.FechaIngreso,
-                NombrePaciente = x.NombrePaciente,
-                TipoIdentificacion = x.TipoIdentificacion,
-                NumeroIdentificacion = x.NumeroIdentificacion,
-                NombreRecepcionaCaso = x.NombreRecepcionaCaso,
-                NombreRealizaKardex = x.NombreRealizaKardex,
-                AuxiliarAsignado = x.AuxiliarAsignado,
-                MunicipioResidencia = x.MunicipioResidencia,
-                Estado = x.Estado,
-                AutorizacionEvento = x.AutorizacionEvento,
-                GestionCompletaPendiente = x.GestionCompletaPendiente,
-                CreatedAtUtc = x.CreatedAtUtc
-            })
-            .ToListAsync(cancellationToken);
+        var censoRows = ShouldIncludeAgudos(normalizedFilters.Programa)
+            ? await ApplyBaseFilters(_context.Censos.AsNoTracking(), normalizedFilters)
+                .Select(x => new ReportesCensoRow
+                {
+                    Id = x.Id,
+                    FechaIngreso = x.FechaIngreso,
+                    NombrePaciente = x.NombrePaciente,
+                    TipoIdentificacion = x.TipoIdentificacion,
+                    NumeroIdentificacion = x.NumeroIdentificacion,
+                    NombreRecepcionaCaso = x.NombreRecepcionaCaso,
+                    NombreRealizaKardex = x.NombreRealizaKardex,
+                    AuxiliarAsignado = x.AuxiliarAsignado,
+                    MunicipioResidencia = x.MunicipioResidencia,
+                    Barrio = x.Barrio,
+                    Direccion = x.Direccion,
+                    Estado = x.Estado,
+                    AutorizacionEvento = x.AutorizacionEvento,
+                    GestionCompletaPendiente = x.GestionCompletaPendiente,
+                    CreatedAtUtc = x.CreatedAtUtc
+                })
+                .ToListAsync(cancellationToken)
+            : [];
+
+        var terapiaRows = ShouldIncludeTerapiasAmbulatorias(normalizedFilters.Programa)
+            ? await ApplyTerapiaAmbulatoriaFilters(_context.CensoTerapiasAmbulatorias.AsNoTracking(), normalizedFilters)
+                .Select(x => new ReportesTerapiaAmbulatoriaRow
+                {
+                    Id = x.Id,
+                    FechaInicio = x.FechaInicio,
+                    NombrePaciente = x.NombrePaciente,
+                    TipoIdentificacion = x.TipoIdentificacion,
+                    NumeroIdentificacion = x.NumeroIdentificacion,
+                    MunicipioResidencia = x.MunicipioResidencia,
+                    TipoTerapia = x.TipoTerapia,
+                    SegundoTratamientoTipoTerapia = x.SegundoTratamientoTipoTerapia,
+                    TercerTratamientoTipoTerapia = x.TercerTratamientoTipoTerapia,
+                    EstadoGestion = x.EstadoGestion,
+                    CreatedAtUtc = x.CreatedAtUtc
+                })
+                .ToListAsync(cancellationToken)
+            : [];
 
         var portalRows = await _portalNovedadRepository.GetNovedadesAsync(
             normalizedFilters.Desde!.Value,
             normalizedFilters.Hasta!.Value,
             normalizedFilters.TipoNovedad,
-            normalizedFilters.Auxiliar,
+            null,
             cancellationToken);
 
         var totalRegistrosCenso = censoRows.Count;
@@ -110,18 +148,22 @@ public class ReportesController : Controller
             TotalGestionesCompletas = totalGestionesCompletas,
             TotalPendientesCriticos = totalPendientesCriticos,
             TotalIngresosPeriodo = censoRows.Count,
+            TotalIngresosTerapiaAmbulatoriaPeriodo = terapiaRows.Count,
             PromedioNovedadesPorDia = portalRows.Count / totalDiasPeriodo,
             PromedioIngresosPorDia = censoRows.Count / totalDiasPeriodo,
+            PromedioIngresosTerapiaAmbulatoriaPorDia = terapiaRows.Count / totalDiasPeriodo,
             TotalNovedadesResueltas = resolvedPortalRows.Count,
             PorcentajeGestionPendiente = totalRegistrosCenso == 0 ? 0 : Math.Round(totalGestionesPendientes * 100d / totalRegistrosCenso, 2),
             PorcentajeResolucionNovedades = portalRows.Count == 0 ? 0 : Math.Round(resolvedPortalRows.Count * 100d / portalRows.Count, 2),
             PromedioResolucionHoras = promedioResolucionHoras,
             NovedadesPorDia = BuildTrend(portalRows.Select(x => x.CreatedAt), normalizedFilters),
             IngresosPorDia = BuildTrend(censoRows.Select(x => x.FechaIngreso), normalizedFilters),
+            IngresosTerapiaAmbulatoriaPorDia = BuildTrend(terapiaRows.Select(x => x.FechaInicio), normalizedFilters),
             NovedadesPorTipo = BuildPortalCategoryCounts(
                 portalRows,
                 portalRows.Count,
                 normalizedFilters.TipoNovedad),
+            IngresosTerapiaAmbulatoriaPorTipo = BuildTerapiaAmbulatoriaTypeCounts(terapiaRows),
             EventosPendientesPorAuxiliar = BuildCategoryCounts(
                 censoRows
                     .Where(IsWithoutAuthorization)
@@ -138,6 +180,7 @@ public class ReportesController : Controller
                 .ToList(),
             ResolucionPorTipo = BuildResolutionByType(resolvedPortalRows, normalizedFilters.TipoNovedad),
             FocosOperativos = BuildOperationalFocus(censoRows),
+            FocosNoParametrizados = BuildUnparameterizedOperationalFocus(censoRows),
             RegistrosPrioritarios = BuildPriorityRecords(censoRows),
             ActiveFilterLabels = BuildActiveFilterLabels(normalizedFilters)
         };
@@ -149,7 +192,7 @@ public class ReportesController : Controller
     public async Task<IActionResult> ExportarPacientesActivos(CancellationToken cancellationToken)
     {
         var currentDate = ColombiaTime.Convert(DateTime.UtcNow).Date;
-        var candidates = await _context.Censos
+        var censoCandidates = await _context.Censos
             .AsNoTracking()
             .Where(x => x.Estado != null
                 && (EF.Functions.ILike(x.Estado, "Aceptado activo")
@@ -172,13 +215,12 @@ public class ReportesController : Controller
             })
             .ToListAsync(cancellationToken);
 
-        var rows = candidates
+        var censoRows = censoCandidates
             .GroupBy(x => x.NumeroIdentificacion, StringComparer.OrdinalIgnoreCase)
             .Select(group => group
                 .OrderByDescending(x => x.FechaIngreso)
                 .ThenByDescending(x => x.Id)
                 .First())
-            .OrderBy(x => x.NombrePaciente)
             .Select(x => new ActivePatientReportRow
             {
                 CurrentDate = currentDate,
@@ -192,6 +234,49 @@ public class ReportesController : Controller
                 Program = NormalizeActivePatientProgram(x.Programa, x.Estado),
                 Insurer = x.Asegurador
             })
+            .ToList();
+
+        var terapiaCandidates = await _context.CensoTerapiasAmbulatorias
+            .AsNoTracking()
+            .Where(x => EF.Functions.ILike(x.EstadoPaciente, "Activo")
+                && !EF.Functions.ILike(x.EstadoAlta, "Cerrado"))
+            .Select(x => new
+            {
+                x.Id,
+                x.FechaInicio,
+                x.NombrePaciente,
+                x.TipoIdentificacion,
+                x.NumeroIdentificacion,
+                x.ClasificacionZonaSura,
+                x.DiagnosticoDescriptivo
+            })
+            .ToListAsync(cancellationToken);
+
+        var terapiaRows = terapiaCandidates
+            .GroupBy(x => x.NumeroIdentificacion, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(x => x.FechaInicio)
+                .ThenByDescending(x => x.Id)
+                .First())
+            .Select(x => new ActivePatientReportRow
+            {
+                CurrentDate = currentDate,
+                FullName = x.NombrePaciente,
+                IdentificationType = x.TipoIdentificacion,
+                IdentificationNumber = x.NumeroIdentificacion,
+                Zone = x.ClasificacionZonaSura ?? string.Empty,
+                AdmissionDate = x.FechaInicio.Date,
+                LengthOfStayDays = Math.Max(0, (currentDate - x.FechaInicio.Date).Days),
+                Diagnosis = x.DiagnosticoDescriptivo,
+                Program = "Terapia ambulatoria",
+                Insurer = "EPS SURA"
+            })
+            .ToList();
+
+        var rows = censoRows
+            .Concat(terapiaRows)
+            .OrderBy(x => x.FullName)
+            .ThenBy(x => x.Program)
             .ToList();
 
         var workbook = ExcelWorkbookWriter.BuildActivePatientsWorkbook(rows, DateTime.UtcNow);
@@ -223,11 +308,6 @@ public class ReportesController : Controller
             query = query.Where(x => x.MunicipioResidencia == filters.Municipio);
         }
 
-        if (!string.IsNullOrWhiteSpace(filters.Auxiliar))
-        {
-            query = query.Where(x => x.AuxiliarAsignado == filters.Auxiliar || x.NombreRealizaKardex == filters.Auxiliar);
-        }
-
         if (!string.IsNullOrWhiteSpace(filters.EstadoGestion))
         {
             query = query.Where(x => x.GestionCompletaPendiente == filters.EstadoGestion);
@@ -241,17 +321,62 @@ public class ReportesController : Controller
         return query;
     }
 
+    private static IQueryable<Data.Entities.CensoTerapiaAmbulatoriaRecord> ApplyTerapiaAmbulatoriaFilters(
+        IQueryable<Data.Entities.CensoTerapiaAmbulatoriaRecord> query,
+        ReportesFilterViewModel filters)
+    {
+        if (filters.Desde.HasValue)
+        {
+            query = query.Where(x => x.FechaInicio >= filters.Desde.Value.Date);
+        }
+
+        if (filters.Hasta.HasValue)
+        {
+            query = query.Where(x => x.FechaInicio <= filters.Hasta.Value.Date);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.Municipio))
+        {
+            query = query.Where(x => x.MunicipioResidencia == filters.Municipio);
+        }
+
+        if (string.Equals(filters.EstadoGestion, "Completa", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(x => x.EstadoGestion == TerapiaAmbulatoriaEstadoGestionCompleta);
+        }
+        else if (string.Equals(filters.EstadoGestion, "Pendiente", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(x => x.EstadoGestion != TerapiaAmbulatoriaEstadoGestionCompleta);
+        }
+
+        return query;
+    }
+
     private async Task<ReportesFilterOptionsViewModel> BuildFilterOptionsAsync(
         ReportesFilterViewModel filters,
         CancellationToken cancellationToken)
     {
-        var municipios = await _context.Censos
+        var municipiosCenso = await _context.Censos
             .AsNoTracking()
             .Where(x => x.MunicipioResidencia != string.Empty)
             .Select(x => x.MunicipioResidencia)
             .Distinct()
             .OrderBy(x => x)
             .ToListAsync(cancellationToken);
+
+        var municipiosTerapiaAmbulatoria = await _context.CensoTerapiasAmbulatorias
+            .AsNoTracking()
+            .Where(x => x.MunicipioResidencia != null && x.MunicipioResidencia != string.Empty)
+            .Select(x => x.MunicipioResidencia!)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToListAsync(cancellationToken);
+
+        var municipios = municipiosCenso
+            .Concat(municipiosTerapiaAmbulatoria)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
 
         var estadosCenso = await ExcludeCancelledAndRejected(_context.Censos.AsNoTracking())
             .Where(x => x.Estado != null && x.Estado != string.Empty)
@@ -260,27 +385,18 @@ public class ReportesController : Controller
             .OrderBy(x => x)
             .ToListAsync(cancellationToken);
 
-        var auxiliaresCensoRaw = await _context.Censos
-            .AsNoTracking()
-            .Select(x => new { x.AuxiliarAsignado, x.NombreRealizaKardex })
-            .ToListAsync(cancellationToken);
-
-        var auxiliaresPortal = await _portalNovedadRepository.GetAuxiliaresAsync(cancellationToken);
         var categoriasPortal = await _portalNovedadRepository.GetCategoriasAsync(cancellationToken);
-
-        var auxiliares = auxiliaresCensoRaw
-            .SelectMany(x => new[] { x.AuxiliarAsignado, x.NombreRealizaKardex })
-            .Concat(auxiliaresPortal)
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Select(x => x!.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(x => x)
-            .ToList();
 
         return new ReportesFilterOptionsViewModel
         {
             Municipios = BuildSelectOptions(municipios, filters.Municipio, "Todos"),
-            Auxiliares = BuildSelectOptions(auxiliares, filters.Auxiliar, "Todos"),
+            Programas = BuildSelectOptions(
+                [
+                    (ProgramaAgudos, ProgramaAgudos),
+                    (ProgramaTerapiasAmbulatorias, ProgramaTerapiasAmbulatorias)
+                ],
+                filters.Programa,
+                "Todos"),
             EstadosGestion = BuildSelectOptions(["Pendiente", "Completa"], filters.EstadoGestion, "Todos"),
             EstadosCenso = BuildSelectOptions(estadosCenso, filters.EstadoCenso, "Todos"),
             TiposNovedad = BuildSelectOptions(
@@ -314,7 +430,7 @@ public class ReportesController : Controller
             Desde = desde,
             Hasta = hasta,
             Municipio = NormalizeText(filters.Municipio),
-            Auxiliar = NormalizeText(filters.Auxiliar),
+            Programa = NormalizeProgramFilter(filters.Programa),
             EstadoGestion = NormalizeText(filters.EstadoGestion),
             EstadoCenso = NormalizeText(filters.EstadoCenso),
             TipoNovedad = NormalizeText(filters.TipoNovedad),
@@ -470,6 +586,31 @@ public class ReportesController : Controller
             .ToList();
     }
 
+    private static List<ReportesCategoryCountViewModel> BuildTerapiaAmbulatoriaTypeCounts(
+        IReadOnlyList<ReportesTerapiaAmbulatoriaRow> rows)
+    {
+        var types = rows
+            .SelectMany(row => EnumerateTherapyTypes(
+                row.TipoTerapia,
+                row.SegundoTratamientoTipoTerapia,
+                row.TercerTratamientoTipoTerapia))
+            .ToList();
+
+        return BuildCategoryCounts(
+            types
+                .GroupBy(x => x, StringComparer.OrdinalIgnoreCase)
+                .Select(x => (x.Key, x.Count())),
+            types.Count);
+    }
+
+    private static IEnumerable<string> EnumerateTherapyTypes(params string?[] values)
+    {
+        return values
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .SelectMany(x => x!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Where(x => !string.IsNullOrWhiteSpace(x));
+    }
+
     private static IReadOnlyList<string> GetVisiblePortalCategories(string? selectedCategory)
     {
         return string.IsNullOrWhiteSpace(selectedCategory)
@@ -480,7 +621,8 @@ public class ReportesController : Controller
     private static List<ReportesOperationalFocusViewModel> BuildOperationalFocus(IReadOnlyList<ReportesCensoRow> rows)
     {
         var focus = rows
-            .GroupBy(x => NormalizeLabel(x.MunicipioResidencia, "Sin municipio"))
+            .Where(row => !IsNoParametrizado(row.MunicipioResidencia))
+            .GroupBy(row => NormalizeLabel(row.MunicipioResidencia, "Sin municipio"), StringComparer.OrdinalIgnoreCase)
             .Select(group =>
             {
                 var records = group.ToList();
@@ -514,6 +656,78 @@ public class ReportesController : Controller
                 Percentage = Math.Round(x.RiskScore * 100d / max, 2)
             })
             .ToList();
+    }
+
+    private static List<ReportesOperationalFocusViewModel> BuildUnparameterizedOperationalFocus(IReadOnlyList<ReportesCensoRow> rows)
+    {
+        var focus = rows
+            .Where(row => IsNoParametrizado(row.MunicipioResidencia))
+            .GroupBy(ResolveUnparameterizedLocation, StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                var records = group.ToList();
+                var pending = records.Count(IsPendingManagement);
+                var withoutAuthorization = records.Count(IsWithoutAuthorization);
+                var score = pending * 3d + withoutAuthorization * 4d + records.Count * 0.25d;
+
+                return new ReportesOperationalFocusViewModel
+                {
+                    Label = group.Key,
+                    Records = records.Count,
+                    PendingManagement = pending,
+                    WithoutAuthorization = withoutAuthorization,
+                    RiskScore = score
+                };
+            })
+            .OrderByDescending(x => x.RiskScore)
+            .ThenBy(x => x.Label)
+            .Take(8)
+            .ToList();
+
+        var max = Math.Max(1, focus.Count == 0 ? 1 : focus.Max(x => x.RiskScore));
+        return focus
+            .Select(x => new ReportesOperationalFocusViewModel
+            {
+                Label = x.Label,
+                Records = x.Records,
+                PendingManagement = x.PendingManagement,
+                WithoutAuthorization = x.WithoutAuthorization,
+                RiskScore = x.RiskScore,
+                Percentage = Math.Round(x.RiskScore * 100d / max, 2)
+            })
+            .ToList();
+    }
+
+    private static string ResolveUnparameterizedLocation(ReportesCensoRow row)
+    {
+        return ResolveUnparameterizedLocationAlias(row.Barrio)
+            ?? ResolveUnparameterizedLocationAlias(row.Direccion)
+            ?? "No parametrizado";
+    }
+
+    private static string? ResolveUnparameterizedLocationAlias(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var key = NormalizeMunicipalityKey(value);
+        foreach (var alias in UnparameterizedLocationAliasValues)
+        {
+            if (key.Contains(alias.Key, StringComparison.Ordinal))
+            {
+                return alias.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsNoParametrizado(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            || string.Equals(NormalizeMunicipalityKey(value), NormalizeMunicipalityKey(MunicipioNoParametrizado), StringComparison.Ordinal);
     }
 
     private static List<ReportesRecentRecordViewModel> BuildPriorityRecords(IReadOnlyList<ReportesCensoRow> rows)
@@ -564,9 +778,9 @@ public class ReportesController : Controller
             labels.Add(filters.Municipio);
         }
 
-        if (!string.IsNullOrWhiteSpace(filters.Auxiliar))
+        if (!string.IsNullOrWhiteSpace(filters.Programa))
         {
-            labels.Add(filters.Auxiliar);
+            labels.Add($"Programa: {filters.Programa}");
         }
 
         if (!string.IsNullOrWhiteSpace(filters.EstadoGestion))
@@ -752,6 +966,56 @@ public class ReportesController : Controller
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
+    private static string NormalizeMunicipalityKey(string value)
+    {
+        var normalized = value.Trim().Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder();
+        foreach (var c in normalized)
+        {
+            var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+            {
+                sb.Append(c);
+            }
+        }
+
+        return sb.ToString()
+            .Normalize(NormalizationForm.FormC)
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .ToUpperInvariant();
+    }
+
+    private static string? NormalizeProgramFilter(string? value)
+    {
+        var normalized = NormalizeText(value);
+        if (normalized is null)
+        {
+            return null;
+        }
+
+        if (string.Equals(normalized, ProgramaAgudos, StringComparison.OrdinalIgnoreCase))
+        {
+            return ProgramaAgudos;
+        }
+
+        return string.Equals(normalized, ProgramaTerapiasAmbulatorias, StringComparison.OrdinalIgnoreCase)
+            ? ProgramaTerapiasAmbulatorias
+            : null;
+    }
+
+    private static bool ShouldIncludeAgudos(string? programa)
+    {
+        return string.IsNullOrWhiteSpace(programa)
+            || string.Equals(programa, ProgramaAgudos, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ShouldIncludeTerapiasAmbulatorias(string? programa)
+    {
+        return string.IsNullOrWhiteSpace(programa)
+            || string.Equals(programa, ProgramaTerapiasAmbulatorias, StringComparison.OrdinalIgnoreCase);
+    }
+
     private sealed class ReportesCensoRow
     {
         public long Id { get; init; }
@@ -763,9 +1027,26 @@ public class ReportesController : Controller
         public string NombreRealizaKardex { get; init; } = string.Empty;
         public string? AuxiliarAsignado { get; init; }
         public string MunicipioResidencia { get; init; } = string.Empty;
+        public string Barrio { get; init; } = string.Empty;
+        public string Direccion { get; init; } = string.Empty;
         public string? Estado { get; init; }
         public string? AutorizacionEvento { get; init; }
         public string GestionCompletaPendiente { get; init; } = string.Empty;
+        public DateTime CreatedAtUtc { get; init; }
+    }
+
+    private sealed class ReportesTerapiaAmbulatoriaRow
+    {
+        public long Id { get; init; }
+        public DateTime FechaInicio { get; init; }
+        public string NombrePaciente { get; init; } = string.Empty;
+        public string TipoIdentificacion { get; init; } = string.Empty;
+        public string NumeroIdentificacion { get; init; } = string.Empty;
+        public string? MunicipioResidencia { get; init; }
+        public string TipoTerapia { get; init; } = string.Empty;
+        public string? SegundoTratamientoTipoTerapia { get; init; }
+        public string? TercerTratamientoTipoTerapia { get; init; }
+        public string EstadoGestion { get; init; } = string.Empty;
         public DateTime CreatedAtUtc { get; init; }
     }
 }

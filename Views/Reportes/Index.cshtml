@@ -42,8 +42,8 @@
             <select name="Municipio" asp-items="Model.FilterOptions.Municipios"></select>
         </label>
         <label>
-            <span>Auxiliar</span>
-            <select name="Auxiliar" asp-items="Model.FilterOptions.Auxiliares"></select>
+            <span>Programa</span>
+            <select name="Programa" asp-items="Model.FilterOptions.Programas"></select>
         </label>
         <label>
             <span>Gestión</span>
@@ -54,7 +54,7 @@
             <select name="TipoNovedad" asp-items="Model.FilterOptions.TiposNovedad"></select>
         </label>
         <label>
-            <span>Estado</span>
+            <span>Estado Censo Agudos</span>
             <select name="EstadoCenso" asp-items="Model.FilterOptions.EstadosCenso"></select>
         </label>
         <div class="reportes-filter-actions">
@@ -83,7 +83,7 @@
 
     <section class="reportes-kpi-grid">
         <article class="reportes-kpi-card reportes-kpi-card--ink">
-            <span class="reportes-source reportes-source--censo">Censo</span>
+            <span class="reportes-source reportes-source--censo">Censo Agudos</span>
             <span class="reportes-kpi-title">Registros analizados</span>
             <strong class="reportes-kpi-value">@Model.TotalRegistrosCenso.ToString("N0", culture)</strong>
             <span class="reportes-kpi-caption">Base filtrada del tablero</span>
@@ -95,13 +95,13 @@
             <span class="reportes-kpi-caption">@Model.PorcentajeResolucionNovedades.ToString("0.##", culture)% con cierre</span>
         </article>
         <article class="reportes-kpi-card">
-            <span class="reportes-source reportes-source--censo">Censo</span>
+            <span class="reportes-source reportes-source--censo">Censo Agudos</span>
             <span class="reportes-kpi-title">Sin autorización</span>
             <strong class="reportes-kpi-value">@Model.TotalEventosPendientesSinAutorizacion.ToString("N0", culture)</strong>
             <span class="reportes-kpi-caption">Eventos pendientes de autorización</span>
         </article>
         <article class="reportes-kpi-card">
-            <span class="reportes-source reportes-source--censo">Censo</span>
+            <span class="reportes-source reportes-source--censo">Censo Agudos</span>
             <span class="reportes-kpi-title">Gestión pendiente</span>
             <strong class="reportes-kpi-value">@Model.TotalGestionesPendientes.ToString("N0", culture)</strong>
             <span class="reportes-kpi-caption">@Model.PorcentajeGestionPendiente.ToString("0.##", culture)% del periodo</span>
@@ -160,6 +160,7 @@
                     </div>
                 </div>
             }
+
         </article>
 
         <article class="reportes-card">
@@ -198,7 +199,7 @@
         <article class="reportes-card">
             <div class="reportes-card-header">
                 <div>
-                    <span>Censo</span>
+                    <span>Censo Agudos</span>
                     <h2>Ingresos por día</h2>
                 </div>
                 <div class="reportes-chart-metrics">
@@ -238,7 +239,7 @@
         <article class="reportes-card">
             <div class="reportes-card-header">
                 <div>
-                    <span>Censo</span>
+                    <span>Censo Agudos</span>
                     <h2>Gestión pendiente vs completa</h2>
                 </div>
             </div>
@@ -263,6 +264,79 @@
                 <strong>@Model.TotalPendientesCriticos.ToString("N0", culture)</strong>
                 <span>pendientes críticos: sin autorización y con gestión pendiente.</span>
             </div>
+        </article>
+    </section>
+
+    <section class="reportes-grid reportes-grid--wide-left">
+        <article class="reportes-card">
+            <div class="reportes-card-header">
+                <div>
+                    <span>Terapias ambulatorias</span>
+                    <h2>Ingresos por día</h2>
+                </div>
+                <div class="reportes-chart-metrics">
+                    <div>
+                        <span>Total</span>
+                        <strong>@Model.TotalIngresosTerapiaAmbulatoriaPeriodo.ToString("N0", culture)</strong>
+                    </div>
+                    <div class="reportes-chart-average">
+                        <span>Promedio por día</span>
+                        <strong>@Model.PromedioIngresosTerapiaAmbulatoriaPorDia.ToString("N0", culture)</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="reportes-chart-frame">
+                <div class="reportes-y-axis" aria-label="Escala de 0 a @Model.IngresosTerapiaAmbulatoriaPorDia.ScaleMax">
+                    @foreach (var tick in Model.IngresosTerapiaAmbulatoriaPorDia.ScaleTicks)
+                    {
+                        <span>@tick.ToString("N0", culture)</span>
+                    }
+                </div>
+                <div class="reportes-column-chart reportes-column-chart--compact">
+                    @foreach (var point in Model.IngresosTerapiaAmbulatoriaPorDia.Points)
+                    {
+                        <div class="reportes-column reportes-column--therapy">
+                            <div class="reportes-column-track">
+                                <span style="height:@point.Percentage.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
+                            </div>
+                            <strong>@point.Value.ToString("N0", culture)</strong>
+                            <small>@point.Label</small>
+                        </div>
+                    }
+                </div>
+            </div>
+        </article>
+
+        <article class="reportes-card">
+            <div class="reportes-card-header">
+                <div>
+                    <span>Terapias ambulatorias</span>
+                    <h2>Ingresos por tipo</h2>
+                </div>
+            </div>
+
+            @if (Model.IngresosTerapiaAmbulatoriaPorTipo.Count == 0)
+            {
+                <p class="reportes-empty">Sin ingresos por tipo para el filtro actual.</p>
+            }
+            else
+            {
+                <ul class="reportes-bars">
+                    @foreach (var item in Model.IngresosTerapiaAmbulatoriaPorTipo)
+                    {
+                        <li>
+                            <div>
+                                <strong>@item.Label</strong>
+                                <span>@item.Value.ToString("N0", culture) (@item.Percentage.ToString("0.##", culture)%)</span>
+                            </div>
+                            <div class="reportes-bar-track">
+                                <span style="width:@item.BarWidthCss; background:@item.Color"></span>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
         </article>
     </section>
 
@@ -302,8 +376,8 @@
         <article class="reportes-card">
             <div class="reportes-card-header">
                 <div>
-                    <span>Censo</span>
-                    <h2>Eventos sin autorización por auxiliar</h2>
+                    <span>Censo Agudos</span>
+                    <h2>Eventos sin autorización por responsable</h2>
                 </div>
             </div>
 
@@ -335,7 +409,7 @@
         <article class="reportes-card">
             <div class="reportes-card-header">
                 <div>
-                    <span>Censo</span>
+                    <span>Censo Agudos</span>
                     <h2>Focos operativos por municipio</h2>
                 </div>
             </div>
@@ -370,7 +444,7 @@
         <article class="reportes-card">
             <div class="reportes-card-header">
                 <div>
-                    <span>Censo</span>
+                    <span>Censo Agudos</span>
                     <h2>Registros para revisar</h2>
                 </div>
             </div>

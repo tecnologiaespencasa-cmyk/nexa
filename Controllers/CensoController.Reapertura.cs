@@ -157,6 +157,12 @@ public partial class CensoController
         solicitud.ResueltoPorUserId = currentUserId == Guid.Empty ? null : currentUserId;
         solicitud.ResueltoPorNombre = await ResolveUserDisplayNameAsync(currentUserId, cancellationToken);
         solicitud.ResueltoAtUtc = DateTime.UtcNow;
+
+        // Marca persistente en el censo: el paciente tuvo reapertura de kardex (última reapertura gana).
+        record.TuvoReaperturaKardex = true;
+        record.ReaperturaSolicitadaPor = solicitud.SolicitadoPorNombre;
+        record.ReaperturaAprobadaPor = solicitud.ResueltoPorNombre;
+
         await _context.SaveChangesAsync(cancellationToken);
 
         await _auditService.LogAsync("CENSO_REAPERTURA_APROBADA", "Censo",

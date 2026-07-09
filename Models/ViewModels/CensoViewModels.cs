@@ -571,6 +571,10 @@ public class CensoReceptionViewModel
 
     public bool GestionCompleta { get; set; }
 
+    public bool GestionAnalistaAsistencial { get; set; }
+
+    public bool PuedeGestionAnalistaAsistencial { get; set; }
+
     public bool KardexInicialCerrado { get; set; }
 
     public bool ProrrogaCerrada { get; set; }
@@ -667,11 +671,10 @@ public class CensoTerapiaAmbulatoriaViewModel
     [Display(Name = "Edad")]
     public int Edad { get; set; }
 
-    [Required(ErrorMessage = "El correo electrónico es obligatorio.")]
     [StringLength(150, ErrorMessage = "El correo electrónico no puede superar 150 caracteres.")]
     [EmailAddress(ErrorMessage = "Ingresa un correo electrónico válido.")]
     [Display(Name = "Correo electrónico")]
-    public string CorreoElectronico { get; set; } = string.Empty;
+    public string? CorreoElectronico { get; set; }
 
     [Required(ErrorMessage = "La cantidad es obligatoria.")]
     [Range(1, 9999, ErrorMessage = "La cantidad debe estar entre 1 y 9999.")]
@@ -807,7 +810,7 @@ public class CensoTerapiaAmbulatoriaViewModel
     public DateTime? ProrrogaFechaSolicitud { get; set; }
 
     [DataType(DataType.Date)]
-    [Display(Name = "Fecha de solicitud del asegurador")]
+    [Display(Name = "Fecha de solicitud al asegurador")]
     public DateTime? ProrrogaFechaSolicitudAsegurador { get; set; }
 
     [DataType(DataType.Date)]

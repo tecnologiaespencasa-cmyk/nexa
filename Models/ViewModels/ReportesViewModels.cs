@@ -25,9 +25,13 @@ public class ReportesDashboardViewModel
 
     public int TotalIngresosPeriodo { get; init; }
 
+    public int TotalIngresosTerapiaAmbulatoriaPeriodo { get; init; }
+
     public int PromedioNovedadesPorDia { get; init; }
 
     public int PromedioIngresosPorDia { get; init; }
+
+    public int PromedioIngresosTerapiaAmbulatoriaPorDia { get; init; }
 
     public int TotalNovedadesResueltas { get; init; }
 
@@ -45,7 +49,11 @@ public class ReportesDashboardViewModel
 
     public ReportesTrendSeriesViewModel IngresosPorDia { get; init; } = new();
 
+    public ReportesTrendSeriesViewModel IngresosTerapiaAmbulatoriaPorDia { get; init; } = new();
+
     public IReadOnlyList<ReportesCategoryCountViewModel> NovedadesPorTipo { get; init; } = [];
+
+    public IReadOnlyList<ReportesCategoryCountViewModel> IngresosTerapiaAmbulatoriaPorTipo { get; init; } = [];
 
     public IReadOnlyList<ReportesCategoryCountViewModel> EventosPendientesPorAuxiliar { get; init; } = [];
 
@@ -54,6 +62,8 @@ public class ReportesDashboardViewModel
     public IReadOnlyList<ReportesResolutionByTypeViewModel> ResolucionPorTipo { get; init; } = [];
 
     public IReadOnlyList<ReportesOperationalFocusViewModel> FocosOperativos { get; init; } = [];
+
+    public IReadOnlyList<ReportesOperationalFocusViewModel> FocosNoParametrizados { get; init; } = [];
 
     public IReadOnlyList<ReportesRecentRecordViewModel> RegistrosPrioritarios { get; init; } = [];
 
@@ -83,7 +93,7 @@ public class ReportesFilterViewModel
 
     public string? Municipio { get; init; }
 
-    public string? Auxiliar { get; init; }
+    public string? Programa { get; init; }
 
     public string? EstadoGestion { get; init; }
 
@@ -96,7 +106,7 @@ public class ReportesFilterOptionsViewModel
 {
     public IReadOnlyList<SelectListItem> Municipios { get; init; } = [];
 
-    public IReadOnlyList<SelectListItem> Auxiliares { get; init; } = [];
+    public IReadOnlyList<SelectListItem> Programas { get; init; } = [];
 
     public IReadOnlyList<SelectListItem> EstadosGestion { get; init; } = [];
 

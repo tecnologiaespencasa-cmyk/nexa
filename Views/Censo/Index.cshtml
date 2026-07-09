@@ -691,7 +691,7 @@
 
                                     <section class="censo-recepcion-panel censo-recepcion-panel--status">
                                         <div class="censo-recepcion-panel__header">
-                                            <span class="censo-recepcion-panel__eyebrow">Estado</span>
+                                            <span class="censo-recepcion-panel__eyebrow">Estados</span>
                                         </div>
 
                                         <label class="form-label d-block">Gestión completa o pendiente</label>
@@ -703,6 +703,17 @@
                                                 </label>
                                             </div>
                                             <p class="censo-gestion-status-card__hint">Usa este control para diferenciar de inmediato los casos cerrados de los que aun necesitan seguimiento.</p>
+                                        </div>
+
+                                        <label class="form-label d-block mt-3">Gestión Analista asistencial</label>
+                                        <div class="censo-gestion-status-card">
+                                            <div class="form-check form-switch censo-gestion-check">
+                                                <input asp-for="GestionAnalistaAsistencial" class="form-check-input" type="checkbox" role="switch" id="gestionAnalistaSwitch" />
+                                                <label class="form-check-label" for="gestionAnalistaSwitch">
+                                                    <span id="gestionAnalistaTexto">No</span>
+                                                </label>
+                                            </div>
+                                            <p class="censo-gestion-status-card__hint">Solo los perfiles con el permiso <strong>Analista asistencial</strong> pueden activar o desactivar este estado.</p>
                                         </div>
                                     </section>
                                 </div>
@@ -2703,6 +2714,7 @@
             const aprobarReaperturaUrl = "@Url.Action("AprobarReaperturaKardex", "Censo")";
             const rechazarReaperturaUrl = "@Url.Action("RechazarReaperturaKardex", "Censo")";
             const puedeAprobarReapertura = @Json.Serialize(Model.PuedeAprobarReapertura);
+            const puedeGestionAnalistaAsistencial = @Json.Serialize(Model.PuedeGestionAnalistaAsistencial);
             const medicamentoCatalog = @Html.Raw(medicamentoCatalogJson);
             const initialKardexInicialCerrado = @Json.Serialize(Model.KardexInicialCerrado);
             const initialProrrogaCerrada = @Json.Serialize(Model.ProrrogaCerrada);
@@ -3700,11 +3712,19 @@
                 return { fields, medRows };
             };
 
+            // Campos del kardex que provienen de las secciones 1, 2 y 3 (datos del paciente):
+            // siempre se sincronizan desde el formulario actual y NUNCA se restauran del JSON
+            // guardado, para que las correcciones tras una reapertura se reflejen en el documento.
+            const kardexPatientSyncedFields = new Set([
+                "paciente", "asegurador", "documento", "direccion", "telefonos",
+                "edad", "cie10", "diagnostico", "programador", "auxiliarAsignado"
+            ]);
+
             const loadKardexPayload = (payload) => {
                 if (!payload) return;
                 if (payload.fields) {
                     Object.entries(payload.fields).forEach(([key, value]) => {
-                        if (key === "asegurador") return;
+                        if (kardexPatientSyncedFields.has(key)) return;
                         if (key === "observaciones"
                             && String(value || "").trim() === getFormValue("ObservacionesPlanManejo")) {
                             const observationControl = document.querySelector("#censoKardexModal [data-kardex-field='observaciones']");
@@ -3728,10 +3748,18 @@
                 }
             };
 
+            // Igual que en el kardex: los datos del paciente de la requisición se sincronizan
+            // siempre desde el formulario actual, no desde el JSON guardado.
+            const requisitionPatientSyncedFields = new Set([
+                "paciente", "documento", "direccion", "telefonos", "diagnostico",
+                "autorizacion", "auxiliarEncargado", "realizadoPor"
+            ]);
+
             const loadRequisitionPayload = (payload) => {
                 if (!payload) return;
                 if (payload.fields) {
                     Object.entries(payload.fields).forEach(([key, value]) => {
+                        if (requisitionPatientSyncedFields.has(key)) return;
                         const control = document.querySelector(`#censoKardexModal [data-requisition-field='${key}']`);
                         if (control) control.value = value || "";
                     });
@@ -7284,6 +7312,26 @@
                 codigoCie10Input.addEventListener("input", syncCie10Input);
                 codigoCie10Input.addEventListener("blur", () => lookupDiagnosticoByCie10(normalizeCie10InputValue(codigoCie10Input.value)));
                 syncCie10Input();
+            }
+
+            const gestionAnalistaSwitch = document.getElementById("gestionAnalistaSwitch");
+            const gestionAnalistaTexto = document.getElementById("gestionAnalistaTexto");
+            if (gestionAnalistaSwitch && gestionAnalistaTexto) {
+                const syncGestionAnalistaTexto = () => {
+                    gestionAnalistaTexto.textContent = gestionAnalistaSwitch.checked ? "Sí" : "No";
+                };
+                syncGestionAnalistaTexto();
+
+                gestionAnalistaSwitch.addEventListener("click", (event) => {
+                    if (!puedeGestionAnalistaAsistencial) {
+                        event.preventDefault();
+                        showFeedbackModal(
+                            "Permiso requerido",
+                            "<p class=\"mb-0\">No cuentas con el permiso <strong>Analista asistencial</strong> necesario para cambiar este estado. Solicítalo al administrador del sistema.</p>",
+                            "warning");
+                    }
+                });
+                gestionAnalistaSwitch.addEventListener("change", syncGestionAnalistaTexto);
             }
 
             const switchInput = document.getElementById("gestionCompletaSwitch");

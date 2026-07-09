@@ -1088,6 +1088,8 @@ public partial class CensoController : Controller
         long savedRecordId;
         var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
         var auditIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var puedeGestionAnalista = await _currentUserPermissionService.HasPermissionAsync(
+            User, SystemPermissions.AnalistaAsistencial, cancellationToken);
 
         if (model.EditingRecordId is long editingRecordId)
         {
@@ -1106,7 +1108,8 @@ public partial class CensoController : Controller
                 model,
                 direccionParaGuardar,
                 indicadorTiempoRespuestaMinutos,
-                existingRecord.IndicadorTiempoGestionMinutos);
+                existingRecord.IndicadorTiempoGestionMinutos,
+                aplicarGestionAnalistaAsistencial: puedeGestionAnalista);
 
             var auxiliarChanged = !string.Equals(
                 previousAuxiliarAsignado?.Trim(),
@@ -1165,7 +1168,8 @@ public partial class CensoController : Controller
                     model,
                     direccionParaGuardar,
                     indicadorTiempoRespuestaMinutos,
-                    0);
+                    0,
+                    aplicarGestionAnalistaAsistencial: puedeGestionAnalista);
 
                 await _context.Censos.AddAsync(censoRecord, cancellationToken);
                 if (!await TrySaveCensoChangesAsync(model, cancellationToken))
@@ -2919,6 +2923,7 @@ public partial class CensoController : Controller
         model.FechaGestionFarmacia = record.FechaGestionFarmacia != default ? record.FechaGestionFarmacia.Date : null;
         model.HoraGestionFarmacia = record.HoraGestionFarmacia != default ? record.HoraGestionFarmacia : null;
         model.GestionCompleta = string.Equals(record.GestionCompletaPendiente, GestionCompleta, StringComparison.OrdinalIgnoreCase);
+        model.GestionAnalistaAsistencial = record.GestionAnalistaAsistencial;
         model.AsumirDireccionErrada = record.AsumirDireccionErrada;
         model.DireccionEsValida = record.DireccionValidada;
         model.DireccionSugerida = null;
@@ -2934,8 +2939,15 @@ public partial class CensoController : Controller
         CensoReceptionViewModel model,
         string direccionParaGuardar,
         int indicadorTiempoRespuestaMinutos,
-        int indicadorTiempoGestionMinutos)
+        int indicadorTiempoGestionMinutos,
+        bool aplicarGestionAnalistaAsistencial = false)
     {
+        // Solo el permiso AnalistaAsistencial puede modificar este estado; sin permiso se conserva el valor actual.
+        if (aplicarGestionAnalistaAsistencial)
+        {
+            censoRecord.GestionAnalistaAsistencial = model.GestionAnalistaAsistencial;
+        }
+
         // EsProrroga is managed exclusively via GuardarProrroga; never overwrite from main form
         censoRecord.FechaIngreso = model.FechaIngreso.Date;
         censoRecord.HoraIngreso = model.HoraIngreso;
@@ -3169,6 +3181,8 @@ public partial class CensoController : Controller
         ApplyPlanManejoDefaultValues(model);
         model.PuedeAprobarReapertura = await _currentUserPermissionService.HasPermissionAsync(
             User, SystemPermissions.Aprobacion, cancellationToken);
+        model.PuedeGestionAnalistaAsistencial = await _currentUserPermissionService.HasPermissionAsync(
+            User, SystemPermissions.AnalistaAsistencial, cancellationToken);
         model.ReaperturaMotivos = ReaperturaKardexMotivos.Todos;
         model.NursingAssistantOptions = await GetNursingAssistantOptionsAsync(cancellationToken);
         model.OpsAssistantOptions = await GetOpsAssistantOptionsAsync(cancellationToken);
@@ -4907,6 +4921,7 @@ public partial class CensoController : Controller
         AppendHeaderCell(sb, "FechaGestionFarmacia");
         AppendHeaderCell(sb, "HoraGestionFarmacia");
         AppendHeaderCell(sb, "GestionCompletaPendiente");
+        AppendHeaderCell(sb, "GestionAnalistaAsistencial");
         AppendHeaderCell(sb, "IndicadorTiempoRespuestaMinutos");
         AppendHeaderCell(sb, "IndicadorTiempoGestionMinutos");
         AppendHeaderCell(sb, "NombrePerfilGestionaCaso");
@@ -5041,6 +5056,9 @@ public partial class CensoController : Controller
         AppendHeaderCell(sb, "EstadoDevolucionServicioFarmaceutico");
         AppendHeaderCell(sb, "CreatedAtUtc");
         AppendHeaderCell(sb, "Adjuntos");
+        AppendHeaderCell(sb, "TuvoReaperturaKardex");
+        AppendHeaderCell(sb, "Reapertura_SolicitadaPor");
+        AppendHeaderCell(sb, "Reapertura_AprobadaPor");
         AppendHeaderCell(sb, "Prorroga_Tipo");
         AppendHeaderCell(sb, "Prorroga_MedicamentoPrincipal");
         AppendHeaderCell(sb, "Prorroga_Dosis");
@@ -5107,6 +5125,7 @@ public partial class CensoController : Controller
             AppendDataCell(sb, item.FechaGestionFarmacia.ToString("yyyy-MM-dd"));
             AppendDataCell(sb, item.HoraGestionFarmacia.ToString(@"hh\:mm"));
             AppendDataCell(sb, item.GestionCompletaPendiente);
+            AppendDataCell(sb, item.GestionAnalistaAsistencial ? "Sí" : "No");
             AppendDataCell(sb, item.IndicadorTiempoRespuestaMinutos.ToString());
             AppendDataCell(sb, item.IndicadorTiempoGestionMinutos.ToString());
             AppendDataCell(sb, item.NombrePerfilGestionaCaso);
@@ -5241,6 +5260,9 @@ public partial class CensoController : Controller
             AppendDataCell(sb, item.EstadoDevolucionServicioFarmaceutico ?? string.Empty);
             AppendDataCell(sb, item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"));
             AppendDataCell(sb, idsConAdjuntos?.Contains(item.Id) == true ? "Sí" : "No");
+            AppendDataCell(sb, item.TuvoReaperturaKardex ? "Sí" : "No");
+            AppendDataCell(sb, item.ReaperturaSolicitadaPor ?? string.Empty);
+            AppendDataCell(sb, item.ReaperturaAprobadaPor ?? string.Empty);
             ProrrogaExportDto? prorroga = null;
             if (!string.IsNullOrWhiteSpace(item.ProrrogaJson))
             {

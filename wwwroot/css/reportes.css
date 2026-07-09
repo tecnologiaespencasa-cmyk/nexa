@@ -493,6 +493,10 @@
   background: linear-gradient(180deg, #0f766e, #22c55e);
 }
 
+.reportes-column--therapy .reportes-column-track span {
+  background: linear-gradient(180deg, #0891b2, #14b8a6);
+}
+
 .reportes-column strong {
   color: #10223d;
   font-size: 0.82rem;

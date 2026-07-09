@@ -17,6 +17,14 @@ public class CensoRecord
 
     public long? KardexCerradoPorFarmaciaId { get; set; }
 
+    public bool TuvoReaperturaKardex { get; set; }
+
+    [StringLength(200)]
+    public string? ReaperturaSolicitadaPor { get; set; }
+
+    [StringLength(200)]
+    public string? ReaperturaAprobadaPor { get; set; }
+
     public DateTime? ProrrogaCerradaAtUtc { get; set; }
 
     public long? ProrrogaCerradaPorFarmaciaId { get; set; }
@@ -421,6 +429,8 @@ public class CensoRecord
     [Required]
     [StringLength(20)]
     public string GestionCompletaPendiente { get; set; } = "Pendiente";
+
+    public bool GestionAnalistaAsistencial { get; set; }
 
     public DateTime? FarmaciaEnviadoAtUtc { get; set; }
 
