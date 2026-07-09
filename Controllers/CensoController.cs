@@ -8,6 +8,8 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using IntranetPrueba.Data;
 using IntranetPrueba.Data.Entities;
+using IntranetPrueba.Helpers;
+using IntranetPrueba.Models.Reports;
 using IntranetPrueba.Models.Security;
 using IntranetPrueba.Models.ViewModels;
 using IntranetPrueba.Services.Interfaces;
@@ -2361,6 +2363,105 @@ public partial class CensoController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> ExportarPacientesActivos(CancellationToken cancellationToken)
+    {
+        var currentDate = ColombiaTime.Convert(DateTime.UtcNow).Date;
+        var censoCandidates = await _context.Censos
+            .AsNoTracking()
+            .Where(x => x.Estado != null
+                && (EF.Functions.ILike(x.Estado, "Aceptado activo")
+                    || EF.Functions.ILike(x.Estado, "Aceptado cronico")
+                    || EF.Functions.ILike(x.Estado, "Aceptado crónico")
+                    || EF.Functions.ILike(x.Estado, "Activo Estancia prolongada")
+                    || EF.Functions.ILike(x.Estado, "Aceptado estancia prolongada")))
+            .Select(x => new
+            {
+                x.Id,
+                x.FechaIngreso,
+                x.NombrePaciente,
+                x.TipoIdentificacion,
+                x.NumeroIdentificacion,
+                x.ClasificacionZonaSura,
+                x.DiagnosticoDescriptivo,
+                x.Programa,
+                x.Asegurador,
+                x.Estado
+            })
+            .ToListAsync(cancellationToken);
+
+        var censoRows = censoCandidates
+            .GroupBy(x => x.NumeroIdentificacion, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(x => x.FechaIngreso)
+                .ThenByDescending(x => x.Id)
+                .First())
+            .Select(x => new ActivePatientReportRow
+            {
+                CurrentDate = currentDate,
+                FullName = x.NombrePaciente,
+                IdentificationType = x.TipoIdentificacion,
+                IdentificationNumber = x.NumeroIdentificacion,
+                Zone = x.ClasificacionZonaSura,
+                AdmissionDate = x.FechaIngreso.Date,
+                LengthOfStayDays = Math.Max(0, (currentDate - x.FechaIngreso.Date).Days),
+                Diagnosis = x.DiagnosticoDescriptivo,
+                Program = NormalizeActivePatientProgram(x.Programa, x.Estado),
+                Insurer = x.Asegurador
+            })
+            .ToList();
+
+        var terapiaCandidates = await _context.CensoTerapiasAmbulatorias
+            .AsNoTracking()
+            .Where(x => EF.Functions.ILike(x.EstadoPaciente, "Activo")
+                && !EF.Functions.ILike(x.EstadoAlta, "Cerrado"))
+            .Select(x => new
+            {
+                x.Id,
+                x.FechaInicio,
+                x.NombrePaciente,
+                x.TipoIdentificacion,
+                x.NumeroIdentificacion,
+                x.ClasificacionZonaSura,
+                x.DiagnosticoDescriptivo
+            })
+            .ToListAsync(cancellationToken);
+
+        var terapiaRows = terapiaCandidates
+            .GroupBy(x => x.NumeroIdentificacion, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(x => x.FechaInicio)
+                .ThenByDescending(x => x.Id)
+                .First())
+            .Select(x => new ActivePatientReportRow
+            {
+                CurrentDate = currentDate,
+                FullName = x.NombrePaciente,
+                IdentificationType = x.TipoIdentificacion,
+                IdentificationNumber = x.NumeroIdentificacion,
+                Zone = x.ClasificacionZonaSura ?? string.Empty,
+                AdmissionDate = x.FechaInicio.Date,
+                LengthOfStayDays = Math.Max(0, (currentDate - x.FechaInicio.Date).Days),
+                Diagnosis = x.DiagnosticoDescriptivo,
+                Program = "Terapia ambulatoria",
+                Insurer = "EPS SURA"
+            })
+            .ToList();
+
+        var rows = censoRows
+            .Concat(terapiaRows)
+            .OrderBy(x => x.FullName)
+            .ThenBy(x => x.Program)
+            .ToList();
+
+        var workbook = ExcelWorkbookWriter.BuildActivePatientsWorkbook(rows, DateTime.UtcNow);
+        var fileName = $"Informe_pacientes_activos_{currentDate:yyyyMMdd}.xlsx";
+        return File(
+            workbook,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            fileName);
+    }
+
+    [HttpGet]
     public async Task<IActionResult> ExportarExcelFiltroPersonalizado(
         string? cedulaPaciente,
         DateTime? fechaIngresoDesde,
@@ -2407,6 +2508,20 @@ public partial class CensoController : Controller
             .ToListAsync(cancellationToken);
 
         return [.. idsConAdjuntos];
+    }
+
+    private static string NormalizeActivePatientProgram(string? program, string? state)
+    {
+        if (!string.IsNullOrWhiteSpace(program))
+        {
+            return program.Contains("cron", StringComparison.OrdinalIgnoreCase)
+                ? "Cronico"
+                : "Agudo";
+        }
+
+        return state?.Contains("cron", StringComparison.OrdinalIgnoreCase) == true
+            ? "Cronico"
+            : "Agudo";
     }
 
     private async Task PopulateCensoListAndLatestRecordAsync(
@@ -3479,12 +3594,6 @@ public partial class CensoController : Controller
                 ModelState.AddModelError(
                     nameof(model.AutorizacionEvento),
                     "Debes diligenciar la autorización evento antes de seleccionar un estado de alta.");
-            }
-            if (hasMedicationAdministration && string.IsNullOrWhiteSpace(model.AuxiliarAsignado))
-            {
-                ModelState.AddModelError(
-                    nameof(model.AuxiliarAsignado),
-                    "Debes diligenciar el auxiliar asignado en la sección 3 antes de seleccionar un estado de alta.");
             }
         }
         AddRequiredFieldErrorIfBlank(model.ResponsableLlamadaBienvenida, nameof(model.ResponsableLlamadaBienvenida), "Selecciona el responsable de llamada de bienvenida.");

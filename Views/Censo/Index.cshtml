@@ -2224,6 +2224,13 @@
                 <strong>@Model.IngresosHoyCount</strong>
                 <small>Calculado por la fecha de ingreso del día actual.</small>
             </div>
+            <div class="censo-history-export-card">
+                <div>
+                    <span>Informe</span>
+                    <strong>Pacientes activos</strong>
+                </div>
+                <a asp-action="ExportarPacientesActivos" download>Descargar Excel</a>
+            </div>
             <form method="get" asp-action="ProgramaAgudos" class="censo-history-filter" aria-label="Filtro por rango de fecha de ingreso">
                 @if (!string.IsNullOrWhiteSpace(Model.CedulaFiltro))
                 {
@@ -4818,9 +4825,6 @@
 
                         if (estadoSelect && String(estadoSelect.value || "").toLowerCase().includes("alta")) {
                             required.push("AutorizacionEvento");
-                            if (hasMedicationAdministration) {
-                                required.push("AuxiliarAsignado");
-                            }
                         }
 
                         if (isCallEfectivo) {
