@@ -548,6 +548,11 @@ public partial class CensoController : Controller
         "SANTA ROSA DE OSOS",
         "RIONEGRO",
         "SAN FELIX",
+        "SAN ANTONIO DE PRADO",
+        "SAN CRISTOBAL",
+        "SANTA ELENA",
+        "ALTAVISTA",
+        "SAN SEBASTIAN DE PALMITAS",
         MunicipioNoParametrizado
     ];
 
@@ -4893,6 +4898,10 @@ public partial class CensoController : Controller
             "RIONEGRO" or "ELCARMENDEVIBORAL" or "ELSANTUARIO" or "GUARNE" or "GUATAPE" or "LACEJA" or "LAUNION" or "MARINILLA" or "PEÑOL" or "PENOL" or "RETIRO" or "SANVICENTEDEFERRER" => "Oriente Antioqueño",
             "BELLO" or "DONMATIAS" or "SANPEDRODELOSMILAGROS" or "SANTAROSADEOSOS" => "Norte",
             "ENVIGADO" or "ITAGUI" or "SABANETA" => "Sur",
+            // Corregimientos de Medellín, ubicados según la zona geográfica de la ciudad.
+            "SANANTONIODEPRADO" or "ALTAVISTA" => "Sur Occidental",
+            "SANCRISTOBAL" or "SANSEBASTIANDEPALMITAS" => "Nor Occidental",
+            "SANTAELENA" => "Centro Oriental",
             "NOPARAMETRIZADO" or "SANFELIX" => "No Parametrizado",
             _ => "No Parametrizado"
         };

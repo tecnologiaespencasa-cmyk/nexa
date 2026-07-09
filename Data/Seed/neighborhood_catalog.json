@@ -775,5 +775,68 @@
   ],
   "NOPARAMETRIZADO": [
     "NO PARAMETRIZADO"
+  ],
+  "SAN ANTONIO DE PRADO": [
+    "San Antonio de Prado",
+    "Potrerito",
+    "La Florida",
+    "Yarumalito",
+    "El Salado",
+    "La Verde",
+    "Montanita",
+    "Astilleros",
+    "El Vergel",
+    "San Jose",
+    "NO PARAMETRIZADO"
+  ],
+  "SAN CRISTOBAL": [
+    "San Cristobal",
+    "La Loma",
+    "Pajarito",
+    "Pedregal Alto",
+    "Pedregal Bajo",
+    "Travesias",
+    "El Llano",
+    "San Jose de la Montana",
+    "Boqueron",
+    "La Palma",
+    "NO PARAMETRIZADO"
+  ],
+  "SANTA ELENA": [
+    "Santa Elena",
+    "El Placer",
+    "El Plan",
+    "El Cerro",
+    "El Llano",
+    "Barro Blanco",
+    "Mazo",
+    "Piedras Blancas",
+    "Piedra Gorda",
+    "Media Luna",
+    "El Porvenir",
+    "Las Palmas",
+    "NO PARAMETRIZADO"
+  ],
+  "ALTAVISTA": [
+    "Altavista",
+    "Altavista Central",
+    "Buga Patio Bonito",
+    "Aguas Frias",
+    "El Corazon El Morro",
+    "San Jose del Manzanillo",
+    "San Pablo",
+    "La Esperanza",
+    "NO PARAMETRIZADO"
+  ],
+  "SAN SEBASTIAN DE PALMITAS": [
+    "San Sebastian de Palmitas",
+    "La Aldea",
+    "La Frisola",
+    "La Potrera Miserenga",
+    "La Suiza",
+    "La Sucia",
+    "Urquita",
+    "Volcana Guayabal",
+    "NO PARAMETRIZADO"
   ]
 }
