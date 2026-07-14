@@ -159,6 +159,157 @@ public class SharePointDocumentService : ISharePointDocumentService
         }
     }
 
+    public async Task<ServiceResult> UploadPanAmericanDocumentsAsync(
+        string patientName,
+        string documentNumber,
+        IReadOnlyList<IFormFile> files,
+        CancellationToken cancellationToken = default)
+    {
+        var validFiles = files
+            .Where(file => file.Length > 0)
+            .ToList();
+
+        if (validFiles.Count == 0)
+        {
+            return ServiceResult.Failure("Selecciona al menos un documento para adjuntar.");
+        }
+
+        if (validFiles.Any(file => file.Length > MaxFileBytes))
+        {
+            return ServiceResult.Failure("Cada documento adjunto debe pesar máximo 50 MB.");
+        }
+
+        var config = GetConfig();
+        if (!config.IsComplete)
+        {
+            return ServiceResult.Failure("SharePoint no esta configurado. Define SHAREPOINT_LIBRARY, SHAREPOINT_LIBRARY_ID, SHAREPOINT_SITE_ID y las credenciales Graph.");
+        }
+
+        try
+        {
+            var token = await GetAccessTokenAsync(config, cancellationToken);
+            var folderSegments = BuildPanAmericanFolderSegments();
+            var folderPath = string.Join("/", folderSegments);
+            var ensured = await EnsureFolderPathAsync(config.LibraryId!, folderSegments, token, cancellationToken);
+            if (!ensured.Succeeded)
+            {
+                return ensured;
+            }
+
+            var patientPrefix = BuildPatientFolderName(patientName, documentNumber);
+            foreach (var file in validFiles)
+            {
+                var originalName = SanitizeSharePointName(Path.GetFileName(file.FileName), "documento-adjunto");
+                var fileName = SanitizeSharePointName($"{patientPrefix} - {originalName}", "documento-adjunto");
+                var path = EscapeGraphPath($"{folderPath}/{fileName}");
+                using var uploadRequest = new HttpRequestMessage(
+                    HttpMethod.Put,
+                    $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(config.LibraryId!)}/root:/{path}:/content");
+                uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                uploadRequest.Content = new StreamContent(file.OpenReadStream());
+                uploadRequest.Content.Headers.ContentType = new MediaTypeHeaderValue(
+                    string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
+
+                using var uploadResponse = await _httpClient.SendAsync(uploadRequest, cancellationToken);
+                if (!uploadResponse.IsSuccessStatusCode)
+                {
+                    var body = await uploadResponse.Content.ReadAsStringAsync(cancellationToken);
+                    _logger.LogWarning("SharePoint PanAmerican upload failed with status {StatusCode}: {Body}", uploadResponse.StatusCode, body);
+                    return ServiceResult.Failure($"No fue posible subir {fileName} a SharePoint. Estado: {(int)uploadResponse.StatusCode}.");
+                }
+            }
+
+            return ServiceResult.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SharePoint PanAmerican document upload failed.");
+            return ServiceResult.Failure("No fue posible subir los documentos a SharePoint.");
+        }
+    }
+
+    public async Task<ServiceResult<IReadOnlyList<SharePointDocumentItem>>> ListPanAmericanDocumentsAsync(
+        string patientName,
+        string documentNumber,
+        CancellationToken cancellationToken = default)
+    {
+        var config = GetConfig();
+        if (!config.IsComplete)
+        {
+            return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Failure(
+                "SharePoint no esta configurado. Define SHAREPOINT_LIBRARY, SHAREPOINT_LIBRARY_ID, SHAREPOINT_SITE_ID y las credenciales Graph.");
+        }
+
+        try
+        {
+            var token = await GetAccessTokenAsync(config, cancellationToken);
+            var folderSegments = BuildPanAmericanFolderSegments();
+            var path = EscapeGraphPath(string.Join("/", folderSegments));
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(config.LibraryId!)}/root:/{path}:/children?$select=name,webUrl,size,lastModifiedDateTime,file&$orderby=name");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Success([]);
+            }
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("SharePoint PanAmerican list failed with status {StatusCode}: {Body}", response.StatusCode, body);
+                return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Failure(
+                    $"No fue posible consultar los adjuntos en SharePoint. Estado: {(int)response.StatusCode}.");
+            }
+
+            var patientPrefix = BuildPatientFolderName(patientName, documentNumber);
+            var result = JsonSerializer.Deserialize<GraphChildrenResponse>(body, JsonOptions);
+            var items = result?.Value
+                .Where(item => item.File is not null
+                    && (item.Name ?? string.Empty).StartsWith(patientPrefix, StringComparison.OrdinalIgnoreCase))
+                .Select(item => new SharePointDocumentItem
+                {
+                    Name = item.Name ?? "Documento",
+                    WebUrl = item.WebUrl ?? string.Empty,
+                    Size = item.Size,
+                    LastModifiedAt = item.LastModifiedDateTime
+                })
+                .ToList() ?? [];
+
+            return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Success(items);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SharePoint PanAmerican document list failed.");
+            return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Failure(
+                "No fue posible consultar los adjuntos en SharePoint.");
+        }
+    }
+
+    private IReadOnlyList<string> BuildPanAmericanFolderSegments()
+    {
+        var folderPath = GetConfigValue("SHAREPOINT_PANAMERICAN_FOLDER", "SharePoint:PanAmericanFolder");
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            folderPath = "DocumentosPamAmerican";
+        }
+
+        var segments = folderPath
+            .Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(segment => SanitizeSharePointName(segment, "DocumentosPamAmerican"))
+            .Where(segment => !string.IsNullOrWhiteSpace(segment))
+            .ToList();
+
+        if (segments.Count == 0)
+        {
+            segments.Add("DocumentosPamAmerican");
+        }
+
+        return segments;
+    }
+
     private async Task<ServiceResult> EnsureFolderPathAsync(
         string driveId,
         IReadOnlyList<string> folderSegments,

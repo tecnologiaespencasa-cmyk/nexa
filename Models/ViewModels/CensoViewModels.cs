@@ -594,6 +594,43 @@ public class CensoReceptionViewModel
     public IReadOnlyList<SelectListItem> IpsQueRemiteOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> VistoBuenoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AseguradorOptions { get; set; } = [];
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha de la cirugía")]
+    public DateTime? PanAmericanFechaCirugia { get; set; }
+
+    [StringLength(200, ErrorMessage = "El nombre del cirujano no puede superar 200 caracteres.")]
+    [Display(Name = "Nombre del cirujano")]
+    public string? PanAmericanNombreCirujano { get; set; }
+
+    [StringLength(150)]
+    [Display(Name = "IPS quirúrgica")]
+    public string? PanAmericanIpsQuirurgica { get; set; }
+
+    [StringLength(200)]
+    [Display(Name = "Procedimiento que se realiza")]
+    public string? PanAmericanProcedimiento { get; set; }
+
+    [Display(Name = "Activador de la póliza")]
+    public List<string> PanAmericanActivadorPoliza { get; set; } = [];
+
+    [StringLength(2)]
+    [Display(Name = "Carta de autorización")]
+    public string? PanAmericanCartaAutorizacion { get; set; }
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha de solicitud")]
+    public DateTime? PanAmericanFechaSolicitud { get; set; }
+
+    [StringLength(100, ErrorMessage = "El número de autorización no puede superar 100 caracteres.")]
+    [Display(Name = "Número de autorización")]
+    public string? PanAmericanNumeroAutorizacion { get; set; }
+
+    public IReadOnlyList<SelectListItem> PanAmericanIpsQuirurgicaOptions { get; set; } = [];
+
+    public IReadOnlyList<SelectListItem> PanAmericanProcedimientoOptions { get; set; } = [];
+
+    public IReadOnlyList<string> PanAmericanActivadorPolizaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> ClasificacionRiesgoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AdministracionMedicamentosOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> CambioFrecuenciaAdministracionTtoOptions { get; set; } = [];

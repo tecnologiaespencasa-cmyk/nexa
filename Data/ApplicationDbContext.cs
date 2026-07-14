@@ -446,6 +446,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     private static void ConfigureCensoDateAndTimeColumns(EntityTypeBuilder<CensoRecord> entity)
     {
+        entity.Property(x => x.PanAmericanFechaCirugia).HasColumnType("date");
+        entity.Property(x => x.PanAmericanFechaSolicitud).HasColumnType("date");
         entity.Property(x => x.FechaIngreso).HasColumnType("date");
         entity.Property(x => x.FechaRespuesta).HasColumnType("date");
         entity.Property(x => x.FechaNacimiento).HasColumnType("date");

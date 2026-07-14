@@ -15,4 +15,15 @@ public interface ISharePointDocumentService
         string patientName,
         string documentNumber,
         CancellationToken cancellationToken = default);
+
+    Task<ServiceResult> UploadPanAmericanDocumentsAsync(
+        string patientName,
+        string documentNumber,
+        IReadOnlyList<IFormFile> files,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<IReadOnlyList<SharePointDocumentItem>>> ListPanAmericanDocumentsAsync(
+        string patientName,
+        string documentNumber,
+        CancellationToken cancellationToken = default);
 }

@@ -182,6 +182,24 @@ public class UserAdministrationController : Controller
     }
 
     [HttpPost]
+    public async Task<IActionResult> EditNursingAssistant(int id, string? name, CancellationToken cancellationToken)
+    {
+        var result = await _userAdministrationService.UpdateNursingAssistantNameAsync(
+            nursingAssistantId: id,
+            name: name,
+            performedByUserId: GetCurrentUserId(),
+            ipAddress: GetClientIpAddress(),
+            cancellationToken: cancellationToken);
+
+        TempData[result.Succeeded ? "SuccessMessage" : "ErrorMessage"] =
+            result.Succeeded
+                ? "Nombre del auxiliar actualizado correctamente."
+                : result.ErrorMessage ?? "No fue posible actualizar el nombre del auxiliar.";
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
     public async Task<IActionResult> SetNursingAssistantStatus(int id, bool isActive, CancellationToken cancellationToken)
     {
         var result = await _userAdministrationService.SetNursingAssistantStatusAsync(

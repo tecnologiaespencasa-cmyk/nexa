@@ -109,13 +109,24 @@
                         @foreach (var assistant in Model.NursingAssistants)
                         {
                             <tr>
-                                <td>@assistant.Name</td>
+                                <td>
+                                    <span data-assistant-display="@assistant.Id">@assistant.Name</span>
+                                    <form asp-action="EditNursingAssistant" method="post" class="d-none" data-assistant-form="@assistant.Id">
+                                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                                            <input type="hidden" name="id" value="@assistant.Id" />
+                                            <input type="text" name="name" class="form-control form-control-sm" value="@assistant.Name" maxlength="120" minlength="3" required style="max-width:320px;" aria-label="Nuevo nombre del auxiliar" />
+                                            <button type="submit" class="btn btn-sm btn-success">Guardar</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" data-assistant-cancel="@assistant.Id">Cancelar</button>
+                                        </div>
+                                    </form>
+                                </td>
                                 <td>
                                     <span class="badge @(assistant.IsActive ? "text-bg-success" : "text-bg-secondary")">
                                         @(assistant.IsActive ? "Activo" : "Inactivo")
                                     </span>
                                 </td>
                                 <td class="text-end">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" data-assistant-edit="@assistant.Id">Editar</button>
                                     <form asp-action="SetNursingAssistantStatus" method="post" class="d-inline">
                                         <input type="hidden" name="id" value="@assistant.Id" />
                                         <input type="hidden" name="isActive" value="@(!assistant.IsActive)" />
@@ -228,4 +239,31 @@
 @section Scripts
 {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const toggleAssistantEdit = (assistantId, editing) => {
+                const display = document.querySelector(`[data-assistant-display='${assistantId}']`);
+                const form = document.querySelector(`[data-assistant-form='${assistantId}']`);
+                if (!display || !form) return;
+                display.classList.toggle("d-none", editing);
+                form.classList.toggle("d-none", !editing);
+                if (editing) {
+                    const input = form.querySelector("input[name='name']");
+                    if (input) {
+                        input.value = display.textContent.trim();
+                        input.focus();
+                        input.select();
+                    }
+                }
+            };
+
+            document.querySelectorAll("[data-assistant-edit]").forEach((button) => {
+                button.addEventListener("click", () => toggleAssistantEdit(button.dataset.assistantEdit, true));
+            });
+
+            document.querySelectorAll("[data-assistant-cancel]").forEach((button) => {
+                button.addEventListener("click", () => toggleAssistantEdit(button.dataset.assistantCancel, false));
+            });
+        })();
+    </script>
 }

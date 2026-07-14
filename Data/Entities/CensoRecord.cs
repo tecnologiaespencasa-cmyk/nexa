@@ -432,6 +432,28 @@ public class CensoRecord
 
     public bool GestionAnalistaAsistencial { get; set; }
 
+    public DateTime? PanAmericanFechaCirugia { get; set; }
+
+    [StringLength(200)]
+    public string? PanAmericanNombreCirujano { get; set; }
+
+    [StringLength(150)]
+    public string? PanAmericanIpsQuirurgica { get; set; }
+
+    [StringLength(200)]
+    public string? PanAmericanProcedimiento { get; set; }
+
+    [StringLength(300)]
+    public string? PanAmericanActivadorPoliza { get; set; }
+
+    [StringLength(2)]
+    public string? PanAmericanCartaAutorizacion { get; set; }
+
+    public DateTime? PanAmericanFechaSolicitud { get; set; }
+
+    [StringLength(100)]
+    public string? PanAmericanNumeroAutorizacion { get; set; }
+
     public DateTime? FarmaciaEnviadoAtUtc { get; set; }
 
     public DateTime? FarmaciaKardexVistoAtUtc { get; set; }

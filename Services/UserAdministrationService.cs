@@ -367,6 +367,58 @@ public class UserAdministrationService : IUserAdministrationService
         return ServiceResult.Success();
     }
 
+    public async Task<ServiceResult> UpdateNursingAssistantNameAsync(
+        int nursingAssistantId,
+        string? name,
+        Guid performedByUserId,
+        string? ipAddress,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedName = NormalizeOptionalText(name);
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            return ServiceResult.Failure("El nombre del auxiliar es obligatorio.");
+        }
+
+        if (normalizedName.Length is < 3 or > 120)
+        {
+            return ServiceResult.Failure("El nombre debe tener entre 3 y 120 caracteres.");
+        }
+
+        var nursingAssistant = await _repository.GetNursingAssistantByIdAsync(nursingAssistantId, cancellationToken);
+        if (nursingAssistant is null)
+        {
+            return ServiceResult.Failure("El auxiliar no existe.");
+        }
+
+        var normalized = normalizedName.ToUpperInvariant();
+        if (nursingAssistant.NormalizedName == normalized && nursingAssistant.Name == normalizedName)
+        {
+            return ServiceResult.Success();
+        }
+
+        var existingAssistants = await _repository.GetNursingAssistantsAsync(onlyActive: false, cancellationToken);
+        if (existingAssistants.Any(x => x.Id != nursingAssistantId && x.NormalizedName == normalized))
+        {
+            return ServiceResult.Failure("Ya existe otro auxiliar con ese nombre.");
+        }
+
+        var previousName = nursingAssistant.Name;
+        nursingAssistant.Name = normalizedName;
+        nursingAssistant.NormalizedName = normalized;
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditService.LogAsync(
+            action: "NURSING_ASSISTANT_RENAMED",
+            entity: "NursingAssistant",
+            details: $"Auxiliar renombrado: {previousName} => {normalizedName}.",
+            performedByUserId: performedByUserId,
+            ipAddress: ipAddress,
+            cancellationToken: cancellationToken);
+
+        return ServiceResult.Success();
+    }
+
     public async Task<ServiceResult> AddOpsAssistantAsync(
         CreateOpsAssistantRequest request,
         Guid performedByUserId,

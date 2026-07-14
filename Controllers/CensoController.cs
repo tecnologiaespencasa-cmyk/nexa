@@ -273,6 +273,17 @@ public partial class CensoController : Controller
     private static readonly string[] ClasificacionZonaSuraValues = ["Valle de aburra", "Oriente"];
     private static readonly string[] VistoBuenoValues = ["Si", "No"];
     private static readonly string[] AseguradorValues = ["EPS SURA", "PAN-AMERICAN LIFE DE COLOMBIA", "PARTICULAR"];
+    private const string AseguradorPanAmerican = "PAN-AMERICAN LIFE DE COLOMBIA";
+    private static readonly string[] PanAmericanIpsQuirurgicaValues = ["Pendiente 1", "Pendiente 2", "Pendiente 3"];
+    private static readonly string[] PanAmericanProcedimientoValues = ["Pendiente 1", "Pendiente 2", "Pendiente 3"];
+    private static readonly string[] PanAmericanActivadorPolizaValues =
+    [
+        "Paciente",
+        "Cuidador",
+        "Cirujano / Secretario",
+        "Asegurador",
+        "Asesor comercial"
+    ];
     private static readonly string[] ClasificacionRiesgoValues = ["Bajo", "Medio", "Alto"];
     private static readonly string[] AdministracionMedicamentosValues = ["Si", "No"];
     private static readonly string[] ProgramaValues = ["Agudo", "Cronico"];
@@ -2081,6 +2092,83 @@ public partial class CensoController : Controller
     }
 
     [HttpPost]
+    [RequestSizeLimit(120L * 1024 * 1024)]
+    public async Task<IActionResult> SubirAdjuntoPanAmerican(long id, List<IFormFile>? files, CancellationToken cancellationToken)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new { message = "Guarda el paciente antes de adjuntar documentos." });
+        }
+
+        var record = await _context.Censos
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => new { x.NombrePaciente, x.NumeroIdentificacion })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (record is null)
+        {
+            return NotFound(new { message = "Registro no encontrado." });
+        }
+
+        if (files is null || files.Count == 0)
+        {
+            return BadRequest(new { message = "Selecciona al menos un documento para adjuntar." });
+        }
+
+        var result = await _sharePointDocumentService.UploadPanAmericanDocumentsAsync(
+            record.NombrePaciente,
+            record.NumeroIdentificacion,
+            files,
+            cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(new { message = result.ErrorMessage ?? "No fue posible subir los documentos a SharePoint." });
+        }
+
+        var panAmericanAuditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var panAmUid) ? (Guid?)panAmUid : null;
+        await _auditService.LogAsync("CENSO_ADJUNTO_PANAMERICAN", "Censo",
+            $"Paciente: {record.NombrePaciente}, Doc: {record.NumeroIdentificacion}, Archivos: {files.Count}",
+            panAmericanAuditUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new { message = "Documentos adjuntos guardados en SharePoint correctamente." });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ObtenerAdjuntosPanAmerican(long id, CancellationToken cancellationToken)
+    {
+        if (id <= 0)
+        {
+            return Json(new { items = Array.Empty<object>() });
+        }
+
+        var record = await _context.Censos
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => new { x.NombrePaciente, x.NumeroIdentificacion })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (record is null)
+        {
+            return NotFound(new { message = "Registro no encontrado." });
+        }
+
+        var result = await _sharePointDocumentService.ListPanAmericanDocumentsAsync(
+            record.NombrePaciente,
+            record.NumeroIdentificacion,
+            cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return Json(new { items = Array.Empty<object>(), error = result.ErrorMessage });
+        }
+
+        return Json(new
+        {
+            items = (result.Value ?? []).Select(item => new { name = item.Name, webUrl = item.WebUrl })
+        });
+    }
+
+    [HttpPost]
     public async Task<IActionResult> ValidarDireccion([FromBody] ValidateAddressRequest request, CancellationToken cancellationToken)
     {
         var direccion = request?.Direccion?.Trim() ?? string.Empty;
@@ -2901,6 +2989,18 @@ public partial class CensoController : Controller
         model.Telefono2 = record.Telefono2;
         model.Telefono3 = record.Telefono3;
         model.Asegurador = record.Asegurador;
+        model.PanAmericanFechaCirugia = record.PanAmericanFechaCirugia;
+        model.PanAmericanNombreCirujano = record.PanAmericanNombreCirujano;
+        model.PanAmericanIpsQuirurgica = record.PanAmericanIpsQuirurgica;
+        model.PanAmericanProcedimiento = record.PanAmericanProcedimiento;
+        model.PanAmericanActivadorPoliza = string.IsNullOrWhiteSpace(record.PanAmericanActivadorPoliza)
+            ? []
+            : record.PanAmericanActivadorPoliza
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+        model.PanAmericanCartaAutorizacion = record.PanAmericanCartaAutorizacion;
+        model.PanAmericanFechaSolicitud = record.PanAmericanFechaSolicitud;
+        model.PanAmericanNumeroAutorizacion = record.PanAmericanNumeroAutorizacion;
         model.ClasificacionRiesgo = record.ClasificacionRiesgo;
         model.AdministracionMedicamentos = record.AdministracionMedicamentos;
         model.NombreMedicamentoPrincipalTratante = record.NombreMedicamentoPrincipalTratante;
@@ -3102,6 +3202,35 @@ public partial class CensoController : Controller
         if (!censoRecord.KardexCerradoAtUtc.HasValue)
         {
             censoRecord.Asegurador = model.Asegurador;
+            if (string.Equals(model.Asegurador?.Trim(), AseguradorPanAmerican, StringComparison.OrdinalIgnoreCase))
+            {
+                censoRecord.PanAmericanFechaCirugia = model.PanAmericanFechaCirugia?.Date;
+                censoRecord.PanAmericanNombreCirujano = string.IsNullOrWhiteSpace(model.PanAmericanNombreCirujano) ? null : model.PanAmericanNombreCirujano.Trim();
+                censoRecord.PanAmericanIpsQuirurgica = string.IsNullOrWhiteSpace(model.PanAmericanIpsQuirurgica) ? null : model.PanAmericanIpsQuirurgica.Trim();
+                censoRecord.PanAmericanProcedimiento = string.IsNullOrWhiteSpace(model.PanAmericanProcedimiento) ? null : model.PanAmericanProcedimiento.Trim();
+                var activadoresPoliza = (model.PanAmericanActivadorPoliza ?? [])
+                    .Where(value => PanAmericanActivadorPolizaValues.Contains(value, StringComparer.OrdinalIgnoreCase))
+                    .ToList();
+                censoRecord.PanAmericanActivadorPoliza = activadoresPoliza.Count == 0 ? null : string.Join(", ", activadoresPoliza);
+                var cartaAutorizacion = model.PanAmericanCartaAutorizacion?.Trim();
+                censoRecord.PanAmericanCartaAutorizacion = string.IsNullOrWhiteSpace(cartaAutorizacion) ? null : cartaAutorizacion;
+                var cartaEsSi = string.Equals(cartaAutorizacion, "Si", StringComparison.OrdinalIgnoreCase);
+                censoRecord.PanAmericanFechaSolicitud = cartaEsSi ? model.PanAmericanFechaSolicitud?.Date : null;
+                censoRecord.PanAmericanNumeroAutorizacion = cartaEsSi && !string.IsNullOrWhiteSpace(model.PanAmericanNumeroAutorizacion)
+                    ? model.PanAmericanNumeroAutorizacion.Trim()
+                    : null;
+            }
+            else
+            {
+                censoRecord.PanAmericanFechaCirugia = null;
+                censoRecord.PanAmericanNombreCirujano = null;
+                censoRecord.PanAmericanIpsQuirurgica = null;
+                censoRecord.PanAmericanProcedimiento = null;
+                censoRecord.PanAmericanActivadorPoliza = null;
+                censoRecord.PanAmericanCartaAutorizacion = null;
+                censoRecord.PanAmericanFechaSolicitud = null;
+                censoRecord.PanAmericanNumeroAutorizacion = null;
+            }
             censoRecord.ClasificacionRiesgo = model.ClasificacionRiesgo;
             censoRecord.AdministracionMedicamentos = model.AdministracionMedicamentos;
             censoRecord.NombreMedicamentoPrincipalTratante = string.IsNullOrWhiteSpace(model.NombreMedicamentoPrincipalTratante) ? null : model.NombreMedicamentoPrincipalTratante;
@@ -3314,6 +3443,9 @@ public partial class CensoController : Controller
         model.IpsQueRemiteOptions = BuildOptions(IpsQueRemiteValues);
         model.VistoBuenoOptions = BuildOptions(VistoBuenoValues);
         model.AseguradorOptions = BuildOptions(AseguradorValues);
+        model.PanAmericanIpsQuirurgicaOptions = BuildOptions(PanAmericanIpsQuirurgicaValues);
+        model.PanAmericanProcedimientoOptions = BuildOptions(PanAmericanProcedimientoValues);
+        model.PanAmericanActivadorPolizaOptions = PanAmericanActivadorPolizaValues;
         model.ClasificacionRiesgoOptions = BuildOptions(ClasificacionRiesgoValues);
         model.AdministracionMedicamentosOptions = BuildOptions(AdministracionMedicamentosValues);
         model.CambioFrecuenciaAdministracionTtoOptions = BuildOptions(CambioFrecuenciaAdministracionTtoValues);

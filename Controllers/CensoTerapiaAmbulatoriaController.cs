@@ -49,7 +49,7 @@ public partial class CensoController
         "Cerrado"
     ];
     private const string TerapiaAmbulatoriaEstadoAltaCerrado = "Cerrado";
-    private const string TerapiaAmbulatoriaAltaNotificationRecipient = "liderdetecnologia@especialistasencasa.com";
+    private const string TerapiaAmbulatoriaAltaNotificationRecipient = "liderfacturacion@especialistasencasa.com";
 
     [HttpGet]
     public async Task<IActionResult> TerapiaAmbulatoria(

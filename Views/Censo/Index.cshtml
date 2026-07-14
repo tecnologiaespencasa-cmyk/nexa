@@ -997,6 +997,82 @@
                                         <input class="form-control" type="number" id="diasTratamientoNoMedicamentosInput" min="1" max="9999" step="1" inputmode="numeric" />
                                     </div>
                                     <div class="w-100"></div>
+                                    <div class="col-12 d-none" id="panAmericanFieldsContainer">
+                                        <div class="border rounded p-3 bg-light-subtle">
+                                            <h3 class="h6 mb-3">Datos Pan-American Life de Colombia</h3>
+                                            <div class="row g-3">
+                                                <div class="col-xl-3 col-lg-4">
+                                                    <label asp-for="PanAmericanFechaCirugia" class="form-label"></label>
+                                                    <input asp-for="PanAmericanFechaCirugia" class="form-control" type="date" />
+                                                    <span asp-validation-for="PanAmericanFechaCirugia" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-xl-3 col-lg-4">
+                                                    <label asp-for="PanAmericanNombreCirujano" class="form-label"></label>
+                                                    <input asp-for="PanAmericanNombreCirujano" class="form-control" maxlength="200" />
+                                                    <span asp-validation-for="PanAmericanNombreCirujano" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-xl-3 col-lg-4">
+                                                    <label asp-for="PanAmericanIpsQuirurgica" class="form-label"></label>
+                                                    <select asp-for="PanAmericanIpsQuirurgica" asp-items="Model.PanAmericanIpsQuirurgicaOptions" class="form-select">
+                                                        <option value="">Selecciona...</option>
+                                                    </select>
+                                                    <span asp-validation-for="PanAmericanIpsQuirurgica" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-xl-3 col-lg-4">
+                                                    <label asp-for="PanAmericanProcedimiento" class="form-label"></label>
+                                                    <select asp-for="PanAmericanProcedimiento" asp-items="Model.PanAmericanProcedimientoOptions" class="form-select">
+                                                        <option value="">Selecciona...</option>
+                                                    </select>
+                                                    <span asp-validation-for="PanAmericanProcedimiento" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-xl-4 col-lg-6">
+                                                    <label class="form-label d-block">Activador de la p&oacute;liza</label>
+                                                    @for (var activadorIndex = 0; activadorIndex < Model.PanAmericanActivadorPolizaOptions.Count; activadorIndex++)
+                                                    {
+                                                        var activador = Model.PanAmericanActivadorPolizaOptions[activadorIndex];
+                                                        var activadorId = $"panAmericanActivador_{activadorIndex}";
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" name="PanAmericanActivadorPoliza" value="@activador" id="@activadorId"
+                                                                   @(Model.PanAmericanActivadorPoliza.Contains(activador, StringComparer.OrdinalIgnoreCase) ? "checked" : null) />
+                                                            <label class="form-check-label" for="@activadorId">@activador</label>
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <div class="col-xl-3 col-lg-4">
+                                                    <label asp-for="PanAmericanCartaAutorizacion" class="form-label"></label>
+                                                    <select asp-for="PanAmericanCartaAutorizacion" class="form-select" id="panAmericanCartaSelect">
+                                                        <option value="">Selecciona...</option>
+                                                        <option value="Si">Si</option>
+                                                        <option value="No">No</option>
+                                                    </select>
+                                                    <span asp-validation-for="PanAmericanCartaAutorizacion" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-12 d-none" id="panAmericanCartaContainer">
+                                                    <div class="row g-3">
+                                                        <div class="col-xl-3 col-lg-4">
+                                                            <label asp-for="PanAmericanFechaSolicitud" class="form-label"></label>
+                                                            <input asp-for="PanAmericanFechaSolicitud" class="form-control" type="date" />
+                                                            <span asp-validation-for="PanAmericanFechaSolicitud" class="text-danger"></span>
+                                                        </div>
+                                                        <div class="col-xl-3 col-lg-4">
+                                                            <label asp-for="PanAmericanNumeroAutorizacion" class="form-label"></label>
+                                                            <input asp-for="PanAmericanNumeroAutorizacion" class="form-control" maxlength="100" />
+                                                            <span asp-validation-for="PanAmericanNumeroAutorizacion" class="text-danger"></span>
+                                                        </div>
+                                                        <div class="col-xl-6 col-lg-8">
+                                                            <label class="form-label d-block">Adjuntos (SharePoint)</label>
+                                                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                                <input type="file" id="panAmericanAdjuntosInput" class="form-control" multiple style="max-width:320px;" aria-label="Seleccionar documentos Pan-American" />
+                                                                <button type="button" class="btn btn-outline-primary" id="panAmericanSubirAdjuntosBtn">Subir adjuntos</button>
+                                                                <span id="panAmericanAdjuntosStatus" class="small text-muted"></span>
+                                                            </div>
+                                                            <ul class="list-group list-group-flush mt-2" id="panAmericanAdjuntosList" style="max-height:150px;overflow-y:auto;"></ul>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div class="col-12 d-none" id="administracionMedicamentosFieldsContainer">
                                         <div class="row g-3">
                                             <div class="col-lg-4">
@@ -2717,6 +2793,8 @@
             const obtenerAdjuntosUrl = "@Url.Action("ObtenerAdjuntos", "Censo")";
             const obtenerDatosSeccion2Url = "@Url.Action("ObtenerDatosSeccion2", "Censo")";
             const validarNuevoIngresoUrl = "@Url.Action("ValidarNuevoIngreso", "Censo")";
+            const subirAdjuntoPanAmericanUrl = "@Url.Action("SubirAdjuntoPanAmerican", "Censo")";
+            const obtenerAdjuntosPanAmericanUrl = "@Url.Action("ObtenerAdjuntosPanAmerican", "Censo")";
             const solicitarReaperturaUrl = "@Url.Action("SolicitarReaperturaKardex", "Censo")";
             const aprobarReaperturaUrl = "@Url.Action("AprobarReaperturaKardex", "Censo")";
             const rechazarReaperturaUrl = "@Url.Action("RechazarReaperturaKardex", "Censo")";
@@ -7317,6 +7395,102 @@
                 codigoCie10Input.addEventListener("blur", () => lookupDiagnosticoByCie10(normalizeCie10InputValue(codigoCie10Input.value)));
                 syncCie10Input();
             }
+
+            // ── Pan-American Life de Colombia: campos condicionales de la sección 3 ──
+            const aseguradorSelect = document.getElementById("Asegurador");
+            const panAmericanContainer = document.getElementById("panAmericanFieldsContainer");
+            const panAmericanCartaSelect = document.getElementById("panAmericanCartaSelect");
+            const panAmericanCartaContainer = document.getElementById("panAmericanCartaContainer");
+            const panAmericanAdjuntosInput = document.getElementById("panAmericanAdjuntosInput");
+            const panAmericanSubirAdjuntosBtn = document.getElementById("panAmericanSubirAdjuntosBtn");
+            const panAmericanAdjuntosStatus = document.getElementById("panAmericanAdjuntosStatus");
+            const panAmericanAdjuntosList = document.getElementById("panAmericanAdjuntosList");
+
+            const isPanAmericanSelected = () =>
+                String(aseguradorSelect?.value || "").trim().toUpperCase() === "PAN-AMERICAN LIFE DE COLOMBIA";
+
+            const loadPanAmericanAdjuntos = async () => {
+                if (!panAmericanAdjuntosList) return;
+                const recordId = Number(editingRecordIdInput?.value || "0") || 0;
+                panAmericanAdjuntosList.innerHTML = "";
+                if (recordId <= 0) return;
+                try {
+                    const resp = await fetch(`${obtenerAdjuntosPanAmericanUrl}?id=${recordId}`);
+                    if (!resp.ok) return;
+                    const data = await resp.json();
+                    if (data.error) {
+                        panAmericanAdjuntosList.innerHTML = `<li class="list-group-item small text-muted">${escapeHtml(data.error)}</li>`;
+                        return;
+                    }
+                    (data.items || []).forEach((item) => {
+                        const li = document.createElement("li");
+                        li.className = "list-group-item py-1 px-2";
+                        const link = document.createElement("a");
+                        link.href = item.webUrl || "#";
+                        link.target = "_blank";
+                        link.rel = "noopener";
+                        link.textContent = item.name || "Documento";
+                        li.appendChild(link);
+                        panAmericanAdjuntosList.appendChild(li);
+                    });
+                } catch { /* listado informativo; no bloquear */ }
+            };
+
+            const syncPanAmericanVisibility = () => {
+                const showPanAmerican = isPanAmericanSelected();
+                panAmericanContainer?.classList.toggle("d-none", !showPanAmerican);
+                const showCarta = showPanAmerican
+                    && String(panAmericanCartaSelect?.value || "").trim().toLowerCase() === "si";
+                panAmericanCartaContainer?.classList.toggle("d-none", !showCarta);
+                if (showCarta) loadPanAmericanAdjuntos();
+            };
+
+            aseguradorSelect?.addEventListener("change", syncPanAmericanVisibility);
+            panAmericanCartaSelect?.addEventListener("change", syncPanAmericanVisibility);
+            syncPanAmericanVisibility();
+
+            if (panAmericanSubirAdjuntosBtn) {
+                panAmericanSubirAdjuntosBtn.addEventListener("click", async () => {
+                    const recordId = Number(editingRecordIdInput?.value || "0") || 0;
+                    if (recordId <= 0) {
+                        showFeedbackModal("Guarda el paciente primero", "<p class=\"mb-0\">Debes guardar el registro del paciente antes de adjuntar documentos.</p>", "warning");
+                        return;
+                    }
+                    const files = panAmericanAdjuntosInput?.files;
+                    if (!files || files.length === 0) {
+                        showFeedbackModal("Sin archivos", "<p class=\"mb-0\">Selecciona al menos un documento para adjuntar.</p>", "warning");
+                        return;
+                    }
+                    panAmericanSubirAdjuntosBtn.disabled = true;
+                    if (panAmericanAdjuntosStatus) panAmericanAdjuntosStatus.textContent = "Subiendo...";
+                    try {
+                        const formData = new FormData();
+                        formData.append("id", String(recordId));
+                        Array.from(files).forEach((file) => formData.append("files", file));
+                        const resp = await fetch(subirAdjuntoPanAmericanUrl, {
+                            method: "POST",
+                            body: formData,
+                            headers: csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {}
+                        });
+                        const data = await resp.json().catch(() => ({}));
+                        if (!resp.ok) {
+                            if (panAmericanAdjuntosStatus) panAmericanAdjuntosStatus.textContent = "";
+                            showFeedbackModal("No se pudo subir", `<p class="mb-0">${escapeHtml(data.message || "Error al subir los documentos a SharePoint.")}</p>`, "danger");
+                            return;
+                        }
+                        if (panAmericanAdjuntosInput) panAmericanAdjuntosInput.value = "";
+                        if (panAmericanAdjuntosStatus) panAmericanAdjuntosStatus.textContent = "Subido ✓";
+                        window.setTimeout(() => { if (panAmericanAdjuntosStatus) panAmericanAdjuntosStatus.textContent = ""; }, 4000);
+                        await loadPanAmericanAdjuntos();
+                    } catch {
+                        if (panAmericanAdjuntosStatus) panAmericanAdjuntosStatus.textContent = "";
+                        showFeedbackModal("Error de conexión", "<p class=\"mb-0\">No se pudo conectar al servidor.</p>", "danger");
+                    } finally {
+                        panAmericanSubirAdjuntosBtn.disabled = false;
+                    }
+                });
+            }
+            // ── End Pan-American ──────────────────────────────────────────
 
             const gestionAnalistaSwitch = document.getElementById("gestionAnalistaSwitch");
             const gestionAnalistaTexto = document.getElementById("gestionAnalistaTexto");
