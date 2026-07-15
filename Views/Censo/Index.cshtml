@@ -577,9 +577,19 @@
                     <div class="tab-pane fade show active" id="tab-recepcion" role="tabpanel" aria-labelledby="tab-recepcion-link" data-section-title="Recepción del paciente" data-section-description="Registra tiempos de ingreso, respuesta y responsables del caso con una lectura clara y ordenada.">
                         <div class="card">
                             <div class="card-header">
-                                <div class="censo-card-heading">
-                                    <span class="censo-card-heading__eyebrow">Sección 1</span>
-                                    <h2 class="h5 mb-0">Recepción del paciente</h2>
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <div class="censo-card-heading">
+                                        <span class="censo-card-heading__eyebrow">Sección 1</span>
+                                        <h2 class="h5 mb-0">Recepción del paciente</h2>
+                                    </div>
+                                    <button type="button" class="btn btn-sm censo-extractor-open-btn" id="abrirExtractorRemisionBtn">
+                                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                            <path d="M14 2v6h6"></path>
+                                            <path d="M9.5 13.5 11 17l1.5-3.5L16 12l-3.5-1.5L11 7l-1.5 3.5L6 12z" transform="scale(0.55) translate(9 11)"></path>
+                                        </svg>
+                                        <span>Extraer datos de remisi&oacute;n</span>
+                                    </button>
                                 </div>
                             </div>
                             <div class="card-body">
@@ -2768,6 +2778,181 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="confirmarAdicionalProrrogaBtn">Aceptar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade censo-extractor-modal" id="censoExtractorModal" tabindex="-1" aria-labelledby="censoExtractorModalTitle" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header censo-extractor-header">
+                <div class="censo-extractor-header__brand">
+                    <span class="censo-extractor-header__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 4V2"></path>
+                            <path d="M15 10V8"></path>
+                            <path d="M12.5 5.5h-2"></path>
+                            <path d="M20 5.5h-2"></path>
+                            <path d="m17.6 7.4 1.2 1.2"></path>
+                            <path d="M4 20 14.5 9.5"></path>
+                            <path d="m13 8 3 3"></path>
+                        </svg>
+                    </span>
+                    <div>
+                        <h5 class="modal-title" id="censoExtractorModalTitle">Extractor inteligente de remisi&oacute;n</h5>
+                        <p class="mb-0">Adjunta el PDF de la remisi&oacute;n, revisa los datos capturados y c&oacute;pialos al censo.</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="censo-extractor-layout">
+                    <div class="censo-extractor-pane censo-extractor-pane--left">
+                        <div id="extractorIdlePanel" class="censo-extractor-idle">
+                            <div class="censo-extractor-idle__icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <path d="M14 2v6h6"></path>
+                                    <path d="M8 13h8M8 17h5"></path>
+                                </svg>
+                                <span class="censo-extractor-idle__spark" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                        <path d="M12 2l1.8 5.6L19.5 9l-5.7 1.4L12 16l-1.8-5.6L4.5 9l5.7-1.4z"></path>
+                                    </svg>
+                                </span>
+                            </div>
+                            <h6 class="mt-4 mb-1">La extracci&oacute;n aparecer&aacute; aqu&iacute;</h6>
+                            <p class="text-muted small mb-0">Arrastra o busca el PDF de remisi&oacute;n en el panel derecho<br />y la inteligencia artificial capturar&aacute; los datos por ti.</p>
+                        </div>
+                        <div id="extractorLoadingPanel" class="censo-extractor-loading d-none" aria-live="polite">
+                            <div class="censo-extractor-loading__card">
+                                <div class="censo-extractor-scan">
+                                    <svg viewBox="0 0 24 24" width="66" height="66" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <path d="M14 2v6h6"></path>
+                                        <path d="M8 12h8M8 15h8M8 18h5"></path>
+                                    </svg>
+                                    <div class="censo-extractor-scan__beam"></div>
+                                    <span class="censo-extractor-scan__particle censo-extractor-scan__particle--1"></span>
+                                    <span class="censo-extractor-scan__particle censo-extractor-scan__particle--2"></span>
+                                    <span class="censo-extractor-scan__particle censo-extractor-scan__particle--3"></span>
+                                </div>
+                                <h6 class="censo-extractor-loading__title" id="extractorLoadingStep">Leyendo el documento&hellip;</h6>
+                                <ul class="censo-extractor-steps" id="extractorLoadingStepsList"></ul>
+                            </div>
+                        </div>
+                        <div id="extractorResultPanel" class="censo-extractor-result d-none">
+                            <div class="censo-extractor-result__card">
+                                <div class="censo-extractor-result__header">
+                                    <div class="censo-extractor-result__title">
+                                        <span class="censo-extractor-result__title-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"></path>
+                                                <rect x="9" y="3" width="6" height="4" rx="1"></rect>
+                                                <path d="m9 14 2 2 4-4"></path>
+                                            </svg>
+                                        </span>
+                                        <h6 class="mb-0">Datos capturados</h6>
+                                        <span class="censo-extractor-chip">Revisar y editar si es necesario</span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm censo-extractor-ghost-btn" id="extractorReiniciarBtn">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <path d="M17 8l-5-5-5 5"></path>
+                                            <path d="M12 3v12"></path>
+                                        </svg>
+                                        <span>Cargar otro PDF</span>
+                                    </button>
+                                </div>
+                                <div class="censo-extractor-result__body">
+                                    <div id="extractorFields"></div>
+                                    <div id="extractorMedsSection" class="censo-extractor-group d-none">
+                                        <div class="censo-extractor-group__header">
+                                            <span class="censo-extractor-group__icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="m10.5 20.5-7-7a4.95 4.95 0 1 1 7-7l7 7a4.95 4.95 0 1 1-7 7Z"></path>
+                                                    <path d="m8.5 8.5 7 7"></path>
+                                                </svg>
+                                            </span>
+                                            <h6 class="mb-0">Medicamentos</h6>
+                                        </div>
+                                        <div id="extractorMeds" class="d-flex flex-column gap-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="censo-extractor-pane censo-extractor-pane--right">
+                        <div id="extractorDropzone" class="censo-extractor-dropzone" role="button" tabindex="0" aria-label="Arrastra o selecciona el PDF de remisi&oacute;n">
+                            <div class="censo-extractor-dropzone__icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <path d="M17 8l-5-5-5 5"></path>
+                                    <path d="M12 3v12"></path>
+                                </svg>
+                            </div>
+                            <h6 class="mt-4 mb-1">Arrastra el PDF aqu&iacute;</h6>
+                            <div class="censo-extractor-dropzone__divider"><span>o</span></div>
+                            <button type="button" class="btn censo-extractor-gradient-btn" id="extractorBuscarBtn">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <circle cx="11" cy="11" r="7"></circle>
+                                    <path d="m20 20-3.5-3.5"></path>
+                                </svg>
+                                <span>Buscar archivo</span>
+                            </button>
+                            <div class="censo-extractor-dropzone__meta">
+                                <span class="censo-extractor-pill">PDF</span>
+                                <span>M&aacute;ximo 10 MB</span>
+                            </div>
+                            <input type="file" id="extractorFileInput" accept="application/pdf,.pdf" class="d-none" />
+                        </div>
+                        <div id="extractorDocViewer" class="censo-extractor-docviewer d-none">
+                            <div class="censo-extractor-docviewer__label">
+                                <span class="censo-extractor-docviewer__icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <path d="M14 2v6h6"></path>
+                                    </svg>
+                                </span>
+                                <span>Vista del documento</span>
+                                <span class="censo-extractor-docviewer__name" id="extractorDocName"></span>
+                            </div>
+                            <iframe id="extractorPdfFrame" class="censo-extractor-pdf" title="Vista previa del PDF de remisi&oacute;n"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer censo-extractor-footer">
+                <div class="censo-extractor-footer__notice me-auto">
+                    <span class="censo-extractor-footer__notice-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"></path>
+                            <path d="m9 12 2 2 4-4"></path>
+                        </svg>
+                    </span>
+                    <div>
+                        <strong>Revisa cuidadosamente los datos extra&iacute;dos</strong>
+                        <span>Verifica que la informaci&oacute;n sea correcta antes de copiarla al censo.</span>
+                    </div>
+                </div>
+                <div id="extractorError" class="alert alert-danger py-2 px-3 mb-0 d-none" role="alert"></div>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn censo-extractor-wa-btn d-none" id="extractorWhatsappBtn">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"></path>
+                    </svg>
+                    <span id="extractorWhatsappBtnText">Copiar para WhatsApp</span>
+                </button>
+                <button type="button" class="btn censo-extractor-gradient-btn d-none" id="extractorCopiarCensoBtn">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"></path>
+                        <rect x="9" y="3" width="6" height="4" rx="1"></rect>
+                        <path d="M12 11v6"></path>
+                        <path d="m9 14 3 3 3-3"></path>
+                    </svg>
+                    <span>Copiar datos al censo</span>
+                </button>
             </div>
         </div>
     </div>
@@ -8052,6 +8237,775 @@
                     }
                 }
             }
+        })();
+    </script>
+    <script>
+        (() => {
+            // ── Extractor de datos de remisión (IA) ──
+            const extraerDatosRemisionUrl = "@Url.Action("ExtraerDatosRemision", "Censo")";
+            const abrirBtn = document.getElementById("abrirExtractorRemisionBtn");
+            const modalEl = document.getElementById("censoExtractorModal");
+            if (!abrirBtn || !modalEl) {
+                return;
+            }
+
+            const csrfTokenInput = document.querySelector("input[name='__RequestVerificationToken']");
+            const idlePanel = document.getElementById("extractorIdlePanel");
+            const loadingPanel = document.getElementById("extractorLoadingPanel");
+            const loadingStep = document.getElementById("extractorLoadingStep");
+            const resultPanel = document.getElementById("extractorResultPanel");
+            const fieldsContainer = document.getElementById("extractorFields");
+            const medsSection = document.getElementById("extractorMedsSection");
+            const medsContainer = document.getElementById("extractorMeds");
+            const dropzone = document.getElementById("extractorDropzone");
+            const fileInput = document.getElementById("extractorFileInput");
+            const pdfFrame = document.getElementById("extractorPdfFrame");
+            const docViewer = document.getElementById("extractorDocViewer");
+            const docName = document.getElementById("extractorDocName");
+            const loadingStepsList = document.getElementById("extractorLoadingStepsList");
+            const errorBox = document.getElementById("extractorError");
+            const whatsappBtn = document.getElementById("extractorWhatsappBtn");
+            const whatsappBtnText = document.getElementById("extractorWhatsappBtnText");
+            const copiarCensoBtn = document.getElementById("extractorCopiarCensoBtn");
+            const reiniciarBtn = document.getElementById("extractorReiniciarBtn");
+
+            const unidadOptions = ["Miligramos", "Gramos", "Unidades", "Gotas", "Mililitros"];
+            const viaOptions = ["Intravenosa", "Intramuscular", "Subcutánea", "Nebulizada", "Oral"];
+            const frecuenciaOptions = ["INFUSION CONTINUA", "CADA 4 HORAS", "CADA 6 HORAS", "CADA 8 HORAS", "CADA 12 HORAS", "CADA 24 HORAS", "CADA 48 HORAS", "CADA 72 HORAS"];
+            const tipoDocumentoOptions = ["CC", "TI", "CE", "PA", "RC", "PE", "PPT"];
+
+            const sectionDefs = [
+                {
+                    id: "paciente",
+                    title: "Información del paciente",
+                    icon: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>'
+                },
+                {
+                    id: "remision",
+                    title: "Información de la remisión",
+                    icon: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M12 9v4"></path><path d="M10 11h4"></path></svg>'
+                },
+                {
+                    id: "contacto",
+                    title: "Contacto y cuidador",
+                    icon: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"></path></svg>'
+                }
+            ];
+
+            const fieldDefs = [
+                { key: "nombre", label: "Nombre del paciente", type: "text", col: "col-md-8", section: "paciente" },
+                { key: "tipo_documento", label: "Tipo de documento", type: "select", options: tipoDocumentoOptions, col: "col-md-4", section: "paciente" },
+                { key: "documento", label: "Documento", type: "text", col: "col-md-4", section: "paciente" },
+                { key: "fecha_nacimiento", label: "Fecha de nacimiento", type: "date", col: "col-md-4", section: "paciente" },
+                { key: "edad", label: "Edad", type: "number", col: "col-md-4", section: "paciente" },
+                { key: "diagnostico", label: "Diagnóstico", type: "text", col: "col-md-8", section: "paciente" },
+                { key: "cie10", label: "CIE10", type: "text", col: "col-md-4", section: "paciente" },
+                { key: "fecha_consulta", label: "Fecha de consulta", type: "date", col: "col-md-4", section: "remision" },
+                { key: "ips_remite", label: "IPS que remite", type: "text", col: "col-md-8", section: "remision" },
+                { key: "plan_salud", label: "Plan de salud", type: "text", col: "col-md-4", section: "remision" },
+                { key: "tipo_asegurador", label: "Tipo de asegurador", type: "text", col: "col-md-8", section: "remision" },
+                { key: "telefono1", label: "Teléfono 1", type: "text", col: "col-md-4", section: "contacto" },
+                { key: "telefono2", label: "Teléfono 2", type: "text", col: "col-md-4", section: "contacto" },
+                { key: "cuidador", label: "Cuidador", type: "text", col: "col-md-4", section: "contacto" },
+                { key: "direccion", label: "Dirección", type: "text", col: "col-12", section: "contacto" },
+                { key: "barrio", label: "Barrio", type: "text", col: "col-md-6", section: "contacto" },
+                { key: "ciudad", label: "Ciudad", type: "text", col: "col-md-6", section: "contacto" }
+            ];
+
+            const loadingSteps = [
+                "Leyendo el documento…",
+                "Extrayendo el texto del PDF…",
+                "Analizando con inteligencia artificial…",
+                "Estructurando los datos capturados…"
+            ];
+
+            let currentObjectUrl = null;
+            let currentMedsCount = 0;
+            let loadingTimer = null;
+            let isExtracting = false;
+
+            const getModal = () => window.bootstrap && window.bootstrap.Modal
+                ? window.bootstrap.Modal.getOrCreateInstance(modalEl)
+                : null;
+
+            const showError = (message) => {
+                if (!errorBox) return;
+                errorBox.textContent = message;
+                errorBox.classList.remove("d-none");
+            };
+
+            const clearError = () => {
+                if (!errorBox) return;
+                errorBox.textContent = "";
+                errorBox.classList.add("d-none");
+            };
+
+            const setLeftPanel = (panel) => {
+                [idlePanel, loadingPanel, resultPanel].forEach((el) => el && el.classList.add("d-none"));
+                if (panel) panel.classList.remove("d-none");
+            };
+
+            const renderLoadingSteps = (activeIndex) => {
+                if (!loadingStepsList) return;
+                loadingStepsList.innerHTML = "";
+                loadingSteps.forEach((step, index) => {
+                    const item = document.createElement("li");
+                    item.className = "censo-extractor-steps__item";
+                    if (index < activeIndex) item.classList.add("is-done");
+                    if (index === activeIndex) item.classList.add("is-active");
+
+                    const dot = document.createElement("span");
+                    dot.className = "censo-extractor-steps__dot";
+                    if (index < activeIndex) {
+                        dot.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>';
+                    }
+
+                    const text = document.createElement("span");
+                    text.textContent = step;
+
+                    item.appendChild(dot);
+                    item.appendChild(text);
+                    loadingStepsList.appendChild(item);
+                });
+            };
+
+            const startLoadingAnimation = () => {
+                let index = 0;
+                if (loadingStep) loadingStep.textContent = loadingSteps[0];
+                renderLoadingSteps(0);
+                loadingTimer = window.setInterval(() => {
+                    if (index < loadingSteps.length - 1) {
+                        index++;
+                    }
+                    if (loadingStep) loadingStep.textContent = loadingSteps[index];
+                    renderLoadingSteps(index);
+                }, 2100);
+            };
+
+            const stopLoadingAnimation = () => {
+                if (loadingTimer) {
+                    window.clearInterval(loadingTimer);
+                    loadingTimer = null;
+                }
+            };
+
+            const resetExtractor = () => {
+                stopLoadingAnimation();
+                clearError();
+                setLeftPanel(idlePanel);
+                if (fieldsContainer) fieldsContainer.innerHTML = "";
+                if (medsContainer) medsContainer.innerHTML = "";
+                if (medsSection) medsSection.classList.add("d-none");
+                currentMedsCount = 0;
+                if (whatsappBtn) whatsappBtn.classList.add("d-none");
+                if (copiarCensoBtn) copiarCensoBtn.classList.add("d-none");
+                if (pdfFrame) pdfFrame.removeAttribute("src");
+                if (docViewer) docViewer.classList.add("d-none");
+                if (docName) docName.textContent = "";
+                if (dropzone) dropzone.classList.remove("d-none");
+                if (fileInput) fileInput.value = "";
+                if (currentObjectUrl) {
+                    URL.revokeObjectURL(currentObjectUrl);
+                    currentObjectUrl = null;
+                }
+            };
+
+            const valueOrEmpty = (value) => value === null || value === undefined ? "" : String(value);
+
+            const markMissing = (input) => {
+                const sync = () => input.classList.toggle("censo-extractor-field-missing", !input.value);
+                input.addEventListener("input", sync);
+                input.addEventListener("change", sync);
+                sync();
+            };
+
+            const buildFieldInput = (def, value) => {
+                let input;
+                if (def.type === "select") {
+                    input = document.createElement("select");
+                    input.className = "form-select form-select-sm";
+                    const emptyOption = document.createElement("option");
+                    emptyOption.value = "";
+                    emptyOption.textContent = "No encontrado";
+                    input.appendChild(emptyOption);
+                    def.options.forEach((option) => {
+                        const opt = document.createElement("option");
+                        opt.value = option;
+                        opt.textContent = option;
+                        input.appendChild(opt);
+                    });
+                    const normalized = valueOrEmpty(value).trim();
+                    const match = def.options.find((option) => option.toLowerCase() === normalized.toLowerCase());
+                    input.value = match ?? "";
+                } else {
+                    input = document.createElement("input");
+                    input.type = def.type;
+                    input.className = "form-control form-control-sm";
+                    input.placeholder = "No encontrado";
+                    input.value = valueOrEmpty(value);
+                }
+                markMissing(input);
+                return input;
+            };
+
+            const renderFields = (data) => {
+                if (!fieldsContainer) return;
+                fieldsContainer.innerHTML = "";
+                sectionDefs.forEach((section) => {
+                    const sectionFields = fieldDefs.filter((def) => def.section === section.id);
+                    if (sectionFields.length === 0) return;
+
+                    const group = document.createElement("div");
+                    group.className = "censo-extractor-group";
+
+                    const header = document.createElement("div");
+                    header.className = "censo-extractor-group__header";
+                    const icon = document.createElement("span");
+                    icon.className = "censo-extractor-group__icon";
+                    icon.setAttribute("aria-hidden", "true");
+                    icon.innerHTML = section.icon;
+                    const title = document.createElement("h6");
+                    title.className = "mb-0";
+                    title.textContent = section.title;
+                    header.appendChild(icon);
+                    header.appendChild(title);
+                    group.appendChild(header);
+
+                    const row = document.createElement("div");
+                    row.className = "row g-3";
+                    sectionFields.forEach((def) => {
+                        const col = document.createElement("div");
+                        col.className = def.col;
+                        const label = document.createElement("label");
+                        label.className = "form-label censo-extractor-label";
+                        label.textContent = def.label;
+                        label.htmlFor = `extractor_f_${def.key}`;
+                        const input = buildFieldInput(def, data[def.key]);
+                        input.id = `extractor_f_${def.key}`;
+                        col.appendChild(label);
+                        col.appendChild(input);
+                        row.appendChild(col);
+                    });
+                    group.appendChild(row);
+                    fieldsContainer.appendChild(group);
+                });
+            };
+
+            const buildMedSelect = (id, options, value) => {
+                const select = document.createElement("select");
+                select.id = id;
+                select.className = "form-select form-select-sm";
+                const emptyOption = document.createElement("option");
+                emptyOption.value = "";
+                emptyOption.textContent = "No encontrado";
+                select.appendChild(emptyOption);
+                options.forEach((option) => {
+                    const opt = document.createElement("option");
+                    opt.value = option;
+                    opt.textContent = option;
+                    select.appendChild(opt);
+                });
+                const normalized = valueOrEmpty(value).trim();
+                const match = options.find((option) => option.toLowerCase() === normalized.toLowerCase());
+                select.value = match ?? "";
+                markMissing(select);
+                return select;
+            };
+
+            const renderMeds = (medicamentos) => {
+                if (!medsContainer || !medsSection) return;
+                medsContainer.innerHTML = "";
+                currentMedsCount = medicamentos.length;
+                if (medicamentos.length === 0) {
+                    medsSection.classList.add("d-none");
+                    return;
+                }
+
+                medsSection.classList.remove("d-none");
+                medicamentos.forEach((med, index) => {
+                    const card = document.createElement("div");
+                    card.className = "censo-extractor-med-card";
+
+                    const header = document.createElement("button");
+                    header.type = "button";
+                    header.className = "censo-extractor-med-card__header";
+                    header.setAttribute("aria-expanded", "true");
+
+                    const dot = document.createElement("span");
+                    dot.className = "censo-extractor-med-card__dot";
+                    dot.setAttribute("aria-hidden", "true");
+                    header.appendChild(dot);
+
+                    const headerTitle = document.createElement("span");
+                    headerTitle.className = "censo-extractor-med-card__title";
+                    headerTitle.textContent = `Medicamento ${index + 1}`;
+                    header.appendChild(headerTitle);
+
+                    if (med.duracion_texto) {
+                        const chip = document.createElement("span");
+                        chip.className = "censo-extractor-chip censo-extractor-chip--soft";
+                        chip.textContent = `Duración en documento: ${med.duracion_texto}`;
+                        header.appendChild(chip);
+                    }
+
+                    const chevron = document.createElement("span");
+                    chevron.className = "censo-extractor-med-card__chevron";
+                    chevron.setAttribute("aria-hidden", "true");
+                    chevron.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>';
+                    header.appendChild(chevron);
+
+                    header.addEventListener("click", () => {
+                        const collapsed = card.classList.toggle("is-collapsed");
+                        header.setAttribute("aria-expanded", collapsed ? "false" : "true");
+                    });
+                    card.appendChild(header);
+
+                    const body = document.createElement("div");
+                    body.className = "censo-extractor-med-card__body";
+
+                    const row = document.createElement("div");
+                    row.className = "row g-2";
+
+                    const addCol = (colClass, labelText, control) => {
+                        const col = document.createElement("div");
+                        col.className = colClass;
+                        const label = document.createElement("label");
+                        label.className = "form-label censo-extractor-label";
+                        label.textContent = labelText;
+                        label.htmlFor = control.id;
+                        col.appendChild(label);
+                        col.appendChild(control);
+                        row.appendChild(col);
+                    };
+
+                    const nombreInput = document.createElement("input");
+                    nombreInput.type = "text";
+                    nombreInput.id = `extractor_m_${index}_nombre`;
+                    nombreInput.className = "form-control form-control-sm";
+                    nombreInput.placeholder = "No encontrado";
+                    nombreInput.value = valueOrEmpty(med.nombre);
+                    markMissing(nombreInput);
+                    addCol("col-12", "Nombre", nombreInput);
+
+                    const dosisInput = document.createElement("input");
+                    dosisInput.type = "number";
+                    dosisInput.step = "0.01";
+                    dosisInput.min = "0";
+                    dosisInput.id = `extractor_m_${index}_dosis`;
+                    dosisInput.className = "form-control form-control-sm";
+                    dosisInput.placeholder = "No encontrado";
+                    dosisInput.value = valueOrEmpty(med.dosis);
+                    markMissing(dosisInput);
+                    addCol("col-md-3", "Dosis", dosisInput);
+
+                    addCol("col-md-3", "Medida", buildMedSelect(`extractor_m_${index}_unidad`, unidadOptions, med.unidad));
+                    addCol("col-md-3", "Vía", buildMedSelect(`extractor_m_${index}_via`, viaOptions, med.via));
+                    addCol("col-md-3", "Frecuencia", buildMedSelect(`extractor_m_${index}_frecuencia`, frecuenciaOptions, med.frecuencia));
+
+                    const diasInput = document.createElement("input");
+                    diasInput.type = "number";
+                    diasInput.step = "1";
+                    diasInput.min = "1";
+                    diasInput.id = `extractor_m_${index}_dias`;
+                    diasInput.className = "form-control form-control-sm";
+                    diasInput.placeholder = "No encontrado";
+                    diasInput.value = valueOrEmpty(med.duracion_dias);
+                    markMissing(diasInput);
+                    addCol("col-md-3", "Duración (días)", diasInput);
+
+                    body.appendChild(row);
+                    card.appendChild(body);
+                    medsContainer.appendChild(card);
+                });
+            };
+
+            const inputValueOrNull = (id) => {
+                const el = document.getElementById(id);
+                if (!el) return null;
+                const value = el.value.trim();
+                return value === "" ? null : value;
+            };
+
+            const collectData = () => {
+                const data = {};
+                fieldDefs.forEach((def) => {
+                    data[def.key] = inputValueOrNull(`extractor_f_${def.key}`);
+                });
+                data.medicamentos = [];
+                for (let index = 0; index < currentMedsCount; index++) {
+                    data.medicamentos.push({
+                        nombre: inputValueOrNull(`extractor_m_${index}_nombre`),
+                        dosis: inputValueOrNull(`extractor_m_${index}_dosis`),
+                        unidad: inputValueOrNull(`extractor_m_${index}_unidad`),
+                        via: inputValueOrNull(`extractor_m_${index}_via`),
+                        frecuencia: inputValueOrNull(`extractor_m_${index}_frecuencia`),
+                        duracion_dias: inputValueOrNull(`extractor_m_${index}_dias`)
+                    });
+                }
+                data.medicamentos = data.medicamentos.filter((med) => med.nombre);
+                return data;
+            };
+
+            const showResults = (data) => {
+                renderFields(data);
+                renderMeds(Array.isArray(data.medicamentos) ? data.medicamentos : []);
+                setLeftPanel(resultPanel);
+                if (whatsappBtn) whatsappBtn.classList.remove("d-none");
+                if (copiarCensoBtn) copiarCensoBtn.classList.remove("d-none");
+            };
+
+            const extractFromFile = async (file) => {
+                if (isExtracting) return;
+                clearError();
+
+                const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+                if (!isPdf) {
+                    showError("Solo se permiten archivos PDF.");
+                    return;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                    showError("El archivo no puede superar 10 MB.");
+                    return;
+                }
+
+                if (currentObjectUrl) {
+                    URL.revokeObjectURL(currentObjectUrl);
+                }
+                currentObjectUrl = URL.createObjectURL(file);
+                if (pdfFrame) pdfFrame.src = currentObjectUrl;
+                if (docViewer) docViewer.classList.remove("d-none");
+                if (docName) docName.textContent = file.name;
+                if (dropzone) dropzone.classList.add("d-none");
+                if (whatsappBtn) whatsappBtn.classList.add("d-none");
+                if (copiarCensoBtn) copiarCensoBtn.classList.add("d-none");
+
+                isExtracting = true;
+                setLeftPanel(loadingPanel);
+                startLoadingAnimation();
+
+                try {
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    const response = await fetch(extraerDatosRemisionUrl, {
+                        method: "POST",
+                        body: formData,
+                        headers: csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {}
+                    });
+
+                    let result = null;
+                    try {
+                        result = await response.json();
+                    } catch {
+                        result = null;
+                    }
+
+                    if (!response.ok || !result || !result.success) {
+                        showError(result?.message ?? "No fue posible extraer los datos del documento. Intenta nuevamente.");
+                        setLeftPanel(idlePanel);
+                        return;
+                    }
+
+                    showResults(result.data ?? {});
+                } catch {
+                    showError("Error de conexión al extraer los datos. Intenta nuevamente.");
+                    setLeftPanel(idlePanel);
+                } finally {
+                    stopLoadingAnimation();
+                    isExtracting = false;
+                }
+            };
+
+            // ── Copiar para WhatsApp ──
+            const unidadAbbr = { "Miligramos": "MG", "Gramos": "G", "Unidades": "UI", "Gotas": "GOTAS", "Mililitros": "ML" };
+            const viaAbbr = { "Intravenosa": "IV", "Intramuscular": "IM", "Subcutánea": "SC", "Nebulizada": "NEB", "Oral": "VO" };
+
+            const computeAge = (birthDateText) => {
+                if (!birthDateText || !/^\d{4}-\d{2}-\d{2}$/.test(birthDateText)) return null;
+                const birthDate = new Date(`${birthDateText}T00:00:00`);
+                if (Number.isNaN(birthDate.getTime())) return null;
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                return age >= 0 && age <= 130 ? age : null;
+            };
+
+            const buildWhatsappMessage = (data) => {
+                const lines = [];
+                lines.push("🏥 *NUEVO PACIENTE — Especialistas En Casa*");
+                lines.push("");
+
+                const identityParts = [`*${data.nombre ?? "Paciente sin nombre"}*`];
+                const edad = data.edad ?? computeAge(data.fecha_nacimiento);
+                if (edad !== null && edad !== undefined && edad !== "") {
+                    identityParts.push(`${edad} años`);
+                }
+                if (data.documento) {
+                    identityParts.push(`${data.tipo_documento ?? "CC"} ${data.documento}`);
+                }
+                lines.push(`👤 ${identityParts.join(" | ")}`);
+
+                const phones = [data.telefono1, data.telefono2].filter(Boolean);
+                if (phones.length > 0) {
+                    lines.push(`📞 ${phones.join(" · ")}`);
+                }
+
+                const addressParts = [data.direccion, data.barrio, data.ciudad].filter(Boolean);
+                if (addressParts.length > 0) {
+                    lines.push(`📍 ${addressParts.join(", ")}`);
+                }
+
+                if (data.cuidador) {
+                    lines.push(`👨‍👩‍👧 Cuidador: ${data.cuidador}`);
+                }
+
+                if (data.medicamentos.length > 0) {
+                    lines.push("");
+                    lines.push("💉 *Medicamentos parenterales:*");
+                    data.medicamentos.forEach((med) => {
+                        let line = `  • ${med.nombre}`;
+                        if (med.dosis) {
+                            line += ` ${med.dosis} ${unidadAbbr[med.unidad] ?? med.unidad ?? ""}`.trimEnd();
+                        }
+                        if (med.via) {
+                            line += ` ${viaAbbr[med.via] ?? med.via}`;
+                        }
+                        if (med.frecuencia) {
+                            line += ` — ${med.frecuencia.toLowerCase()} 🟡`;
+                        }
+                        if (med.duracion_dias) {
+                            line += `, por ${med.duracion_dias} día${Number(med.duracion_dias) === 1 ? "" : "s"}`;
+                        }
+                        lines.push(line);
+                    });
+                }
+
+                if (data.cie10 || data.diagnostico) {
+                    lines.push("");
+                    lines.push(`🩺 ${data.cie10 ?? data.diagnostico}`);
+                }
+
+                if (data.ips_remite) {
+                    lines.push("");
+                    lines.push(`_Remitido por: ${data.ips_remite}_`);
+                }
+
+                return lines.join("\n");
+            };
+
+            const copyToClipboard = async (text) => {
+                if (navigator.clipboard && window.isSecureContext) {
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        return true;
+                    } catch {
+                        // Se intenta el mecanismo alterno.
+                    }
+                }
+
+                const textarea = document.createElement("textarea");
+                textarea.value = text;
+                textarea.style.position = "fixed";
+                textarea.style.opacity = "0";
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                let copied = false;
+                try {
+                    copied = document.execCommand("copy");
+                } catch {
+                    copied = false;
+                }
+                document.body.removeChild(textarea);
+                return copied;
+            };
+
+            // ── Copiar datos al censo ──
+            const dispatchValue = (element, value) => {
+                if (!element || value === null || value === undefined || value === "") return false;
+                element.value = value;
+                element.dispatchEvent(new Event("input", { bubbles: true }));
+                element.dispatchEvent(new Event("change", { bubbles: true }));
+                return true;
+            };
+
+            const dispatchSelect = (element, value) => {
+                if (!element || !value) return false;
+                const match = Array.from(element.options)
+                    .find((option) => option.value !== "" && option.value.toLowerCase() === String(value).toLowerCase());
+                if (!match) return false;
+                element.value = match.value;
+                element.dispatchEvent(new Event("change", { bubbles: true }));
+                return true;
+            };
+
+            const cleanPhone = (value) => {
+                if (!value) return null;
+                const digits = String(value).replace(/\D/g, "").slice(0, 10);
+                return digits || null;
+            };
+
+            const medTargets = [
+                { nombre: "nombreMedicamentoPrincipalInput", dosis: "dosisMedicamentoPrincipalInput", medida: "medidaMedicamentoPrincipalSelect", via: "viaAdministracionMedicamentoPrincipalSelect", frecuencia: "frecuenciaAdministracionMxPrincipalSelect", dias: "diasMedicamentoPrincipalInput", toggle: null },
+                { nombre: "nombreMedicamento2Input", dosis: "dosisMedicamento2Input", medida: "medidaMedicamento2Select", via: "viaAdministracionMedicamento2Select", frecuencia: "frecuenciaMedicamento2Select", dias: "diasMedicamento2Input", toggle: "medicamento2Toggle" },
+                { nombre: "nombreMedicamento3Input", dosis: "dosisMedicamento3Input", medida: "medidaMedicamento3Select", via: "viaAdministracionMedicamento3Select", frecuencia: "frecuenciaMedicamento3Select", dias: "diasMedicamento3Input", toggle: "medicamento3Toggle" },
+                { nombre: "nombreMedicamento4Input", dosis: "dosisMedicamento4Input", medida: "medidaMedicamento4Select", via: "viaAdministracionMedicamento4Select", frecuencia: "frecuenciaMedicamento4Select", dias: "diasMedicamento4Input", toggle: "medicamento4Toggle" },
+                { nombre: "nombreMedicamento5Input", dosis: "dosisMedicamento5Input", medida: "medidaMedicamento5Select", via: "viaAdministracionMedicamento5Select", frecuencia: "frecuenciaMedicamento5Select", dias: "diasMedicamento5Input", toggle: "medicamento5Toggle" },
+                { nombre: "nombreMedicamento6Input", dosis: "dosisMedicamento6Input", medida: "medidaMedicamento6Select", via: "viaAdministracionMedicamento6Select", frecuencia: "frecuenciaMedicamento6Select", dias: "diasMedicamento6Input", toggle: "medicamento6Toggle" }
+            ];
+
+            const applyToCenso = (data) => {
+                const filled = [];
+                const pending = [];
+                const track = (label, ok, hasValue) => {
+                    if (ok) {
+                        filled.push(label);
+                    } else if (hasValue) {
+                        pending.push(label);
+                    }
+                };
+
+                track("Nombre del paciente", dispatchValue(document.getElementById("NombrePaciente"), data.nombre), !!data.nombre);
+                track("Tipo de identificación", dispatchSelect(document.getElementById("TipoIdentificacion"), data.tipo_documento), !!data.tipo_documento);
+                const documentoLimpio = data.documento ? String(data.documento).replace(/[\s.]/g, "") : null;
+                track("Número de identificación", dispatchValue(document.getElementById("NumeroIdentificacion"), documentoLimpio), !!documentoLimpio);
+
+                const fechaNacimiento = data.fecha_nacimiento && /^\d{4}-\d{2}-\d{2}$/.test(data.fecha_nacimiento) ? data.fecha_nacimiento : null;
+                track("Fecha de nacimiento", dispatchValue(document.getElementById("fechaNacimientoInput"), fechaNacimiento), !!data.fecha_nacimiento);
+
+                track("Código CIE10", dispatchValue(document.getElementById("codigoCie10Input"), data.cie10), !!data.cie10);
+                track("Dirección", dispatchValue(document.getElementById("direccionInput"), data.direccion), !!data.direccion);
+                track("IPS que remite", dispatchValue(document.getElementById("ipsQueRemiteInput"), data.ips_remite), !!data.ips_remite);
+                track("Teléfono 1", dispatchValue(document.getElementById("telefono1Input"), cleanPhone(data.telefono1)), !!data.telefono1);
+
+                const telefono2 = cleanPhone(data.telefono2);
+                if (telefono2) {
+                    const telefono2Container = document.getElementById("telefono2Container");
+                    if (telefono2Container) telefono2Container.classList.remove("d-none");
+                }
+                track("Teléfono 2", dispatchValue(document.getElementById("telefono2Input"), telefono2), !!data.telefono2);
+
+                const meds = data.medicamentos.slice(0, medTargets.length);
+                if (meds.length > 0) {
+                    dispatchSelect(document.getElementById("administracionMedicamentosSelect"), "Si");
+                    meds.forEach((med, index) => {
+                        const target = medTargets[index];
+                        if (target.toggle) {
+                            const toggle = document.getElementById(target.toggle);
+                            if (toggle && !toggle.checked) {
+                                toggle.checked = true;
+                                toggle.dispatchEvent(new Event("change", { bubbles: true }));
+                            }
+                        }
+                        const label = `Medicamento ${index + 1}`;
+                        const nombreOk = dispatchValue(document.getElementById(target.nombre), med.nombre);
+                        dispatchValue(document.getElementById(target.dosis), med.dosis);
+                        dispatchSelect(document.getElementById(target.medida), med.unidad);
+                        dispatchSelect(document.getElementById(target.via), med.via);
+                        dispatchSelect(document.getElementById(target.frecuencia), med.frecuencia);
+                        dispatchValue(document.getElementById(target.dias), med.duracion_dias);
+                        track(label, nombreOk, true);
+                    });
+                }
+
+                if (data.medicamentos.length > medTargets.length) {
+                    pending.push(`Hay ${data.medicamentos.length - medTargets.length} medicamento(s) adicional(es) que no caben en el censo`);
+                }
+
+                return { filled, pending };
+            };
+
+            const showCopySummary = (summary) => {
+                const feedbackModalEl = document.getElementById("censoFeedbackModal");
+                const feedbackTitle = document.getElementById("censoFeedbackModalTitle");
+                const feedbackBody = document.getElementById("censoFeedbackModalBody");
+                if (!feedbackModalEl || !feedbackTitle || !feedbackBody || !window.bootstrap?.Modal) return;
+
+                feedbackTitle.textContent = "Datos copiados al censo";
+                const escapeHtml = (value) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                let html = "";
+                if (summary.filled.length > 0) {
+                    html += `<p class="mb-2">Se llenaron automáticamente:</p><ul class="mb-0">${summary.filled.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+                }
+                if (summary.pending.length > 0) {
+                    html += `<p class="mb-2 mt-3">Revisa manualmente (no se pudieron aplicar):</p><ul class="mb-0">${summary.pending.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+                }
+                html += `<p class="text-muted small mt-3 mb-0">Los campos restantes del censo (municipio, barrio, zona, asegurador, etc.) deben diligenciarse manualmente. Recuerda validar la dirección.</p>`;
+                feedbackBody.innerHTML = html;
+                window.bootstrap.Modal.getOrCreateInstance(feedbackModalEl).show();
+            };
+
+            // ── Eventos ──
+            abrirBtn.addEventListener("click", () => {
+                getModal()?.show();
+            });
+
+            if (dropzone && fileInput) {
+                dropzone.addEventListener("click", () => fileInput.click());
+                dropzone.addEventListener("keydown", (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        fileInput.click();
+                    }
+                });
+                ["dragenter", "dragover"].forEach((eventName) => {
+                    dropzone.addEventListener(eventName, (event) => {
+                        event.preventDefault();
+                        dropzone.classList.add("is-dragover");
+                    });
+                });
+                ["dragleave", "drop"].forEach((eventName) => {
+                    dropzone.addEventListener(eventName, (event) => {
+                        event.preventDefault();
+                        dropzone.classList.remove("is-dragover");
+                    });
+                });
+                dropzone.addEventListener("drop", (event) => {
+                    const file = event.dataTransfer?.files?.[0];
+                    if (file) extractFromFile(file);
+                });
+                fileInput.addEventListener("change", () => {
+                    const file = fileInput.files?.[0];
+                    if (file) extractFromFile(file);
+                });
+            }
+
+            if (reiniciarBtn) {
+                reiniciarBtn.addEventListener("click", resetExtractor);
+            }
+
+            if (whatsappBtn) {
+                whatsappBtn.addEventListener("click", async () => {
+                    const copied = await copyToClipboard(buildWhatsappMessage(collectData()));
+                    if (!copied) {
+                        showError("No fue posible copiar al portapapeles.");
+                        return;
+                    }
+                    clearError();
+                    if (whatsappBtnText) {
+                        whatsappBtnText.textContent = "¡Copiado!";
+                        window.setTimeout(() => {
+                            whatsappBtnText.textContent = "Copiar para WhatsApp";
+                        }, 2000);
+                    }
+                });
+            }
+
+            if (copiarCensoBtn) {
+                copiarCensoBtn.addEventListener("click", () => {
+                    const summary = applyToCenso(collectData());
+                    getModal()?.hide();
+                    const datosBasicosTabLink = document.getElementById("tab-datos-basicos-link");
+                    if (datosBasicosTabLink) datosBasicosTabLink.click();
+                    showCopySummary(summary);
+                });
+            }
+
+            modalEl.addEventListener("hidden.bs.modal", () => {
+                stopLoadingAnimation();
+            });
         })();
     </script>
 }
