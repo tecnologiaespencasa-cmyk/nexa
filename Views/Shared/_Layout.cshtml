@@ -17,6 +17,7 @@
     var isCensoCronicos = isCensoView && string.Equals(actionName, "ProgramaCronicos", System.StringComparison.OrdinalIgnoreCase);
     var isCensoTerapia = isCensoView && string.Equals(actionName, "TerapiaAmbulatoria", System.StringComparison.OrdinalIgnoreCase);
     var isCensoHeridas = isCensoView && string.Equals(actionName, "ClinicaHeridas", System.StringComparison.OrdinalIgnoreCase);
+    var isCensoNpt = isCensoView && string.Equals(actionName, "Npt", System.StringComparison.OrdinalIgnoreCase);
     var showNavigation = User.Identity?.IsAuthenticated == true && !isLoginPage;
     var currentUserName = User.FindFirstValue("full_name") ?? User.Identity?.Name ?? "Usuario";
     var bodyClasses = string.Join(" ", new[]
@@ -176,6 +177,17 @@
                                                asp-action="ClinicaHeridas">
                                                 <span>Clinica de heridas</span>
                                                 @if (isCensoHeridas)
+                                                {
+                                                    <span class="intranet-censo-dropdown__current">Actual</span>
+                                                }
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item intranet-censo-dropdown__item @(isCensoNpt ? "active" : null)"
+                                               asp-controller="Censo"
+                                               asp-action="Npt">
+                                                <span>NPT</span>
+                                                @if (isCensoNpt)
                                                 {
                                                     <span class="intranet-censo-dropdown__current">Actual</span>
                                                 }

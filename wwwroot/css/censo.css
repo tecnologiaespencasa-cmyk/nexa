@@ -3748,9 +3748,9 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   white-space: nowrap;
   border: 0;
   border-radius: 0.65rem;
-  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 55%, #06b6d4 120%);
+  background: linear-gradient(135deg, #f5001e 0%, #e0384f 55%, #ff8a65 120%);
   color: #fff;
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 6px 18px rgba(224, 56, 79, 0.35);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
@@ -3759,21 +3759,21 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   color: #fff;
   filter: brightness(1.06);
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.42);
+  box-shadow: 0 10px 22px rgba(224, 56, 79, 0.42);
 }
 
 .censo-extractor-modal {
-  --ext-accent: #2563eb;
-  --ext-accent-strong: #1d4ed8;
-  --ext-grad: linear-gradient(135deg, #4f46e5 0%, #2563eb 55%, #06b6d4 120%);
-  --ext-grad-soft: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(37, 99, 235, 0.08) 55%, rgba(6, 182, 212, 0.1));
+  --ext-accent: #e0384f;
+  --ext-accent-strong: #c2263b;
+  --ext-grad: linear-gradient(135deg, #f5001e 0%, #e0384f 55%, #ff8a65 120%);
+  --ext-grad-soft: linear-gradient(135deg, rgba(245, 0, 30, 0.08), rgba(224, 56, 79, 0.08) 55%, rgba(255, 138, 101, 0.1));
   --ext-ink: #16223a;
   --ext-ink-soft: #5d6b85;
-  --ext-bg: #f2f6fd;
+  --ext-bg: #fdf3f3;
   --ext-surface: #ffffff;
-  --ext-border: #dfe7f5;
-  --ext-border-strong: #c8d6ee;
-  --ext-ring: rgba(37, 99, 235, 0.16);
+  --ext-border: #f5dde0;
+  --ext-border-strong: #eec3c9;
+  --ext-ring: rgba(224, 56, 79, 0.18);
   --ext-radius: 1rem;
   font-family: var(--censo-font-sans, "Nunito", "Segoe UI", sans-serif);
   color: var(--ext-ink);
@@ -3806,7 +3806,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   border-radius: 1rem;
   background: var(--ext-grad);
   color: #fff;
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 10px 24px rgba(224, 56, 79, 0.35);
   flex-shrink: 0;
 }
 
@@ -3915,8 +3915,8 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   text-align: center;
   padding: 2.4rem 2rem;
   border-radius: 1.25rem;
-  background: radial-gradient(120% 140% at 50% 0%, #16244b 0%, #0b1226 60%, #060b18 100%);
-  color: #dbe6ff;
+  background: radial-gradient(120% 140% at 50% 0%, #3c1420 0%, #200a10 60%, #14070a 100%);
+  color: #ffd9dc;
   box-shadow: 0 30px 60px rgba(11, 18, 38, 0.45);
   animation: censo-extractor-fade-up 0.4s ease both;
 }
@@ -3931,7 +3931,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   position: relative;
   display: inline-flex;
   padding: 0.9rem;
-  color: #7fb4ff;
+  color: #ff97a0;
 }
 
 .censo-extractor-scan__beam {
@@ -3941,8 +3941,8 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   top: 12%;
   height: 3px;
   border-radius: 3px;
-  background: linear-gradient(90deg, transparent, #38bdf8, transparent);
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.85);
+  background: linear-gradient(90deg, transparent, #ff5470, transparent);
+  box-shadow: 0 0 16px rgba(255, 84, 112, 0.85);
   animation: censo-extractor-scan-move 1.5s ease-in-out infinite alternate;
 }
 
@@ -3951,14 +3951,14 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #38bdf8;
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.9);
+  background: #ff5470;
+  box-shadow: 0 0 8px rgba(255, 84, 112, 0.9);
   animation: censo-extractor-particle 2.6s ease-in-out infinite;
 }
 
 .censo-extractor-scan__particle--1 { top: 8%; left: -10px; animation-delay: 0s; }
-.censo-extractor-scan__particle--2 { bottom: 14%; right: -12px; animation-delay: 0.9s; background: #818cf8; box-shadow: 0 0 8px rgba(129, 140, 248, 0.9); }
-.censo-extractor-scan__particle--3 { top: 46%; right: -18px; animation-delay: 1.7s; background: #22d3ee; box-shadow: 0 0 8px rgba(34, 211, 238, 0.9); }
+.censo-extractor-scan__particle--2 { bottom: 14%; right: -12px; animation-delay: 0.9s; background: #ffb199; box-shadow: 0 0 8px rgba(255, 177, 153, 0.9); }
+.censo-extractor-scan__particle--3 { top: 46%; right: -18px; animation-delay: 1.7s; background: #ff8fa3; box-shadow: 0 0 8px rgba(255, 143, 163, 0.9); }
 
 @keyframes censo-extractor-scan-move {
   from { top: 10%; }
@@ -4001,13 +4001,13 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid #33415f;
+  border: 2px solid #4a2530;
   flex-shrink: 0;
   transition: border-color 0.3s ease, background 0.3s ease;
 }
 
 .censo-extractor-steps__item.is-active .censo-extractor-steps__dot {
-  border-color: #38bdf8;
+  border-color: #ff5470;
   border-top-color: transparent;
   animation: censo-extractor-spin 0.8s linear infinite;
 }
@@ -4087,8 +4087,8 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   align-items: center;
   padding: 0.22rem 0.65rem;
   border-radius: 999px;
-  border: 1px solid rgba(37, 99, 235, 0.28);
-  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(224, 56, 79, 0.28);
+  background: rgba(224, 56, 79, 0.08);
   color: var(--ext-accent-strong);
   font-size: 0.72rem;
   font-weight: 700;
@@ -4135,7 +4135,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   width: 26px;
   height: 26px;
   border-radius: 0.55rem;
-  background: rgba(37, 99, 235, 0.1);
+  background: rgba(224, 56, 79, 0.1);
   color: var(--ext-accent);
   flex-shrink: 0;
 }
@@ -4198,7 +4198,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   height: 9px;
   border-radius: 50%;
   background: var(--ext-grad);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 4px rgba(224, 56, 79, 0.12);
   flex-shrink: 0;
 }
 
@@ -4239,7 +4239,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   border-radius: var(--ext-radius);
   border: 2px dashed var(--ext-border-strong);
   background:
-    radial-gradient(70% 60% at 50% 30%, rgba(37, 99, 235, 0.06), transparent 70%),
+    radial-gradient(70% 60% at 50% 30%, rgba(224, 56, 79, 0.06), transparent 70%),
     var(--ext-surface);
   color: var(--ext-ink-soft);
   cursor: pointer;
@@ -4248,13 +4248,13 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
 
 .censo-extractor-dropzone:hover {
   border-color: var(--ext-accent);
-  box-shadow: 0 14px 34px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 14px 34px rgba(224, 56, 79, 0.12);
 }
 
 .censo-extractor-dropzone.is-dragover {
   border-color: var(--ext-accent);
   background:
-    radial-gradient(70% 60% at 50% 30%, rgba(37, 99, 235, 0.14), transparent 70%),
+    radial-gradient(70% 60% at 50% 30%, rgba(224, 56, 79, 0.14), transparent 70%),
     var(--ext-surface);
   transform: scale(0.994);
   box-shadow: 0 0 0 6px var(--ext-ring);
@@ -4273,7 +4273,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   width: 84px;
   height: 84px;
   border-radius: 50%;
-  background: rgba(37, 99, 235, 0.1);
+  background: rgba(224, 56, 79, 0.1);
   color: var(--ext-accent);
   animation: censo-extractor-float 3.4s ease-in-out infinite;
 }
@@ -4308,7 +4308,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   display: inline-flex;
   padding: 0.14rem 0.55rem;
   border-radius: 999px;
-  background: rgba(37, 99, 235, 0.1);
+  background: rgba(224, 56, 79, 0.1);
   color: var(--ext-accent-strong);
   font-weight: 800;
   font-size: 0.72rem;
@@ -4341,7 +4341,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   width: 26px;
   height: 26px;
   border-radius: 0.55rem;
-  background: rgba(37, 99, 235, 0.1);
+  background: rgba(224, 56, 79, 0.1);
   color: var(--ext-accent);
 }
 
@@ -4426,7 +4426,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   color: #fff;
   font-weight: 700;
   padding: 0.5rem 1.1rem;
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.32);
+  box-shadow: 0 8px 20px rgba(224, 56, 79, 0.32);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
@@ -4435,7 +4435,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   color: #fff;
   filter: brightness(1.06);
   transform: translateY(-1px);
-  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 12px 26px rgba(224, 56, 79, 0.4);
 }
 
 .censo-extractor-wa-btn {
@@ -4464,7 +4464,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  border: 1px solid rgba(37, 99, 235, 0.35);
+  border: 1px solid rgba(224, 56, 79, 0.35);
   border-radius: 0.6rem;
   background: var(--ext-surface);
   color: var(--ext-accent-strong);
@@ -4475,7 +4475,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
 
 .censo-extractor-ghost-btn:hover,
 .censo-extractor-ghost-btn:focus {
-  background: rgba(37, 99, 235, 0.08);
+  background: rgba(224, 56, 79, 0.08);
   border-color: var(--ext-accent);
   color: var(--ext-accent-strong);
 }
