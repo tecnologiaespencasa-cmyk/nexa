@@ -16,6 +16,19 @@ public interface ISharePointDocumentService
         string documentNumber,
         CancellationToken cancellationToken = default);
 
+    Task<ServiceResult> UploadClinicaHeridasDocumentsAsync(
+        string patientName,
+        string documentType,
+        string documentNumber,
+        IReadOnlyList<IFormFile> files,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<IReadOnlyList<SharePointDocumentItem>>> ListClinicaHeridasDocumentsAsync(
+        string patientName,
+        string documentType,
+        string documentNumber,
+        CancellationToken cancellationToken = default);
+
     Task<ServiceResult> UploadPanAmericanDocumentsAsync(
         string patientName,
         string documentNumber,

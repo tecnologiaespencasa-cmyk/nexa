@@ -3,6 +3,7 @@ using System;
 using IntranetPrueba.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IntranetPrueba.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260718143048_AddCensoClinicaHeridas")]
+    partial class AddCensoClinicaHeridas
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -391,10 +394,6 @@ namespace IntranetPrueba.Data.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("DescripcionHerida")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
                     b.Property<string>("DetalleDireccion")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -416,93 +415,23 @@ namespace IntranetPrueba.Data.Migrations
                     b.Property<int>("Edad")
                         .HasColumnType("integer");
 
-                    b.Property<string>("EquipoComodato")
-                        .HasMaxLength(2)
-                        .HasColumnType("character varying(2)");
-
-                    b.Property<string>("Estado")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("EstadoDevolucionServicioFarmaceutico")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<DateTime?>("FechaCuartoSeguimientoSemana1")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("FechaDevolucionEquipo")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("FechaEgreso")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("FechaEntregaEquipo")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("FechaHospitalizacion")
-                        .HasColumnType("date");
-
                     b.Property<DateTime>("FechaIngresoPrograma")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("FechaMaximaDevolucionProductos")
                         .HasColumnType("date");
 
                     b.Property<DateTime>("FechaNacimiento")
                         .HasColumnType("date");
 
-                    b.Property<DateTime?>("FechaNovedadDevolucionProductos")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("FechaPrimerSeguimiento24Horas")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("FechaQuintoSeguimientoSemana2")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("FechaSegundoSeguimiento48Horas")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("FechaSeptimoSeguimientoSemana4")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("FechaSextoSeguimientoSemana3")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("FechaTercerSeguimiento72Horas")
-                        .HasColumnType("date");
-
                     b.Property<DateTime>("FechaValoracion")
                         .HasColumnType("date");
-
-                    b.Property<int?>("FrecuenciaVisitasSemana")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Genero")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<string>("IpsIntramural")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
                     b.Property<string>("LlamadaBienvenida")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
-
-                    b.Property<string>("MotivoEgreso")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
-
-                    b.Property<string>("MotivoHospitalizacion")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
-
-                    b.Property<string>("MotivoNovedadDevolucionProductos")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
 
                     b.Property<string>("MunicipioResidencia")
                         .HasMaxLength(120)
@@ -513,18 +442,10 @@ namespace IntranetPrueba.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<string>("NotificacionAuxiliarDevolucionProductos")
-                        .HasMaxLength(2)
-                        .HasColumnType("character varying(2)");
-
                     b.Property<string>("NumeroIdentificacion")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
-
-                    b.Property<string>("NumeroPlacaEquipos")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("Observacion")
                         .HasMaxLength(2000)
@@ -539,10 +460,6 @@ namespace IntranetPrueba.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
-
-                    b.Property<string>("RemitidoPorHospitalizacion")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
 
                     b.Property<string>("TelefonoAdicional1")
                         .IsRequired()
@@ -566,10 +483,6 @@ namespace IntranetPrueba.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
-
-                    b.Property<string>("UbicacionHerida")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");

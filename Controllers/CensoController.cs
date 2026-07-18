@@ -1245,12 +1245,6 @@ public partial class CensoController : Controller
         return CensoEnConstruccion("Programa Cronicos");
     }
 
-    [HttpGet]
-    public IActionResult ClinicaHeridas()
-    {
-        return CensoEnConstruccion("Clinica de heridas");
-    }
-
     private IActionResult CensoEnConstruccion(string sectionName)
     {
         ViewData["Title"] = sectionName;
@@ -5160,6 +5154,9 @@ public partial class CensoController : Controller
         sb.AppendLine(" xmlns:o=\"urn:schemas-microsoft-com:office:office\"");
         sb.AppendLine(" xmlns:x=\"urn:schemas-microsoft-com:office:excel\"");
         sb.AppendLine(" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">");
+        sb.AppendLine(" <Styles>");
+        sb.AppendLine("  <Style ss:ID=\"Header\"><Font ss:Bold=\"1\"/></Style>");
+        sb.AppendLine(" </Styles>");
         sb.AppendLine(" <Worksheet ss:Name=\"Censo\">");
         sb.AppendLine("  <Table>");
 
@@ -5371,11 +5368,11 @@ public partial class CensoController : Controller
             AppendDataCell(sb, item.Id.ToString());
             AppendDataCell(sb, item.Asegurador);
             AppendDataCell(sb, item.EsProrroga ? "Si" : "No");
-            AppendDataCell(sb, item.FechaIngreso.ToString("yyyy-MM-dd"));
+            AppendDataCell(sb, FormatDate(item.FechaIngreso));
             AppendDataCell(sb, item.HoraIngreso.ToString(@"hh\:mm"));
-            AppendDataCell(sb, item.FechaRespuesta.ToString("yyyy-MM-dd"));
+            AppendDataCell(sb, FormatDate(item.FechaRespuesta));
             AppendDataCell(sb, item.HoraRespuesta.ToString(@"hh\:mm"));
-            AppendDataCell(sb, item.FechaGestionFarmacia.ToString("yyyy-MM-dd"));
+            AppendDataCell(sb, FormatDate(item.FechaGestionFarmacia));
             AppendDataCell(sb, item.HoraGestionFarmacia.ToString(@"hh\:mm"));
             AppendDataCell(sb, item.GestionCompletaPendiente);
             AppendDataCell(sb, item.GestionAnalistaAsistencial ? "Sí" : "No");
@@ -5389,7 +5386,7 @@ public partial class CensoController : Controller
             AppendDataCell(sb, item.NumeroIdentificacion);
             AppendDataCell(sb, item.CodigoCie10);
             AppendDataCell(sb, item.DiagnosticoDescriptivo);
-            AppendDataCell(sb, item.FechaNacimiento.ToString("yyyy-MM-dd"));
+            AppendDataCell(sb, FormatDate(item.FechaNacimiento));
             AppendDataCell(sb, item.Edad.ToString());
             AppendDataCell(sb, item.CorreoElectronico);
             AppendDataCell(sb, item.Direccion);
@@ -5511,7 +5508,7 @@ public partial class CensoController : Controller
             AppendDataCell(sb, item.NotificacionAuxiliarDevolucionProductos ?? string.Empty);
             AppendDataCell(sb, FormatNullableDate(item.FechaMaximaDevolucionProductos));
             AppendDataCell(sb, item.EstadoDevolucionServicioFarmaceutico ?? string.Empty);
-            AppendDataCell(sb, item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"));
+            AppendDataCell(sb, FormatDateTime(item.CreatedAtUtc));
             AppendDataCell(sb, idsConAdjuntos?.Contains(item.Id) == true ? "Sí" : "No");
             AppendDataCell(sb, item.TuvoReaperturaKardex ? "Sí" : "No");
             AppendDataCell(sb, item.ReaperturaSolicitadaPor ?? string.Empty);
@@ -5565,9 +5562,9 @@ public partial class CensoController : Controller
             AppendDataCell(sb, prorroga?.DiasMedicamento6 ?? "");
             AppendDataCell(sb, prorroga?.AplicacionesTotales ?? "");
             AppendDataCell(sb, prorroga?.DiasTratamientoIv ?? "");
-            AppendDataCell(sb, prorroga?.FechaInicioTratamiento ?? "");
-            AppendDataCell(sb, prorroga?.FechaFinTratamiento ?? "");
-            AppendDataCell(sb, prorroga?.FechaPromesaInicioTto ?? "");
+            AppendDataCell(sb, FormatDateText(prorroga?.FechaInicioTratamiento));
+            AppendDataCell(sb, FormatDateText(prorroga?.FechaFinTratamiento));
+            AppendDataCell(sb, FormatDateText(prorroga?.FechaPromesaInicioTto));
             var prorrogaHoraDisplay = (!string.IsNullOrWhiteSpace(prorroga?.HoraPromesaDesde) && !string.IsNullOrWhiteSpace(prorroga?.HoraPromesaHasta))
                 ? $"Entre {prorroga!.HoraPromesaDesde} y {prorroga.HoraPromesaHasta}"
                 : string.Empty;
@@ -5586,7 +5583,7 @@ public partial class CensoController : Controller
 
     private static void AppendHeaderCell(StringBuilder sb, string value)
     {
-        sb.AppendLine($"    <Cell><Data ss:Type=\"String\">{EscapeForXml(value)}</Data></Cell>");
+        sb.AppendLine($"    <Cell ss:StyleID=\"Header\"><Data ss:Type=\"String\">{EscapeForXml(value)}</Data></Cell>");
     }
 
     private static string CalculateIndicadorOportunidadInicioTto(CensoRecord item)
@@ -5676,7 +5673,44 @@ public partial class CensoController : Controller
 
     private static string FormatNullableDate(DateTime? value)
     {
-        return value?.ToString("yyyy-MM-dd") ?? string.Empty;
+        return value.HasValue ? FormatDate(value.Value) : string.Empty;
+    }
+
+    private static string FormatDate(DateTime value)
+    {
+        return value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatDateTime(DateTime value)
+    {
+        return value.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatDateText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = value.Trim();
+        string[] formats =
+        [
+            "yyyy-MM-dd",
+            "yyyy/MM/dd",
+            "yyyy-MM-ddTHH:mm:ss",
+            "yyyy-MM-ddTHH:mm:ss.fff",
+            "yyyy-MM-dd HH:mm:ss"
+        ];
+
+        return DateTime.TryParseExact(
+            trimmed,
+            formats,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var parsed)
+            ? FormatDate(parsed)
+            : trimmed;
     }
 
     private static string EscapeForXml(string? value)

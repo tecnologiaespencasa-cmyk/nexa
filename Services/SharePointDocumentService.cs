@@ -159,6 +159,133 @@ public class SharePointDocumentService : ISharePointDocumentService
         }
     }
 
+    public async Task<ServiceResult> UploadClinicaHeridasDocumentsAsync(
+        string patientName,
+        string documentType,
+        string documentNumber,
+        IReadOnlyList<IFormFile> files,
+        CancellationToken cancellationToken = default)
+    {
+        var validFiles = files
+            .Where(file => file.Length > 0)
+            .ToList();
+
+        if (validFiles.Count == 0)
+        {
+            return ServiceResult.Failure("Selecciona al menos una foto para adjuntar.");
+        }
+
+        if (validFiles.Any(file => file.Length > MaxFileBytes))
+        {
+            return ServiceResult.Failure("Cada foto adjunta debe pesar máximo 50 MB.");
+        }
+
+        var config = GetConfig();
+        if (!config.IsComplete)
+        {
+            return ServiceResult.Failure("SharePoint no esta configurado. Define SHAREPOINT_LIBRARY, SHAREPOINT_LIBRARY_ID, SHAREPOINT_SITE_ID y las credenciales Graph.");
+        }
+
+        try
+        {
+            var token = await GetAccessTokenAsync(config, cancellationToken);
+            var folderSegments = BuildClinicaHeridasFolderSegments(patientName, documentType, documentNumber);
+            var folderPath = string.Join("/", folderSegments);
+            var ensured = await EnsureFolderPathAsync(config.LibraryId!, folderSegments, token, cancellationToken);
+            if (!ensured.Succeeded)
+            {
+                return ensured;
+            }
+
+            foreach (var file in validFiles)
+            {
+                var fileName = SanitizeSharePointName(Path.GetFileName(file.FileName), "foto-herida");
+                var path = EscapeGraphPath($"{folderPath}/{fileName}");
+                using var uploadRequest = new HttpRequestMessage(
+                    HttpMethod.Put,
+                    $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(config.LibraryId!)}/root:/{path}:/content");
+                uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                uploadRequest.Content = new StreamContent(file.OpenReadStream());
+                uploadRequest.Content.Headers.ContentType = new MediaTypeHeaderValue(
+                    string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
+
+                using var uploadResponse = await _httpClient.SendAsync(uploadRequest, cancellationToken);
+                if (!uploadResponse.IsSuccessStatusCode)
+                {
+                    var body = await uploadResponse.Content.ReadAsStringAsync(cancellationToken);
+                    _logger.LogWarning("SharePoint ClinicaHeridas upload failed with status {StatusCode}: {Body}", uploadResponse.StatusCode, body);
+                    return ServiceResult.Failure($"No fue posible subir {fileName} a SharePoint. Estado: {(int)uploadResponse.StatusCode}.");
+                }
+            }
+
+            return ServiceResult.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SharePoint ClinicaHeridas document upload failed.");
+            return ServiceResult.Failure("No fue posible subir las fotos a SharePoint.");
+        }
+    }
+
+    public async Task<ServiceResult<IReadOnlyList<SharePointDocumentItem>>> ListClinicaHeridasDocumentsAsync(
+        string patientName,
+        string documentType,
+        string documentNumber,
+        CancellationToken cancellationToken = default)
+    {
+        var config = GetConfig();
+        if (!config.IsComplete)
+        {
+            return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Failure(
+                "SharePoint no esta configurado. Define SHAREPOINT_LIBRARY, SHAREPOINT_LIBRARY_ID, SHAREPOINT_SITE_ID y las credenciales Graph.");
+        }
+
+        try
+        {
+            var token = await GetAccessTokenAsync(config, cancellationToken);
+            var folderSegments = BuildClinicaHeridasFolderSegments(patientName, documentType, documentNumber);
+            var path = EscapeGraphPath(string.Join("/", folderSegments));
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(config.LibraryId!)}/root:/{path}:/children?$select=name,webUrl,size,lastModifiedDateTime,file&$orderby=name");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Success([]);
+            }
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("SharePoint ClinicaHeridas list failed with status {StatusCode}: {Body}", response.StatusCode, body);
+                return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Failure(
+                    $"No fue posible consultar los adjuntos en SharePoint. Estado: {(int)response.StatusCode}.");
+            }
+
+            var result = JsonSerializer.Deserialize<GraphChildrenResponse>(body, JsonOptions);
+            var items = result?.Value
+                .Where(item => item.File is not null)
+                .Select(item => new SharePointDocumentItem
+                {
+                    Name = item.Name ?? "Documento",
+                    WebUrl = item.WebUrl ?? string.Empty,
+                    Size = item.Size,
+                    LastModifiedAt = item.LastModifiedDateTime
+                })
+                .ToList() ?? [];
+
+            return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Success(items);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SharePoint ClinicaHeridas document list failed.");
+            return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Failure(
+                "No fue posible consultar los adjuntos en SharePoint.");
+        }
+    }
+
     public async Task<ServiceResult> UploadPanAmericanDocumentsAsync(
         string patientName,
         string documentNumber,
@@ -286,6 +413,30 @@ public class SharePointDocumentService : ISharePointDocumentService
             return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Failure(
                 "No fue posible consultar los adjuntos en SharePoint.");
         }
+    }
+
+    private IReadOnlyList<string> BuildClinicaHeridasFolderSegments(string patientName, string documentType, string documentNumber)
+    {
+        var folderPath = GetConfigValue("SHAREPOINT_CLINICA_HERIDAS_FOLDER", "SharePoint:ClinicaHeridasFolder");
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            folderPath = "ClinicaDeHeridas";
+        }
+
+        var segments = folderPath
+            .Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(segment => SanitizeSharePointName(segment, "ClinicaDeHeridas"))
+            .Where(segment => !string.IsNullOrWhiteSpace(segment))
+            .ToList();
+
+        if (segments.Count == 0)
+        {
+            segments.Add("ClinicaDeHeridas");
+        }
+
+        var rawPatientFolder = $"{patientName} - {documentType} {documentNumber}".Trim();
+        segments.Add(SanitizeSharePointName(rawPatientFolder, "paciente"));
+        return segments;
     }
 
     private IReadOnlyList<string> BuildPanAmericanFolderSegments()

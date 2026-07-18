@@ -1,0 +1,1798 @@
+@model CensoClinicaHeridasViewModel
+@using IntranetPrueba.Data.Entities
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/censo.css" asp-append-version="true" />
+}
+
+@{
+    ViewData["Title"] = "Clinica de heridas";
+    var successMessage = TempData["SuccessMessage"] as string;
+    var errorMessage = TempData["ErrorMessage"] as string;
+    var hasAuxiliares = Model.AuxiliarEnfermeriaOptions.Any();
+    var showCurrentPatientBar = Model.EditingRecordId.HasValue
+        && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
+    var vacActivo = string.Equals(Model.Vac, "Si", StringComparison.OrdinalIgnoreCase);
+}
+
+@functions {
+    private static Microsoft.AspNetCore.Html.IHtmlContent RequiredMark() =>
+        new Microsoft.AspNetCore.Html.HtmlString("<span class=\"text-danger ms-1\" aria-hidden=\"true\">*</span><span class=\"visually-hidden\">obligatorio</span>");
+}
+
+<div class="censo-page @(showCurrentPatientBar ? "censo-page--with-current-patient" : null)">
+    <aside class="censo-sidebar">
+        <section class="censo-section-strip">
+            <div class="censo-section-strip__nav">
+                <div class="list-group censo-nav censo-nav--top" id="heridas-tab" role="tablist">
+                    <button class="list-group-item list-group-item-action active censo-nav__item"
+                            id="tab-datos-basicos-link"
+                            data-bs-toggle="list"
+                            data-bs-target="#tab-datos-basicos"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-datos-basicos"
+                            aria-selected="true">
+                        <span class="censo-nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <circle cx="9" cy="7" r="3"></circle>
+                                <path d="M4 19v-1a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v1"></path>
+                                <path d="M16 8h4"></path>
+                                <path d="M18 6v4"></path>
+                            </svg>
+                        </span>
+                        <span class="censo-nav__content">
+                            <span class="censo-nav__eyebrow">Sección 1</span>
+                            <span class="censo-nav__title">Datos básicos</span>
+                            <span class="censo-nav__description">Datos personales, contacto y clasificación del paciente.</span>
+                        </span>
+                    </button>
+
+                    <button class="list-group-item list-group-item-action censo-nav__item"
+                            id="tab-manejo-herida-link"
+                            data-bs-toggle="list"
+                            data-bs-target="#tab-manejo-herida"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-manejo-herida"
+                            aria-selected="false">
+                        <span class="censo-nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M19 14c1.5-1.5 2-3.2 2-5a7 7 0 0 0-14 0"></path>
+                                <path d="M3 10c0 6.3 7 11 9 11s2.5-1 2.5-1"></path>
+                                <path d="M12 8v4"></path>
+                                <path d="M10 10h4"></path>
+                            </svg>
+                        </span>
+                        <span class="censo-nav__content">
+                            <span class="censo-nav__eyebrow">Sección 2</span>
+                            <span class="censo-nav__title">Manejo de la herida</span>
+                            <span class="censo-nav__description">Descripción, ubicación, fotos y frecuencia de visitas.</span>
+                        </span>
+                    </button>
+
+                    <button class="list-group-item list-group-item-action censo-nav__item"
+                            id="tab-activo-fijo-link"
+                            data-bs-toggle="list"
+                            data-bs-target="#tab-activo-fijo"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-activo-fijo"
+                            aria-selected="false">
+                        <span class="censo-nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <rect x="3" y="7" width="18" height="13" rx="2"></rect>
+                                <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <path d="M3 13h18"></path>
+                            </svg>
+                        </span>
+                        <span class="censo-nav__content">
+                            <span class="censo-nav__eyebrow">Sección 3</span>
+                            <span class="censo-nav__title">Activo fijo</span>
+                            <span class="censo-nav__description" id="activoFijoNavDescription">@(vacActivo ? "Equipos en comodato asignados al paciente." : "Se habilita cuando VAC está en Si.")</span>
+                        </span>
+                    </button>
+
+                    <button class="list-group-item list-group-item-action censo-nav__item"
+                            id="tab-seguimiento-hospitalizado-link"
+                            data-bs-toggle="list"
+                            data-bs-target="#tab-seguimiento-hospitalizado"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-seguimiento-hospitalizado"
+                            aria-selected="false">
+                        <span class="censo-nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M3 12h4l2-5 4 10 2-5h6"></path>
+                            </svg>
+                        </span>
+                        <span class="censo-nav__content">
+                            <span class="censo-nav__eyebrow">Sección 4</span>
+                            <span class="censo-nav__title">Seguimiento hospitalizado</span>
+                            <span class="censo-nav__description">Hospitalización y fechas de seguimiento.</span>
+                        </span>
+                    </button>
+
+                    <button class="list-group-item list-group-item-action censo-nav__item"
+                            id="tab-devolucion-productos-link"
+                            data-bs-toggle="list"
+                            data-bs-target="#tab-devolucion-productos"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-devolucion-productos"
+                            aria-selected="false">
+                        <span class="censo-nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"></path>
+                                <path d="M1 3h22v5H1z"></path>
+                                <path d="M10 12h4"></path>
+                            </svg>
+                        </span>
+                        <span class="censo-nav__content">
+                            <span class="censo-nav__eyebrow">Sección 5</span>
+                            <span class="censo-nav__title">Devolución de productos</span>
+                            <span class="censo-nav__description">Novedades y gestión del servicio farmacéutico.</span>
+                        </span>
+                    </button>
+
+                    <button class="list-group-item list-group-item-action censo-nav__item"
+                            id="tab-alta-programa-link"
+                            data-bs-toggle="list"
+                            data-bs-target="#tab-alta-programa"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-alta-programa"
+                            aria-selected="false">
+                        <span class="censo-nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                <path d="M8 3v4"></path>
+                                <path d="M16 3v4"></path>
+                                <path d="M4 10h16"></path>
+                                <path d="m9 15 2 2 4-5"></path>
+                            </svg>
+                        </span>
+                        <span class="censo-nav__content">
+                            <span class="censo-nav__eyebrow">Sección 6</span>
+                            <span class="censo-nav__title">Alta del programa</span>
+                            <span class="censo-nav__description">Motivo del egreso y estado del paciente.</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+            <div class="censo-section-strip__tools">
+                <form method="get" asp-action="ClinicaHeridas" class="censo-filter-panel">
+                    <h2 class="censo-filter-panel__title">Filtros rápidos</h2>
+                    <label for="cedulaHeridasFiltroInput" class="form-label censo-filter-panel__label">Buscar por documento</label>
+                    <div class="censo-filter-panel__input-wrap">
+                        <input class="form-control censo-filter-panel__input" id="cedulaHeridasFiltroInput" name="cedulaPaciente" value="@Model.CedulaFiltro" inputmode="text" maxlength="20" placeholder="Ingrese documento" />
+                        <span class="censo-filter-panel__search-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <circle cx="11" cy="11" r="7"></circle>
+                                <path d="m20 20-3.5-3.5"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <div class="censo-filter-panel__actions">
+                        <button type="submit" class="btn btn-outline-primary censo-filter-panel__button">Buscar</button>
+                        <a class="btn btn-outline-secondary censo-filter-panel__button" asp-action="ClinicaHeridas">Limpiar</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </aside>
+
+    @if (showCurrentPatientBar)
+    {
+        <section class="censo-current-patient" aria-label="Paciente actual">
+            <div class="censo-current-patient__avatar" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                    <circle cx="12" cy="8" r="4"></circle>
+                    <path d="M4 21a8 8 0 0 1 16 0"></path>
+                </svg>
+            </div>
+
+            <div class="censo-current-patient__identity">
+                <span class="censo-current-patient__label">Paciente actual</span>
+                <strong>@Model.NombrePaciente</strong>
+                @if (!string.IsNullOrWhiteSpace(Model.ProgramaPertenece))
+                {
+                    <span class="censo-current-patient__status">Programa @Model.ProgramaPertenece</span>
+                }
+            </div>
+
+            <div class="censo-current-patient__item">
+                <span class="censo-current-patient__label">Tipo ID</span>
+                <strong>@Model.TipoIdentificacion</strong>
+            </div>
+
+            <div class="censo-current-patient__item">
+                <span class="censo-current-patient__label">Documento</span>
+                <strong>@Model.NumeroIdentificacion</strong>
+            </div>
+
+            <div class="censo-current-patient__item">
+                <span class="censo-current-patient__label">Ingreso al programa</span>
+                <strong>
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                        <path d="M8 3v4"></path>
+                        <path d="M16 3v4"></path>
+                        <path d="M4 10h16"></path>
+                    </svg>
+                    @Model.FechaIngresoPrograma.ToString("dd/MM/yyyy")
+                </strong>
+            </div>
+
+            <div class="censo-current-patient__actions">
+                <div class="dropdown">
+                    <button class="btn censo-current-patient__button" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M15 19a6 6 0 0 0-12 0"></path>
+                            <circle cx="9" cy="8" r="3"></circle>
+                            <path d="M19 8v6"></path>
+                            <path d="M16 11h6"></path>
+                        </svg>
+                        <span>Cambiar paciente</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end censo-current-patient__dropdown">
+                        <form method="get" asp-action="ClinicaHeridas" class="censo-current-patient__search">
+                            <label for="cambiarHeridasPacienteDocumento" class="form-label">Documento</label>
+                            <div class="input-group">
+                                <input class="form-control" id="cambiarHeridasPacienteDocumento" name="cedulaPaciente" inputmode="text" maxlength="20" placeholder="Ingrese documento" />
+                                <button class="btn" type="submit" aria-label="Buscar paciente">
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                        <circle cx="11" cy="11" r="7"></circle>
+                                        <path d="m20 20-3.5-3.5"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <a class="btn censo-current-patient__button censo-current-patient__button--primary" asp-action="ClinicaHeridas">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M12 5v14"></path>
+                        <path d="M5 12h14"></path>
+                    </svg>
+                    <span>Nuevo ingreso</span>
+                </a>
+            </div>
+        </section>
+    }
+
+    <section class="censo-content">
+        @if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="alert alert-warning">@errorMessage</div>
+        }
+
+        <form asp-action="ClinicaHeridas" method="post" enctype="multipart/form-data" id="clinicaHeridasForm" class="censo-form-shell">
+            <input asp-for="EditingRecordId" type="hidden" />
+            <input asp-for="CedulaFiltro" type="hidden" />
+            <input asp-for="DireccionEsValida" type="hidden" id="direccionEsValidaInput" />
+
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger censo-validation-summary mb-4" role="alert"></div>
+
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="tab-datos-basicos" role="tabpanel" aria-labelledby="tab-datos-basicos-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Datos básicos</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!hasAuxiliares)
+                            {
+                                <div class="alert alert-warning">
+                                    No hay auxiliares OPS activos para asignar. Puedes guardar el registro y asignarlo después.
+                                </div>
+                            }
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                            <path d="M8 3v4"></path>
+                                            <path d="M16 3v4"></path>
+                                            <path d="M4 10h16"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Ingreso al programa</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-lg-4">
+                                        <label asp-for="Asegurador" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="Asegurador" asp-items="Model.AseguradorOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="Asegurador" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaIngresoPrograma" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="FechaIngresoPrograma" type="date" class="form-control" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                        <span asp-validation-for="FechaIngresoPrograma" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <circle cx="12" cy="8" r="4"></circle>
+                                            <path d="M4 21a8 8 0 0 1 16 0"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Información Personal</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-lg-3">
+                                        <label asp-for="TipoIdentificacion" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="TipoIdentificacion" asp-items="Model.TipoIdentificacionOptions" class="form-select" id="tipoIdentificacionSelect">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="TipoIdentificacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="NumeroIdentificacion" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="NumeroIdentificacion" class="form-control" inputmode="numeric" maxlength="20" autocomplete="off" id="numeroIdentificacionInput" />
+                                        <span asp-validation-for="NumeroIdentificacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label asp-for="NombrePaciente" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="NombrePaciente" class="form-control" autocomplete="off" />
+                                        <span asp-validation-for="NombrePaciente" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaNacimiento" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="FechaNacimiento"
+                                               type="date"
+                                               class="form-control"
+                                               id="fechaNacimientoInput"
+                                               max="@DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd")"
+                                               data-msg-max="La fecha de nacimiento debe ser anterior a la fecha actual."
+                                               oninvalid="this.setCustomValidity('La fecha de nacimiento debe ser anterior a la fecha actual.')"
+                                               oninput="this.setCustomValidity('')" />
+                                        <span asp-validation-for="FechaNacimiento" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label asp-for="Edad" class="form-label"></label>
+                                        <input asp-for="Edad" class="form-control" id="edadInput" readonly />
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="Genero" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="Genero" asp-items="Model.GeneroOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="Genero" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M12 21s7-4.7 7-11a7 7 0 1 0-14 0c0 6.3 7 11 7 11Z"></path>
+                                            <circle cx="12" cy="10" r="2.5"></circle>
+                                        </svg>
+                                    </span>
+                                    <h3>Dirección y ubicación</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-12">
+                                        <label asp-for="Direccion" class="form-label"></label>
+                                        <div class="input-group censo-direccion-group">
+                                            <input asp-for="Direccion" class="form-control" id="direccionInput" placeholder="Ingrese dirección completa del paciente" />
+                                            <button class="btn btn-outline-secondary censo-direccion-group__btn" type="button" id="validarDireccionBtn">Validar dirección</button>
+                                            <button class="btn btn-outline-secondary censo-direccion-group__btn" type="button" id="limpiarDireccionBtn">Limpiar</button>
+                                        </div>
+                                        <span asp-validation-for="Direccion" class="text-danger d-block"></span>
+                                        @if (!string.IsNullOrWhiteSpace(Model.DireccionMensajeValidacion))
+                                        {
+                                            <div class="alert @(Model.DireccionEsValida ? "alert-success" : "alert-warning") mt-2" id="direccionValidacionServerMensaje">
+                                                @Model.DireccionMensajeValidacion
+                                                @if (!string.IsNullOrWhiteSpace(Model.DireccionSugerida))
+                                                {
+                                                    <div class="mt-1">
+                                                        Sugerencia: <strong>@Model.DireccionSugerida</strong>
+                                                        <button type="button" class="btn btn-sm btn-link p-0 ms-2" id="usarSugerenciaDireccionBtnServer">Usar sugerencia</button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                        <div class="alert d-none mt-2" id="direccionValidacionMensaje"></div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-check censo-direccion-check">
+                                            <input asp-for="AsumirDireccionErrada" class="form-check-input" type="checkbox" id="asumirDireccionErradaCheck" />
+                                            <label asp-for="AsumirDireccionErrada" class="form-check-label">
+                                                Asumir dirección errada y continuar
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="DetalleDireccion" class="form-label"></label>
+                                        <input asp-for="DetalleDireccion" class="form-control" maxlength="200" placeholder="Ej: Apartamento 501 torre 2" />
+                                        <span asp-validation-for="DetalleDireccion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="ClasificacionZonaSura" class="form-label"></label>
+                                        <select asp-for="ClasificacionZonaSura" asp-items="Model.ClasificacionZonaSuraOptions" class="form-select" id="clasificacionZonaSuraSelect">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="ClasificacionZonaSura" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="MunicipioResidencia" class="form-label"></label>
+                                        <select asp-for="MunicipioResidencia" asp-items="Model.MunicipioResidenciaOptions" class="form-select" id="municipioResidenciaSelect">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="MunicipioResidencia" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="Barrio" class="form-label"></label>
+                                        <select asp-for="Barrio" class="form-select" id="barrioSelect">
+                                            <option value="" disabled hidden>Selecciona barrio...</option>
+                                            @foreach (var barrioOption in Model.BarrioOptions)
+                                            {
+                                                <option value="@barrioOption">@barrioOption</option>
+                                            }
+                                        </select>
+                                        <span asp-validation-for="Barrio" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="ZonaDireccionSegunMunicipio" class="form-label"></label>
+                                        <select asp-for="ZonaDireccionSegunMunicipio" asp-items="Model.ZonaDireccionOptions" class="form-select" id="zonaDireccionSelect">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="ZonaDireccionSegunMunicipio" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M6 3h4l2 5-2.5 1.5a11 11 0 0 0 5 5L16 12l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2Z"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Contacto</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-lg-4">
+                                        <label asp-for="TelefonoPrincipal" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="TelefonoPrincipal" class="form-control heridas-phone-input" inputmode="numeric" maxlength="10" />
+                                        <span asp-validation-for="TelefonoPrincipal" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="TelefonoAdicional1" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="TelefonoAdicional1" class="form-control heridas-phone-input" inputmode="numeric" maxlength="10" />
+                                        <span asp-validation-for="TelefonoAdicional1" class="text-danger"></span>
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="telefonoAdicional2Toggle" />
+                                            <label class="form-check-label" for="telefonoAdicional2Toggle">
+                                                Adicionar otro teléfono
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4 d-none" id="telefonoAdicional2Container">
+                                        <label asp-for="TelefonoAdicional2" class="form-label"></label>
+                                        <input asp-for="TelefonoAdicional2" class="form-control heridas-phone-input" inputmode="numeric" maxlength="10" />
+                                        <span asp-validation-for="TelefonoAdicional2" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="LlamadaBienvenida" class="form-label"></label>
+                                        <select asp-for="LlamadaBienvenida" asp-items="Model.LlamadaBienvenidaOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="LlamadaBienvenida" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="TelefonoContacto" class="form-label"></label>
+                                        <input asp-for="TelefonoContacto" class="form-control heridas-phone-input" inputmode="numeric" maxlength="10" />
+                                        <span asp-validation-for="TelefonoContacto" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="Observacion" class="form-label"></label>
+                                        <textarea asp-for="Observacion" class="form-control" rows="4" maxlength="2000" placeholder="Registra las observaciones del paciente"></textarea>
+                                        <span asp-validation-for="Observacion" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M12 3v18"></path>
+                                            <path d="M3 12h18"></path>
+                                            <circle cx="12" cy="12" r="9"></circle>
+                                        </svg>
+                                    </span>
+                                    <h3>Información clínica</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-lg-3">
+                                        <label asp-for="CodigoCie10" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="CodigoCie10" class="form-control" id="codigoCie10Input" maxlength="4" autocomplete="off" />
+                                        <span asp-validation-for="CodigoCie10" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label asp-for="DiagnosticoDescriptivo" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="DiagnosticoDescriptivo" class="form-control" id="diagnosticoDescriptivoInput" readonly />
+                                        <span asp-validation-for="DiagnosticoDescriptivo" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="FechaValoracion" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="FechaValoracion" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaValoracion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="ProgramaPertenece" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="ProgramaPertenece" asp-items="Model.ProgramaPerteneceOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="ProgramaPertenece" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="AuxiliarEnfermeriaAsignado" class="form-label"></label>
+                                        <input asp-for="AuxiliarEnfermeriaAsignado" class="form-control" maxlength="120" id="auxiliarEnfermeriaInput" list="auxiliarEnfermeriaOptions" autocomplete="off" placeholder="Buscar auxiliar asignado" />
+                                        <datalist id="auxiliarEnfermeriaOptions">
+                                            @foreach (var assistant in Model.AuxiliarEnfermeriaOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                            {
+                                                <option value="@assistant.Value">@assistant.Text</option>
+                                            }
+                                        </datalist>
+                                        <div class="form-text">Selecciona un auxiliar OPS activo. Si no aparece, debe registrarse primero en administración de usuarios.</div>
+                                        <span asp-validation-for="AuxiliarEnfermeriaAsignado" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label asp-for="Picc" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="Picc" asp-items="Model.SiNoOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="Picc" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label asp-for="Vac" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="Vac" asp-items="Model.SiNoOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="Vac" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div class="censo-form-actions">
+                                <button type="submit" class="btn btn-primary censo-save-button">
+                                    <span>@(Model.EditingRecordId.HasValue ? "Actualizar registro" : "Guardar registro")</span>
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                        <path d="M5 12h14"></path>
+                                        <path d="m13 6 6 6-6 6"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-manejo-herida" role="tabpanel" aria-labelledby="tab-manejo-herida-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Manejo de la herida</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el manejo de la herida y adjuntar fotos.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M4 19V5"></path>
+                                                <path d="M4 19h16"></path>
+                                                <path d="M8 15l3-3 3 2 5-7"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Datos de la herida</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-12">
+                                            <label asp-for="DescripcionHerida" class="form-label"></label>@RequiredMark()
+                                            <textarea asp-for="DescripcionHerida" class="form-control" rows="4" maxlength="2000" placeholder="Describe la herida del paciente"></textarea>
+                                            <span asp-validation-for="DescripcionHerida" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="UbicacionHerida" class="form-label"></label>@RequiredMark()
+                                            <select asp-for="UbicacionHerida" asp-items="Model.UbicacionHeridaOptions" class="form-select">
+                                                <option value="" disabled hidden>Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="UbicacionHerida" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="FrecuenciaVisitasSemana" class="form-label"></label>@RequiredMark()
+                                            <select asp-for="FrecuenciaVisitasSemana" asp-items="Model.FrecuenciaVisitasOptions" class="form-select">
+                                                <option value="" disabled hidden>Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="FrecuenciaVisitasSemana" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasManejoHerida", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar manejo de la herida</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+
+                                <section class="censo-field-section censo-sharepoint-documents">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="3" y="6" width="18" height="14" rx="2"></rect>
+                                                <circle cx="12" cy="13" r="4"></circle>
+                                                <path d="M9 6l1.5-2h3L15 6"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Foto de la herida</h3>
+                                    </div>
+
+                                    <div class="censo-sharepoint-documents__upload">
+                                        <div>
+                                            <label for="heridaAdjuntosInput" class="form-label">Adjuntar fotos</label>
+                                            <input class="form-control"
+                                                   type="file"
+                                                   id="heridaAdjuntosInput"
+                                                   name="heridaAdjuntos"
+                                                   multiple
+                                                   accept=".jpg,.jpeg,.png,.heic,.webp,.pdf,image/*,application/pdf" />
+                                            <div class="form-text">Las fotos se guardarán en SharePoint, en la carpeta ClinicaDeHeridas dentro de la carpeta del paciente.</div>
+                                        </div>
+                                        <button type="submit"
+                                                class="btn btn-outline-primary censo-sharepoint-documents__button"
+                                                formaction="@Url.Action("SubirClinicaHeridasAdjuntos", "Censo")"
+                                                formmethod="post"
+                                                formenctype="multipart/form-data"
+                                                formnovalidate>
+                                            <span>Subir fotos</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M12 3v12"></path>
+                                                <path d="m7 8 5-5 5 5"></path>
+                                                <path d="M5 21h14"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    @if (!string.IsNullOrWhiteSpace(Model.AdjuntosHeridaError))
+                                    {
+                                        <div class="alert alert-warning mt-3 mb-0">@Model.AdjuntosHeridaError</div>
+                                    }
+                                    else if (!Model.AdjuntosHerida.Any())
+                                    {
+                                        <div class="censo-sharepoint-documents__empty">
+                                            No hay fotos adjuntas para este paciente.
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="censo-sharepoint-documents__list">
+                                            @foreach (var adjunto in Model.AdjuntosHerida)
+                                            {
+                                                <a class="censo-sharepoint-documents__item" href="@adjunto.WebUrl" target="_blank" rel="noopener">
+                                                    <span class="censo-sharepoint-documents__file-icon" aria-hidden="true">
+                                                        <svg viewBox="0 0 24 24" focusable="false">
+                                                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                            <path d="M14 3v5h5"></path>
+                                                        </svg>
+                                                    </span>
+                                                    <span class="censo-sharepoint-documents__file-copy">
+                                                        <strong>@adjunto.Name</strong>
+                                                        <small>
+                                                            @($"{Math.Max(1, (int)Math.Ceiling(adjunto.Size / 1024d))} KB")
+                                                            @if (adjunto.LastModifiedAt.HasValue)
+                                                            {
+                                                                <span> · @adjunto.LastModifiedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                                            }
+                                                        </small>
+                                                    </span>
+                                                </a>
+                                            }
+                                        </div>
+                                    }
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-activo-fijo" role="tabpanel" aria-labelledby="tab-activo-fijo-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Activo fijo</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el activo fijo.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-info @(vacActivo ? "d-none" : "") mb-3" id="activoFijoBloqueadoAlert">
+                                    Esta sección está bloqueada. Solo se habilita cuando el campo VAC de los datos básicos está guardado en Si.
+                                </div>
+
+                                <fieldset id="activoFijoFieldset" disabled="@(vacActivo ? null : "disabled")">
+                                    <section class="censo-field-section">
+                                        <div class="censo-field-section__header">
+                                            <span class="censo-field-section__icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" focusable="false">
+                                                    <rect x="3" y="7" width="18" height="13" rx="2"></rect>
+                                                    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                    <path d="M3 13h18"></path>
+                                                </svg>
+                                            </span>
+                                            <h3>Equipos asignados</h3>
+                                        </div>
+                                        <div class="row g-3 censo-field-section__grid">
+                                            <div class="col-lg-3">
+                                                <label asp-for="EquipoComodato" class="form-label"></label>@RequiredMark()
+                                                <select asp-for="EquipoComodato" asp-items="Model.SiNoOptions" class="form-select">
+                                                    <option value="" disabled hidden>Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="EquipoComodato" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-9">
+                                                <label asp-for="NumeroPlacaEquipos" class="form-label"></label>@RequiredMark()
+                                                <input asp-for="NumeroPlacaEquipos" class="form-control" maxlength="100" autocomplete="off" placeholder="Ej: PLACA 00123, PLACA 00456" />
+                                                <span asp-validation-for="NumeroPlacaEquipos" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <label asp-for="FechaEntregaEquipo" class="form-label"></label>@RequiredMark()
+                                                <input asp-for="FechaEntregaEquipo" type="date" class="form-control" />
+                                                <span asp-validation-for="FechaEntregaEquipo" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <label asp-for="FechaDevolucionEquipo" class="form-label"></label>
+                                                <input asp-for="FechaDevolucionEquipo" type="date" class="form-control" />
+                                                <span asp-validation-for="FechaDevolucionEquipo" class="text-danger"></span>
+                                            </div>
+                                        </div>
+                                        <div class="censo-form-actions censo-form-actions--inline">
+                                            <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasActivoFijo", "Censo")" formmethod="post" formnovalidate>
+                                                <span>Guardar activo fijo</span>
+                                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                    <path d="M5 12h14"></path>
+                                                    <path d="m13 6 6 6-6 6"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </section>
+                                </fieldset>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-seguimiento-hospitalizado" role="tabpanel" aria-labelledby="tab-seguimiento-hospitalizado-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Seguimiento hospitalizado</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el seguimiento hospitalizado.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M3 12h4l2-5 4 10 2-5h6"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Datos de la hospitalización</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaHospitalizacion" class="form-label"></label>
+                                            <input asp-for="FechaHospitalizacion" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaHospitalizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="MotivoHospitalizacion" class="form-label"></label>
+                                            <select asp-for="MotivoHospitalizacion" asp-items="Model.MotivoHospitalizacionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="MotivoHospitalizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="RemitidoPorHospitalizacion" class="form-label"></label>
+                                            <select asp-for="RemitidoPorHospitalizacion" asp-items="Model.RemitidoPorHospitalizacionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="RemitidoPorHospitalizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label asp-for="IpsIntramural" class="form-label"></label>
+                                            <input asp-for="IpsIntramural" class="form-control" maxlength="200" autocomplete="off" />
+                                            <span asp-validation-for="IpsIntramural" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                                <path d="M8 3v4"></path>
+                                                <path d="M16 3v4"></path>
+                                                <path d="M4 10h16"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Fechas de seguimiento</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaPrimerSeguimiento24Horas" class="form-label"></label>
+                                            <input asp-for="FechaPrimerSeguimiento24Horas" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaPrimerSeguimiento24Horas" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaSegundoSeguimiento48Horas" class="form-label"></label>
+                                            <input asp-for="FechaSegundoSeguimiento48Horas" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaSegundoSeguimiento48Horas" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaTercerSeguimiento72Horas" class="form-label"></label>
+                                            <input asp-for="FechaTercerSeguimiento72Horas" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaTercerSeguimiento72Horas" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaCuartoSeguimientoSemana1" class="form-label"></label>
+                                            <input asp-for="FechaCuartoSeguimientoSemana1" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaCuartoSeguimientoSemana1" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaQuintoSeguimientoSemana2" class="form-label"></label>
+                                            <input asp-for="FechaQuintoSeguimientoSemana2" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaQuintoSeguimientoSemana2" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaSextoSeguimientoSemana3" class="form-label"></label>
+                                            <input asp-for="FechaSextoSeguimientoSemana3" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaSextoSeguimientoSemana3" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaSeptimoSeguimientoSemana4" class="form-label"></label>
+                                            <input asp-for="FechaSeptimoSeguimientoSemana4" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaSeptimoSeguimientoSemana4" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasSeguimientoHospitalizado", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar seguimiento hospitalizado</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-devolucion-productos" role="tabpanel" aria-labelledby="tab-devolucion-productos-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Devolución de productos</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar la devolución de productos.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"></path>
+                                                <path d="M1 3h22v5H1z"></path>
+                                                <path d="M10 12h4"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Novedad de devolución</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaNovedadDevolucionProductos" class="form-label"></label>
+                                            <input asp-for="FechaNovedadDevolucionProductos" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaNovedadDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="MotivoNovedadDevolucionProductos" class="form-label"></label>
+                                            <select asp-for="MotivoNovedadDevolucionProductos" asp-items="Model.MotivoNovedadDevolucionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="MotivoNovedadDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label asp-for="NotificacionAuxiliarDevolucionProductos" class="form-label"></label>
+                                            <select asp-for="NotificacionAuxiliarDevolucionProductos" asp-items="Model.SiNoOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="NotificacionAuxiliarDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaMaximaDevolucionProductos" class="form-label"></label>
+                                            <input asp-for="FechaMaximaDevolucionProductos" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaMaximaDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="EstadoDevolucionServicioFarmaceutico" class="form-label"></label>
+                                            <select asp-for="EstadoDevolucionServicioFarmaceutico" asp-items="Model.EstadoDevolucionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="EstadoDevolucionServicioFarmaceutico" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasDevolucionProductos", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar devolución de productos</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-alta-programa" role="tabpanel" aria-labelledby="tab-alta-programa-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Alta del programa</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el alta del programa.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                                <path d="M8 3v4"></path>
+                                                <path d="M16 3v4"></path>
+                                                <path d="M4 10h16"></path>
+                                                <path d="m9 15 2 2 4-5"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Datos del egreso</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-6">
+                                            <label asp-for="MotivoEgreso" class="form-label"></label>
+                                            <select asp-for="MotivoEgreso" asp-items="Model.MotivoEgresoOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="MotivoEgreso" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaEgreso" class="form-label"></label>
+                                            <input asp-for="FechaEgreso" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaEgreso" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="Estado" class="form-label"></label>
+                                            <select asp-for="Estado" asp-items="Model.EstadoProgramaOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="Estado" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasAltaPrograma", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar alta del programa</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </section>
+</div>
+
+<section class="censo-history-shell" id="heridasHistorial">
+    <div class="censo-history-shell__header">
+        <div class="censo-history-shell__header-copy">
+            <span class="censo-history-shell__eyebrow">Historial</span>
+            <h2>Últimos registros de clínica de heridas</h2>
+            <p>
+                @if (!string.IsNullOrWhiteSpace(Model.CedulaFiltro))
+                {
+                    @($"Últimos 100 registros para el documento {Model.CedulaFiltro}.")
+                }
+                else
+                {
+                    @("Se muestran los últimos 100 registros creados en este censo.")
+                }
+            </p>
+        </div>
+    </div>
+
+    @if (!Model.UltimosRegistros.Any())
+    {
+        <div class="alert alert-warning mb-0">
+            @if (!string.IsNullOrWhiteSpace(Model.CedulaFiltro))
+            {
+                @("No se encontraron registros de clínica de heridas con los filtros seleccionados.")
+            }
+            else
+            {
+                @("No hay registros de clínica de heridas para mostrar.")
+            }
+        </div>
+    }
+    else
+    {
+        <div class="censo-history-table-wrap">
+            <table class="table table-sm table-bordered censo-history-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Abrir</th>
+                        <th>Registro</th>
+                        <th>Paciente</th>
+                        <th>Documento</th>
+                        <th>Asegurador</th>
+                        <th>Programa</th>
+                        <th>Ingreso programa</th>
+                        <th>Fecha valoración</th>
+                        <th>PICC</th>
+                        <th>VAC</th>
+                        <th>Auxiliar</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var record in Model.UltimosRegistros)
+                    {
+                        <tr>
+                            <td>
+                                <a class="censo-history-table__open" asp-action="ClinicaHeridas" asp-route-recordId="@record.Id" asp-route-cedulaPaciente="@Model.CedulaFiltro" title="Cargar registro @record.Id" aria-label="Cargar registro @record.Id">
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                        <circle cx="11" cy="11" r="6"></circle>
+                                        <path d="M16 16l5 5"></path>
+                                    </svg>
+                                </a>
+                            </td>
+                            <td>@record.Id</td>
+                            <td>@record.NombrePaciente</td>
+                            <td>@record.TipoIdentificacion @record.NumeroIdentificacion</td>
+                            <td>@record.Asegurador</td>
+                            <td>@record.ProgramaPertenece</td>
+                            <td>@record.FechaIngresoPrograma.ToString("dd/MM/yyyy")</td>
+                            <td>@record.FechaValoracion.ToString("dd/MM/yyyy")</td>
+                            <td>@record.Picc</td>
+                            <td>@record.Vac</td>
+                            <td>@record.AuxiliarEnfermeriaAsignado</td>
+                            <td>@(string.IsNullOrWhiteSpace(record.Estado) ? "Activo" : record.Estado)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const validarDireccionUrl = "@Url.Action("ValidarDireccion", "Censo")";
+            const buscarBarriosUrl = "@Url.Action("BuscarBarrios", "Censo")";
+            const defaultsMunicipioUrl = "@Url.Action("ObtenerDefaultsMunicipio", "Censo")";
+            const buscarDiagnosticoCie10Url = "@Url.Action("BuscarDiagnosticoCie10", "Censo")";
+            const form = document.getElementById("clinicaHeridasForm");
+            const csrfTokenInput = form?.querySelector("input[name='__RequestVerificationToken']");
+            const direccionInput = document.getElementById("direccionInput");
+            const validarDireccionBtn = document.getElementById("validarDireccionBtn");
+            const limpiarDireccionBtn = document.getElementById("limpiarDireccionBtn");
+            const asumirDireccionCheck = document.getElementById("asumirDireccionErradaCheck");
+            const direccionEsValidaInput = document.getElementById("direccionEsValidaInput");
+            const direccionMessage = document.getElementById("direccionValidacionMensaje");
+            const direccionServerMessage = document.getElementById("direccionValidacionServerMensaje");
+            const usarSugerenciaServerBtn = document.getElementById("usarSugerenciaDireccionBtnServer");
+            const municipioSelect = document.getElementById("municipioResidenciaSelect");
+            const clasificacionSelect = document.getElementById("clasificacionZonaSuraSelect");
+            const barrioSelect = document.getElementById("barrioSelect");
+            const zonaSelect = document.getElementById("zonaDireccionSelect");
+            const codigoCie10Input = document.getElementById("codigoCie10Input");
+            const diagnosticoInput = document.getElementById("diagnosticoDescriptivoInput");
+            const tipoIdentificacionSelect = document.getElementById("tipoIdentificacionSelect");
+            const numeroIdentificacionInput = document.getElementById("numeroIdentificacionInput");
+            const cedulaHeridasFiltroInput = document.getElementById("cedulaHeridasFiltroInput");
+            const cambiarHeridasPacienteDocumentoInput = document.getElementById("cambiarHeridasPacienteDocumento");
+            const fechaNacimientoInput = document.getElementById("fechaNacimientoInput");
+            const edadInput = document.getElementById("edadInput");
+            const nombrePacienteInput = document.getElementById("NombrePaciente");
+            const auxiliarEnfermeriaInput = document.getElementById("auxiliarEnfermeriaInput");
+            const telefonoAdicional2Toggle = document.getElementById("telefonoAdicional2Toggle");
+            const telefonoAdicional2Container = document.getElementById("telefonoAdicional2Container");
+            const telefonoAdicional2Input = document.getElementById("TelefonoAdicional2");
+            const auxiliarEnfermeriaOptions = Array.from(document.querySelectorAll("#auxiliarEnfermeriaOptions option"))
+                .map((option) => option.value || "")
+                .filter((value) => value.trim());
+            let direccionValidada = @Model.DireccionEsValida.ToString().ToLowerInvariant();
+            let latestAddressCandidates = [];
+            let barriosLoaded = barrioSelect
+                ? Array.from(barrioSelect.options).map((option) => (option.value || "").trim()).filter((value) => !!value)
+                : [];
+            let lastValidationDistrict = "";
+
+            const escapeHtml = (value) => String(value || "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+
+            const shouldUppercaseControl = (control) => {
+                if (!control || control.disabled || control.readOnly) {
+                    return false;
+                }
+
+                if (control.matches("textarea")) {
+                    return true;
+                }
+
+                if (!control.matches("input")) {
+                    return false;
+                }
+
+                const type = String(control.getAttribute("type") || "text").toLowerCase();
+                return ["text", "search", "email", "tel", "url"].includes(type);
+            };
+
+            const uppercaseControlValue = (control) => {
+                if (!shouldUppercaseControl(control)) {
+                    return;
+                }
+
+                const currentValue = control.value || "";
+                const uppercaseValue = currentValue.toLocaleUpperCase("es-CO");
+                if (currentValue === uppercaseValue) {
+                    return;
+                }
+
+                const selectionStart = control.selectionStart;
+                const selectionEnd = control.selectionEnd;
+                control.value = uppercaseValue;
+
+                if (selectionStart !== null && selectionEnd !== null) {
+                    try {
+                        control.setSelectionRange(selectionStart, selectionEnd);
+                    } catch {
+                    }
+                }
+            };
+
+            document.addEventListener("input", (event) => {
+                const control = event.target;
+                if (!(control instanceof HTMLElement)
+                    || !control.closest("#clinicaHeridasForm, .censo-filter-panel, .censo-current-patient__search")) {
+                    return;
+                }
+
+                uppercaseControlValue(control);
+            });
+
+            const uppercaseAllHeridasTextFields = () => {
+                document
+                    .querySelectorAll("#clinicaHeridasForm input, #clinicaHeridasForm textarea, .censo-filter-panel input, .censo-current-patient__search input")
+                    .forEach((control) => uppercaseControlValue(control));
+            };
+
+            const normalizeCie10 = (value) => String(value || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 4);
+            const alphanumericIdentificationTypes = new Set(["PA", "CE"]);
+            const normalizeDocumentValue = (value) => String(value || "")
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, "")
+                .trim();
+            const allowsAlphaNumericIdentification = (value) =>
+                alphanumericIdentificationTypes.has(String(value || "").trim().toUpperCase());
+            const syncNumeroIdentificacionMode = () => {
+                if (!numeroIdentificacionInput) return;
+
+                const allowAlphaNumeric = allowsAlphaNumericIdentification(tipoIdentificacionSelect ? tipoIdentificacionSelect.value : "");
+                numeroIdentificacionInput.setAttribute("inputmode", allowAlphaNumeric ? "text" : "numeric");
+                numeroIdentificacionInput.title = allowAlphaNumeric
+                    ? "Permite letras y números para PA o CE."
+                    : "Solo permite dígitos para este tipo de identificación.";
+
+                const currentValue = String(numeroIdentificacionInput.value || "").toUpperCase();
+                numeroIdentificacionInput.value = allowAlphaNumeric
+                    ? currentValue.replace(/[^A-Z0-9]/g, "").slice(0, 20)
+                    : currentValue.replace(/\D/g, "").slice(0, 20);
+            };
+
+            const getAuxiliarValidationMessage = () =>
+                document.querySelector("[data-valmsg-for='AuxiliarEnfermeriaAsignado']");
+
+            const getCanonicalAuxiliarValue = (value) => {
+                const normalized = String(value || "").trim().toLocaleUpperCase("es-CO");
+                if (!normalized) return "";
+                return auxiliarEnfermeriaOptions.find((item) =>
+                    item.trim().toLocaleUpperCase("es-CO") === normalized) || "";
+            };
+
+            const syncAuxiliarValidation = (showInvalidMessage = false) => {
+                if (!auxiliarEnfermeriaInput) return true;
+
+                const value = String(auxiliarEnfermeriaInput.value || "").trim();
+                const canonicalValue = getCanonicalAuxiliarValue(value);
+                const messageElement = getAuxiliarValidationMessage();
+
+                if (canonicalValue) {
+                    auxiliarEnfermeriaInput.value = canonicalValue;
+                    if (messageElement) messageElement.textContent = "";
+                    return true;
+                }
+
+                if (!value) {
+                    if (messageElement) messageElement.textContent = "";
+                    return true;
+                }
+
+                if (showInvalidMessage && messageElement) {
+                    messageElement.textContent = auxiliarEnfermeriaOptions.length === 0
+                        ? "No hay auxiliares OPS activos para asignar."
+                        : "Selecciona un auxiliar OPS válido.";
+                }
+
+                return false;
+            };
+
+            const setDireccionValidada = (value) => {
+                direccionValidada = value;
+                if (direccionEsValidaInput) direccionEsValidaInput.value = value ? "true" : "false";
+            };
+
+            const clearServerDireccionMessage = () => {
+                if (direccionServerMessage) direccionServerMessage.remove();
+            };
+
+            const setDireccionMessage = (type, html) => {
+                if (!direccionMessage) return;
+                direccionMessage.className = `alert alert-${type} mt-2`;
+                direccionMessage.innerHTML = html;
+                direccionMessage.classList.remove("d-none");
+            };
+
+            const clearDireccionMessage = () => {
+                if (!direccionMessage) return;
+                direccionMessage.className = "alert d-none mt-2";
+                direccionMessage.innerHTML = "";
+            };
+
+            const syncSelectPlaceholderState = (select) => {
+                if (!select) return;
+                select.classList.toggle("is-placeholder", !select.value);
+            };
+
+            const setSelectValue = (select, value) => {
+                if (!select) return;
+                const normalizedValue = String(value || "").trim();
+                if (!normalizedValue) {
+                    select.value = "";
+                    syncSelectPlaceholderState(select);
+                    return;
+                }
+
+                const existing = Array.from(select.options).some((option) => option.value === normalizedValue);
+                if (!existing) {
+                    select.appendChild(new Option(normalizedValue, normalizedValue));
+                }
+                select.value = normalizedValue;
+                syncSelectPlaceholderState(select);
+            };
+
+            const setBarrioOptions = (options, selectedValue, preserveCurrentSelection = true) => {
+                if (!barrioSelect) return;
+
+                const currentValue = preserveCurrentSelection ? (barrioSelect.value || "") : "";
+                const targetValue = String(selectedValue ?? currentValue ?? "").trim();
+                const uniqueOptions = Array.from(new Set((options || [])
+                    .map((x) => (x || "").trim())
+                    .filter((x) => x)));
+
+                barrioSelect.innerHTML = "";
+                const placeholder = document.createElement("option");
+                placeholder.value = "";
+                placeholder.textContent = "Selecciona barrio...";
+                placeholder.disabled = true;
+                placeholder.hidden = true;
+                barrioSelect.appendChild(placeholder);
+
+                uniqueOptions.forEach((opt) => {
+                    const option = document.createElement("option");
+                    option.value = opt;
+                    option.textContent = opt;
+                    barrioSelect.appendChild(option);
+                });
+
+                if (targetValue) {
+                    const hasTarget = uniqueOptions.some((opt) => opt.toLowerCase() === targetValue.toLowerCase());
+                    if (!hasTarget) {
+                        barrioSelect.appendChild(new Option(targetValue, targetValue));
+                    }
+                    barrioSelect.value = targetValue;
+                }
+
+                syncSelectPlaceholderState(barrioSelect);
+            };
+
+            const applyMunicipalityDefaults = async (municipio, barrio, district) => {
+                if (!municipio) return;
+
+                try {
+                    const url = new URL(defaultsMunicipioUrl, window.location.origin);
+                    url.searchParams.set("municipio", municipio);
+                    if (barrio) url.searchParams.set("barrio", barrio);
+                    if (district) url.searchParams.set("district", district);
+                    if (direccionInput?.value) url.searchParams.set("direccion", direccionInput.value);
+
+                    const response = await fetch(url);
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    setSelectValue(clasificacionSelect, data.clasificacionZonaSura);
+                    setSelectValue(zonaSelect, data.zonaDireccionSegunMunicipio);
+                } catch {
+                }
+            };
+
+            const loadBarriosByMunicipio = async (municipio, term, selectedBarrio, preserveCurrentSelection = true) => {
+                if (!municipio) {
+                    barriosLoaded = [];
+                    setBarrioOptions([], "", false);
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${buscarBarriosUrl}?municipio=${encodeURIComponent(municipio)}&term=${encodeURIComponent(term || "a")}`);
+                    if (!response.ok) {
+                        barriosLoaded = [];
+                        setBarrioOptions([], "", false);
+                        return;
+                    }
+
+                    const data = await response.json();
+                    barriosLoaded = (data.neighborhoods || []).filter((x) => !!x);
+                    setBarrioOptions(barriosLoaded, selectedBarrio, preserveCurrentSelection);
+                } catch {
+                    barriosLoaded = [];
+                    setBarrioOptions([], "", false);
+                }
+            };
+
+            const clearAddressDerivedFields = () => {
+                lastValidationDistrict = "";
+                barriosLoaded = [];
+                setBarrioOptions([], "", false);
+                setSelectValue(clasificacionSelect, "");
+                setSelectValue(municipioSelect, "");
+                setSelectValue(zonaSelect, "");
+                if (asumirDireccionCheck) asumirDireccionCheck.checked = false;
+            };
+
+            const clearAllAddressData = () => {
+                if (direccionInput) direccionInput.value = "";
+                setDireccionValidada(false);
+                latestAddressCandidates = [];
+                clearAddressDerivedFields();
+                clearDireccionMessage();
+                clearServerDireccionMessage();
+            };
+
+            const applyAddressCandidate = async (candidate) => {
+                if (!candidate) return;
+
+                const selectedMunicipality = candidate.municipality || "";
+                const selectedNeighborhood = (candidate.neighborhood || candidate.district || "").trim();
+                lastValidationDistrict = candidate.district || "";
+
+                if (direccionInput && candidate.formattedAddress && !asumirDireccionCheck?.checked) {
+                    direccionInput.value = candidate.formattedAddress;
+                }
+
+                if (municipioSelect) {
+                    const hasOption = selectedMunicipality
+                        ? Array.from(municipioSelect.options).some((x) => x.value === selectedMunicipality)
+                        : false;
+                    municipioSelect.value = hasOption ? selectedMunicipality : "";
+                }
+
+                await applyMunicipalityDefaults(selectedMunicipality, selectedNeighborhood, lastValidationDistrict);
+                await loadBarriosByMunicipio(selectedMunicipality, selectedNeighborhood || "a", selectedNeighborhood, false);
+
+                if (barrioSelect) {
+                    setBarrioOptions(barriosLoaded, selectedNeighborhood, false);
+                }
+
+                setSelectValue(zonaSelect, candidate.zonaDireccionSegunMunicipio);
+                setSelectValue(clasificacionSelect, candidate.clasificacionZonaSura);
+
+                setDireccionValidada(true);
+                latestAddressCandidates = [];
+                setDireccionMessage("success", "Direccion seleccionada correctamente desde las coincidencias de Google.");
+            };
+
+            const renderAddressCandidates = (candidates, message) => {
+                const safeCandidates = (candidates || []).filter((x) => !!x && !!x.formattedAddress);
+                latestAddressCandidates = safeCandidates;
+
+                if (safeCandidates.length === 0) return false;
+
+                const optionsHtml = safeCandidates
+                    .map((candidate, index) => {
+                        const municipio = candidate.municipality ? ` (${escapeHtml(candidate.municipality)})` : "";
+                        return `<button type="button" class="btn btn-sm btn-outline-secondary d-block text-start w-100 mb-1 js-direccion-candidate" data-index="${index}">${escapeHtml(candidate.formattedAddress)}${municipio}</button>`;
+                    })
+                    .join("");
+
+                setDireccionMessage(
+                    "warning",
+                    `${escapeHtml(message || "Selecciona la direccion correcta antes de continuar:")}<div class="mt-2">${optionsHtml}</div>`);
+
+                document.querySelectorAll(".js-direccion-candidate").forEach((button) => {
+                    button.addEventListener("click", async () => {
+                        const index = Number(button.getAttribute("data-index"));
+                        if (!Number.isFinite(index) || index < 0 || index >= latestAddressCandidates.length) return;
+                        await applyAddressCandidate(latestAddressCandidates[index]);
+                    });
+                });
+
+                return true;
+            };
+
+            if (validarDireccionBtn && direccionInput && csrfTokenInput) {
+                validarDireccionBtn.addEventListener("click", async () => {
+                    if (!direccionInput.value.trim()) {
+                        setDireccionMessage("warning", "Debes escribir una dirección para validarla.");
+                        return;
+                    }
+
+                    validarDireccionBtn.disabled = true;
+                    clearDireccionMessage();
+                    clearServerDireccionMessage();
+                    try {
+                        const response = await fetch(validarDireccionUrl, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "RequestVerificationToken": csrfTokenInput.value
+                            },
+                            body: JSON.stringify({ direccion: direccionInput.value.trim() })
+                        });
+                        if (!response.ok) {
+                            throw new Error("No se pudo validar la dirección.");
+                        }
+
+                        const data = await response.json();
+                        setDireccionValidada(data.isValid === true);
+                        latestAddressCandidates = [];
+
+                        const shouldClearDerivedData = data.outcome === "invalid" || data.outcome === "unavailable";
+                        const hasAddressCandidates = data.requiresSelection === true
+                            && Array.isArray(data.candidates)
+                            && data.candidates.length > 0;
+                        const suggestedBarrio = (data.neighborhood || data.district || "").trim();
+
+                        if (shouldClearDerivedData) {
+                            clearAddressDerivedFields();
+                        }
+
+                        if (!shouldClearDerivedData && hasAddressCandidates) {
+                            clearAddressDerivedFields();
+                            setDireccionValidada(false);
+                            renderAddressCandidates(data.candidates, data.message);
+                            return;
+                        }
+
+                        if (!shouldClearDerivedData && municipioSelect && data.municipality) {
+                            const hasOption = Array.from(municipioSelect.options).some((x) => x.value === data.municipality);
+                            if (hasOption) {
+                                if (barrioSelect) barrioSelect.value = "";
+                                municipioSelect.value = data.municipality;
+                                syncSelectPlaceholderState(municipioSelect);
+                                lastValidationDistrict = data.district || "";
+                                await applyMunicipalityDefaults(data.municipality, suggestedBarrio, lastValidationDistrict);
+                                await loadBarriosByMunicipio(data.municipality, suggestedBarrio || "a", suggestedBarrio, false);
+                            }
+                        }
+
+                        if (!shouldClearDerivedData && barrioSelect) {
+                            setBarrioOptions(barriosLoaded, suggestedBarrio, false);
+                        }
+
+                        if (!shouldClearDerivedData && zonaSelect && data.zonaDireccionSegunMunicipio) {
+                            zonaSelect.value = data.zonaDireccionSegunMunicipio;
+                            syncSelectPlaceholderState(zonaSelect);
+                        }
+
+                        if (!shouldClearDerivedData && clasificacionSelect && data.clasificacionZonaSura) {
+                            clasificacionSelect.value = data.clasificacionZonaSura;
+                            syncSelectPlaceholderState(clasificacionSelect);
+                        }
+
+                        if (data.isValid) {
+                            if (data.formattedAddress && !asumirDireccionCheck?.checked) {
+                                direccionInput.value = data.formattedAddress;
+                            }
+                            setDireccionMessage("success", data.message || "Direccion validada correctamente.");
+                            return;
+                        }
+
+                        let html = data.message || "La dirección no pudo ser validada.";
+                        if (data.suggestedAddress) {
+                            html += `<br/>Sugerencia: <strong>${escapeHtml(data.suggestedAddress)}</strong> <button type="button" class="btn btn-sm btn-link p-0 ms-2" id="usarSugerenciaDireccionBtnClient">Usar sugerencia</button>`;
+                        }
+                        setDireccionMessage("warning", html);
+                        document.getElementById("usarSugerenciaDireccionBtnClient")?.addEventListener("click", (event) => {
+                            event.preventDefault();
+                            direccionInput.value = data.suggestedAddress || "";
+                            setDireccionValidada(false);
+                        });
+                    } catch {
+                        clearAddressDerivedFields();
+                        setDireccionMessage("danger", "No fue posible validar la dirección. Intenta nuevamente o marca 'Asumir dirección errada y continuar'.");
+                        setDireccionValidada(false);
+                    } finally {
+                        validarDireccionBtn.disabled = false;
+                    }
+                });
+            }
+
+            if (direccionInput) {
+                direccionInput.addEventListener("input", () => {
+                    setDireccionValidada(false);
+                    clearServerDireccionMessage();
+                });
+            }
+
+            if (limpiarDireccionBtn && direccionInput) {
+                limpiarDireccionBtn.addEventListener("click", () => {
+                    clearAllAddressData();
+                });
+            }
+
+            usarSugerenciaServerBtn?.addEventListener("click", () => {
+                const suggested = usarSugerenciaServerBtn.previousElementSibling?.textContent || "";
+                if (direccionInput && suggested) {
+                    direccionInput.value = suggested.trim();
+                    setDireccionValidada(false);
+                }
+            });
+
+            municipioSelect?.addEventListener("change", async () => {
+                const municipio = municipioSelect.value || "";
+                lastValidationDistrict = "";
+                if (barrioSelect) barrioSelect.value = "";
+                await applyMunicipalityDefaults(municipio, "", "");
+                await loadBarriosByMunicipio(municipio, "a", "");
+            });
+
+            barrioSelect?.addEventListener("change", async () => {
+                const municipio = municipioSelect ? municipioSelect.value : "";
+                const barrio = barrioSelect.value || "";
+                await applyMunicipalityDefaults(municipio, barrio, lastValidationDistrict);
+            });
+
+            codigoCie10Input?.addEventListener("input", () => {
+                codigoCie10Input.value = normalizeCie10(codigoCie10Input.value);
+                if (diagnosticoInput) diagnosticoInput.value = "";
+            });
+
+            codigoCie10Input?.addEventListener("blur", async () => {
+                const codigo = normalizeCie10(codigoCie10Input.value);
+                codigoCie10Input.value = codigo;
+                if (codigo.length !== 4 || !diagnosticoInput) return;
+                const response = await fetch(`${buscarDiagnosticoCie10Url}?codigo=${encodeURIComponent(codigo)}`);
+                if (!response.ok) {
+                    diagnosticoInput.value = "";
+                    return;
+                }
+                const data = await response.json();
+                diagnosticoInput.value = data.diagnostico || "";
+            });
+
+            document.querySelectorAll(".heridas-phone-input").forEach((input) => {
+                input.addEventListener("input", () => {
+                    input.value = input.value.replace(/\D/g, "").slice(0, 10);
+                });
+            });
+
+            const syncTelefonoAdicional2Visibility = () => {
+                if (!telefonoAdicional2Toggle || !telefonoAdicional2Container) return;
+                const shouldShow = telefonoAdicional2Toggle.checked;
+                telefonoAdicional2Container.classList.toggle("d-none", !shouldShow);
+                if (!shouldShow && telefonoAdicional2Input) {
+                    telefonoAdicional2Input.value = "";
+                }
+            };
+
+            if (telefonoAdicional2Toggle && telefonoAdicional2Input?.value) {
+                telefonoAdicional2Toggle.checked = true;
+            }
+            telefonoAdicional2Toggle?.addEventListener("change", syncTelefonoAdicional2Visibility);
+            syncTelefonoAdicional2Visibility();
+
+            auxiliarEnfermeriaInput?.addEventListener("input", () => syncAuxiliarValidation(false));
+            auxiliarEnfermeriaInput?.addEventListener("change", () => syncAuxiliarValidation(true));
+            auxiliarEnfermeriaInput?.addEventListener("blur", () => syncAuxiliarValidation(true));
+
+            numeroIdentificacionInput?.addEventListener("input", syncNumeroIdentificacionMode);
+            tipoIdentificacionSelect?.addEventListener("change", syncNumeroIdentificacionMode);
+            syncNumeroIdentificacionMode();
+
+            const sanitizeNombrePaciente = () => {
+                if (!nombrePacienteInput) return;
+                const currentValue = nombrePacienteInput.value || "";
+                const sanitizedValue = currentValue.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, "");
+                if (currentValue !== sanitizedValue) {
+                    nombrePacienteInput.value = sanitizedValue;
+                }
+            };
+
+            nombrePacienteInput?.addEventListener("input", sanitizeNombrePaciente);
+            sanitizeNombrePaciente();
+
+            const vacSelect = document.getElementById("Vac");
+            const activoFijoFieldset = document.getElementById("activoFijoFieldset");
+            const activoFijoBloqueadoAlert = document.getElementById("activoFijoBloqueadoAlert");
+            const activoFijoNavDescription = document.getElementById("activoFijoNavDescription");
+
+            const syncActivoFijoState = () => {
+                const vacActivo = String(vacSelect?.value || "").trim().toUpperCase() === "SI";
+                if (activoFijoFieldset) activoFijoFieldset.disabled = !vacActivo;
+                activoFijoBloqueadoAlert?.classList.toggle("d-none", vacActivo);
+                if (activoFijoNavDescription) {
+                    activoFijoNavDescription.textContent = vacActivo
+                        ? "Equipos en comodato asignados al paciente."
+                        : "Se habilita cuando VAC está en Si.";
+                }
+            };
+
+            vacSelect?.addEventListener("change", syncActivoFijoState);
+            syncActivoFijoState();
+
+            [cedulaHeridasFiltroInput, cambiarHeridasPacienteDocumentoInput].forEach((input) => {
+                if (!input) return;
+                input.value = normalizeDocumentValue(input.value);
+                input.addEventListener("input", () => {
+                    input.value = normalizeDocumentValue(input.value);
+                });
+            });
+            uppercaseAllHeridasTextFields();
+
+            const updateEdad = () => {
+                if (!fechaNacimientoInput || !edadInput) return;
+
+                const today = new Date();
+                const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                if (!fechaNacimientoInput.value || fechaNacimientoInput.value >= todayValue) {
+                    fechaNacimientoInput.setCustomValidity("La fecha de nacimiento debe ser anterior a la fecha actual.");
+                } else {
+                    fechaNacimientoInput.setCustomValidity("");
+                }
+
+                if (!fechaNacimientoInput.value) {
+                    edadInput.value = "0";
+                    return;
+                }
+
+                const birth = new Date(`${fechaNacimientoInput.value}T00:00:00`);
+                let age = today.getFullYear() - birth.getFullYear();
+                const monthDiff = today.getMonth() - birth.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                    age -= 1;
+                }
+                edadInput.value = Math.max(age, 0).toString();
+            };
+
+            fechaNacimientoInput?.addEventListener("change", updateEdad);
+            fechaNacimientoInput?.addEventListener("input", updateEdad);
+            updateEdad();
+
+            form?.addEventListener("submit", (event) => {
+                const submitAction = event.submitter?.getAttribute("formaction") || "";
+                if (submitAction.includes("GuardarClinicaHeridasManejoHerida")
+                    || submitAction.includes("GuardarClinicaHeridasActivoFijo")
+                    || submitAction.includes("GuardarClinicaHeridasSeguimientoHospitalizado")
+                    || submitAction.includes("GuardarClinicaHeridasDevolucionProductos")
+                    || submitAction.includes("GuardarClinicaHeridasAltaPrograma")
+                    || submitAction.includes("SubirClinicaHeridasAdjuntos")) {
+                    return;
+                }
+
+                sanitizeNombrePaciente();
+
+                if (!syncAuxiliarValidation(true)) {
+                    event.preventDefault();
+                    auxiliarEnfermeriaInput?.focus();
+                    return;
+                }
+
+                if (direccionInput?.value.trim() && !direccionValidada && !asumirDireccionCheck?.checked) {
+                    event.preventDefault();
+                    setDireccionMessage("warning", "Debes validar la dirección o marcar 'Asumir dirección errada y continuar'.");
+                    direccionInput?.focus();
+                }
+            });
+        })();
+    </script>
+}
