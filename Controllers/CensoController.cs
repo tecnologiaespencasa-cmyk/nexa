@@ -529,6 +529,7 @@ public partial class CensoController : Controller
         "URGENCIAS IPS SURA LOS VEGAS",
         "IPS NUMA",
         "AC QUIROFANOS",
+        "PARTICULAR",
     ];
 
     private static readonly string[] MunicipiosResidenciaValues =
