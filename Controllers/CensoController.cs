@@ -530,6 +530,7 @@ public partial class CensoController : Controller
         "IPS NUMA",
         "AC QUIROFANOS",
         "PARTICULAR",
+        "PANAMERICAN LIFE DE COLOMBIA",
     ];
 
     private static readonly string[] MunicipiosResidenciaValues =
@@ -622,6 +623,7 @@ public partial class CensoController : Controller
     private readonly ILogger<CensoController> _logger;
     private readonly IReadOnlyList<string> _medicamentoFallbackValues;
     private readonly IReadOnlyDictionary<string, string> _cie10Catalog;
+    private readonly IReadOnlyDictionary<string, MotivoAgudizacionCatalogItem> _motivoAgudizacionCatalog;
     private readonly IReadOnlyDictionary<string, string> _medellinNeighborhoodZoneMap;
 
     public CensoController(
@@ -649,6 +651,7 @@ public partial class CensoController : Controller
         _logger = logger;
         _medicamentoFallbackValues = LoadMedicamentoPrincipalValues(webHostEnvironment.ContentRootPath);
         _cie10Catalog = LoadCie10Catalog(webHostEnvironment.ContentRootPath);
+        _motivoAgudizacionCatalog = LoadMotivoAgudizacionCatalog(webHostEnvironment.ContentRootPath);
         _medellinNeighborhoodZoneMap = LoadMedellinNeighborhoodZoneMap(webHostEnvironment.ContentRootPath);
     }
 
@@ -1240,11 +1243,6 @@ public partial class CensoController : Controller
         });
     }
 
-    [HttpGet]
-    public IActionResult ProgramaCronicos()
-    {
-        return CensoEnConstruccion("Programa Cronicos");
-    }
 
     private IActionResult CensoEnConstruccion(string sectionName)
     {

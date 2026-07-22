@@ -3,6 +3,7 @@ using System;
 using IntranetPrueba.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IntranetPrueba.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260721210603_AddCensoCronicos")]
+    partial class AddCensoCronicos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -659,10 +662,6 @@ namespace IntranetPrueba.Data.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
 
-                    b.Property<string>("CorreoElectronico")
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -698,9 +697,6 @@ namespace IntranetPrueba.Data.Migrations
                     b.Property<string>("DisneaMmrc")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
-
-                    b.Property<int>("Edad")
-                        .HasColumnType("integer");
 
                     b.Property<string>("EducacionPlanCuidados")
                         .HasMaxLength(2)
@@ -755,9 +751,6 @@ namespace IntranetPrueba.Data.Migrations
                         .HasColumnType("date");
 
                     b.Property<DateTime?>("FechaInicioNutricion")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime>("FechaNacimiento")
                         .HasColumnType("date");
 
                     b.Property<DateTime?>("FechaPrimerSeguimiento24Horas")
@@ -858,11 +851,6 @@ namespace IntranetPrueba.Data.Migrations
                     b.Property<string>("MunicipioResidencia")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
-
-                    b.Property<string>("NombrePaciente")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
 
                     b.Property<int?>("NumeroAgudizacionesUltimoAnio")
                         .HasColumnType("integer");
