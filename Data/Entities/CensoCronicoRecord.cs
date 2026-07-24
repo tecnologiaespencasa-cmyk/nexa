@@ -69,19 +69,6 @@ public class CensoCronicoRecord
     [StringLength(30)]
     public string? EstadoPaciente { get; set; }
 
-    public int? NumeroAgudizacionesUltimoAnio { get; set; }
-
-    public DateTime? FechaAgudizacion { get; set; }
-
-    [StringLength(10)]
-    public string? MotivoAgudizacion { get; set; }
-
-    [StringLength(300)]
-    public string? DescripcionAgudizacion { get; set; }
-
-    [StringLength(120)]
-    public string? DetalleDescripcionCie10 { get; set; }
-
     [StringLength(4)]
     public string? DiagnosticoCronicoCie10 { get; set; }
 
@@ -232,35 +219,10 @@ public class CensoCronicoRecord
     [StringLength(20)]
     public string? EstadoMipresNutricion { get; set; }
 
-    public DateTime? FechaHospitalizacion { get; set; }
-
-    [StringLength(200)]
-    public string? MotivoHospitalizacion { get; set; }
-
-    [StringLength(100)]
-    public string? RemitidoPor { get; set; }
-
-    [StringLength(200)]
-    public string? IpsIntramural { get; set; }
-
-    public DateTime? FechaPrimerSeguimiento24Horas { get; set; }
-
-    public DateTime? FechaSegundoSeguimiento48Horas { get; set; }
-
-    public DateTime? FechaTercerSeguimiento72Horas { get; set; }
-
-    public DateTime? FechaCuartoSeguimientoSemana1 { get; set; }
-
-    public DateTime? FechaQuintoSeguimientoSemana2 { get; set; }
-
-    public DateTime? FechaSextoSeguimientoSemana3 { get; set; }
-
-    public DateTime? FechaSeptimoSeguimientoSemana4 { get; set; }
-
-    public DateTime? FechaAltaHospitalizacion { get; set; }
-
-    public int? NumeroHospitalizacionesUltimoAnio { get; set; }
-
+    // ----- Sección 4: Hospitalización y seguimiento -----
+    // Los episodios de hospitalización + seguimiento son multi-registro y viven en
+    // censo_cronico_hospitalizaciones (JSON). Aquí solo queda el egreso del programa,
+    // que es un evento a nivel del paciente y deriva el EstadoPaciente.
     [StringLength(2)]
     public string? EgresaProgramaCronico { get; set; }
 
@@ -272,4 +234,8 @@ public class CensoCronicoRecord
     public DateTime CreatedAtUtc { get; set; }
 
     public DateTime? UpdatedAtUtc { get; set; }
+
+    public ICollection<CensoCronicoAgudizacion> Agudizaciones { get; set; } = [];
+
+    public ICollection<CensoCronicoHospitalizacion> Hospitalizaciones { get; set; } = [];
 }

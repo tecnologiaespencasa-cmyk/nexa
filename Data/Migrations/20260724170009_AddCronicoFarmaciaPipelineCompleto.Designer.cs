@@ -3,6 +3,7 @@ using System;
 using IntranetPrueba.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IntranetPrueba.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724170009_AddCronicoFarmaciaPipelineCompleto")]
+    partial class AddCronicoFarmaciaPipelineCompleto
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -703,38 +706,6 @@ namespace IntranetPrueba.Data.Migrations
                     b.ToTable("censo_cronico_agudizaciones", (string)null);
                 });
 
-            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoHospitalizacion", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("CensoCronicoRecordId")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("HospitalizacionJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Numero")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CensoCronicoRecordId", "Numero")
-                        .IsUnique();
-
-                    b.ToTable("censo_cronico_hospitalizaciones", (string)null);
-                });
-
             modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoKardexReapertura", b =>
                 {
                     b.Property<long>("Id")
@@ -916,13 +887,22 @@ namespace IntranetPrueba.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<DateTime?>("FechaAltaHospitalizacion")
+                        .HasColumnType("date");
+
                     b.Property<DateTime?>("FechaAuditoria")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaCuartoSeguimientoSemana1")
                         .HasColumnType("date");
 
                     b.Property<DateTime?>("FechaEgreso")
                         .HasColumnType("date");
 
                     b.Property<DateTime?>("FechaFinNutricion")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaHospitalizacion")
                         .HasColumnType("date");
 
                     b.Property<DateTime>("FechaIngreso")
@@ -934,7 +914,25 @@ namespace IntranetPrueba.Data.Migrations
                     b.Property<DateTime>("FechaNacimiento")
                         .HasColumnType("date");
 
+                    b.Property<DateTime?>("FechaPrimerSeguimiento24Horas")
+                        .HasColumnType("date");
+
                     b.Property<DateTime?>("FechaProximoCambioSondaVesical")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaQuintoSeguimientoSemana2")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaSegundoSeguimiento48Horas")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaSeptimoSeguimientoSemana4")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaSextoSeguimientoSemana3")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaTercerSeguimiento72Horas")
                         .HasColumnType("date");
 
                     b.Property<DateTime?>("FechaUltimaPrescripcionNutricion")
@@ -983,6 +981,10 @@ namespace IntranetPrueba.Data.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<string>("IpsIntramural")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("Karnofsky")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -999,6 +1001,10 @@ namespace IntranetPrueba.Data.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<string>("MotivoHospitalizacion")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("MunicipioResidencia")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
@@ -1007,6 +1013,9 @@ namespace IntranetPrueba.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("NumeroHospitalizacionesUltimoAnio")
+                        .HasColumnType("integer");
 
                     b.Property<string>("NumeroIdentificacion")
                         .IsRequired()
@@ -1036,6 +1045,10 @@ namespace IntranetPrueba.Data.Migrations
                     b.Property<string>("Rankin")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RemitidoPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("RiesgoCaida")
                         .HasMaxLength(50)
@@ -2724,17 +2737,6 @@ namespace IntranetPrueba.Data.Migrations
                     b.Navigation("CensoCronicoRecord");
                 });
 
-            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoHospitalizacion", b =>
-                {
-                    b.HasOne("IntranetPrueba.Data.Entities.CensoCronicoRecord", "CensoCronicoRecord")
-                        .WithMany("Hospitalizaciones")
-                        .HasForeignKey("CensoCronicoRecordId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CensoCronicoRecord");
-                });
-
             modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoKardexReapertura", b =>
                 {
                     b.HasOne("IntranetPrueba.Data.Entities.CensoCronicoAgudizacion", "CensoCronicoAgudizacion")
@@ -2810,8 +2812,6 @@ namespace IntranetPrueba.Data.Migrations
             modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoRecord", b =>
                 {
                     b.Navigation("Agudizaciones");
-
-                    b.Navigation("Hospitalizaciones");
                 });
 
             modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoRecord", b =>

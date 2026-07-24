@@ -3,6 +3,7 @@ using System;
 using IntranetPrueba.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IntranetPrueba.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260723164552_AddCensoCronicoAgudizaciones")]
+    partial class AddCensoCronicoAgudizaciones
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -612,180 +615,18 @@ namespace IntranetPrueba.Data.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("FarmaciaBolsaDesempacada")
-                        .HasColumnType("boolean");
-
-                    b.Property<int?>("FarmaciaCantidadEntregas")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("FarmaciaEmpacadoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("FarmaciaEntregaActual")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(1);
-
-                    b.Property<DateTime?>("FarmaciaEnviadoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool?>("FarmaciaEsEntregaParcial")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("FarmaciaEstado")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasDefaultValue("Nuevo");
-
-                    b.Property<bool>("FarmaciaFacturado")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("FarmaciaFechaHoraRecepcionUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("FarmaciaFirmaActualizadaAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FarmaciaFirmaEntregaDataUrl")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FarmaciaFirmaRecibeDataUrl")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("FarmaciaKardexVistoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FarmaciaNombreRecibe")
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<bool>("FarmaciaOkKardex")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("FarmaciaRequisicionVistoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("KardexCerradoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("KardexEdicionJson")
-                        .HasColumnType("text");
-
                     b.Property<int>("Numero")
                         .HasColumnType("integer");
-
-                    b.Property<string>("ReaperturaAprobadaPor")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("ReaperturaSolicitadaPor")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("RequisicionFarmaciaJson")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("TuvoReaperturaKardex")
-                        .HasColumnType("boolean");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("FarmaciaEnviadoAtUtc");
 
                     b.HasIndex("CensoCronicoRecordId", "Numero")
                         .IsUnique();
 
                     b.ToTable("censo_cronico_agudizaciones", (string)null);
-                });
-
-            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoHospitalizacion", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("CensoCronicoRecordId")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("HospitalizacionJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Numero")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CensoCronicoRecordId", "Numero")
-                        .IsUnique();
-
-                    b.ToTable("censo_cronico_hospitalizaciones", (string)null);
-                });
-
-            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoKardexReapertura", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("CensoCronicoAgudizacionId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Estado")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("Motivo")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("ObservacionResolucion")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTime?>("ResueltoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ResueltoPorNombre")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid?>("ResueltoPorUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("SolicitadoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("SolicitadoPorNombre")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid>("SolicitadoPorUserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CensoCronicoAgudizacionId", "Estado");
-
-                    b.ToTable("censo_cronico_kardex_reaperturas", (string)null);
                 });
 
             modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoRecord", b =>
@@ -860,6 +701,14 @@ namespace IntranetPrueba.Data.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DescripcionAgudizacion")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("DetalleDescripcionCie10")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<string>("DetalleDireccion")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -916,13 +765,25 @@ namespace IntranetPrueba.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<DateTime?>("FechaAgudizacion")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaAltaHospitalizacion")
+                        .HasColumnType("date");
+
                     b.Property<DateTime?>("FechaAuditoria")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaCuartoSeguimientoSemana1")
                         .HasColumnType("date");
 
                     b.Property<DateTime?>("FechaEgreso")
                         .HasColumnType("date");
 
                     b.Property<DateTime?>("FechaFinNutricion")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaHospitalizacion")
                         .HasColumnType("date");
 
                     b.Property<DateTime>("FechaIngreso")
@@ -934,7 +795,25 @@ namespace IntranetPrueba.Data.Migrations
                     b.Property<DateTime>("FechaNacimiento")
                         .HasColumnType("date");
 
+                    b.Property<DateTime?>("FechaPrimerSeguimiento24Horas")
+                        .HasColumnType("date");
+
                     b.Property<DateTime?>("FechaProximoCambioSondaVesical")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaQuintoSeguimientoSemana2")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaSegundoSeguimiento48Horas")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaSeptimoSeguimientoSemana4")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaSextoSeguimientoSemana3")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaTercerSeguimiento72Horas")
                         .HasColumnType("date");
 
                     b.Property<DateTime?>("FechaUltimaPrescripcionNutricion")
@@ -983,6 +862,10 @@ namespace IntranetPrueba.Data.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<string>("IpsIntramural")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("Karnofsky")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -995,9 +878,17 @@ namespace IntranetPrueba.Data.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
 
+                    b.Property<string>("MotivoAgudizacion")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.Property<string>("MotivoEgreso")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<string>("MotivoHospitalizacion")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("MunicipioResidencia")
                         .HasMaxLength(120)
@@ -1007,6 +898,12 @@ namespace IntranetPrueba.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("NumeroAgudizacionesUltimoAnio")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("NumeroHospitalizacionesUltimoAnio")
+                        .HasColumnType("integer");
 
                     b.Property<string>("NumeroIdentificacion")
                         .IsRequired()
@@ -1036,6 +933,10 @@ namespace IntranetPrueba.Data.Migrations
                     b.Property<string>("Rankin")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RemitidoPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("RiesgoCaida")
                         .HasMaxLength(50)
@@ -2724,28 +2625,6 @@ namespace IntranetPrueba.Data.Migrations
                     b.Navigation("CensoCronicoRecord");
                 });
 
-            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoHospitalizacion", b =>
-                {
-                    b.HasOne("IntranetPrueba.Data.Entities.CensoCronicoRecord", "CensoCronicoRecord")
-                        .WithMany("Hospitalizaciones")
-                        .HasForeignKey("CensoCronicoRecordId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CensoCronicoRecord");
-                });
-
-            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoKardexReapertura", b =>
-                {
-                    b.HasOne("IntranetPrueba.Data.Entities.CensoCronicoAgudizacion", "CensoCronicoAgudizacion")
-                        .WithMany("Reaperturas")
-                        .HasForeignKey("CensoCronicoAgudizacionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CensoCronicoAgudizacion");
-                });
-
             modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoKardexReaperturaSolicitud", b =>
                 {
                     b.HasOne("IntranetPrueba.Data.Entities.CensoRecord", "CensoRecord")
@@ -2802,16 +2681,9 @@ namespace IntranetPrueba.Data.Migrations
                     b.Navigation("UserRoles");
                 });
 
-            modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoAgudizacion", b =>
-                {
-                    b.Navigation("Reaperturas");
-                });
-
             modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoCronicoRecord", b =>
                 {
                     b.Navigation("Agudizaciones");
-
-                    b.Navigation("Hospitalizaciones");
                 });
 
             modelBuilder.Entity("IntranetPrueba.Data.Entities.CensoRecord", b =>

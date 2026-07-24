@@ -104,6 +104,11 @@ public class FarmaciaPedidoViewModel
 
     public bool EsProrrogaDispatch { get; set; }
 
+    /// <summary>True cuando el pedido es una agudización del censo de Programa Crónicos (pipeline independiente).</summary>
+    public bool EsAgudizacionCronica { get; set; }
+
+    public int? NumeroAgudizacionCronica { get; set; }
+
     public TimeSpan? TiempoEnEmpacado => FarmaciaEmpacadoAtUtc.HasValue
         ? DateTime.UtcNow - FarmaciaEmpacadoAtUtc.Value
         : null;
@@ -160,6 +165,9 @@ public class FarmaciaDocumentViewModel
     public string? MedicoTratanteKardex { get; set; }
 
     public bool EsProrrogaActiva { get; set; }
+
+    /// <summary>Número de agudización cuando el documento pertenece al censo de Programa Crónicos.</summary>
+    public int? NumeroAgudizacionCronico { get; set; }
 
     public bool EsEntregaParcial { get; set; }
 

@@ -51,35 +51,366 @@ public class FarmaciaController : Controller
             .AsNoTracking()
             .Where(x => x.FarmaciaEnviadoAtUtc != null);
 
+        // Las agudizaciones del censo de Programa Crónicos comparten la bandeja y los
+        // estados de agudos, pero viven en su propia tabla (pipeline independiente).
+        var cronicosQuery = _context.CensoCronicoAgudizaciones
+            .AsNoTracking()
+            .Where(x => x.FarmaciaEnviadoAtUtc != null);
+
         if (!string.IsNullOrWhiteSpace(filtro))
         {
             query = query.Where(x => x.NumeroIdentificacion.Contains(filtro));
+            cronicosQuery = cronicosQuery.Where(x => x.CensoCronicoRecord.NumeroIdentificacion.Contains(filtro));
         }
 
-        var totalPedidos = await query.CountAsync(cancellationToken);
-        var pedidosNuevos = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
-        var ultimoPedidoId = await query
-            .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
-            .ThenByDescending(x => x.Id)
-            .Select(x => (long?)x.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+        var totalPedidos = await query.CountAsync(cancellationToken)
+            + await cronicosQuery.CountAsync(cancellationToken);
+        var pedidosNuevos = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
+            + await cronicosQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
 
         var model = new FarmaciaIndexViewModel
         {
             DocumentoFiltro = filtro,
             TotalPedidos = totalPedidos,
             PedidosNuevos = pedidosNuevos,
-            UltimoPedidoId = ultimoPedidoId,
+            UltimoPedidoId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, cancellationToken),
             PageSize = PageSize,
-            Nuevos = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo), nuevosPagina, cancellationToken),
-            Recepcionados = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.Recepcionado), recepcionadosPagina, cancellationToken),
-            Facturados = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.Facturado), facturadosPagina, cancellationToken),
-            Empacados = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.Empacado), empacadosPagina, cancellationToken),
-            PorDesempacar = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.PorDesempacar), porDesempacarPagina, cancellationToken),
-            Despachados = await BuildSectionPageAsync(query.Where(x => x.FarmaciaEstado == FarmaciaEstados.Despachado), despachadosPagina, cancellationToken),
+            Nuevos = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Nuevo, nuevosPagina, cancellationToken),
+            Recepcionados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Recepcionado, recepcionadosPagina, cancellationToken),
+            Facturados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Facturado, facturadosPagina, cancellationToken),
+            Empacados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Empacado, empacadosPagina, cancellationToken),
+            PorDesempacar = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.PorDesempacar, porDesempacarPagina, cancellationToken),
+            Despachados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Despachado, despachadosPagina, cancellationToken),
         };
 
         return View(model);
+    }
+
+    /// <summary>
+    /// Marcador numérico creciente del último envío (unix ms del FarmaciaEnviadoAtUtc más reciente
+    /// entre agudos y crónicos). El front solo lo compara para detectar llegadas nuevas.
+    /// </summary>
+    private static async Task<long?> GetUltimoEnvioMarkerAsync(
+        IQueryable<CensoRecord> censoQuery,
+        IQueryable<CensoCronicoAgudizacion> cronicosQuery,
+        CancellationToken cancellationToken)
+    {
+        var ultimoCenso = await censoQuery.MaxAsync(x => x.FarmaciaEnviadoAtUtc, cancellationToken);
+        var ultimoCronico = await cronicosQuery.MaxAsync(x => x.FarmaciaEnviadoAtUtc, cancellationToken);
+        var ultimo = new[] { ultimoCenso, ultimoCronico }.Max();
+        return ultimo.HasValue
+            ? new DateTimeOffset(DateTime.SpecifyKind(ultimo.Value, DateTimeKind.Utc)).ToUnixTimeMilliseconds()
+            : null;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DocumentoCronico(long id, string tipo = DocumentoKardex, string? documento = null, CancellationToken cancellationToken = default)
+    {
+        var normalizedType = NormalizeDocumentType(tipo);
+        var agudizacion = await _context.CensoCronicoAgudizaciones
+            .Include(x => x.CensoCronicoRecord)
+            .FirstOrDefaultAsync(x => x.Id == id && x.FarmaciaEnviadoAtUtc != null, cancellationToken);
+
+        if (agudizacion is null)
+        {
+            return NotFound();
+        }
+
+        var now = DateTime.UtcNow;
+        if (normalizedType == DocumentoRequisicion)
+        {
+            agudizacion.FarmaciaRequisicionVistoAtUtc ??= now;
+        }
+        else
+        {
+            agudizacion.FarmaciaKardexVistoAtUtc ??= now;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var medicamentos = await _context.Medicamentos
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .ToListAsync(cancellationToken);
+
+        var model = BuildCronicoDocumentModel(agudizacion, medicamentos, normalizedType);
+        ViewData["DocumentoFiltro"] = documento?.Trim();
+        return View("DocumentoCronico", model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetOkKardexCronico(long id, CancellationToken cancellationToken)
+    {
+        var agudizacion = await _context.CensoCronicoAgudizaciones
+            .Include(x => x.CensoCronicoRecord)
+            .FirstOrDefaultAsync(
+                x => x.Id == id && x.FarmaciaEnviadoAtUtc != null && x.FarmaciaEstado == FarmaciaEstados.Nuevo,
+                cancellationToken);
+
+        if (agudizacion is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado o no esta en estado Nuevo." });
+        }
+
+        agudizacion.FarmaciaOkKardex = true;
+        agudizacion.FarmaciaEstado = FarmaciaEstados.Recepcionado;
+        agudizacion.KardexCerradoAtUtc = DateTime.UtcNow;
+        agudizacion.UpdatedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var kardexUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var kardexUid) ? (Guid?)kardexUid : null;
+        await _auditService.LogAsync("FARMACIA_CRONICO_KARDEX_APROBADO", "Farmacia",
+            $"Paciente: {agudizacion.CensoCronicoRecord.NombrePaciente}, Doc: {agudizacion.CensoCronicoRecord.NumeroIdentificacion}, Agudización: #{agudizacion.Numero}",
+            kardexUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new { message = "Kardex aprobado. La agudización quedó cerrada en el censo de crónicos." });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetEntregaParcialCronico(
+        [FromBody] FarmaciaEntregaParcialInputModel model,
+        CancellationToken cancellationToken)
+    {
+        var agudizacion = await _context.CensoCronicoAgudizaciones.FirstOrDefaultAsync(
+            x => x.Id == model.Id && x.FarmaciaEnviadoAtUtc != null && x.FarmaciaEstado == FarmaciaEstados.Recepcionado,
+            cancellationToken);
+
+        if (agudizacion is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado o no esta en estado Recepcionado." });
+        }
+
+        if (model.EsEntregaParcial && (model.CantidadEntregas is null or < 2))
+        {
+            return BadRequest(new { message = "La cantidad de entregas debe ser al menos 2." });
+        }
+
+        agudizacion.FarmaciaEsEntregaParcial = model.EsEntregaParcial;
+        agudizacion.FarmaciaCantidadEntregas = model.EsEntregaParcial ? model.CantidadEntregas : null;
+        agudizacion.FarmaciaEntregaActual = 1;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new { message = "Configuracion de entrega guardada." });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AvanzarEntregaCronico(long id, CancellationToken cancellationToken)
+    {
+        var agudizacion = await _context.CensoCronicoAgudizaciones.FirstOrDefaultAsync(
+            x => x.Id == id && x.FarmaciaEnviadoAtUtc != null
+                && (x.FarmaciaEstado == FarmaciaEstados.Recepcionado
+                    || x.FarmaciaEstado == FarmaciaEstados.Facturado
+                    || x.FarmaciaEstado == FarmaciaEstados.Empacado
+                    || (x.FarmaciaEstado == FarmaciaEstados.Despachado && x.FarmaciaEsEntregaParcial == true)),
+            cancellationToken);
+
+        if (agudizacion is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado o no tiene entrega parcial activa." });
+        }
+
+        if (agudizacion.FarmaciaEsEntregaParcial != true || !agudizacion.FarmaciaCantidadEntregas.HasValue)
+        {
+            return BadRequest(new { message = "El pedido no tiene entrega parcial configurada." });
+        }
+
+        if (agudizacion.FarmaciaEntregaActual >= agudizacion.FarmaciaCantidadEntregas.Value)
+        {
+            return BadRequest(new { message = "Ya se alcanzo la ultima entrega." });
+        }
+
+        agudizacion.FarmaciaEntregaActual++;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new
+        {
+            message = $"Avanzado a entrega {agudizacion.FarmaciaEntregaActual} de {agudizacion.FarmaciaCantidadEntregas}.",
+            entregaActual = agudizacion.FarmaciaEntregaActual,
+            cantidadEntregas = agudizacion.FarmaciaCantidadEntregas
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetFacturadoCronico(long id, CancellationToken cancellationToken)
+    {
+        var agudizacion = await _context.CensoCronicoAgudizaciones
+            .Include(x => x.CensoCronicoRecord)
+            .FirstOrDefaultAsync(
+                x => x.Id == id && x.FarmaciaEnviadoAtUtc != null && x.FarmaciaEstado == FarmaciaEstados.Recepcionado,
+                cancellationToken);
+
+        if (agudizacion is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado o no esta en estado Recepcionado." });
+        }
+
+        agudizacion.FarmaciaFacturado = true;
+        agudizacion.FarmaciaEstado = FarmaciaEstados.Facturado;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var facturadoUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var facturadoUid) ? (Guid?)facturadoUid : null;
+        await _auditService.LogAsync("FARMACIA_CRONICO_FACTURADO", "Farmacia",
+            $"Paciente: {agudizacion.CensoCronicoRecord.NombrePaciente}, Doc: {agudizacion.CensoCronicoRecord.NumeroIdentificacion}, Agudización: #{agudizacion.Numero}",
+            facturadoUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new { message = "Pedido marcado como Facturado." });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetEmpacadoCronico(long id, CancellationToken cancellationToken)
+    {
+        var agudizacion = await _context.CensoCronicoAgudizaciones
+            .Include(x => x.CensoCronicoRecord)
+            .FirstOrDefaultAsync(
+                x => x.Id == id && x.FarmaciaEnviadoAtUtc != null && x.FarmaciaEstado == FarmaciaEstados.Facturado,
+                cancellationToken);
+
+        if (agudizacion is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado o no esta en estado Facturado." });
+        }
+
+        agudizacion.FarmaciaEstado = FarmaciaEstados.Empacado;
+        agudizacion.FarmaciaEmpacadoAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var empacadoUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var empacadoUid) ? (Guid?)empacadoUid : null;
+        await _auditService.LogAsync("FARMACIA_CRONICO_EMPACADO", "Farmacia",
+            $"Paciente: {agudizacion.CensoCronicoRecord.NombrePaciente}, Doc: {agudizacion.CensoCronicoRecord.NumeroIdentificacion}, Agudización: #{agudizacion.Numero}",
+            empacadoUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new { message = "Pedido en estado Empacado. Tiene 72 horas para firmar." });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetBolsaDesempacadaCronico(long id, CancellationToken cancellationToken)
+    {
+        var agudizacion = await _context.CensoCronicoAgudizaciones.FirstOrDefaultAsync(
+            x => x.Id == id && x.FarmaciaEnviadoAtUtc != null && x.FarmaciaEstado == FarmaciaEstados.PorDesempacar,
+            cancellationToken);
+
+        if (agudizacion is null)
+        {
+            return NotFound(new { message = "Pedido no encontrado o no esta en estado Por Desempacar." });
+        }
+
+        agudizacion.FarmaciaBolsaDesempacada = true;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new { message = "Bolsa marcada como desempacada." });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> FirmaCronico(long id, CancellationToken cancellationToken)
+    {
+        var agudizacion = await _context.CensoCronicoAgudizaciones
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.FarmaciaEnviadoAtUtc != null, cancellationToken);
+
+        if (agudizacion is null)
+        {
+            return NotFound(new { message = "No se encontro el despacho de farmacia." });
+        }
+
+        if (agudizacion.FarmaciaEstado != FarmaciaEstados.Empacado && agudizacion.FarmaciaEstado != FarmaciaEstados.PorDesempacar)
+        {
+            return BadRequest(new { message = "La firma solo esta disponible en estado Empacado o Por Desempacar." });
+        }
+
+        if (agudizacion.FarmaciaEstado == FarmaciaEstados.PorDesempacar && agudizacion.FarmaciaBolsaDesempacada)
+        {
+            return BadRequest(new { message = "La bolsa ya fue marcada como desempacada." });
+        }
+
+        var firma = BuildCronicoSignatureModel(agudizacion);
+        return Json(new
+        {
+            id = firma.PedidoId,
+            nombreRecibe = firma.NombreRecibe,
+            firmaEntregaDataUrl = firma.FirmaEntregaDataUrl,
+            firmaRecibeDataUrl = firma.FirmaRecibeDataUrl,
+            fechaHoraRecepcion = ColombiaTime.Convert(firma.FechaHoraRecepcionUtc)?.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture),
+            fechaHoraRecepcionTexto = firma.FechaHoraRecepcionTexto,
+            estaCompleta = firma.EstaCompleta
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GuardarFirmaCronico(FarmaciaSignatureInputModel model, CancellationToken cancellationToken)
+    {
+        if (model.Id <= 0)
+        {
+            return BadRequest(new { message = "No se encontro el despacho para guardar la firma." });
+        }
+
+        var nombreRecibe = model.NombreRecibe?.Trim();
+        if (string.IsNullOrWhiteSpace(nombreRecibe))
+        {
+            return BadRequest(new { message = "Ingresa el nombre de quien recibe." });
+        }
+
+        if (!IsValidSignatureDataUrl(model.FirmaEntregaDataUrl))
+        {
+            return BadRequest(new { message = "La firma de quien entrega es obligatoria." });
+        }
+
+        if (!IsValidSignatureDataUrl(model.FirmaRecibeDataUrl))
+        {
+            return BadRequest(new { message = "La firma de quien recibe es obligatoria." });
+        }
+
+        if (model.FechaHoraRecepcion == default)
+        {
+            return BadRequest(new { message = "Ingresa la fecha y hora de recepcion." });
+        }
+
+        var agudizacion = await _context.CensoCronicoAgudizaciones
+            .Include(x => x.CensoCronicoRecord)
+            .FirstOrDefaultAsync(x => x.Id == model.Id && x.FarmaciaEnviadoAtUtc != null, cancellationToken);
+
+        if (agudizacion is null)
+        {
+            return NotFound(new { message = "No se encontro el despacho de farmacia." });
+        }
+
+        if (agudizacion.FarmaciaEstado != FarmaciaEstados.Empacado && agudizacion.FarmaciaEstado != FarmaciaEstados.PorDesempacar)
+        {
+            return BadRequest(new { message = "La firma solo esta disponible en estado Empacado o Por Desempacar." });
+        }
+
+        if (agudizacion.FarmaciaEstado == FarmaciaEstados.PorDesempacar && agudizacion.FarmaciaBolsaDesempacada)
+        {
+            return BadRequest(new { message = "La bolsa ya fue marcada como desempacada." });
+        }
+
+        agudizacion.FarmaciaNombreRecibe = nombreRecibe;
+        agudizacion.FarmaciaFirmaEntregaDataUrl = model.FirmaEntregaDataUrl.Trim();
+        agudizacion.FarmaciaFirmaRecibeDataUrl = model.FirmaRecibeDataUrl.Trim();
+        agudizacion.FarmaciaFechaHoraRecepcionUtc = DateTime.SpecifyKind(model.FechaHoraRecepcion, DateTimeKind.Local).ToUniversalTime();
+        agudizacion.FarmaciaFirmaActualizadaAtUtc = DateTime.UtcNow;
+        agudizacion.FarmaciaEstado = FarmaciaEstados.Despachado;
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var despachadoUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var despachadoUid) ? (Guid?)despachadoUid : null;
+        await _auditService.LogAsync("FARMACIA_CRONICO_DESPACHADO", "Farmacia",
+            $"Paciente: {agudizacion.CensoCronicoRecord.NombrePaciente}, Doc: {agudizacion.CensoCronicoRecord.NumeroIdentificacion}, Agudización: #{agudizacion.Numero}, Recibe: {agudizacion.FarmaciaNombreRecibe}",
+            despachadoUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new
+        {
+            message = "Firmas guardadas. Paciente pasado a Despachado.",
+            estaCompleta = true,
+            nombreRecibe = agudizacion.FarmaciaNombreRecibe,
+            fechaHoraRecepcionTexto = ColombiaTime.Convert(agudizacion.FarmaciaFechaHoraRecepcionUtc)?.ToString("dd/MM/yyyy HH:mm")
+        });
     }
 
     [HttpGet]
@@ -149,12 +480,13 @@ public class FarmaciaController : Controller
             .AsNoTracking()
             .Where(x => x.FarmaciaEnviadoAtUtc != null);
 
-        var newCount = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
-        var lastId = await query
-            .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
-            .ThenByDescending(x => x.Id)
-            .Select(x => (long?)x.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+        var cronicosQuery = _context.CensoCronicoAgudizaciones
+            .AsNoTracking()
+            .Where(x => x.FarmaciaEnviadoAtUtc != null);
+
+        var newCount = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
+            + await cronicosQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
+        var lastId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, cancellationToken);
 
         return Json(new { newCount, lastId });
     }
@@ -466,11 +798,22 @@ public class FarmaciaController : Controller
                 && x.FarmaciaEmpacadoAtUtc < cutoff)
             .ToListAsync(cancellationToken);
 
-        if (vencidos.Count > 0)
+        var cronicosVencidos = await _context.CensoCronicoAgudizaciones
+            .Where(x => x.FarmaciaEstado == FarmaciaEstados.Empacado
+                && x.FarmaciaEmpacadoAtUtc != null
+                && x.FarmaciaEmpacadoAtUtc < cutoff)
+            .ToListAsync(cancellationToken);
+
+        if (vencidos.Count > 0 || cronicosVencidos.Count > 0)
         {
             foreach (var r in vencidos)
             {
                 r.FarmaciaEstado = FarmaciaEstados.PorDesempacar;
+            }
+
+            foreach (var a in cronicosVencidos)
+            {
+                a.FarmaciaEstado = FarmaciaEstados.PorDesempacar;
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -537,6 +880,293 @@ public class FarmaciaController : Controller
             TotalPages = totalPages,
             Items = records.Select(x => MapPedido(x.Record, x.TieneAdjuntos)).ToList()
         };
+    }
+
+    private static FarmaciaPedidoViewModel MapCronicoPedido(CensoCronicoAgudizacion agudizacion)
+    {
+        var record = agudizacion.CensoCronicoRecord;
+        return new FarmaciaPedidoViewModel
+        {
+            Id = agudizacion.Id,
+            NombrePaciente = record.NombrePaciente,
+            TipoIdentificacion = record.TipoIdentificacion,
+            NumeroIdentificacion = record.NumeroIdentificacion,
+            FechaEnvioUtc = agudizacion.FarmaciaEnviadoAtUtc ?? agudizacion.CreatedAtUtc,
+            FechaIngreso = record.FechaIngreso,
+            EstadoCenso = record.EstadoPaciente,
+            KardexVisto = agudizacion.FarmaciaKardexVistoAtUtc.HasValue,
+            RequisicionVisto = agudizacion.FarmaciaRequisicionVistoAtUtc.HasValue,
+            FirmaRegistrada = BuildCronicoSignatureModel(agudizacion).EstaCompleta,
+            NombreRecibe = agudizacion.FarmaciaNombreRecibe,
+            FechaHoraRecepcionUtc = agudizacion.FarmaciaFechaHoraRecepcionUtc,
+            FarmaciaEstado = agudizacion.FarmaciaEstado,
+            FarmaciaOkKardex = agudizacion.FarmaciaOkKardex,
+            FarmaciaEsEntregaParcial = agudizacion.FarmaciaEsEntregaParcial,
+            FarmaciaCantidadEntregas = agudizacion.FarmaciaCantidadEntregas,
+            FarmaciaEntregaActual = agudizacion.FarmaciaEntregaActual,
+            FarmaciaFacturado = agudizacion.FarmaciaFacturado,
+            FarmaciaEmpacadoAtUtc = agudizacion.FarmaciaEmpacadoAtUtc,
+            FarmaciaBolsaDesempacada = agudizacion.FarmaciaBolsaDesempacada,
+            TieneAdjuntos = false,
+            EsProrrogaDispatch = false,
+            EsAgudizacionCronica = true,
+            NumeroAgudizacionCronica = agudizacion.Numero,
+        };
+    }
+
+    private static FarmaciaSignatureViewModel BuildCronicoSignatureModel(CensoCronicoAgudizacion agudizacion)
+    {
+        return new FarmaciaSignatureViewModel
+        {
+            PedidoId = agudizacion.Id,
+            NombreRecibe = agudizacion.FarmaciaNombreRecibe,
+            FirmaEntregaDataUrl = agudizacion.FarmaciaFirmaEntregaDataUrl,
+            FirmaRecibeDataUrl = agudizacion.FarmaciaFirmaRecibeDataUrl,
+            FechaHoraRecepcionUtc = agudizacion.FarmaciaFechaHoraRecepcionUtc,
+            ActualizadaAtUtc = agudizacion.FarmaciaFirmaActualizadaAtUtc
+        };
+    }
+
+    /// <summary>
+    /// Une en una misma sección los pedidos de agudos (tabla censo) y las agudizaciones de
+    /// crónicos (tabla censo_cronico_agudizaciones) para el estado indicado, ordenados por
+    /// fecha de envío. Para paginar el resultado combinado se traen los primeros
+    /// página × tamaño de cada origen y se corta la página en memoria.
+    /// </summary>
+    private static async Task<FarmaciaSectionPageViewModel> BuildMergedSectionPageAsync(
+        IQueryable<CensoRecord> censoQuery,
+        IQueryable<CensoCronicoAgudizacion> cronicosQuery,
+        string estado,
+        int requestedPage,
+        CancellationToken cancellationToken)
+    {
+        var censoEstado = censoQuery.Where(x => x.FarmaciaEstado == estado);
+        var cronicosEstado = cronicosQuery.Where(x => x.FarmaciaEstado == estado);
+
+        var totalItems = await censoEstado.CountAsync(cancellationToken)
+            + await cronicosEstado.CountAsync(cancellationToken);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)PageSize));
+        var currentPage = Math.Clamp(requestedPage, 1, totalPages);
+        var take = currentPage * PageSize;
+
+        var censoItems = await censoEstado
+            .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
+            .ThenByDescending(x => x.Id)
+            .Take(take)
+            .Select(x => new { Record = x, TieneAdjuntos = x.Adjuntos.Any() })
+            .ToListAsync(cancellationToken);
+
+        var cronicoItems = await cronicosEstado
+            .Include(x => x.CensoCronicoRecord)
+            .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
+            .ThenByDescending(x => x.Id)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        var merged = censoItems.Select(x => MapPedido(x.Record, x.TieneAdjuntos))
+            .Concat(cronicoItems.Select(MapCronicoPedido))
+            .OrderByDescending(x => x.FechaEnvioUtc)
+            .ThenByDescending(x => x.Id)
+            .Skip((currentPage - 1) * PageSize)
+            .Take(PageSize)
+            .ToList();
+
+        return new FarmaciaSectionPageViewModel
+        {
+            CurrentPage = currentPage,
+            TotalItems = totalItems,
+            TotalPages = totalPages,
+            Items = merged
+        };
+    }
+
+    private static FarmaciaDocumentViewModel BuildCronicoDocumentModel(
+        CensoCronicoAgudizacion agudizacion,
+        IReadOnlyList<Medicamento> medicamentos,
+        string tipoDocumento)
+    {
+        var medicationCatalog = medicamentos
+            .GroupBy(x => NormalizeCatalogKey(x.Nombre), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+        CronicoAgudizacionData data = new();
+        if (!string.IsNullOrWhiteSpace(agudizacion.AgudizacionJson))
+        {
+            try
+            {
+                data = JsonSerializer.Deserialize<CronicoAgudizacionData>(
+                    agudizacion.AgudizacionJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new CronicoAgudizacionData();
+            }
+            catch (JsonException)
+            {
+                data = new CronicoAgudizacionData();
+            }
+        }
+
+        var fechaInicio = FormatCronicoIsoDate(data.FechaInicioTratamiento);
+        var fechaFin = FormatCronicoIsoDate(data.FechaFinTratamiento);
+
+        var meds = (data.Medicamentos ?? [])
+            .Where(m => m is not null && m.Activo && HasMedication(m.Nombre))
+            .OrderBy(m => m.Numero)
+            .ToList();
+
+        var rows = new List<FarmaciaKardexMedicationViewModel>();
+        for (var rowIndex = 1; rowIndex <= 6; rowIndex++)
+        {
+            var med = rowIndex <= meds.Count ? meds[rowIndex - 1] : null;
+            rows.Add(BuildMedicationRow(
+                rowIndex,
+                med?.Nombre,
+                ParseDecimalStr(med?.Dosis),
+                med?.Medida,
+                med?.Via,
+                med?.Frecuencia,
+                ParseIntStr(med?.Dias),
+                fechaInicio,
+                fechaFin,
+                isolationValue: string.Empty,
+                medicationCatalog));
+        }
+
+        var requisicionRows = BuildCronicoRequisitionRows(data, meds, medicationCatalog, fechaInicio, fechaFin);
+
+        var record = agudizacion.CensoCronicoRecord;
+        var model = new FarmaciaDocumentViewModel
+        {
+            Id = agudizacion.Id,
+            TipoDocumento = tipoDocumento,
+            NumeroAgudizacionCronico = agudizacion.Numero,
+            NombrePaciente = record.NombrePaciente,
+            TipoIdentificacion = record.TipoIdentificacion,
+            NumeroIdentificacion = record.NumeroIdentificacion,
+            Asegurador = string.Empty,
+            DiagnosticoDescriptivo = data.DiagnosticoDescriptivo ?? string.Empty,
+            CodigoCie10 = data.CodigoCie10 ?? string.Empty,
+            Edad = record.Edad,
+            Direccion = record.Direccion ?? string.Empty,
+            DetalleDireccion = record.DetalleDireccion,
+            Telefonos = string.Empty,
+            Observaciones = string.Empty,
+            AuxiliarAsignado = data.AuxiliarAsignado,
+            EsEntregaParcial = agudizacion.FarmaciaEsEntregaParcial == true,
+            CantidadEntregas = agudizacion.FarmaciaCantidadEntregas,
+            EntregaActual = agudizacion.FarmaciaEntregaActual,
+            Firma = BuildCronicoSignatureModel(agudizacion),
+            Medicamentos = rows,
+            RequisicionItems = requisicionRows
+        };
+
+        if (tipoDocumento == DocumentoRequisicion)
+        {
+            ApplyStoredRequisition(model, agudizacion.RequisicionFarmaciaJson);
+            if (model.EsEntregaParcial && model.CantidadEntregas is > 1)
+            {
+                ApplyEntregaParcialDivision(model);
+            }
+        }
+        else
+        {
+            ApplyStoredKardex(model, agudizacion.KardexEdicionJson);
+        }
+
+        return model;
+    }
+
+    private static IReadOnlyList<FarmaciaRequisicionItemViewModel> BuildCronicoRequisitionRows(
+        CronicoAgudizacionData data,
+        IReadOnlyList<CronicoAgudizacionMed> meds,
+        IReadOnlyDictionary<string, Medicamento> medicationCatalog,
+        string fechaInicio,
+        string fechaFin)
+    {
+        var medications = meds
+            .Select(m => new RequisitionMedication(m.Nombre, ParseDecimalStr(m.Dosis), m.Frecuencia, null, ParseIntStr(m.Dias)))
+            .Where(x => HasMedication(x.Name))
+            .ToList();
+
+        var rows = new List<FarmaciaRequisicionItemViewModel>();
+        foreach (var medication in medications)
+        {
+            rows.Add(new FarmaciaRequisicionItemViewModel
+            {
+                Descripcion = medication.Name!.Trim(),
+                Cantidad = FormatQuantity(CalculateMedicationQuantity(medication)),
+                FechaInicio = fechaInicio,
+                FechaFin = fechaFin
+            });
+        }
+
+        foreach (var detail in medications
+            .Select(x =>
+            {
+                medicationCatalog.TryGetValue(NormalizeCatalogKey(x.Name), out var metadata);
+                return metadata?.SolucionParaDilucion;
+            })
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "SOLUCION PARA DILUCION", Detalle = detail, FechaInicio = fechaInicio, FechaFin = fechaFin });
+        }
+
+        var totalApplications = ParseDecimal(data.AplicacionesTotales);
+        foreach (var detail in medications
+            .Select(x =>
+            {
+                medicationCatalog.TryGetValue(NormalizeCatalogKey(x.Name), out var metadata);
+                return metadata?.Jeringa;
+            })
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "JERINGA", Detalle = detail, Cantidad = FormatQuantity(totalApplications), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        }
+
+        var treatmentDays = ParseDecimal(data.DiasTratamientoIv);
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "JELCO #22", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays, true)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "ATI", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "MACROGOTERO", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "BURETRA", Cantidad = FormatQuantity(CalculateEveryThreeDaysQuantity(treatmentDays)), FechaInicio = fechaInicio, FechaFin = fechaFin });
+        rows.Add(new FarmaciaRequisicionItemViewModel { Descripcion = "GUANTES (PAR)", Cantidad = FormatQuantity(totalApplications), FechaInicio = fechaInicio, FechaFin = fechaFin });
+
+        for (var i = 0; i < rows.Count; i++) rows[i].Item = i + 1;
+        return rows;
+    }
+
+    private static string FormatCronicoIsoDate(string? value)
+    {
+        return DateTime.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+            ? parsed.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+            : value ?? string.Empty;
+    }
+
+    private sealed class CronicoAgudizacionData
+    {
+        public string? CodigoCie10 { get; set; }
+        public string? DiagnosticoDescriptivo { get; set; }
+        public string? SeguimientoMedico { get; set; }
+        public string? AplicacionesTotales { get; set; }
+        public string? DiasTratamientoIv { get; set; }
+        public string? FechaInicioTratamiento { get; set; }
+        public string? FechaFinTratamiento { get; set; }
+        public string? FechaPromesaInicioTto { get; set; }
+        public string? AuxiliarAsignado { get; set; }
+        public List<CronicoAgudizacionMed>? Medicamentos { get; set; }
+    }
+
+    private sealed class CronicoAgudizacionMed
+    {
+        public int Numero { get; set; }
+        public bool Activo { get; set; }
+        public string? Nombre { get; set; }
+        public string? Dosis { get; set; }
+        public string? Medida { get; set; }
+        public string? Via { get; set; }
+        public string? Frecuencia { get; set; }
+        public string? Dias { get; set; }
     }
 
     private static FarmaciaDocumentViewModel BuildDocumentModel(

@@ -1,12 +1,12 @@
 using System.Globalization;
-using System.IO;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using IntranetPrueba.Data.Entities;
+using IntranetPrueba.Models.Security;
 using IntranetPrueba.Models.ViewModels;
 using IntranetPrueba.Services.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,9 +19,22 @@ public partial class CensoController
     private static readonly string[] CronicoGeneroValues = ["Masculino", "Femenino", "Indeterminado"];
     private static readonly string[] CronicoClasificacionCasoValues = ["REHABILITABLE", "PERMANENTE", "PALIATIVO"];
     private static readonly string[] CronicoEstadoPacienteValues = ["CRONICO ESTABLE", "CRONICO AGUDIZADO"];
+    // El estado del paciente se administra automáticamente (ya no es un campo editable):
+    // por defecto "CRONICO ESTABLE"; pasa a "Inactivo" cuando egresa del programa crónico.
+    private const string CronicoEstadoActivo = "CRONICO ESTABLE";
+    private const string CronicoEstadoInactivo = "Inactivo";
     private static readonly string[] CronicoBarthelAuditadoValues = ["Si", "No", "Sin dato"];
+    private static readonly string[] CronicoCalificacionBarthelValues =
+        Enumerable.Range(0, 21).Select(i => $"{i * 5}%").ToArray();
+    private static readonly string[] CronicoKarnofskyValues =
+        Enumerable.Range(0, 11).Select(i => $"{i * 10}%").ToArray();
+    private static readonly string[] CronicoFastValues = ["1", "2", "3", "4", "5", "6", "7"];
+    private static readonly string[] CronicoRankinValues = ["1", "2", "3", "4", "5", "6"];
+    private static readonly string[] CronicoDisneaMmrcValues = ["1", "2", "3", "4"];
+    private static readonly string[] CronicoNyhaValues = ["I", "II", "III", "IV"];
     private static readonly string[] CronicoSiNoValues = ["Si", "No"];
     private static readonly string[] CronicoEstadoClinicaHeridasValues = ["Activo", "Inactivo"];
+    private static readonly string[] CronicoCalibreSondaVesicalValues = ["12FR", "14FR", "16FR", "18FR", "20FR", "22FR"];
     private static readonly string[] CronicoTallaValues = ["S", "M", "L", "XL"];
     private static readonly string[] CronicoEstadoMipresValues = ["APROBADO", "NO APROBADO", "NO GESTIONADO", "NO APLICA"];
     private static readonly string[] CronicoMotivoEgresoValues =
@@ -119,7 +132,8 @@ public partial class CensoController
             var isNew = record.Id == 0;
             ApplyDatosBasicosToRecord(model, record, direccionParaGuardar);
             ApplyGestionCasoToRecord(record, model);
-            ApplyValidacionesToRecord(record, model);
+            ApplyServiciosToRecord(record, model);
+            ApplyHospitalizacionToRecord(record, model);
             record.UpdatedAtUtc = DateTime.UtcNow;
             auditAction = isNew ? "CENSO_CRONICO_CREADO" : "CENSO_CRONICO_ACTUALIZADO";
             if (isNew)
@@ -133,7 +147,8 @@ public partial class CensoController
             record = new CensoCronicoRecord { CreatedAtUtc = DateTime.UtcNow };
             ApplyDatosBasicosToRecord(model, record, direccionParaGuardar);
             ApplyGestionCasoToRecord(record, model);
-            ApplyValidacionesToRecord(record, model);
+            ApplyServiciosToRecord(record, model);
+            ApplyHospitalizacionToRecord(record, model);
             await _context.CensoCronicos.AddAsync(record, cancellationToken);
         }
 
@@ -156,11 +171,20 @@ public partial class CensoController
     public Task<IActionResult> GuardarCronicoGestionCaso(CensoCronicoViewModel model, CancellationToken cancellationToken)
     {
         NormalizeCronicoGestionCasoFields(model);
+        NormalizeCronicoServiciosFields(model);
 
         return GuardarCronicoSeccionAsync(
             model,
-            validateSection: ValidateCronicoGestionCaso,
-            applySectionToRecord: ApplyGestionCasoToRecord,
+            validateSection: m =>
+            {
+                ValidateCronicoGestionCaso(m);
+                ValidateCronicoServicios(m);
+            },
+            applySectionToRecord: (record, m) =>
+            {
+                ApplyGestionCasoToRecord(record, m);
+                ApplyServiciosToRecord(record, m);
+            },
             missingRecordMessage: "Primero guarda los datos básicos del paciente para registrar la gestión del caso.",
             auditAction: "CENSO_CRONICO_GESTION_CASO_ACTUALIZADA",
             successMessage: "Gestión del caso guardada correctamente.",
@@ -169,17 +193,17 @@ public partial class CensoController
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public Task<IActionResult> GuardarCronicoValidaciones(CensoCronicoViewModel model, CancellationToken cancellationToken)
+    public Task<IActionResult> GuardarCronicoHospitalizacion(CensoCronicoViewModel model, CancellationToken cancellationToken)
     {
-        NormalizeCronicoValidacionesFields(model);
+        NormalizeCronicoHospitalizacionFields(model);
 
         return GuardarCronicoSeccionAsync(
             model,
-            validateSection: ValidateCronicoValidaciones,
-            applySectionToRecord: ApplyValidacionesToRecord,
-            missingRecordMessage: "Primero guarda los datos básicos del paciente para registrar las validaciones.",
-            auditAction: "CENSO_CRONICO_VALIDACIONES_ACTUALIZADAS",
-            successMessage: "Validaciones guardadas correctamente.",
+            validateSection: ValidateCronicoHospitalizacion,
+            applySectionToRecord: ApplyHospitalizacionToRecord,
+            missingRecordMessage: "Primero guarda los datos básicos del paciente para registrar la hospitalización y seguimiento.",
+            auditAction: "CENSO_CRONICO_HOSPITALIZACION_ACTUALIZADA",
+            successMessage: "Hospitalización y seguimiento guardados correctamente.",
             cancellationToken);
     }
 
@@ -242,28 +266,353 @@ public partial class CensoController
     }
 
     [HttpGet]
-    public IActionResult BuscarMotivoAgudizacion(string codigo)
+    public async Task<IActionResult> ObtenerCronicoAgudizaciones(long id, CancellationToken cancellationToken)
     {
-        var normalizedCode = NormalizeCronicoCatalogCode(codigo);
-        if (string.IsNullOrWhiteSpace(normalizedCode)
-            || !_motivoAgudizacionCatalog.TryGetValue(normalizedCode, out var item))
-        {
-            return Json(new
+        if (id <= 0) return BadRequest(new { message = "ID de registro inválido." });
+
+        var agudizaciones = await _context.CensoCronicoAgudizaciones
+            .AsNoTracking()
+            .Where(x => x.CensoCronicoRecordId == id)
+            .OrderBy(x => x.Numero)
+            .Select(x => new
             {
-                found = false,
-                codigo = normalizedCode,
-                descripcion = string.Empty,
-                grupo = string.Empty
-            });
+                id = x.Id,
+                numero = x.Numero,
+                agudizacionJson = x.AgudizacionJson,
+                kardexJson = x.KardexEdicionJson,
+                requisicionJson = x.RequisicionFarmaciaJson,
+                cerrada = x.KardexCerradoAtUtc != null,
+                cerradaAtUtc = x.KardexCerradoAtUtc,
+                enviadaFarmacia = x.FarmaciaEnviadoAtUtc != null,
+                enviadoAtUtc = x.FarmaciaEnviadoAtUtc,
+                farmaciaEstado = x.FarmaciaEstado,
+                farmaciaOkKardex = x.FarmaciaOkKardex,
+                tuvoReapertura = x.TuvoReaperturaKardex,
+                reaperturaSolicitud = x.Reaperturas
+                    .Where(r => r.Estado == ReaperturaKardexEstado.Pendiente)
+                    .OrderByDescending(r => r.Id)
+                    .Select(r => new
+                    {
+                        id = r.Id,
+                        estado = r.Estado,
+                        motivo = r.Motivo,
+                        solicitante = r.SolicitadoPorNombre,
+                        solicitadaAt = r.SolicitadoAtUtc
+                    })
+                    .FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+
+        return Json(new { agudizaciones });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GuardarCronicoAgudizacion(
+        long id,
+        string? agudizacionJson,
+        long? agudizacionVersionId,
+        CancellationToken cancellationToken)
+    {
+        if (id <= 0) return BadRequest(new { message = "ID de registro inválido." });
+
+        var record = await _context.CensoCronicos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (record is null) return NotFound(new { message = "Registro no encontrado." });
+
+        if (string.IsNullOrWhiteSpace(agudizacionJson))
+        {
+            return BadRequest(new { message = "Ingresa los datos de la agudización." });
         }
+
+        var jsonTrimmed = agudizacionJson.Trim();
+
+        CensoCronicoAgudizacion agudizacion;
+        if (agudizacionVersionId.HasValue)
+        {
+            var existing = await _context.CensoCronicoAgudizaciones.FirstOrDefaultAsync(
+                x => x.Id == agudizacionVersionId.Value && x.CensoCronicoRecordId == id,
+                cancellationToken);
+            if (existing is null) return NotFound(new { message = "Agudización no encontrada." });
+            if (existing.KardexCerradoAtUtc.HasValue)
+            {
+                return BadRequest(new { message = "El kardex de esta agudización fue aprobado por farmacia y está cerrado. Solicita la reapertura para poder modificarla." });
+            }
+
+            agudizacion = existing;
+            agudizacion.UpdatedAtUtc = DateTime.UtcNow;
+        }
+        else
+        {
+            var maxNumero = await _context.CensoCronicoAgudizaciones
+                .Where(x => x.CensoCronicoRecordId == id)
+                .Select(x => (int?)x.Numero)
+                .MaxAsync(cancellationToken) ?? 0;
+
+            agudizacion = new CensoCronicoAgudizacion
+            {
+                CensoCronicoRecordId = id,
+                Numero = maxNumero + 1,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            await _context.CensoCronicoAgudizaciones.AddAsync(agudizacion, cancellationToken);
+        }
+
+        agudizacion.AgudizacionJson = jsonTrimmed;
+        record.UpdatedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
+        var auditIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        await _auditService.LogAsync(
+            agudizacionVersionId.HasValue ? "CENSO_CRONICO_AGUDIZACION_ACTUALIZADA" : "CENSO_CRONICO_AGUDIZACION_CREADA",
+            "CensoCronicoAgudizacion",
+            $"Doc: {record.NumeroIdentificacion}, Agudización: #{agudizacion.Numero}",
+            auditUserId, auditIp, cancellationToken);
 
         return Json(new
         {
-            found = true,
-            codigo = normalizedCode,
-            descripcion = item.Descripcion,
-            grupo = item.Grupo
+            message = $"Agudización #{agudizacion.Numero} guardada correctamente.",
+            agudizacionId = agudizacion.Id,
+            numero = agudizacion.Numero
         });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ObtenerCronicoHospitalizaciones(long id, CancellationToken cancellationToken)
+    {
+        if (id <= 0) return BadRequest(new { message = "ID de registro inválido." });
+
+        var hospitalizaciones = await _context.CensoCronicoHospitalizaciones
+            .AsNoTracking()
+            .Where(x => x.CensoCronicoRecordId == id)
+            .OrderBy(x => x.Numero)
+            .Select(x => new
+            {
+                id = x.Id,
+                numero = x.Numero,
+                hospitalizacionJson = x.HospitalizacionJson
+            })
+            .ToListAsync(cancellationToken);
+
+        return Json(new { hospitalizaciones });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GuardarCronicoHospitalizacionRegistro(
+        long id,
+        string? hospitalizacionJson,
+        long? hospitalizacionVersionId,
+        CancellationToken cancellationToken)
+    {
+        if (id <= 0) return BadRequest(new { message = "ID de registro inválido." });
+
+        var record = await _context.CensoCronicos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (record is null) return NotFound(new { message = "Registro no encontrado." });
+
+        if (string.IsNullOrWhiteSpace(hospitalizacionJson))
+        {
+            return BadRequest(new { message = "Ingresa los datos de la hospitalización." });
+        }
+
+        var jsonTrimmed = hospitalizacionJson.Trim();
+
+        CensoCronicoHospitalizacion hospitalizacion;
+        if (hospitalizacionVersionId.HasValue)
+        {
+            var existing = await _context.CensoCronicoHospitalizaciones.FirstOrDefaultAsync(
+                x => x.Id == hospitalizacionVersionId.Value && x.CensoCronicoRecordId == id,
+                cancellationToken);
+            if (existing is null) return NotFound(new { message = "Hospitalización no encontrada." });
+            hospitalizacion = existing;
+            hospitalizacion.UpdatedAtUtc = DateTime.UtcNow;
+        }
+        else
+        {
+            var maxNumero = await _context.CensoCronicoHospitalizaciones
+                .Where(x => x.CensoCronicoRecordId == id)
+                .Select(x => (int?)x.Numero)
+                .MaxAsync(cancellationToken) ?? 0;
+
+            hospitalizacion = new CensoCronicoHospitalizacion
+            {
+                CensoCronicoRecordId = id,
+                Numero = maxNumero + 1,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            await _context.CensoCronicoHospitalizaciones.AddAsync(hospitalizacion, cancellationToken);
+        }
+
+        hospitalizacion.HospitalizacionJson = jsonTrimmed;
+        record.UpdatedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
+        var auditIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        await _auditService.LogAsync(
+            hospitalizacionVersionId.HasValue ? "CENSO_CRONICO_HOSPITALIZACION_ACTUALIZADA" : "CENSO_CRONICO_HOSPITALIZACION_CREADA",
+            "CensoCronicoHospitalizacion",
+            $"Doc: {record.NumeroIdentificacion}, Hospitalización: #{hospitalizacion.Numero}",
+            auditUserId, auditIp, cancellationToken);
+
+        return Json(new
+        {
+            message = $"Hospitalización #{hospitalizacion.Numero} guardada correctamente.",
+            hospitalizacionId = hospitalizacion.Id,
+            numero = hospitalizacion.Numero
+        });
+    }
+
+    // Exportable a Excel del censo de Programa Crónicos. Incluye todos los campos del
+    // registro (no los JSON de agudizaciones/hospitalizaciones, pensado para público no
+    // técnico) más "Días de estancia" calculado en vivo (hoy - fecha de ingreso).
+    [HttpGet]
+    public async Task<IActionResult> ExportarCronicosExcel(string? cedulaPaciente, CancellationToken cancellationToken)
+    {
+        var cedulaFiltro = NormalizeCedulaFilter(cedulaPaciente);
+        var query = _context.CensoCronicos.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(cedulaFiltro))
+        {
+            query = query.Where(x => x.NumeroIdentificacion == cedulaFiltro);
+        }
+
+        var records = await query
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ThenByDescending(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        var content = BuildCronicoExcelXml(records, GetColombiaNow().Date);
+        var bytes = Encoding.UTF8.GetBytes(content);
+        var fileName = $"censo_cronicos_{DateTime.Now:yyyyMMdd_HHmmss}.xls";
+        return File(bytes, "application/vnd.ms-excel", fileName);
+    }
+
+    private static string BuildCronicoExcelXml(IReadOnlyList<CensoCronicoRecord> records, DateTime hoy)
+    {
+        static string F(DateTime? d) => d.HasValue ? d.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) : string.Empty;
+        static string N(int? n) => n?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        static string SiNo(bool b) => b ? "Sí" : "No";
+        string FTs(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), ColombiaTimeZone)
+            .ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
+
+        var sb = new StringBuilder();
+        sb.AppendLine("<?xml version=\"1.0\"?>");
+        sb.AppendLine("<?mso-application progid=\"Excel.Sheet\"?>");
+        sb.AppendLine("<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\"");
+        sb.AppendLine(" xmlns:o=\"urn:schemas-microsoft-com:office:office\"");
+        sb.AppendLine(" xmlns:x=\"urn:schemas-microsoft-com:office:excel\"");
+        sb.AppendLine(" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">");
+        sb.AppendLine(" <Styles>");
+        sb.AppendLine("  <Style ss:ID=\"Header\"><Font ss:Bold=\"1\"/></Style>");
+        sb.AppendLine(" </Styles>");
+        sb.AppendLine(" <Worksheet ss:Name=\"Programa Cronicos\">");
+        sb.AppendLine("  <Table>");
+
+        var columnas = new (string Header, Func<CensoCronicoRecord, string> Value)[]
+        {
+            ("Id", r => r.Id.ToString(CultureInfo.InvariantCulture)),
+            ("Fuente de ingreso", r => r.FuenteIngreso),
+            ("Fecha de ingreso", r => F(r.FechaIngreso)),
+            ("Días de estancia", r => Math.Max(0, (hoy - r.FechaIngreso.Date).Days).ToString(CultureInfo.InvariantCulture)),
+            ("Tipo de identificación", r => r.TipoIdentificacion),
+            ("Número de identificación", r => r.NumeroIdentificacion),
+            ("Nombre del paciente", r => r.NombrePaciente),
+            ("Fecha de nacimiento", r => F(r.FechaNacimiento)),
+            ("Edad", r => r.Edad.ToString(CultureInfo.InvariantCulture)),
+            ("Correo electrónico", r => r.CorreoElectronico ?? string.Empty),
+            ("Género", r => r.Genero),
+            ("Dirección", r => r.Direccion ?? string.Empty),
+            ("Detalle de la dirección", r => r.DetalleDireccion ?? string.Empty),
+            ("Dirección validada", r => SiNo(r.DireccionValidada)),
+            ("Asumir dirección errada", r => SiNo(r.AsumirDireccionErrada)),
+            ("Clasificación zona Sura", r => r.ClasificacionZonaSura ?? string.Empty),
+            ("Municipio de residencia", r => r.MunicipioResidencia ?? string.Empty),
+            ("Barrio", r => r.Barrio ?? string.Empty),
+            ("Zona de dirección según municipio", r => r.ZonaDireccionSegunMunicipio ?? string.Empty),
+            ("Área", r => r.Area ?? string.Empty),
+            ("Clasificación del caso", r => r.ClasificacionCaso ?? string.Empty),
+            ("Estado del paciente", r => r.EstadoPaciente ?? string.Empty),
+            ("Diagnóstico crónico CIE10", r => r.DiagnosticoCronicoCie10 ?? string.Empty),
+            ("Grupo de patología crónica", r => r.GrupoPatologiaCronica ?? string.Empty),
+            ("Diagnóstico crónico complementario", r => r.DiagnosticoCronicoComplementario ?? string.Empty),
+            ("Grupo de patología crónica complementario", r => r.GrupoPatologiaCronicaComplementario ?? string.Empty),
+            ("Barthel auditado", r => r.BarthelAuditado ?? string.Empty),
+            ("Fecha de auditoría", r => F(r.FechaAuditoria)),
+            ("Calificación Barthel", r => r.CalificacionBarthel ?? string.Empty),
+            ("Karnofsky", r => r.Karnofsky ?? string.Empty),
+            ("Fast", r => r.Fast ?? string.Empty),
+            ("Rankin", r => r.Rankin ?? string.Empty),
+            ("Disnea Mmrc", r => r.DisneaMmrc ?? string.Empty),
+            ("Nyha", r => r.Nyha ?? string.Empty),
+            ("Braden", r => r.Braden ?? string.Empty),
+            ("Riesgo de caída", r => r.RiesgoCaida ?? string.Empty),
+            ("Riesgo de lesión de piel", r => r.RiesgoLesionPiel ?? string.Empty),
+            ("Clínica de heridas", r => r.ClinicaHeridas ?? string.Empty),
+            ("Estado en clínica de heridas", r => r.EstadoClinicaHeridas ?? string.Empty),
+            ("Programa de nutrición (NE/NPT)", r => r.ProgramaNutricion ?? string.Empty),
+            ("Fecha de inicio nutrición", r => F(r.FechaInicioNutricion)),
+            ("Auxiliar asignado nutrición", r => r.AuxiliarAsignadoNutricion ?? string.Empty),
+            ("Fecha fin nutrición", r => F(r.FechaFinNutricion)),
+            ("Educación y plan de cuidados / enfermería", r => r.EducacionPlanCuidados ?? string.Empty),
+            ("Terapia física", r => r.TerapiaFisica ?? string.Empty),
+            ("Terapia respiratoria", r => r.TerapiaRespiratoria ?? string.Empty),
+            ("Terapia ocupacional", r => r.TerapiaOcupacional ?? string.Empty),
+            ("Fonoaudiología", r => r.Fonoaudiologia ?? string.Empty),
+            ("Nutrición", r => r.Nutricion ?? string.Empty),
+            ("Psicología", r => r.Psicologia ?? string.Empty),
+            ("Traqueostomía", r => r.Traqueostomia ?? string.Empty),
+            ("Sonda nasogástrica", r => r.SondaNasogastrica ?? string.Empty),
+            ("Calibre de la sonda nasogástrica", r => r.CalibreSondaNasogastrica ?? string.Empty),
+            ("Frecuencia de cambio de sonda nasogástrica", r => r.FrecuenciaCambioSondaNasogastrica ?? string.Empty),
+            ("Fecha de último cambio (sonda nasogástrica)", r => F(r.FechaUltimoCambioSondaNasogastrica)),
+            ("Sonda gastrostomía", r => r.SondaGastrostomia ?? string.Empty),
+            ("Colostomía", r => r.Colostomia ?? string.Empty),
+            ("Sonda cistostomía", r => r.SondaCistostomia ?? string.Empty),
+            ("Catéter PICC", r => r.CateterPicc ?? string.Empty),
+            ("Sonda vesical", r => r.SondaVesical ?? string.Empty),
+            ("Calibre de sonda", r => r.CalibreSondaVesical ?? string.Empty),
+            ("Frecuencia de cambio (días)", r => r.FrecuenciaCambioSondaVesical ?? string.Empty),
+            ("Fecha de último cambio (sonda vesical)", r => F(r.FechaUltimoCambioSondaVesical)),
+            ("Fecha de próximo cambio (sonda vesical)", r => F(r.FechaProximoCambioSondaVesical)),
+            ("Observación del cambio de sonda", r => r.ObservacionCambioSonda ?? string.Empty),
+            ("Fórmula de control", r => r.FormulaControl ?? string.Empty),
+            ("Mipres pañales", r => r.MipresPanales ?? string.Empty),
+            ("Talla", r => r.TallaPanales ?? string.Empty),
+            ("Fecha última prescripción (pañales)", r => F(r.FechaUltimaPrescripcionPanales)),
+            ("Tiempo de prescripción pañales (meses)", r => N(r.TiempoPrescripcionPanalesMeses)),
+            ("Estado Mipres pañales", r => r.EstadoMipresPanales ?? string.Empty),
+            ("Mipres nutrición", r => r.MipresNutricion ?? string.Empty),
+            ("Fecha última prescripción (nutrición)", r => F(r.FechaUltimaPrescripcionNutricion)),
+            ("Tiempo de prescripción nutrición (meses)", r => N(r.TiempoPrescripcionNutricionMeses)),
+            ("Estado Mipres nutrición", r => r.EstadoMipresNutricion ?? string.Empty),
+            ("Egresa programa crónico", r => r.EgresaProgramaCronico ?? string.Empty),
+            ("Motivo egreso", r => r.MotivoEgreso ?? string.Empty),
+            ("Fecha de egreso", r => F(r.FechaEgreso)),
+            ("Fecha de creación", r => FTs(r.CreatedAtUtc)),
+            ("Última actualización", r => r.UpdatedAtUtc.HasValue ? FTs(r.UpdatedAtUtc.Value) : string.Empty),
+        };
+
+        sb.AppendLine("   <Row>");
+        foreach (var col in columnas)
+        {
+            AppendHeaderCell(sb, col.Header);
+        }
+        sb.AppendLine("   </Row>");
+
+        foreach (var record in records)
+        {
+            sb.AppendLine("   <Row>");
+            foreach (var col in columnas)
+            {
+                AppendDataCell(sb, col.Value(record));
+            }
+            sb.AppendLine("   </Row>");
+        }
+
+        sb.AppendLine("  </Table>");
+        sb.AppendLine(" </Worksheet>");
+        sb.AppendLine("</Workbook>");
+        return sb.ToString();
     }
 
     private CensoCronicoViewModel BuildDefaultCronicoModel()
@@ -272,7 +621,28 @@ public partial class CensoController
         {
             FechaIngreso = GetColombiaNow().Date,
             FechaNacimiento = GetColombiaNow().Date,
-            DireccionEsValida = false
+            DireccionEsValida = false,
+            EstadoPaciente = CronicoEstadoActivo,
+            ClinicaHeridas = "No",
+            ProgramaNutricion = "No",
+            EducacionPlanCuidados = "No",
+            TerapiaFisica = "No",
+            TerapiaRespiratoria = "No",
+            TerapiaOcupacional = "No",
+            Fonoaudiologia = "No",
+            Nutricion = "No",
+            Psicologia = "No",
+            Traqueostomia = "No",
+            SondaNasogastrica = "No",
+            SondaGastrostomia = "No",
+            Colostomia = "No",
+            SondaCistostomia = "No",
+            CateterPicc = "No",
+            SondaVesical = "No",
+            FormulaControl = "No",
+            MipresPanales = "No",
+            MipresNutricion = "No",
+            EgresaProgramaCronico = "No"
         };
     }
 
@@ -288,12 +658,35 @@ public partial class CensoController
         model.ClasificacionCasoOptions = BuildOptions(CronicoClasificacionCasoValues);
         model.EstadoPacienteOptions = BuildOptions(CronicoEstadoPacienteValues);
         model.BarthelAuditadoOptions = BuildOptions(CronicoBarthelAuditadoValues);
+        model.CalificacionBarthelOptions = BuildOptions(CronicoCalificacionBarthelValues);
+        model.KarnofskyOptions = BuildOptions(CronicoKarnofskyValues);
+        model.FastOptions = BuildOptions(CronicoFastValues);
+        model.RankinOptions = BuildOptions(CronicoRankinValues);
+        model.DisneaMmrcOptions = BuildOptions(CronicoDisneaMmrcValues);
+        model.NyhaOptions = BuildOptions(CronicoNyhaValues);
         model.SiNoOptions = BuildOptions(CronicoSiNoValues);
         model.EstadoClinicaHeridasOptions = BuildOptions(CronicoEstadoClinicaHeridasValues);
+        model.CalibreSondaVesicalOptions = BuildOptions(CronicoCalibreSondaVesicalValues);
+
+        // El estado del paciente es derivado (no editable): se muestra según el egreso.
+        model.EstadoPaciente = string.Equals(model.EgresaProgramaCronico, "Si", StringComparison.OrdinalIgnoreCase)
+            ? CronicoEstadoInactivo
+            : CronicoEstadoActivo;
         model.AuxiliarEnfermeriaOptions = await GetOpsAssistantOptionsAsync(cancellationToken);
         model.TallaPanalesOptions = BuildOptions(CronicoTallaValues);
         model.EstadoMipresOptions = BuildOptions(CronicoEstadoMipresValues);
         model.MotivoEgresoOptions = BuildOptions(CronicoMotivoEgresoValues);
+        model.MedidaMedicamentoOptions = BuildOptions(MedidaMedicamentoValues);
+        model.ViaAdministracionMedicamentoOptions = BuildOptions(ViaAdministracionMedicamentoValues);
+        model.FrecuenciaAdministracionOptions = BuildOptions(FrecuenciaAdministracionMxPrincipalValues);
+        var medicamentoCatalog = await GetMedicamentoCatalogAsync(cancellationToken);
+        model.MedicamentoPrincipalOptions = medicamentoCatalog.Count > 0
+            ? medicamentoCatalog.Select(item => item.Nombre).ToList()
+            : _medicamentoFallbackValues;
+        model.MedicamentoCatalog = medicamentoCatalog;
+        model.ReaperturaMotivos = ReaperturaKardexMotivos.Todos;
+        model.PuedeAprobarReapertura = await _currentUserPermissionService.HasPermissionAsync(
+            User, SystemPermissions.Aprobacion, cancellationToken);
 
         model.MunicipioResidencia = ToCanonicalMunicipality(model.MunicipioResidencia);
 
@@ -339,7 +732,41 @@ public partial class CensoController
         }
 
         model.BarrioOptions = barrioOptions;
+        // Días de estancia: diferencia entre la fecha de ingreso y el día actual (Colombia).
+        model.DiasDeEstancia = Math.Max(0, (GetColombiaNow().Date - model.FechaIngreso.Date).Days);
         await PopulateCronicoLatestRecordsAsync(model, cancellationToken);
+        await PopulateCronicoAgudizacionesAsync(model, cancellationToken);
+        await PopulateCronicoHospitalizacionesAsync(model, cancellationToken);
+    }
+
+    private async Task PopulateCronicoAgudizacionesAsync(CensoCronicoViewModel model, CancellationToken cancellationToken)
+    {
+        if (!model.EditingRecordId.HasValue)
+        {
+            model.Agudizaciones = [];
+            return;
+        }
+
+        model.Agudizaciones = await _context.CensoCronicoAgudizaciones
+            .AsNoTracking()
+            .Where(x => x.CensoCronicoRecordId == model.EditingRecordId.Value)
+            .OrderBy(x => x.Numero)
+            .ToListAsync(cancellationToken);
+    }
+
+    private async Task PopulateCronicoHospitalizacionesAsync(CensoCronicoViewModel model, CancellationToken cancellationToken)
+    {
+        if (!model.EditingRecordId.HasValue)
+        {
+            model.Hospitalizaciones = [];
+            return;
+        }
+
+        model.Hospitalizaciones = await _context.CensoCronicoHospitalizaciones
+            .AsNoTracking()
+            .Where(x => x.CensoCronicoRecordId == model.EditingRecordId.Value)
+            .OrderBy(x => x.Numero)
+            .ToListAsync(cancellationToken);
     }
 
     private async Task PopulateCronicoLatestRecordsAsync(CensoCronicoViewModel model, CancellationToken cancellationToken)
@@ -361,19 +788,6 @@ public partial class CensoController
 
     private void ResolveCronicoCatalogFields(CensoCronicoViewModel model)
     {
-        model.MotivoAgudizacion = NormalizeCronicoCatalogCode(model.MotivoAgudizacion);
-        if (!string.IsNullOrWhiteSpace(model.MotivoAgudizacion)
-            && _motivoAgudizacionCatalog.TryGetValue(model.MotivoAgudizacion, out var motivo))
-        {
-            model.DescripcionAgudizacion = motivo.Descripcion;
-            model.DetalleDescripcionCie10 = motivo.Grupo;
-        }
-        else if (string.IsNullOrWhiteSpace(model.MotivoAgudizacion))
-        {
-            model.DescripcionAgudizacion = null;
-            model.DetalleDescripcionCie10 = null;
-        }
-
         model.DiagnosticoCronicoCie10 = NormalizeCie10(model.DiagnosticoCronicoCie10);
         if (!string.IsNullOrWhiteSpace(model.DiagnosticoCronicoCie10)
             && _cie10Catalog.TryGetValue(model.DiagnosticoCronicoCie10, out var diag))
@@ -417,13 +831,13 @@ public partial class CensoController
         model.Area = model.Area?.Trim() ?? string.Empty;
 
         NormalizeCronicoGestionCasoFields(model);
-        NormalizeCronicoValidacionesFields(model);
+        NormalizeCronicoServiciosFields(model);
+        NormalizeCronicoHospitalizacionFields(model);
     }
 
     private void NormalizeCronicoGestionCasoFields(CensoCronicoViewModel model)
     {
         model.ClasificacionCaso = NormalizeOptionalSelect(model.ClasificacionCaso);
-        model.EstadoPaciente = NormalizeOptionalSelect(model.EstadoPaciente);
         model.CalificacionBarthel = NormalizeOptionalCronicoText(model.CalificacionBarthel);
         model.Karnofsky = NormalizeOptionalCronicoText(model.Karnofsky);
         model.Fast = NormalizeOptionalCronicoText(model.Fast);
@@ -437,7 +851,15 @@ public partial class CensoController
         ResolveCronicoCatalogFields(model);
     }
 
-    private void NormalizeCronicoValidacionesFields(CensoCronicoViewModel model)
+    private void NormalizeCronicoHospitalizacionFields(CensoCronicoViewModel model)
+    {
+        // Los campos del episodio (motivo, IPS, seguimientos, etc.) se guardan como JSON
+        // en la colección Hospitalizaciones; aquí solo se normaliza el egreso del programa.
+        model.EgresaProgramaCronico = NormalizeOptionalSelect(model.EgresaProgramaCronico);
+        model.MotivoEgreso = NormalizeOptionalSelect(model.MotivoEgreso);
+    }
+
+    private void NormalizeCronicoServiciosFields(CensoCronicoViewModel model)
     {
         model.ClinicaHeridas = NormalizeOptionalSelect(model.ClinicaHeridas);
         model.EstadoClinicaHeridas = NormalizeOptionalSelect(model.EstadoClinicaHeridas);
@@ -468,15 +890,58 @@ public partial class CensoController
         model.EstadoMipresPanales = NormalizeOptionalSelect(model.EstadoMipresPanales);
         model.MipresNutricion = NormalizeOptionalSelect(model.MipresNutricion);
         model.EstadoMipresNutricion = NormalizeOptionalSelect(model.EstadoMipresNutricion);
-        model.MotivoHospitalizacion = NormalizeOptionalCronicoText(model.MotivoHospitalizacion);
-        model.RemitidoPor = NormalizeOptionalCronicoText(model.RemitidoPor);
-        model.IpsIntramural = NormalizeOptionalCronicoText(model.IpsIntramural);
-        model.EgresaProgramaCronico = NormalizeOptionalSelect(model.EgresaProgramaCronico);
-        model.MotivoEgreso = NormalizeOptionalSelect(model.MotivoEgreso);
 
         if (!string.Equals(model.ClinicaHeridas, "Si", StringComparison.OrdinalIgnoreCase))
         {
             model.EstadoClinicaHeridas = null;
+        }
+
+        // Los campos del programa de nutrición solo aplican cuando está en "Si".
+        if (!string.Equals(model.ProgramaNutricion, "Si", StringComparison.OrdinalIgnoreCase))
+        {
+            model.FechaInicioNutricion = null;
+            model.AuxiliarAsignadoNutricion = null;
+            model.FechaFinNutricion = null;
+        }
+
+        // Los campos de la sonda vesical solo aplican cuando está en "Si".
+        if (!string.Equals(model.SondaVesical, "Si", StringComparison.OrdinalIgnoreCase))
+        {
+            model.CalibreSondaVesical = null;
+            model.FrecuenciaCambioSondaVesical = null;
+            model.FechaUltimoCambioSondaVesical = null;
+            model.FechaProximoCambioSondaVesical = null;
+            model.ObservacionCambioSonda = null;
+        }
+        else
+        {
+            // Fecha de próximo cambio = fecha de último cambio + frecuencia (días).
+            model.FechaProximoCambioSondaVesical = null;
+            if (model.FechaUltimoCambioSondaVesical.HasValue
+                && int.TryParse(model.FrecuenciaCambioSondaVesical, out var diasCambioSonda)
+                && diasCambioSonda >= 0)
+            {
+                model.FechaProximoCambioSondaVesical = model.FechaUltimoCambioSondaVesical.Value.Date.AddDays(diasCambioSonda);
+            }
+        }
+
+        ModelState.Remove(nameof(model.FechaProximoCambioSondaVesical));
+
+        // Los campos de Mipres pañales solo aplican cuando está en "Si".
+        if (!string.Equals(model.MipresPanales, "Si", StringComparison.OrdinalIgnoreCase))
+        {
+            model.TallaPanales = null;
+            model.FechaUltimaPrescripcionPanales = null;
+            model.TiempoPrescripcionPanalesMeses = null;
+            model.EstadoMipresPanales = null;
+        }
+
+        // Los campos de Mipres nutrición solo aplican cuando está en "Si".
+        if (!string.Equals(model.MipresNutricion, "Si", StringComparison.OrdinalIgnoreCase))
+        {
+            model.FechaUltimaPrescripcionNutricion = null;
+            model.TiempoPrescripcionNutricionMeses = null;
+            model.EstadoMipresNutricion = null;
         }
     }
 
@@ -499,15 +964,11 @@ public partial class CensoController
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
-    private static string NormalizeCronicoCatalogCode(string? value)
+    // Los campos Sí/No no tienen opción vacía en la vista: si el registro no trae
+    // valor (p. ej. datos anteriores), se muestran en "No" por defecto.
+    private static string SiNoOrNo(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        var cleaned = new string(value.Trim().Where(char.IsLetterOrDigit).ToArray());
-        return cleaned.ToUpperInvariant();
+        return string.IsNullOrWhiteSpace(value) ? "No" : value;
     }
 
     private void ValidateCronicoModel(CensoCronicoViewModel model)
@@ -554,7 +1015,19 @@ public partial class CensoController
 
         ValidateCronicoAddressDropdowns(model);
         ValidateCronicoGestionCaso(model);
-        ValidateCronicoValidaciones(model);
+        ValidateCronicoServicios(model);
+        ValidateCronicoHospitalizacion(model);
+    }
+
+    private void ValidateCronicoHospitalizacion(CensoCronicoViewModel model)
+    {
+        ValidateCronicoSiNo(model.EgresaProgramaCronico, nameof(model.EgresaProgramaCronico), "egresa programa crónico");
+
+        if (!string.IsNullOrWhiteSpace(model.MotivoEgreso)
+            && !CronicoMotivoEgresoValues.Contains(model.MotivoEgreso, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.MotivoEgreso), "Selecciona un motivo de egreso válido.");
+        }
     }
 
     private void ValidateCronicoGestionCaso(CensoCronicoViewModel model)
@@ -565,22 +1038,10 @@ public partial class CensoController
             ModelState.AddModelError(nameof(model.ClasificacionCaso), "Selecciona una clasificación del caso válida.");
         }
 
-        if (!string.IsNullOrWhiteSpace(model.EstadoPaciente)
-            && !CronicoEstadoPacienteValues.Contains(model.EstadoPaciente, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.EstadoPaciente), "Selecciona un estado del paciente válido.");
-        }
-
         if (!string.IsNullOrWhiteSpace(model.BarthelAuditado)
             && !CronicoBarthelAuditadoValues.Contains(model.BarthelAuditado, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.BarthelAuditado), "Selecciona un valor válido para Barthel auditado.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(model.MotivoAgudizacion)
-            && !_motivoAgudizacionCatalog.ContainsKey(model.MotivoAgudizacion))
-        {
-            ModelState.AddModelError(nameof(model.MotivoAgudizacion), "El motivo de agudización ingresado no existe en el catálogo parametrizado.");
         }
 
         if (!string.IsNullOrWhiteSpace(model.DiagnosticoCronicoCie10)
@@ -596,7 +1057,7 @@ public partial class CensoController
         }
     }
 
-    private void ValidateCronicoValidaciones(CensoCronicoViewModel model)
+    private void ValidateCronicoServicios(CensoCronicoViewModel model)
     {
         ValidateCronicoSiNo(model.ClinicaHeridas, nameof(model.ClinicaHeridas), "clínica de heridas");
         ValidateCronicoSiNo(model.ProgramaNutricion, nameof(model.ProgramaNutricion), "programa de nutrición");
@@ -617,12 +1078,17 @@ public partial class CensoController
         ValidateCronicoSiNo(model.FormulaControl, nameof(model.FormulaControl), "fórmula de control");
         ValidateCronicoSiNo(model.MipresPanales, nameof(model.MipresPanales), "Mipres pañales");
         ValidateCronicoSiNo(model.MipresNutricion, nameof(model.MipresNutricion), "Mipres nutrición");
-        ValidateCronicoSiNo(model.EgresaProgramaCronico, nameof(model.EgresaProgramaCronico), "egresa programa crónico");
 
         if (!string.IsNullOrWhiteSpace(model.EstadoClinicaHeridas)
             && !CronicoEstadoClinicaHeridasValues.Contains(model.EstadoClinicaHeridas, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.EstadoClinicaHeridas), "Selecciona un estado en clínica de heridas válido.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(model.CalibreSondaVesical)
+            && !CronicoCalibreSondaVesicalValues.Contains(model.CalibreSondaVesical, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.CalibreSondaVesical), "Selecciona un calibre de sonda válido.");
         }
 
         if (!string.IsNullOrWhiteSpace(model.TallaPanales)
@@ -641,12 +1107,6 @@ public partial class CensoController
             && !CronicoEstadoMipresValues.Contains(model.EstadoMipresNutricion, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.EstadoMipresNutricion), "Selecciona un estado Mipres válido para nutrición.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(model.MotivoEgreso)
-            && !CronicoMotivoEgresoValues.Contains(model.MotivoEgreso, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.MotivoEgreso), "Selecciona un motivo de egreso válido.");
         }
 
         if (!string.IsNullOrWhiteSpace(model.AuxiliarAsignadoNutricion))
@@ -831,12 +1291,6 @@ public partial class CensoController
     private static void ApplyGestionCasoToRecord(CensoCronicoRecord record, CensoCronicoViewModel model)
     {
         record.ClasificacionCaso = model.ClasificacionCaso;
-        record.EstadoPaciente = model.EstadoPaciente;
-        record.NumeroAgudizacionesUltimoAnio = model.NumeroAgudizacionesUltimoAnio;
-        record.FechaAgudizacion = model.FechaAgudizacion?.Date;
-        record.MotivoAgudizacion = string.IsNullOrWhiteSpace(model.MotivoAgudizacion) ? null : model.MotivoAgudizacion;
-        record.DescripcionAgudizacion = model.DescripcionAgudizacion;
-        record.DetalleDescripcionCie10 = model.DetalleDescripcionCie10;
         record.DiagnosticoCronicoCie10 = string.IsNullOrWhiteSpace(model.DiagnosticoCronicoCie10) ? null : model.DiagnosticoCronicoCie10;
         record.GrupoPatologiaCronica = model.GrupoPatologiaCronica;
         record.DiagnosticoCronicoComplementario = string.IsNullOrWhiteSpace(model.DiagnosticoCronicoComplementario) ? null : model.DiagnosticoCronicoComplementario;
@@ -854,7 +1308,21 @@ public partial class CensoController
         record.RiesgoLesionPiel = model.RiesgoLesionPiel;
     }
 
-    private static void ApplyValidacionesToRecord(CensoCronicoRecord record, CensoCronicoViewModel model)
+    private static void ApplyHospitalizacionToRecord(CensoCronicoRecord record, CensoCronicoViewModel model)
+    {
+        // Los episodios de hospitalización + seguimiento son multi-registro (JSON en
+        // censo_cronico_hospitalizaciones); aquí solo se guarda el egreso del programa.
+        record.EgresaProgramaCronico = model.EgresaProgramaCronico;
+        record.MotivoEgreso = model.MotivoEgreso;
+        record.FechaEgreso = model.FechaEgreso?.Date;
+
+        // El estado del paciente se deriva del egreso del programa crónico.
+        record.EstadoPaciente = string.Equals(model.EgresaProgramaCronico, "Si", StringComparison.OrdinalIgnoreCase)
+            ? CronicoEstadoInactivo
+            : CronicoEstadoActivo;
+    }
+
+    private static void ApplyServiciosToRecord(CensoCronicoRecord record, CensoCronicoViewModel model)
     {
         record.ClinicaHeridas = model.ClinicaHeridas;
         record.EstadoClinicaHeridas = string.Equals(model.ClinicaHeridas, "Si", StringComparison.OrdinalIgnoreCase)
@@ -896,22 +1364,6 @@ public partial class CensoController
         record.FechaUltimaPrescripcionNutricion = model.FechaUltimaPrescripcionNutricion?.Date;
         record.TiempoPrescripcionNutricionMeses = model.TiempoPrescripcionNutricionMeses;
         record.EstadoMipresNutricion = model.EstadoMipresNutricion;
-        record.FechaHospitalizacion = model.FechaHospitalizacion?.Date;
-        record.MotivoHospitalizacion = model.MotivoHospitalizacion;
-        record.RemitidoPor = model.RemitidoPor;
-        record.IpsIntramural = model.IpsIntramural;
-        record.FechaPrimerSeguimiento24Horas = model.FechaPrimerSeguimiento24Horas?.Date;
-        record.FechaSegundoSeguimiento48Horas = model.FechaSegundoSeguimiento48Horas?.Date;
-        record.FechaTercerSeguimiento72Horas = model.FechaTercerSeguimiento72Horas?.Date;
-        record.FechaCuartoSeguimientoSemana1 = model.FechaCuartoSeguimientoSemana1?.Date;
-        record.FechaQuintoSeguimientoSemana2 = model.FechaQuintoSeguimientoSemana2?.Date;
-        record.FechaSextoSeguimientoSemana3 = model.FechaSextoSeguimientoSemana3?.Date;
-        record.FechaSeptimoSeguimientoSemana4 = model.FechaSeptimoSeguimientoSemana4?.Date;
-        record.FechaAltaHospitalizacion = model.FechaAltaHospitalizacion?.Date;
-        record.NumeroHospitalizacionesUltimoAnio = model.NumeroHospitalizacionesUltimoAnio;
-        record.EgresaProgramaCronico = model.EgresaProgramaCronico;
-        record.MotivoEgreso = model.MotivoEgreso;
-        record.FechaEgreso = model.FechaEgreso?.Date;
     }
 
     private static void ApplyCronicoRecordToModel(CensoCronicoViewModel model, CensoCronicoRecord record)
@@ -938,11 +1390,6 @@ public partial class CensoController
 
         model.ClasificacionCaso = record.ClasificacionCaso;
         model.EstadoPaciente = record.EstadoPaciente;
-        model.NumeroAgudizacionesUltimoAnio = record.NumeroAgudizacionesUltimoAnio;
-        model.FechaAgudizacion = record.FechaAgudizacion?.Date;
-        model.MotivoAgudizacion = record.MotivoAgudizacion;
-        model.DescripcionAgudizacion = record.DescripcionAgudizacion;
-        model.DetalleDescripcionCie10 = record.DetalleDescripcionCie10;
         model.DiagnosticoCronicoCie10 = record.DiagnosticoCronicoCie10;
         model.GrupoPatologiaCronica = record.GrupoPatologiaCronica;
         model.DiagnosticoCronicoComplementario = record.DiagnosticoCronicoComplementario;
@@ -959,93 +1406,337 @@ public partial class CensoController
         model.RiesgoCaida = record.RiesgoCaida;
         model.RiesgoLesionPiel = record.RiesgoLesionPiel;
 
-        model.ClinicaHeridas = record.ClinicaHeridas;
+        model.ClinicaHeridas = SiNoOrNo(record.ClinicaHeridas);
         model.EstadoClinicaHeridas = record.EstadoClinicaHeridas;
-        model.ProgramaNutricion = record.ProgramaNutricion;
+        model.ProgramaNutricion = SiNoOrNo(record.ProgramaNutricion);
         model.FechaInicioNutricion = record.FechaInicioNutricion?.Date;
         model.AuxiliarAsignadoNutricion = record.AuxiliarAsignadoNutricion;
         model.FechaFinNutricion = record.FechaFinNutricion?.Date;
-        model.EducacionPlanCuidados = record.EducacionPlanCuidados;
-        model.TerapiaFisica = record.TerapiaFisica;
-        model.TerapiaRespiratoria = record.TerapiaRespiratoria;
-        model.TerapiaOcupacional = record.TerapiaOcupacional;
-        model.Fonoaudiologia = record.Fonoaudiologia;
-        model.Nutricion = record.Nutricion;
-        model.Psicologia = record.Psicologia;
-        model.Traqueostomia = record.Traqueostomia;
-        model.SondaNasogastrica = record.SondaNasogastrica;
+        model.EducacionPlanCuidados = SiNoOrNo(record.EducacionPlanCuidados);
+        model.TerapiaFisica = SiNoOrNo(record.TerapiaFisica);
+        model.TerapiaRespiratoria = SiNoOrNo(record.TerapiaRespiratoria);
+        model.TerapiaOcupacional = SiNoOrNo(record.TerapiaOcupacional);
+        model.Fonoaudiologia = SiNoOrNo(record.Fonoaudiologia);
+        model.Nutricion = SiNoOrNo(record.Nutricion);
+        model.Psicologia = SiNoOrNo(record.Psicologia);
+        model.Traqueostomia = SiNoOrNo(record.Traqueostomia);
+        model.SondaNasogastrica = SiNoOrNo(record.SondaNasogastrica);
         model.CalibreSondaNasogastrica = record.CalibreSondaNasogastrica;
         model.FrecuenciaCambioSondaNasogastrica = record.FrecuenciaCambioSondaNasogastrica;
         model.FechaUltimoCambioSondaNasogastrica = record.FechaUltimoCambioSondaNasogastrica?.Date;
-        model.SondaGastrostomia = record.SondaGastrostomia;
-        model.Colostomia = record.Colostomia;
-        model.SondaCistostomia = record.SondaCistostomia;
-        model.CateterPicc = record.CateterPicc;
-        model.SondaVesical = record.SondaVesical;
+        model.SondaGastrostomia = SiNoOrNo(record.SondaGastrostomia);
+        model.Colostomia = SiNoOrNo(record.Colostomia);
+        model.SondaCistostomia = SiNoOrNo(record.SondaCistostomia);
+        model.CateterPicc = SiNoOrNo(record.CateterPicc);
+        model.SondaVesical = SiNoOrNo(record.SondaVesical);
         model.CalibreSondaVesical = record.CalibreSondaVesical;
         model.FrecuenciaCambioSondaVesical = record.FrecuenciaCambioSondaVesical;
         model.FechaUltimoCambioSondaVesical = record.FechaUltimoCambioSondaVesical?.Date;
         model.FechaProximoCambioSondaVesical = record.FechaProximoCambioSondaVesical?.Date;
         model.ObservacionCambioSonda = record.ObservacionCambioSonda;
-        model.FormulaControl = record.FormulaControl;
-        model.MipresPanales = record.MipresPanales;
+        model.FormulaControl = SiNoOrNo(record.FormulaControl);
+        model.MipresPanales = SiNoOrNo(record.MipresPanales);
         model.TallaPanales = record.TallaPanales;
         model.FechaUltimaPrescripcionPanales = record.FechaUltimaPrescripcionPanales?.Date;
         model.TiempoPrescripcionPanalesMeses = record.TiempoPrescripcionPanalesMeses;
         model.EstadoMipresPanales = record.EstadoMipresPanales;
-        model.MipresNutricion = record.MipresNutricion;
+        model.MipresNutricion = SiNoOrNo(record.MipresNutricion);
         model.FechaUltimaPrescripcionNutricion = record.FechaUltimaPrescripcionNutricion?.Date;
         model.TiempoPrescripcionNutricionMeses = record.TiempoPrescripcionNutricionMeses;
         model.EstadoMipresNutricion = record.EstadoMipresNutricion;
-        model.FechaHospitalizacion = record.FechaHospitalizacion?.Date;
-        model.MotivoHospitalizacion = record.MotivoHospitalizacion;
-        model.RemitidoPor = record.RemitidoPor;
-        model.IpsIntramural = record.IpsIntramural;
-        model.FechaPrimerSeguimiento24Horas = record.FechaPrimerSeguimiento24Horas?.Date;
-        model.FechaSegundoSeguimiento48Horas = record.FechaSegundoSeguimiento48Horas?.Date;
-        model.FechaTercerSeguimiento72Horas = record.FechaTercerSeguimiento72Horas?.Date;
-        model.FechaCuartoSeguimientoSemana1 = record.FechaCuartoSeguimientoSemana1?.Date;
-        model.FechaQuintoSeguimientoSemana2 = record.FechaQuintoSeguimientoSemana2?.Date;
-        model.FechaSextoSeguimientoSemana3 = record.FechaSextoSeguimientoSemana3?.Date;
-        model.FechaSeptimoSeguimientoSemana4 = record.FechaSeptimoSeguimientoSemana4?.Date;
-        model.FechaAltaHospitalizacion = record.FechaAltaHospitalizacion?.Date;
-        model.NumeroHospitalizacionesUltimoAnio = record.NumeroHospitalizacionesUltimoAnio;
-        model.EgresaProgramaCronico = record.EgresaProgramaCronico;
+        model.EgresaProgramaCronico = SiNoOrNo(record.EgresaProgramaCronico);
         model.MotivoEgreso = record.MotivoEgreso;
         model.FechaEgreso = record.FechaEgreso?.Date;
     }
 
-    private static IReadOnlyDictionary<string, MotivoAgudizacionCatalogItem> LoadMotivoAgudizacionCatalog(string contentRootPath)
+    // =====================================================================
+    // Kardex y requisición de agudizaciones (Programa Crónicos).
+    // Flujo totalmente independiente del censo de agudos: el estado vive en
+    // censo_cronico_agudizaciones y censo_cronico_kardex_reaperturas.
+    // =====================================================================
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GuardarCronicoAgudizacionDocumentos(
+        long agudizacionId,
+        string? kardexJson,
+        string? requisicionJson,
+        CancellationToken cancellationToken)
     {
-        var path = Path.Combine(contentRootPath, "Data", "Seed", "motivo_agudizacion_catalog.json");
-        if (!System.IO.File.Exists(path))
+        if (agudizacionId <= 0) return BadRequest(new { message = "ID de agudización inválido." });
+
+        var agudizacion = await _context.CensoCronicoAgudizaciones
+            .Include(x => x.CensoCronicoRecord)
+            .FirstOrDefaultAsync(x => x.Id == agudizacionId, cancellationToken);
+        if (agudizacion is null) return NotFound(new { message = "Agudización no encontrada." });
+
+        if (agudizacion.KardexCerradoAtUtc.HasValue)
         {
-            return new Dictionary<string, MotivoAgudizacionCatalogItem>(StringComparer.OrdinalIgnoreCase);
+            return BadRequest(new { message = "Kardex cerrado. Este documento ya no se puede editar." });
         }
+
+        agudizacion.KardexEdicionJson = string.IsNullOrWhiteSpace(kardexJson) ? null : kardexJson.Trim();
+        agudizacion.RequisicionFarmaciaJson = string.IsNullOrWhiteSpace(requisicionJson) ? null : requisicionJson.Trim();
+        agudizacion.UpdatedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
+        await _auditService.LogAsync("CENSO_CRONICO_DOCUMENTOS_GUARDADOS", "CensoCronicoAgudizacion",
+            $"Doc: {agudizacion.CensoCronicoRecord.NumeroIdentificacion}, Agudización: #{agudizacion.Numero}",
+            auditUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new { message = $"Kardex y requisición de la agudización #{agudizacion.Numero} guardados correctamente." });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EnviarCronicoAgudizacionAFarmacia(
+        long agudizacionId,
+        string? kardexJson,
+        string? requisicionJson,
+        CancellationToken cancellationToken)
+    {
+        if (agudizacionId <= 0) return BadRequest(new { message = "ID de agudización inválido." });
+
+        var agudizacion = await _context.CensoCronicoAgudizaciones
+            .Include(x => x.CensoCronicoRecord)
+            .FirstOrDefaultAsync(x => x.Id == agudizacionId, cancellationToken);
+        if (agudizacion is null) return NotFound(new { message = "Agudización no encontrada." });
+
+        if (agudizacion.KardexCerradoAtUtc.HasValue)
+        {
+            return BadRequest(new { message = "El kardex de esta agudización ya fue aprobado por farmacia y no se puede reenviar." });
+        }
+
+        if (!string.IsNullOrWhiteSpace(kardexJson))
+        {
+            agudizacion.KardexEdicionJson = kardexJson.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(requisicionJson))
+        {
+            agudizacion.RequisicionFarmaciaJson = requisicionJson.Trim();
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        agudizacion.FarmaciaEnviadoAtUtc = nowUtc;
+        agudizacion.FarmaciaEstado = FarmaciaEstados.Nuevo;
+        agudizacion.FarmaciaOkKardex = false;
+        agudizacion.FarmaciaKardexVistoAtUtc = null;
+        agudizacion.FarmaciaRequisicionVistoAtUtc = null;
+        agudizacion.UpdatedAtUtc = nowUtc;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
+        await _auditService.LogAsync("CENSO_CRONICO_ENVIADO_FARMACIA", "CensoCronicoAgudizacion",
+            $"Paciente: {agudizacion.CensoCronicoRecord.NombrePaciente}, Doc: {agudizacion.CensoCronicoRecord.NumeroIdentificacion}, Agudización: #{agudizacion.Numero}",
+            auditUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new
+        {
+            message = $"Kardex de la agudización #{agudizacion.Numero} enviado a farmacia correctamente.",
+            agudizacionId = agudizacion.Id,
+            enviadoAtUtc = nowUtc
+        });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SolicitarReaperturaKardexCronico(
+        long agudizacionId,
+        string? motivo,
+        CancellationToken cancellationToken = default)
+    {
+        if (agudizacionId <= 0) return BadRequest(new { message = "ID de agudización inválido." });
+
+        var motivoNormalizado = (motivo ?? string.Empty).Trim();
+        if (!ReaperturaKardexMotivos.Todos.Contains(motivoNormalizado))
+        {
+            return BadRequest(new { message = "Selecciona un motivo de reapertura valido." });
+        }
+
+        var agudizacion = await _context.CensoCronicoAgudizaciones
+            .Include(x => x.CensoCronicoRecord)
+            .FirstOrDefaultAsync(x => x.Id == agudizacionId, cancellationToken);
+        if (agudizacion is null) return NotFound(new { message = "Agudización no encontrada." });
+
+        if (!agudizacion.KardexCerradoAtUtc.HasValue)
+        {
+            return BadRequest(new { message = "El kardex no esta cerrado; no requiere reapertura." });
+        }
+
+        var yaPendiente = await _context.CensoCronicoKardexReaperturas.AnyAsync(
+            r => r.CensoCronicoAgudizacionId == agudizacionId && r.Estado == ReaperturaKardexEstado.Pendiente,
+            cancellationToken);
+        if (yaPendiente)
+        {
+            return BadRequest(new { message = "Ya existe una solicitud de reapertura pendiente para esta agudización." });
+        }
+
+        var currentUserId = GetCurrentUserIdOrEmpty();
+        var solicitante = await ResolveUserDisplayNameAsync(currentUserId, cancellationToken);
+
+        var solicitud = new CensoCronicoKardexReapertura
+        {
+            CensoCronicoAgudizacionId = agudizacionId,
+            Motivo = motivoNormalizado,
+            Estado = ReaperturaKardexEstado.Pendiente,
+            SolicitadoPorUserId = currentUserId,
+            SolicitadoPorNombre = solicitante,
+            SolicitadoAtUtc = DateTime.UtcNow
+        };
+        _context.CensoCronicoKardexReaperturas.Add(solicitud);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var emailWarning = await SendCronicoReaperturaSolicitudEmailAsync(agudizacion, solicitud, cancellationToken);
+
+        await _auditService.LogAsync("CENSO_CRONICO_REAPERTURA_SOLICITADA", "CensoCronicoAgudizacion",
+            $"Paciente: {agudizacion.CensoCronicoRecord.NombrePaciente}, Doc: {agudizacion.CensoCronicoRecord.NumeroIdentificacion}, Agudización: #{agudizacion.Numero}, Motivo: {motivoNormalizado}",
+            currentUserId == Guid.Empty ? null : currentUserId,
+            HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new
+        {
+            message = string.IsNullOrEmpty(emailWarning)
+                ? "Solicitud de reapertura enviada. Un supervisor debe aprobarla."
+                : $"Solicitud de reapertura registrada. {emailWarning}",
+            solicitud = MapCronicoReaperturaDto(solicitud)
+        });
+    }
+
+    [HttpPost]
+    [Authorize(Policy = SystemPermissions.Aprobacion)]
+    public async Task<IActionResult> AprobarReaperturaKardexCronico(long solicitudId, CancellationToken cancellationToken = default)
+    {
+        var solicitud = await _context.CensoCronicoKardexReaperturas
+            .Include(r => r.CensoCronicoAgudizacion)
+            .ThenInclude(a => a.CensoCronicoRecord)
+            .FirstOrDefaultAsync(r => r.Id == solicitudId && r.Estado == ReaperturaKardexEstado.Pendiente, cancellationToken);
+        if (solicitud is null) return NotFound(new { message = "Solicitud de reapertura no encontrada o ya gestionada." });
+
+        var agudizacion = solicitud.CensoCronicoAgudizacion;
+        agudizacion.KardexCerradoAtUtc = null;
+        agudizacion.UpdatedAtUtc = DateTime.UtcNow;
+
+        var currentUserId = GetCurrentUserIdOrEmpty();
+        solicitud.Estado = ReaperturaKardexEstado.Aprobada;
+        solicitud.ResueltoPorUserId = currentUserId == Guid.Empty ? null : currentUserId;
+        solicitud.ResueltoPorNombre = await ResolveUserDisplayNameAsync(currentUserId, cancellationToken);
+        solicitud.ResueltoAtUtc = DateTime.UtcNow;
+
+        // Marca persistente: la agudización tuvo reapertura de kardex (última reapertura gana).
+        agudizacion.TuvoReaperturaKardex = true;
+        agudizacion.ReaperturaSolicitadaPor = solicitud.SolicitadoPorNombre;
+        agudizacion.ReaperturaAprobadaPor = solicitud.ResueltoPorNombre;
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _auditService.LogAsync("CENSO_CRONICO_REAPERTURA_APROBADA", "CensoCronicoAgudizacion",
+            $"Paciente: {agudizacion.CensoCronicoRecord.NombrePaciente}, Doc: {agudizacion.CensoCronicoRecord.NumeroIdentificacion}, Agudización: #{agudizacion.Numero}",
+            currentUserId == Guid.Empty ? null : currentUserId,
+            HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new
+        {
+            message = "Reapertura aprobada. El kardex quedo habilitado para edicion.",
+            agudizacionId = agudizacion.Id
+        });
+    }
+
+    [HttpPost]
+    [Authorize(Policy = SystemPermissions.Aprobacion)]
+    public async Task<IActionResult> RechazarReaperturaKardexCronico(
+        long solicitudId,
+        string? observacion,
+        CancellationToken cancellationToken = default)
+    {
+        var solicitud = await _context.CensoCronicoKardexReaperturas
+            .Include(r => r.CensoCronicoAgudizacion)
+            .ThenInclude(a => a.CensoCronicoRecord)
+            .FirstOrDefaultAsync(r => r.Id == solicitudId && r.Estado == ReaperturaKardexEstado.Pendiente, cancellationToken);
+        if (solicitud is null) return NotFound(new { message = "Solicitud de reapertura no encontrada o ya gestionada." });
+
+        var currentUserId = GetCurrentUserIdOrEmpty();
+        solicitud.Estado = ReaperturaKardexEstado.Rechazada;
+        solicitud.ResueltoPorUserId = currentUserId == Guid.Empty ? null : currentUserId;
+        solicitud.ResueltoPorNombre = await ResolveUserDisplayNameAsync(currentUserId, cancellationToken);
+        solicitud.ResueltoAtUtc = DateTime.UtcNow;
+        var obs = observacion?.Trim();
+        solicitud.ObservacionResolucion = string.IsNullOrWhiteSpace(obs) ? null : obs;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _auditService.LogAsync("CENSO_CRONICO_REAPERTURA_RECHAZADA", "CensoCronicoAgudizacion",
+            $"Paciente: {solicitud.CensoCronicoAgudizacion.CensoCronicoRecord.NombrePaciente}, Doc: {solicitud.CensoCronicoAgudizacion.CensoCronicoRecord.NumeroIdentificacion}, Agudización: #{solicitud.CensoCronicoAgudizacion.Numero}",
+            currentUserId == Guid.Empty ? null : currentUserId,
+            HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new { message = "Solicitud de reapertura rechazada." });
+    }
+
+    private static object? MapCronicoReaperturaDto(CensoCronicoKardexReapertura? solicitud)
+    {
+        if (solicitud is null) return null;
+        return new
+        {
+            id = solicitud.Id,
+            estado = solicitud.Estado,
+            motivo = solicitud.Motivo,
+            solicitante = solicitud.SolicitadoPorNombre,
+            solicitadaAt = solicitud.SolicitadoAtUtc
+        };
+    }
+
+    private async Task<string> SendCronicoReaperturaSolicitudEmailAsync(
+        CensoCronicoAgudizacion agudizacion,
+        CensoCronicoKardexReapertura solicitud,
+        CancellationToken cancellationToken)
+    {
+        var destino = Environment.GetEnvironmentVariable("REAPERTURA_GERENCIA_EMAIL")?.Trim();
+        if (string.IsNullOrWhiteSpace(destino)) destino = GerenciaReaperturaEmailFallback;
+
+        var record = agudizacion.CensoCronicoRecord;
+        var fechaLocal = TimeZoneInfo.ConvertTimeFromUtc(solicitud.SolicitadoAtUtc, ColombiaTimeZone);
+        var paciente = WebUtility.HtmlEncode(record.NombrePaciente ?? string.Empty);
+        var cedula = WebUtility.HtmlEncode($"{record.TipoIdentificacion} {record.NumeroIdentificacion}".Trim());
+        var usuario = WebUtility.HtmlEncode(solicitud.SolicitadoPorNombre);
+        var motivo = WebUtility.HtmlEncode(solicitud.Motivo);
+        var fechaTexto = WebUtility.HtmlEncode(fechaLocal.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture));
+
+        var html = $@"<div style=""font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#1f2937;"">
+  <h2 style=""color:#b91c1c;margin-bottom:4px;"">Solicitud de reapertura de kardex - Programa Crónicos</h2>
+  <p>Se ha solicitado la reapertura del kardex de la <strong>agudización #{agudizacion.Numero}</strong> del siguiente paciente:</p>
+  <table style=""border-collapse:collapse;"">
+    <tr><td style=""padding:4px 12px 4px 0;""><strong>Paciente:</strong></td><td>{paciente}</td></tr>
+    <tr><td style=""padding:4px 12px 4px 0;""><strong>Documento:</strong></td><td>{cedula}</td></tr>
+    <tr><td style=""padding:4px 12px 4px 0;""><strong>Censo:</strong></td><td>Programa Crónicos - Agudización #{agudizacion.Numero}</td></tr>
+    <tr><td style=""padding:4px 12px 4px 0;""><strong>Solicitado por:</strong></td><td>{usuario}</td></tr>
+    <tr><td style=""padding:4px 12px 4px 0;""><strong>Motivo:</strong></td><td>{motivo}</td></tr>
+    <tr><td style=""padding:4px 12px 4px 0;""><strong>Fecha solicitud:</strong></td><td>{fechaTexto}</td></tr>
+  </table>
+  <p style=""margin-top:16px;"">Por favor gestione la <strong>aprobacion o rechazo</strong> de esta reapertura en la intranet <strong>Nexa</strong>.</p>
+</div>";
+
+        var message = new EmailMessage
+        {
+            To = new[] { destino },
+            Subject = $"Solicitud de reapertura de kardex (Crónicos) - {record.NombrePaciente}",
+            HtmlBody = html
+        };
 
         try
         {
-            var json = System.IO.File.ReadAllText(path, Encoding.UTF8);
-            var parsed = JsonSerializer.Deserialize<Dictionary<string, MotivoAgudizacionCatalogItem>>(json)
-                ?? new Dictionary<string, MotivoAgudizacionCatalogItem>();
-
-            return parsed
-                .Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value is not null)
-                .GroupBy(x => NormalizeCronicoCatalogCode(x.Key), StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(x => x.Key, x => x.Last().Value, StringComparer.OrdinalIgnoreCase);
+            var result = await _emailService.SendAsync(message, cancellationToken);
+            if (!result.Succeeded)
+            {
+                _logger.LogWarning("No se pudo enviar el correo de reapertura de crónicos: {Error}", result.ErrorMessage);
+                return "No fue posible enviar el correo a gerencia, pero la solicitud quedo registrada.";
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            return new Dictionary<string, MotivoAgudizacionCatalogItem>(StringComparer.OrdinalIgnoreCase);
+            _logger.LogError(ex, "Error enviando el correo de reapertura de kardex de crónicos.");
+            return "No fue posible enviar el correo a gerencia, pero la solicitud quedo registrada.";
         }
-    }
 
-    public sealed class MotivoAgudizacionCatalogItem
-    {
-        [JsonPropertyName("descripcion")]
-        public string Descripcion { get; set; } = string.Empty;
-
-        [JsonPropertyName("grupo")]
-        public string Grupo { get; set; } = string.Empty;
+        return string.Empty;
     }
 }

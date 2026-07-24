@@ -1,9 +1,56 @@
 @model CensoCronicoViewModel
 @using IntranetPrueba.Data.Entities
+@using System.Text.Json
 
 @section Styles
 {
     <link rel="stylesheet" href="~/css/censo.css" asp-append-version="true" />
+    <style>
+        /* Permite que los campos condicionales queden en la misma fila que su
+           select disparador (en vez de saltar de línea) mientras conservan la
+           capacidad de ocultarse con la clase d-none de Bootstrap. */
+        .censo-inline-toggle {
+            display: contents;
+        }
+
+        /* Observación que aparece bajo la fecha de cada seguimiento cuando se diligencia.
+           Queda contenida en su propia columna para no descuadrar la grilla. */
+        .hosp-seguimiento-obs {
+            border-left: 3px solid var(--bs-primary, #0d6efd);
+            padding-left: .55rem;
+            animation: hospObsFade .18s ease-out;
+        }
+
+        .hosp-seguimiento-obs .form-label {
+            font-size: .78rem;
+            font-weight: 600;
+            color: var(--bs-secondary-color, #6c757d);
+        }
+
+        @@keyframes hospObsFade {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Barra de paciente actual (crónicos): la columna de CIE10 + diagnóstico necesita
+           más ancho que Barthel y Días de estancia. */
+        .censo-page--with-current-patient .censo-current-patient {
+            grid-template-columns: auto minmax(11rem, 0.8fr) minmax(13rem, 1.15fr) minmax(6rem, 0.4fr) minmax(7rem, 0.45fr) auto;
+        }
+
+        .censo-current-patient__hint {
+            display: block;
+            margin-top: 0.16rem;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #5e6a80;
+            line-height: 1.2;
+        }
+    </style>
 }
 
 @{
@@ -12,8 +59,14 @@
     var errorMessage = TempData["ErrorMessage"] as string;
     var hasAuxiliares = Model.AuxiliarEnfermeriaOptions.Any();
     var clinicaHeridasActiva = string.Equals(Model.ClinicaHeridas, "Si", StringComparison.OrdinalIgnoreCase);
+    var programaNutricionActiva = string.Equals(Model.ProgramaNutricion, "Si", StringComparison.OrdinalIgnoreCase);
+    var sondaVesicalActiva = string.Equals(Model.SondaVesical, "Si", StringComparison.OrdinalIgnoreCase);
+    var mipresPanalesActivo = string.Equals(Model.MipresPanales, "Si", StringComparison.OrdinalIgnoreCase);
+    var mipresNutricionActivo = string.Equals(Model.MipresNutricion, "Si", StringComparison.OrdinalIgnoreCase);
     var showCurrentPatientBar = Model.EditingRecordId.HasValue
         && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
+    var medicamentoCatalogJson = JsonSerializer.Serialize(Model.MedicamentoCatalog);
+    var kardexDocumentoCronico = $"{Model.TipoIdentificacion} {Model.NumeroIdentificacion}".Trim();
 }
 
 @functions {
@@ -66,28 +119,51 @@
                         <span class="censo-nav__content">
                             <span class="censo-nav__eyebrow">Sección 2</span>
                             <span class="censo-nav__title">Gestión del caso</span>
-                            <span class="censo-nav__description">Clasificación, agudización y escalas clínicas.</span>
+                            <span class="censo-nav__description">Clasificación, escalas, servicios, dispositivos y Mipres.</span>
                         </span>
                     </button>
 
                     <button class="list-group-item list-group-item-action censo-nav__item"
-                            id="tab-validaciones-link"
+                            id="tab-agudizaciones-link"
                             data-bs-toggle="list"
-                            data-bs-target="#tab-validaciones"
+                            data-bs-target="#tab-agudizaciones"
                             type="button"
                             role="tab"
-                            aria-controls="tab-validaciones"
+                            aria-controls="tab-agudizaciones"
                             aria-selected="false">
                         <span class="censo-nav__icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" focusable="false">
-                                <path d="M12 3l7 4v5c0 4.5-3 8-7 9-4-1-7-4.5-7-9V7z"></path>
-                                <path d="m9 12 2 2 4-4"></path>
+                                <path d="M3 12h4l2-5 4 10 2-5h6"></path>
                             </svg>
                         </span>
                         <span class="censo-nav__content">
                             <span class="censo-nav__eyebrow">Sección 3</span>
-                            <span class="censo-nav__title">Validaciones</span>
-                            <span class="censo-nav__description">Servicios, dispositivos, Mipres y hospitalización.</span>
+                            <span class="censo-nav__title">Agudizaciones</span>
+                            <span class="censo-nav__description">Registra y navega entre las agudizaciones del paciente.</span>
+                        </span>
+                    </button>
+
+                    <button class="list-group-item list-group-item-action censo-nav__item"
+                            id="tab-hospitalizacion-link"
+                            data-bs-toggle="list"
+                            data-bs-target="#tab-hospitalizacion"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-hospitalizacion"
+                            aria-selected="false">
+                        <span class="censo-nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                <path d="M8 3v4"></path>
+                                <path d="M16 3v4"></path>
+                                <path d="M4 10h16"></path>
+                                <path d="m9 15 2 2 4-5"></path>
+                            </svg>
+                        </span>
+                        <span class="censo-nav__content">
+                            <span class="censo-nav__eyebrow">Sección 4</span>
+                            <span class="censo-nav__title">Hospitalización y seguimiento</span>
+                            <span class="censo-nav__description">Hospitalización, seguimientos y egreso del programa.</span>
                         </span>
                     </button>
                 </div>
@@ -134,12 +210,21 @@
             </div>
 
             <div class="censo-current-patient__item">
-                <span class="censo-current-patient__label">Fuente de ingreso</span>
-                <strong>@Model.FuenteIngreso</strong>
+                <span class="censo-current-patient__label">CIE10 y diagnóstico</span>
+                <strong>@(string.IsNullOrWhiteSpace(Model.DiagnosticoCronicoCie10) ? "—" : Model.DiagnosticoCronicoCie10)</strong>
+                @if (!string.IsNullOrWhiteSpace(Model.GrupoPatologiaCronica))
+                {
+                    <span class="censo-current-patient__hint" title="@Model.GrupoPatologiaCronica">@Model.GrupoPatologiaCronica</span>
+                }
             </div>
 
             <div class="censo-current-patient__item">
-                <span class="censo-current-patient__label">Fecha de ingreso</span>
+                <span class="censo-current-patient__label">Barthel</span>
+                <strong>@(string.IsNullOrWhiteSpace(Model.CalificacionBarthel) ? "—" : Model.CalificacionBarthel)</strong>
+            </div>
+
+            <div class="censo-current-patient__item">
+                <span class="censo-current-patient__label">Días de estancia</span>
                 <strong>
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                         <rect x="4" y="5" width="16" height="15" rx="2"></rect>
@@ -147,7 +232,7 @@
                         <path d="M16 3v4"></path>
                         <path d="M4 10h16"></path>
                     </svg>
-                    @Model.FechaIngreso.ToString("dd/MM/yyyy")
+                    @Model.DiasDeEstancia
                 </strong>
             </div>
 
@@ -244,12 +329,12 @@
                                         </div>
                                         <span asp-validation-for="FuenteIngreso" class="text-danger"></span>
                                     </div>
-                                    <div class="col-lg-4">
+                                    <div class="col-lg-3">
                                         <label asp-for="FechaIngreso" class="form-label"></label>@RequiredMark()
                                         <input asp-for="FechaIngreso" type="date" class="form-control" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
                                         <span asp-validation-for="FechaIngreso" class="text-danger"></span>
                                     </div>
-                                    <div class="col-12">
+                                    <div class="col-lg-9">
                                         <label asp-for="NombrePaciente" class="form-label"></label>@RequiredMark()
                                         <input asp-for="NombrePaciente" class="form-control" autocomplete="off" placeholder="Ingrese nombre completo del paciente" />
                                         <span asp-validation-for="NombrePaciente" class="text-danger"></span>
@@ -257,7 +342,7 @@
                                     <div class="col-lg-4">
                                         <label asp-for="TipoIdentificacion" class="form-label"></label>@RequiredMark()
                                         <select asp-for="TipoIdentificacion" asp-items="Model.TipoIdentificacionOptions" class="form-select" id="tipoIdentificacionSelect">
-                                            <option value="" disabled hidden>Selecciona...</option>
+                                            <option value="" disabled hidden></option>
                                         </select>
                                         <span asp-validation-for="TipoIdentificacion" class="text-danger"></span>
                                     </div>
@@ -356,14 +441,14 @@
                                     <div class="col-lg-4">
                                         <label asp-for="ClasificacionZonaSura" class="form-label"></label>
                                         <select asp-for="ClasificacionZonaSura" asp-items="Model.ClasificacionZonaSuraOptions" class="form-select" id="clasificacionZonaSuraSelect">
-                                            <option value="" disabled hidden>Selecciona...</option>
+                                            <option value="" disabled hidden></option>
                                         </select>
                                         <span asp-validation-for="ClasificacionZonaSura" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="MunicipioResidencia" class="form-label"></label>
                                         <select asp-for="MunicipioResidencia" asp-items="Model.MunicipioResidenciaOptions" class="form-select" id="municipioResidenciaSelect">
-                                            <option value="" disabled hidden>Selecciona...</option>
+                                            <option value="" disabled hidden></option>
                                         </select>
                                         <span asp-validation-for="MunicipioResidencia" class="text-danger"></span>
                                     </div>
@@ -381,14 +466,14 @@
                                     <div class="col-lg-4">
                                         <label asp-for="ZonaDireccionSegunMunicipio" class="form-label"></label>
                                         <select asp-for="ZonaDireccionSegunMunicipio" asp-items="Model.ZonaDireccionOptions" class="form-select" id="zonaDireccionSelect">
-                                            <option value="" disabled hidden>Selecciona...</option>
+                                            <option value="" disabled hidden></option>
                                         </select>
                                         <span asp-validation-for="ZonaDireccionSegunMunicipio" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="Area" class="form-label"></label>
                                         <select asp-for="Area" asp-items="Model.AreaOptions" class="form-select" id="areaSelect">
-                                            <option value="" disabled hidden>Selecciona...</option>
+                                            <option value="" disabled hidden></option>
                                         </select>
                                         <span asp-validation-for="Area" class="text-danger"></span>
                                     </div>
@@ -453,36 +538,6 @@
                                             </div>
                                             <span asp-validation-for="ClasificacionCaso" class="text-danger"></span>
                                         </div>
-                                        <div class="col-lg-4">
-                                            <label asp-for="EstadoPaciente" class="form-label"></label>
-                                            <select asp-for="EstadoPaciente" asp-items="Model.EstadoPacienteOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
-                                            </select>
-                                            <span asp-validation-for="EstadoPaciente" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-4">
-                                            <label asp-for="NumeroAgudizacionesUltimoAnio" class="form-label"></label>
-                                            <input asp-for="NumeroAgudizacionesUltimoAnio" class="form-control" type="number" min="0" step="1" />
-                                            <span asp-validation-for="NumeroAgudizacionesUltimoAnio" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-4">
-                                            <label asp-for="FechaAgudizacion" class="form-label"></label>
-                                            <input asp-for="FechaAgudizacion" type="date" class="form-control" />
-                                            <span asp-validation-for="FechaAgudizacion" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="MotivoAgudizacion" class="form-label"></label>
-                                            <input asp-for="MotivoAgudizacion" class="form-control" id="motivoAgudizacionInput" maxlength="10" autocomplete="off" placeholder="Ej: I693" />
-                                            <span asp-validation-for="MotivoAgudizacion" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-5">
-                                            <label asp-for="DescripcionAgudizacion" class="form-label"></label>
-                                            <input asp-for="DescripcionAgudizacion" class="form-control" id="descripcionAgudizacionInput" readonly />
-                                        </div>
-                                        <div class="col-lg-4">
-                                            <label asp-for="DetalleDescripcionCie10" class="form-label"></label>
-                                            <input asp-for="DetalleDescripcionCie10" class="form-control" id="detalleDescripcionCie10Input" readonly />
-                                        </div>
                                         <div class="col-lg-3">
                                             <label asp-for="DiagnosticoCronicoCie10" class="form-label"></label>
                                             <input asp-for="DiagnosticoCronicoCie10" class="form-control" id="diagnosticoCronicoInput" maxlength="4" autocomplete="off" />
@@ -519,7 +574,7 @@
                                         <div class="col-lg-3">
                                             <label asp-for="BarthelAuditado" class="form-label"></label>
                                             <select asp-for="BarthelAuditado" asp-items="Model.BarthelAuditadoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
+                                                <option value=""></option>
                                             </select>
                                             <span asp-validation-for="BarthelAuditado" class="text-danger"></span>
                                         </div>
@@ -530,28 +585,40 @@
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="CalificacionBarthel" class="form-label"></label>
-                                            <input asp-for="CalificacionBarthel" class="form-control" maxlength="50" autocomplete="off" />
+                                            <select asp-for="CalificacionBarthel" asp-items="Model.CalificacionBarthelOptions" class="form-select">
+                                                <option value=""></option>
+                                            </select>
                                             <span asp-validation-for="CalificacionBarthel" class="text-danger"></span>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="Karnofsky" class="form-label"></label>
-                                            <input asp-for="Karnofsky" class="form-control" maxlength="50" autocomplete="off" />
+                                            <select asp-for="Karnofsky" asp-items="Model.KarnofskyOptions" class="form-select">
+                                                <option value=""></option>
+                                            </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="Fast" class="form-label"></label>
-                                            <input asp-for="Fast" class="form-control" maxlength="50" autocomplete="off" />
+                                            <select asp-for="Fast" asp-items="Model.FastOptions" class="form-select">
+                                                <option value=""></option>
+                                            </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="Rankin" class="form-label"></label>
-                                            <input asp-for="Rankin" class="form-control" maxlength="50" autocomplete="off" />
+                                            <select asp-for="Rankin" asp-items="Model.RankinOptions" class="form-select">
+                                                <option value=""></option>
+                                            </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="DisneaMmrc" class="form-label"></label>
-                                            <input asp-for="DisneaMmrc" class="form-control" maxlength="50" autocomplete="off" />
+                                            <select asp-for="DisneaMmrc" asp-items="Model.DisneaMmrcOptions" class="form-select">
+                                                <option value=""></option>
+                                            </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="Nyha" class="form-label"></label>
-                                            <input asp-for="Nyha" class="form-control" maxlength="50" autocomplete="off" />
+                                            <select asp-for="Nyha" asp-items="Model.NyhaOptions" class="form-select">
+                                                <option value=""></option>
+                                            </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="Braden" class="form-label"></label>
@@ -566,39 +633,8 @@
                                             <input asp-for="RiesgoLesionPiel" class="form-control" maxlength="50" autocomplete="off" />
                                         </div>
                                     </div>
-                                    <div class="censo-form-actions censo-form-actions--inline">
-                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarCronicoGestionCaso", "Censo")" formmethod="post" formnovalidate>
-                                            <span>Guardar gestión del caso</span>
-                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                                <path d="M5 12h14"></path>
-                                                <path d="m13 6 6 6-6 6"></path>
-                                            </svg>
-                                        </button>
-                                    </div>
                                 </section>
-                            }
-                        </div>
-                    </div>
-                </div>
 
-                @* ---------- Sección 3: Validaciones ---------- *@
-                <div class="tab-pane fade" id="tab-validaciones" role="tabpanel" aria-labelledby="tab-validaciones-link">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="censo-card-heading">
-                                <span class="censo-card-heading__eyebrow">Programa Cronicos</span>
-                                <h2 class="h5 mb-0">Validaciones</h2>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            @if (!Model.EditingRecordId.HasValue)
-                            {
-                                <div class="alert alert-warning mb-0">
-                                    Guarda primero los datos básicos del paciente para registrar las validaciones.
-                                </div>
-                            }
-                            else
-                            {
                                 <section class="censo-field-section">
                                     <div class="censo-field-section__header">
                                         <span class="censo-field-section__icon" aria-hidden="true">
@@ -613,55 +649,56 @@
                                         <div class="col-lg-3">
                                             <label asp-for="ClinicaHeridas" class="form-label"></label>
                                             <select asp-for="ClinicaHeridas" asp-items="Model.SiNoOptions" class="form-select" id="clinicaHeridasSelect">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                             <span asp-validation-for="ClinicaHeridas" class="text-danger"></span>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="EstadoClinicaHeridas" class="form-label"></label>
                                             <select asp-for="EstadoClinicaHeridas" asp-items="Model.EstadoClinicaHeridasOptions" class="form-select" id="estadoClinicaHeridasSelect" disabled="@(clinicaHeridasActiva ? null : "disabled")">
-                                                <option value="">Selecciona...</option>
+                                                <option value=""></option>
                                             </select>
                                             <span asp-validation-for="EstadoClinicaHeridas" class="text-danger"></span>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="ProgramaNutricion" class="form-label"></label>
-                                            <select asp-for="ProgramaNutricion" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
+                                            <select asp-for="ProgramaNutricion" asp-items="Model.SiNoOptions" class="form-select" id="programaNutricionSelect">
                                             </select>
                                             <span asp-validation-for="ProgramaNutricion" class="text-danger"></span>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="EducacionPlanCuidados" class="form-label"></label>
                                             <select asp-for="EducacionPlanCuidados" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                             <span asp-validation-for="EducacionPlanCuidados" class="text-danger"></span>
                                         </div>
-                                        <div class="col-lg-4">
-                                            <label asp-for="FechaInicioNutricion" class="form-label"></label>
-                                            <input asp-for="FechaInicioNutricion" type="date" class="form-control" />
-                                            <span asp-validation-for="FechaInicioNutricion" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-4">
-                                            <label asp-for="AuxiliarAsignadoNutricion" class="form-label"></label>
-                                            <input asp-for="AuxiliarAsignadoNutricion" class="form-control" maxlength="120" id="auxiliarNutricionInput" list="auxiliarNutricionOptions" autocomplete="off" placeholder="Buscar auxiliar asignado" />
-                                            <datalist id="auxiliarNutricionOptions">
-                                                @foreach (var assistant in Model.AuxiliarEnfermeriaOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
-                                                {
-                                                    <option value="@assistant.Value">@assistant.Text</option>
-                                                }
-                                            </datalist>
-                                            @if (!hasAuxiliares)
-                                            {
-                                                <div class="form-text">No hay auxiliares OPS activos para asignar.</div>
-                                            }
-                                            <span asp-validation-for="AuxiliarAsignadoNutricion" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-4">
-                                            <label asp-for="FechaFinNutricion" class="form-label"></label>
-                                            <input asp-for="FechaFinNutricion" type="date" class="form-control" />
-                                            <span asp-validation-for="FechaFinNutricion" class="text-danger"></span>
+                                        <div class="col-12 @(programaNutricionActiva ? null : "d-none")" id="programaNutricionFields">
+                                            <div class="row g-3">
+                                                <div class="col-lg-4">
+                                                    <label asp-for="FechaInicioNutricion" class="form-label"></label>
+                                                    <input asp-for="FechaInicioNutricion" type="date" class="form-control" />
+                                                    <span asp-validation-for="FechaInicioNutricion" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-lg-4">
+                                                    <label asp-for="AuxiliarAsignadoNutricion" class="form-label"></label>
+                                                    <input asp-for="AuxiliarAsignadoNutricion" class="form-control" maxlength="120" id="auxiliarNutricionInput" list="auxiliarNutricionOptions" autocomplete="off" placeholder="Buscar auxiliar asignado" />
+                                                    <datalist id="auxiliarNutricionOptions">
+                                                        @foreach (var assistant in Model.AuxiliarEnfermeriaOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                                        {
+                                                            <option value="@assistant.Value">@assistant.Text</option>
+                                                        }
+                                                    </datalist>
+                                                    @if (!hasAuxiliares)
+                                                    {
+                                                        <div class="form-text">No hay auxiliares OPS activos para asignar.</div>
+                                                    }
+                                                    <span asp-validation-for="AuxiliarAsignadoNutricion" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-lg-4">
+                                                    <label asp-for="FechaFinNutricion" class="form-label"></label>
+                                                    <input asp-for="FechaFinNutricion" type="date" class="form-control" />
+                                                    <span asp-validation-for="FechaFinNutricion" class="text-danger"></span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </section>
@@ -681,37 +718,31 @@
                                         <div class="col-lg-3">
                                             <label asp-for="TerapiaFisica" class="form-label"></label>
                                             <select asp-for="TerapiaFisica" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="TerapiaRespiratoria" class="form-label"></label>
                                             <select asp-for="TerapiaRespiratoria" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="TerapiaOcupacional" class="form-label"></label>
                                             <select asp-for="TerapiaOcupacional" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="Fonoaudiologia" class="form-label"></label>
                                             <select asp-for="Fonoaudiologia" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="Nutricion" class="form-label"></label>
                                             <select asp-for="Nutricion" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="Psicologia" class="form-label"></label>
                                             <select asp-for="Psicologia" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                     </div>
@@ -731,13 +762,11 @@
                                         <div class="col-lg-3">
                                             <label asp-for="Traqueostomia" class="form-label"></label>
                                             <select asp-for="Traqueostomia" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="SondaNasogastrica" class="form-label"></label>
                                             <select asp-for="SondaNasogastrica" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
@@ -755,53 +784,54 @@
                                         <div class="col-lg-3">
                                             <label asp-for="SondaGastrostomia" class="form-label"></label>
                                             <select asp-for="SondaGastrostomia" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="Colostomia" class="form-label"></label>
                                             <select asp-for="Colostomia" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="SondaCistostomia" class="form-label"></label>
                                             <select asp-for="SondaCistostomia" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="CateterPicc" class="form-label"></label>
                                             <select asp-for="CateterPicc" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="SondaVesical" class="form-label"></label>
-                                            <select asp-for="SondaVesical" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
+                                            <select asp-for="SondaVesical" asp-items="Model.SiNoOptions" class="form-select" id="sondaVesicalSelect">
                                             </select>
                                         </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="CalibreSondaVesical" class="form-label"></label>
-                                            <input asp-for="CalibreSondaVesical" class="form-control" maxlength="50" autocomplete="off" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="FrecuenciaCambioSondaVesical" class="form-label"></label>
-                                            <input asp-for="FrecuenciaCambioSondaVesical" class="form-control" maxlength="50" autocomplete="off" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="FechaUltimoCambioSondaVesical" class="form-label"></label>
-                                            <input asp-for="FechaUltimoCambioSondaVesical" type="date" class="form-control" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="FechaProximoCambioSondaVesical" class="form-label"></label>
-                                            <input asp-for="FechaProximoCambioSondaVesical" type="date" class="form-control" />
-                                        </div>
-                                        <div class="col-12">
-                                            <label asp-for="ObservacionCambioSonda" class="form-label"></label>
-                                            <textarea asp-for="ObservacionCambioSonda" class="form-control" rows="2" maxlength="500"></textarea>
-                                            <span asp-validation-for="ObservacionCambioSonda" class="text-danger"></span>
+                                        <div class="col-12 @(sondaVesicalActiva ? null : "d-none")" id="sondaVesicalFields">
+                                            <div class="row g-3">
+                                                <div class="col-lg-3">
+                                                    <label asp-for="CalibreSondaVesical" class="form-label"></label>
+                                                    <select asp-for="CalibreSondaVesical" asp-items="Model.CalibreSondaVesicalOptions" class="form-select" id="calibreSondaVesicalSelect">
+                                                        <option value=""></option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-lg-3">
+                                                    <label asp-for="FrecuenciaCambioSondaVesical" class="form-label"></label>
+                                                    <input asp-for="FrecuenciaCambioSondaVesical" class="form-control" type="number" min="0" step="1" inputmode="numeric" maxlength="50" autocomplete="off" id="frecuenciaCambioSondaVesicalInput" />
+                                                </div>
+                                                <div class="col-lg-3">
+                                                    <label asp-for="FechaUltimoCambioSondaVesical" class="form-label"></label>
+                                                    <input asp-for="FechaUltimoCambioSondaVesical" type="date" class="form-control" id="fechaUltimoCambioSondaVesicalInput" />
+                                                </div>
+                                                <div class="col-lg-3">
+                                                    <label asp-for="FechaProximoCambioSondaVesical" class="form-label"></label>
+                                                    <input asp-for="FechaProximoCambioSondaVesical" type="date" class="form-control" id="fechaProximoCambioSondaVesicalInput" readonly />
+                                                </div>
+                                                <div class="col-12">
+                                                    <label asp-for="ObservacionCambioSonda" class="form-label"></label>
+                                                    <textarea asp-for="ObservacionCambioSonda" class="form-control" rows="2" maxlength="500"></textarea>
+                                                    <span asp-validation-for="ObservacionCambioSonda" class="text-danger"></span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </section>
@@ -820,7 +850,6 @@
                                         <div class="col-lg-3">
                                             <label asp-for="FormulaControl" class="form-label"></label>
                                             <select asp-for="FormulaControl" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                         </div>
                                         <div class="col-12">
@@ -828,59 +857,293 @@
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="MipresPanales" class="form-label"></label>
-                                            <select asp-for="MipresPanales" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
+                                            <select asp-for="MipresPanales" asp-items="Model.SiNoOptions" class="form-select" id="mipresPanalesSelect">
                                             </select>
                                         </div>
-                                        <div class="col-lg-2">
-                                            <label asp-for="TallaPanales" class="form-label"></label>
-                                            <select asp-for="TallaPanales" asp-items="Model.TallaPanalesOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
-                                            </select>
-                                            <span asp-validation-for="TallaPanales" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="FechaUltimaPrescripcionPanales" class="form-label"></label>
-                                            <input asp-for="FechaUltimaPrescripcionPanales" type="date" class="form-control" />
-                                        </div>
-                                        <div class="col-lg-2">
-                                            <label asp-for="TiempoPrescripcionPanalesMeses" class="form-label"></label>
-                                            <input asp-for="TiempoPrescripcionPanalesMeses" class="form-control" type="number" min="0" step="1" />
-                                        </div>
-                                        <div class="col-lg-2">
-                                            <label asp-for="EstadoMipresPanales" class="form-label"></label>
-                                            <select asp-for="EstadoMipresPanales" asp-items="Model.EstadoMipresOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
-                                            </select>
-                                            <span asp-validation-for="EstadoMipresPanales" class="text-danger"></span>
+                                        <div class="censo-inline-toggle @(mipresPanalesActivo ? null : "d-none")" id="mipresPanalesFields">
+                                            <div class="col-lg-2">
+                                                <label asp-for="TallaPanales" class="form-label"></label>
+                                                <select asp-for="TallaPanales" asp-items="Model.TallaPanalesOptions" class="form-select">
+                                                    <option value=""></option>
+                                                </select>
+                                                <span asp-validation-for="TallaPanales" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-3">
+                                                <label asp-for="FechaUltimaPrescripcionPanales" class="form-label"></label>
+                                                <input asp-for="FechaUltimaPrescripcionPanales" type="date" class="form-control" />
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label asp-for="TiempoPrescripcionPanalesMeses" class="form-label"></label>
+                                                <input asp-for="TiempoPrescripcionPanalesMeses" class="form-control" type="number" min="0" step="1" />
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label asp-for="EstadoMipresPanales" class="form-label"></label>
+                                                <select asp-for="EstadoMipresPanales" asp-items="Model.EstadoMipresOptions" class="form-select">
+                                                    <option value=""></option>
+                                                </select>
+                                                <span asp-validation-for="EstadoMipresPanales" class="text-danger"></span>
+                                            </div>
                                         </div>
                                         <div class="col-12">
                                             <div class="censo-field-section__subtitle"><strong>Mipres nutrición</strong></div>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="MipresNutricion" class="form-label"></label>
-                                            <select asp-for="MipresNutricion" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
+                                            <select asp-for="MipresNutricion" asp-items="Model.SiNoOptions" class="form-select" id="mipresNutricionSelect">
                                             </select>
                                         </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="FechaUltimaPrescripcionNutricion" class="form-label"></label>
-                                            <input asp-for="FechaUltimaPrescripcionNutricion" type="date" class="form-control" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="TiempoPrescripcionNutricionMeses" class="form-label"></label>
-                                            <input asp-for="TiempoPrescripcionNutricionMeses" class="form-control" type="number" min="0" step="1" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="EstadoMipresNutricion" class="form-label"></label>
-                                            <select asp-for="EstadoMipresNutricion" asp-items="Model.EstadoMipresOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
-                                            </select>
-                                            <span asp-validation-for="EstadoMipresNutricion" class="text-danger"></span>
+                                        <div class="censo-inline-toggle @(mipresNutricionActivo ? null : "d-none")" id="mipresNutricionFields">
+                                            <div class="col-lg-3">
+                                                <label asp-for="FechaUltimaPrescripcionNutricion" class="form-label"></label>
+                                                <input asp-for="FechaUltimaPrescripcionNutricion" type="date" class="form-control" />
+                                            </div>
+                                            <div class="col-lg-3">
+                                                <label asp-for="TiempoPrescripcionNutricionMeses" class="form-label"></label>
+                                                <input asp-for="TiempoPrescripcionNutricionMeses" class="form-control" type="number" min="0" step="1" />
+                                            </div>
+                                            <div class="col-lg-3">
+                                                <label asp-for="EstadoMipresNutricion" class="form-label"></label>
+                                                <select asp-for="EstadoMipresNutricion" asp-items="Model.EstadoMipresOptions" class="form-select">
+                                                    <option value=""></option>
+                                                </select>
+                                                <span asp-validation-for="EstadoMipresNutricion" class="text-danger"></span>
+                                            </div>
                                         </div>
                                     </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarCronicoGestionCaso", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar gestión del caso</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </section>
+                            }
+                        </div>
+                    </div>
+                </div>
 
+                @* ---------- Sección 3: Agudizaciones ---------- *@
+                <div class="tab-pane fade" id="tab-agudizaciones" role="tabpanel" aria-labelledby="tab-agudizaciones-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Programa Cronicos</span>
+                                <h2 class="h5 mb-0">Agudizaciones</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar agudizaciones.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="censo-prorroga-version-panel mb-3">
+                                    <div>
+                                        <label class="form-label fw-semibold" for="agudizacionVersionSelect">Agudizaciones del paciente</label>
+                                        <select class="form-select" id="agudizacionVersionSelect">
+                                            <option value="">Nueva agudización</option>
+                                        </select>
+                                    </div>
+                                    <div class="censo-prorroga-version-panel__actions">
+                                        <button type="button" class="btn btn-outline-primary" id="adicionarAgudizacionBtn">
+                                            Adicionar agudización
+                                        </button>
+                                    </div>
+                                    <span class="badge text-bg-primary d-none" id="agudizacionNumeroBadge">Agudización #1</span>
+                                </div>
+
+                                <div class="row g-3">
+                                    <div class="col-lg-3">
+                                        <label class="form-label" for="agudizacionCie10Input">CIE10</label>
+                                        <input class="form-control" id="agudizacionCie10Input" maxlength="4" autocomplete="off" />
+                                    </div>
+                                    <div class="col-lg-9">
+                                        <label class="form-label" for="agudizacionDiagnosticoInput">Diagnostico descriptivo</label>
+                                        <input class="form-control" id="agudizacionDiagnosticoInput" readonly />
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold">¿Seguimiento médico?</label>
+                                        <div class="censo-check-grid" role="radiogroup" aria-label="Seguimiento médico">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="agudizacion-seguimiento-medico" id="agudizacionSeguimientoSi" value="si" />
+                                                <label class="form-check-label" for="agudizacionSeguimientoSi">Sí</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="agudizacion-seguimiento-medico" id="agudizacionSeguimientoNo" value="no" />
+                                                <label class="form-check-label" for="agudizacionSeguimientoNo">No</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="agudizacion-seguimiento-medico" id="agudizacionSeguimientoNoAplica" value="no-aplica" />
+                                                <label class="form-check-label" for="agudizacionSeguimientoNoAplica">No aplica</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    @for (var medIndex = 1; medIndex <= 6; medIndex++)
+                                    {
+                                        var suffix = medIndex == 1 ? "Principal" : medIndex.ToString();
+                                        var etiqueta = medIndex == 1 ? "principal" : $"número {medIndex}";
+                                        if (medIndex > 1)
+                                        {
+                                            var toggleLabels = new[] { "", "", "segundo", "tercer", "cuarto", "quinto", "sexto" };
+                                            <div class="col-12 @(medIndex > 2 ? "d-none" : null)" id="agudizacionToggle@(medIndex)Wrapper">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input js-agudizacion-med-toggle" type="checkbox" role="switch" id="agudizacionTieneMed@(medIndex)" data-med-index="@medIndex" />
+                                                    <label class="form-check-label" for="agudizacionTieneMed@(medIndex)">Tiene @toggleLabels[medIndex] medicamento</label>
+                                                </div>
+                                            </div>
+                                        }
+                                        <div class="col-12 @(medIndex > 1 ? "d-none" : null)" id="agudizacionMed@(medIndex)Container">
+                                            <div class="row g-3">
+                                                <div class="col-lg-4">
+                                                    <label class="form-label" for="agudizacionNombreMed@(suffix)">Nombre medicamento @etiqueta / Principio activo</label>
+                                                    <input class="form-control" id="agudizacionNombreMed@(suffix)" maxlength="300" list="agudizacionMedicamentoOptions" autocomplete="off" />
+                                                </div>
+                                                <div class="col-lg-1">
+                                                    <label class="form-label" for="agudizacionDosisMed@(suffix)">Dosis</label>
+                                                    <input class="form-control" id="agudizacionDosisMed@(suffix)" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                                </div>
+                                                <div class="col-lg-2">
+                                                    <label class="form-label" for="agudizacionMedidaMed@(suffix)">Medida</label>
+                                                    <select class="form-select" id="agudizacionMedidaMed@(suffix)">
+                                                        <option value=""></option>
+                                                        @foreach (var opt in Model.MedidaMedicamentoOptions)
+                                                        {
+                                                            <option value="@opt.Value">@opt.Text</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                                <div class="col-lg-2">
+                                                    <label class="form-label" for="agudizacionViaMed@(suffix)">Vía de administración</label>
+                                                    <select class="form-select" id="agudizacionViaMed@(suffix)">
+                                                        <option value=""></option>
+                                                        @foreach (var opt in Model.ViaAdministracionMedicamentoOptions)
+                                                        {
+                                                            <option value="@opt.Value">@opt.Text</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                                <div class="col-lg-2">
+                                                    <label class="form-label" for="agudizacionFrecuenciaMed@(suffix)">Frecuencia</label>
+                                                    <select class="form-select js-agudizacion-calc" id="agudizacionFrecuenciaMed@(suffix)">
+                                                        <option value=""></option>
+                                                        @foreach (var opt in Model.FrecuenciaAdministracionOptions)
+                                                        {
+                                                            <option value="@opt.Value">@opt.Text</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                                <div class="col-lg-1">
+                                                    <label class="form-label" for="agudizacionDiasMed@(suffix)">Días</label>
+                                                    <input class="form-control js-agudizacion-calc" id="agudizacionDiasMed@(suffix)" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+
+                                    <datalist id="agudizacionMedicamentoOptions">
+                                        @foreach (var medicamento in Model.MedicamentoPrincipalOptions)
+                                        {
+                                            <option value="@medicamento"></option>
+                                        }
+                                    </datalist>
+
+                                    <div class="col-lg-6">
+                                        <label class="form-label" for="agudizacionAplicacionesTotales">Aplicaciones totales</label>
+                                        <input class="form-control" id="agudizacionAplicacionesTotales" readonly />
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label class="form-label" for="agudizacionDiasTratamientoIv">Días de tratamiento IV</label>
+                                        <input class="form-control" id="agudizacionDiasTratamientoIv" readonly />
+                                    </div>
+
+                                    <div class="col-lg-4">
+                                        <label class="form-label" for="agudizacionFechaInicio">Fecha de inicio de tratamiento</label>
+                                        <input class="form-control js-agudizacion-calc" id="agudizacionFechaInicio" type="date" />
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label class="form-label" for="agudizacionFechaFin">Fecha fin de tratamiento</label>
+                                        <input class="form-control" id="agudizacionFechaFin" type="date" readonly />
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label class="form-label" for="agudizacionFechaPromesa">Fecha ordenamiento</label>
+                                        <input class="form-control" id="agudizacionFechaPromesa" type="date" />
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label" for="agudizacionAuxiliarAsignado">Auxiliar asignado</label>
+                                        <select class="form-select" id="agudizacionAuxiliarAsignado">
+                                            <option value=""></option>
+                                            @foreach (var opt in Model.AuxiliarEnfermeriaOptions)
+                                            {
+                                                <option value="@opt.Value">@opt.Text</option>
+                                            }
+                                        </select>
+                                        <div class="form-text">Selecciona un auxiliar OPS activo.</div>
+                                    </div>
+                                </div>
+
+                                <div class="censo-prorroga-actions mt-4">
+                                    <button type="button" class="btn btn-primary" id="guardarAgudizacionBtn">
+                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true" style="width:1rem;height:1rem;margin-right:.4rem;vertical-align:-.15em">
+                                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                            <polyline points="7 3 7 8 15 8"></polyline>
+                                        </svg>
+                                        <span>Guardar agudización</span>
+                                    </button>
+                                    <button type="button" class="btn censo-kardex-button" id="gestionarCronicoKardexBtn" data-bs-toggle="modal" data-bs-target="#cronicoKardexModal">
+                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                            <path d="M9 3h6"></path>
+                                            <path d="M10 3v2"></path>
+                                            <path d="M14 3v2"></path>
+                                            <rect x="5" y="5" width="14" height="16" rx="3"></rect>
+                                            <path d="M8 11h8"></path>
+                                            <path d="M8 15h5"></path>
+                                        </svg>
+                                        <span>Gestionar kardex y requisici&oacute;n</span>
+                                    </button>
+                                    <span class="censo-prorroga-actions__status ms-3 text-muted small" id="agudizacionGuardadoStatus"></span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                @* ---------- Sección 4: Hospitalización y seguimiento ---------- *@
+                <div class="tab-pane fade" id="tab-hospitalizacion" role="tabpanel" aria-labelledby="tab-hospitalizacion-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Programa Cronicos</span>
+                                <h2 class="h5 mb-0">Hospitalización y seguimiento</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar la hospitalización y seguimiento.
+                                </div>
+                            }
+                            else
+                            {
+                                var seguimientoLabels = new[]
+                                {
+                                    "Fecha de 1er seguimiento (24 horas)",
+                                    "Fecha de 2do seguimiento (48 horas)",
+                                    "Fecha de 3er seguimiento (72 horas)",
+                                    "Fecha de 4to seguimiento (Semana 1)",
+                                    "Fecha de 5to seguimiento (Semana 2)",
+                                    "Fecha de 6to seguimiento (Semana 3)",
+                                    "Fecha de 7mo seguimiento (Semana 4)"
+                                };
                                 <section class="censo-field-section">
                                     <div class="censo-field-section__header">
                                         <span class="censo-field-section__icon" aria-hidden="true">
@@ -890,60 +1153,80 @@
                                         </span>
                                         <h3>Hospitalización y seguimiento</h3>
                                     </div>
+
+                                    <div class="censo-prorroga-version-panel mb-3">
+                                        <div>
+                                            <label class="form-label fw-semibold" for="hospVersionSelect">Hospitalizaciones del paciente</label>
+                                            <select class="form-select" id="hospVersionSelect">
+                                                <option value="">Nueva hospitalización</option>
+                                            </select>
+                                        </div>
+                                        <div class="censo-prorroga-version-panel__actions">
+                                            <button type="button" class="btn btn-outline-primary" id="adicionarHospitalizacionBtn">
+                                                Adicionar hospitalización
+                                            </button>
+                                        </div>
+                                        <span class="badge text-bg-primary d-none" id="hospNumeroBadge">Hospitalización #1</span>
+                                    </div>
+
                                     <div class="row g-3 censo-field-section__grid">
                                         <div class="col-lg-3">
-                                            <label asp-for="FechaHospitalizacion" class="form-label"></label>
-                                            <input asp-for="FechaHospitalizacion" type="date" class="form-control" />
+                                            <label class="form-label" for="hospFechaHospitalizacion">Fecha de hospitalización</label>
+                                            <input class="form-control" id="hospFechaHospitalizacion" type="date" />
                                         </div>
                                         <div class="col-lg-5">
-                                            <label asp-for="MotivoHospitalizacion" class="form-label"></label>
-                                            <input asp-for="MotivoHospitalizacion" class="form-control" maxlength="200" autocomplete="off" />
-                                            <span asp-validation-for="MotivoHospitalizacion" class="text-danger"></span>
+                                            <label class="form-label" for="hospMotivo">Motivo de la hospitalización</label>
+                                            <input class="form-control" id="hospMotivo" maxlength="200" autocomplete="off" />
                                         </div>
                                         <div class="col-lg-2">
-                                            <label asp-for="RemitidoPor" class="form-label"></label>
-                                            <input asp-for="RemitidoPor" class="form-control" maxlength="100" autocomplete="off" />
+                                            <label class="form-label" for="hospRemitidoPor">Remitido por</label>
+                                            <input class="form-control" id="hospRemitidoPor" maxlength="100" autocomplete="off" />
                                         </div>
                                         <div class="col-lg-2">
-                                            <label asp-for="IpsIntramural" class="form-label"></label>
-                                            <input asp-for="IpsIntramural" class="form-control" maxlength="200" autocomplete="off" />
+                                            <label class="form-label" for="hospIps">IPS intramural</label>
+                                            <input class="form-control" id="hospIps" maxlength="200" autocomplete="off" />
                                         </div>
                                         <div class="col-lg-3">
-                                            <label asp-for="FechaPrimerSeguimiento24Horas" class="form-label"></label>
-                                            <input asp-for="FechaPrimerSeguimiento24Horas" type="date" class="form-control" />
+                                            <label class="form-label" for="hospCie10Input">CIE10</label>
+                                            <input class="form-control" id="hospCie10Input" maxlength="4" autocomplete="off" />
+                                        </div>
+                                        <div class="col-lg-9">
+                                            <label class="form-label" for="hospDiagnosticoInput">Diagnóstico descriptivo</label>
+                                            <input class="form-control" id="hospDiagnosticoInput" readonly />
+                                        </div>
+
+                                        @for (var seg = 1; seg <= 7; seg++)
+                                        {
+                                            <div class="col-lg-3">
+                                                <label class="form-label" for="hospSeguimiento@(seg)Fecha">@seguimientoLabels[seg - 1]</label>
+                                                <input class="form-control js-hosp-seguimiento-fecha" id="hospSeguimiento@(seg)Fecha" data-seguimiento="@seg" type="date" />
+                                                <div class="hosp-seguimiento-obs d-none mt-2" id="hospSeguimiento@(seg)ObsWrapper">
+                                                    <label class="form-label mb-1" for="hospSeguimiento@(seg)Obs">Observación</label>
+                                                    <textarea class="form-control form-control-sm" id="hospSeguimiento@(seg)Obs" rows="2" maxlength="500" placeholder="Observación del seguimiento"></textarea>
+                                                </div>
+                                            </div>
+                                        }
+
+                                        <div class="col-lg-3">
+                                            <label class="form-label" for="hospFechaAlta">Fecha de alta de hospitalización</label>
+                                            <input class="form-control" id="hospFechaAlta" type="date" />
                                         </div>
                                         <div class="col-lg-3">
-                                            <label asp-for="FechaSegundoSeguimiento48Horas" class="form-label"></label>
-                                            <input asp-for="FechaSegundoSeguimiento48Horas" type="date" class="form-control" />
+                                            <label class="form-label" for="hospNumeroHospitalizaciones">N° hospitalizaciones en último año</label>
+                                            <input class="form-control" id="hospNumeroHospitalizaciones" type="number" min="0" step="1" />
                                         </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="FechaTercerSeguimiento72Horas" class="form-label"></label>
-                                            <input asp-for="FechaTercerSeguimiento72Horas" type="date" class="form-control" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="FechaCuartoSeguimientoSemana1" class="form-label"></label>
-                                            <input asp-for="FechaCuartoSeguimientoSemana1" type="date" class="form-control" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="FechaQuintoSeguimientoSemana2" class="form-label"></label>
-                                            <input asp-for="FechaQuintoSeguimientoSemana2" type="date" class="form-control" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="FechaSextoSeguimientoSemana3" class="form-label"></label>
-                                            <input asp-for="FechaSextoSeguimientoSemana3" type="date" class="form-control" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="FechaSeptimoSeguimientoSemana4" class="form-label"></label>
-                                            <input asp-for="FechaSeptimoSeguimientoSemana4" type="date" class="form-control" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="FechaAltaHospitalizacion" class="form-label"></label>
-                                            <input asp-for="FechaAltaHospitalizacion" type="date" class="form-control" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="NumeroHospitalizacionesUltimoAnio" class="form-label"></label>
-                                            <input asp-for="NumeroHospitalizacionesUltimoAnio" class="form-control" type="number" min="0" step="1" />
-                                        </div>
+                                    </div>
+
+                                    <div class="censo-prorroga-actions mt-4">
+                                        <button type="button" class="btn btn-primary" id="guardarHospitalizacionBtn">
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true" style="width:1rem;height:1rem;margin-right:.4rem;vertical-align:-.15em">
+                                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                                <polyline points="7 3 7 8 15 8"></polyline>
+                                            </svg>
+                                            <span>Guardar hospitalización</span>
+                                        </button>
+                                        <span class="censo-prorroga-actions__status ms-3 text-muted small" id="hospGuardadoStatus"></span>
                                     </div>
                                 </section>
 
@@ -964,14 +1247,13 @@
                                         <div class="col-lg-3">
                                             <label asp-for="EgresaProgramaCronico" class="form-label"></label>
                                             <select asp-for="EgresaProgramaCronico" asp-items="Model.SiNoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
                                             </select>
                                             <span asp-validation-for="EgresaProgramaCronico" class="text-danger"></span>
                                         </div>
                                         <div class="col-lg-6">
                                             <label asp-for="MotivoEgreso" class="form-label"></label>
                                             <select asp-for="MotivoEgreso" asp-items="Model.MotivoEgresoOptions" class="form-select">
-                                                <option value="">Selecciona...</option>
+                                                <option value=""></option>
                                             </select>
                                             <span asp-validation-for="MotivoEgreso" class="text-danger"></span>
                                         </div>
@@ -981,8 +1263,8 @@
                                         </div>
                                     </div>
                                     <div class="censo-form-actions censo-form-actions--inline">
-                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarCronicoValidaciones", "Censo")" formmethod="post" formnovalidate>
-                                            <span>Guardar validaciones</span>
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarCronicoHospitalizacion", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar egreso del programa</span>
                                             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                                                 <path d="M5 12h14"></path>
                                                 <path d="m13 6 6 6-6 6"></path>
@@ -1014,6 +1296,15 @@
                     @("Se muestran los últimos 100 registros creados en este censo.")
                 }
             </p>
+        </div>
+        <div class="censo-history-shell__meta" aria-label="Exportar censo de programa crónicos">
+            <div class="censo-history-export-card">
+                <div>
+                    <span>Informe</span>
+                    <strong>@(string.IsNullOrWhiteSpace(Model.CedulaFiltro) ? "Programa crónicos" : $"Documento {Model.CedulaFiltro}")</strong>
+                </div>
+                <a asp-action="ExportarCronicosExcel" asp-route-cedulaPaciente="@Model.CedulaFiltro" download>Descargar Excel</a>
+            </div>
         </div>
     </div>
 
@@ -1079,6 +1370,272 @@
     }
 </section>
 
+@if (Model.EditingRecordId.HasValue)
+{
+<div class="modal fade censo-kardex-modal" id="cronicoKardexModal" tabindex="-1" aria-labelledby="cronicoKardexModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header censo-document-header">
+                <div class="censo-document-header__title">
+                    <span class="censo-card-heading__eyebrow">Programa Cr&oacute;nicos</span>
+                    <h5 class="modal-title" id="cronicoKardexModalTitle">Gestionar kardex y requisici&oacute;n</h5>
+                    <span class="censo-document-context-badge censo-document-context-badge--prorroga" id="cronicoDocumentContextBadge" aria-live="polite"></span>
+                </div>
+                <div class="censo-document-switch censo-document-switch--header" role="tablist" aria-label="Seleccionar documento">
+                    <button type="button" class="censo-document-switch__button active" id="cronicoKardexTabButton" data-cronico-document-target="kardex" role="tab" aria-selected="true" aria-controls="cronicoKardexPane">Kardex</button>
+                    <button type="button" class="censo-document-switch__button" id="cronicoRequisicionTabButton" data-cronico-document-target="requisicion" role="tab" aria-selected="false" aria-controls="cronicoRequisicionPane">Requisici&oacute;n</button>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning d-none censo-document-closed-banner" id="cronicoDocumentClosedBanner" role="alert">
+                    <strong>Kardex cerrado.</strong> Este kardex y su requisici&oacute;n ya fueron aprobados por farmacia y quedan solo para consulta.
+                </div>
+                <section class="censo-document-pane active" id="cronicoKardexPane" data-cronico-document-pane="kardex" role="tabpanel" aria-labelledby="cronicoKardexTabButton">
+                <div class="censo-kardex-sheet" aria-label="Kardex aplicaci&oacute;n de medicamentos">
+                    <div class="censo-kardex-sheet__head">
+                        <div class="censo-kardex-sheet__logo">
+                            <img src="~/images/logo.png" asp-append-version="true" alt="Especialistas En Casa" />
+                        </div>
+                        <div class="censo-kardex-sheet__title">KARDEX APLICACI&Oacute;N DE MEDICAMENTOS</div>
+                        <div class="censo-kardex-sheet__meta">
+                            <label>C&oacute;digo:<input data-kardex-field="codigoFormato" value="FO-SEF-07" /></label>
+                            <label>Versi&oacute;n:<input data-kardex-field="versionFormato" value="04" /></label>
+                            <label>pagina:<input data-kardex-field="paginaFormato" value="1 de 1" /></label>
+                            <label>Fecha:<input data-kardex-field="fechaFormato" value="01/05/2026" /></label>
+                        </div>
+                    </div>
+
+                    <div class="censo-kardex-patient-table">
+                        <div class="censo-kardex-section-title censo-kardex-section-title--patient">Datos del paciente</div>
+                        <div class="censo-kardex-section-title censo-kardex-section-title--payer">Asegurador</div>
+                        <div class="censo-kardex-section-title censo-kardex-section-title--diagnosis">Diagn&oacute;stico descriptivo</div>
+
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Paciente:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="paciente" value="@Model.NombrePaciente" />
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Asegurador:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="asegurador" />
+                        <textarea class="censo-kardex-patient-table__cell censo-kardex-patient-table__diagnosis" data-kardex-field="diagnostico" aria-label="Diagn&oacute;stico descriptivo"></textarea>
+
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Documento de identidad:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="documento" value="@kardexDocumentoCronico" />
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Peso:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="peso" />
+
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Direccion:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="direccion" value="@Model.Direccion" />
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Edad:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="edad" value="@Model.Edad" />
+
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">telefonos:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="telefonos" />
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">CIE10</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="cie10" />
+                    </div>
+
+                    <div class="censo-kardex-section-title censo-kardex-section-title--full">Registro de aplicaci&oacute;n de medicamentos</div>
+                    <div class="censo-kardex-med-table" role="table" aria-label="Medicamentos kardex">
+                        <div class="censo-kardex-med-table__header" role="row">
+                            <span>PRESENTACION<br />MEDICAMENTOS</span>
+                            <span>DOSIS Y FRECUENCIA</span>
+                            <span>VEHICULO DE RECONSTITUCION</span>
+                            <span>VOLUMEN DE DILUCI&Oacute;N</span>
+                            <span>TIEMPO DE INFUSI&Oacute;N</span>
+                            <span>ES FOTOSENSIBLE</span>
+                            <span>CADENA DE FRIO</span>
+                            <span>Aislamiento</span>
+                            <span>ESTABILIDAD</span>
+                            <span>BOMBA DE INFUSI&Oacute;N</span>
+                            <span>FECHA INICIO</span>
+                            <span>FECHA FIN</span>
+                        </div>
+                        @for (var kardexRow = 1; kardexRow <= 6; kardexRow++)
+                        {
+                            <div class="censo-kardex-med-table__row @(kardexRow > 1 ? "d-none" : "")" role="row" data-kardex-med-row="@kardexRow">
+                                <textarea aria-label="Presentaci&oacute;n medicamentos @kardexRow" data-kardex-med-field="presentacion">Medicamento @kardexRow</textarea>
+                                <textarea aria-label="Dosis y frecuencia @kardexRow" data-kardex-med-field="dosisFrecuencia"></textarea>
+                                <textarea aria-label="Veh&iacute;culo de reconstituci&oacute;n @kardexRow" data-kardex-med-field="vehiculoReconstitucion"></textarea>
+                                <input aria-label="Volumen de diluci&oacute;n @kardexRow" data-kardex-med-field="volumenDilucion" />
+                                <input aria-label="Tiempo de infusi&oacute;n @kardexRow" data-kardex-med-field="tiempoInfusion" />
+                                <input aria-label="Es fotosensible @kardexRow" data-kardex-med-field="fotosensible" />
+                                <input aria-label="Cadena de frio @kardexRow" data-kardex-med-field="cadenaFrio" />
+                                <input aria-label="Aislamiento @kardexRow" data-kardex-med-field="aislamiento" />
+                                <input aria-label="Estabilidad @kardexRow" data-kardex-med-field="estabilidad" />
+                                <input aria-label="Bomba de infusi&oacute;n @kardexRow" data-kardex-med-field="bombaInfusion" />
+                                <input aria-label="Fecha inicio @kardexRow" data-kardex-med-field="fechaInicio" />
+                                <input aria-label="Fecha fin @kardexRow" data-kardex-med-field="fechaFin" />
+                            </div>
+                        }
+                    </div>
+
+                    <div class="censo-kardex-footer-table">
+                        <label>OBSERVACI&Oacute;N:</label>
+                        <textarea data-kardex-field="observaciones"></textarea>
+                        <label>Cambio de equipo:</label>
+                        <input data-kardex-field="cambioEquipo" value="CADA 3 DIAS" />
+                        <label>MEDICO TRATANTE</label>
+                        <input data-kardex-field="medicoTratante" />
+                        <label>PROGRAMADOR:</label>
+                        <input data-kardex-field="programador" />
+                        <label>AUXILIAR ASIGNADO</label>
+                        <input data-kardex-field="auxiliarAsignado" />
+                    </div>
+                </div>
+                </section>
+                <section class="censo-document-pane" id="cronicoRequisicionPane" data-cronico-document-pane="requisicion" role="tabpanel" aria-labelledby="cronicoRequisicionTabButton">
+                    <div class="censo-requisition-sheet" aria-label="Requisici&oacute;n aplicaci&oacute;n de medicamentos">
+                        <div class="censo-requisition-sheet__head">
+                            <div class="censo-requisition-sheet__logo">
+                                <img src="~/images/logo.png" asp-append-version="true" alt="Especialistas En Casa" />
+                            </div>
+                            <div class="censo-requisition-sheet__title">REQUISICI&Oacute;N APLICACI&Oacute;N DE MEDICAMENTOS</div>
+                            <div class="censo-requisition-sheet__meta">
+                                <label>C&oacute;digo:<input data-requisition-field="codigoFormato" value="FO-SEF-07" /></label>
+                                <label>Versi&oacute;n:<input data-requisition-field="versionFormato" value="03" /></label>
+                                <label>pagina:<input data-requisition-field="paginaFormato" value="1 de 1" /></label>
+                                <label>Fecha:<input data-requisition-field="fechaFormato" value="01/05/2026" /></label>
+                            </div>
+                        </div>
+
+                        <div class="censo-requisition-section-title">RESPONSABLES</div>
+                        <div class="censo-requisition-responsibles">
+                            <label>AUXILIAR ENCARGADO</label>
+                            <input data-requisition-field="auxiliarEncargado" />
+                            <label>REALIZADO POR</label>
+                            <input data-requisition-field="realizadoPor" />
+                        </div>
+
+                        <div class="censo-requisition-section-title">DATOS DEL PACIENTE</div>
+                        <div class="censo-requisition-patient">
+                            <label>Paciente:</label>
+                            <input data-requisition-field="paciente" value="@Model.NombrePaciente" />
+                            <label>AUTORIZACION</label>
+                            <input data-requisition-field="autorizacion" />
+
+                            <label>Documento identidad:</label>
+                            <input data-requisition-field="documento" value="@Model.NumeroIdentificacion" />
+                            <label>Fecha de solicitud:</label>
+                            <input data-requisition-field="fechaSolicitud" />
+
+                            <label>Direccion:</label>
+                            <input data-requisition-field="direccion" value="@Model.Direccion" />
+                            <label>telefonos:</label>
+                            <input data-requisition-field="telefonos" />
+
+                            <label>Diagnostico</label>
+                            <input class="censo-requisition-patient__diagnosis" data-requisition-field="diagnostico" />
+                        </div>
+
+                        <div class="censo-requisition-section-title censo-requisition-section-title--center">DETALLE DE LA REQUISICI&Oacute;N</div>
+                        <div class="censo-requisition-detail" role="table" aria-label="Detalle de la requisici&oacute;n">
+                            <div class="censo-requisition-detail__header" role="row">
+                                <span>Item</span>
+                                <span>DESCRIPCION</span>
+                                <span>DETALLE</span>
+                                <span>CANTIDAD</span>
+                                <span>Fecha de inicio</span>
+                                <span>Fecha de finalizaci&oacute;n</span>
+                            </div>
+                            @for (var requisicionRow = 1; requisicionRow <= 16; requisicionRow++)
+                            {
+                                <div class="censo-requisition-detail__row" role="row" data-requisition-row="@requisicionRow">
+                                    <input aria-label="Item @requisicionRow" data-requisition-item-field="item" value="@requisicionRow" />
+                                    <input aria-label="Descripci&oacute;n @requisicionRow" data-requisition-item-field="descripcion" />
+                                    <input aria-label="Detalle @requisicionRow" data-requisition-item-field="detalle" />
+                                    <input aria-label="Cantidad @requisicionRow" data-requisition-item-field="cantidad" />
+                                    <input aria-label="Fecha de inicio @requisicionRow" data-requisition-item-field="fechaInicio" />
+                                    <input aria-label="Fecha de finalizaci&oacute;n @requisicionRow" data-requisition-item-field="fechaFin" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="cronicoServiciosCargadosSwitch" />
+                    <label class="form-check-label fw-semibold" for="cronicoServiciosCargadosSwitch">Servicios cargados</label>
+                </div>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <span id="cronicoReaperturaStatusNote" class="small text-warning-emphasis fw-semibold d-none" aria-live="polite"></span>
+                    <button type="button" class="btn btn-outline-warning d-none" id="solicitarReaperturaCronicoBtn" title="Solicitar reapertura de kardex">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>
+                        <span>Solicitar reapertura de kardex</span>
+                    </button>
+                    <button type="button" class="btn btn-success d-none" id="aprobarReaperturaCronicoBtn" title="Aprobar reapertura de kardex">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Aprobar reapertura</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger d-none" id="rechazarReaperturaCronicoBtn" title="Rechazar reapertura de kardex">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <span>Rechazar</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-outline-success" id="guardarCronicoDocumentosBtn">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <span>Guardar</span>
+                    </button>
+                    <div id="enviarFarmaciaCronicoBtnWrapper" style="display:inline-block;">
+                        <button type="button" class="btn btn-primary censo-kardex-send-button" id="enviarFarmaciaCronicoBtn" disabled>
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path d="M21 3L3 10.2l6.7 2.6 2.7 8.2 3.2-5.1 5.4 4.1L21 3z"></path>
+                                <path d="M9.7 12.8L21 3"></path>
+                            </svg>
+                            <span>Enviar a farmacia</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="cronicoReaperturaModal" tabindex="-1" aria-labelledby="cronicoReaperturaModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cronicoReaperturaModalTitle">Solicitar reapertura de kardex</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Selecciona el motivo de la reapertura. La solicitud se enviar&aacute; a gerencia y requiere la aprobaci&oacute;n de un supervisor.</p>
+                <div id="cronicoReaperturaMotivosContainer">
+                    @for (var motivoIndex = 0; motivoIndex < Model.ReaperturaMotivos.Count; motivoIndex++)
+                    {
+                        var motivo = Model.ReaperturaMotivos[motivoIndex];
+                        var motivoId = $"cronicoReaperturaMotivo_{motivoIndex}";
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="cronicoReaperturaMotivo" id="@motivoId" value="@motivo" />
+                            <label class="form-check-label" for="@motivoId">@motivo</label>
+                        </div>
+                    }
+                </div>
+                <div id="cronicoReaperturaMotivoError" class="text-danger small mt-2 d-none">Selecciona un motivo.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="confirmarReaperturaCronicoBtn">Enviar solicitud</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="cronicoFeedbackModal" tabindex="-1" aria-labelledby="cronicoFeedbackModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" id="cronicoFeedbackModalHeader">
+                <h5 class="modal-title" id="cronicoFeedbackModalTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="cronicoFeedbackModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
 @section Scripts
 {
     <partial name="_ValidationScriptsPartial" />
@@ -1088,7 +1645,6 @@
             const buscarBarriosUrl = "@Url.Action("BuscarBarrios", "Censo")";
             const defaultsMunicipioUrl = "@Url.Action("ObtenerDefaultsMunicipio", "Censo")";
             const buscarDiagnosticoCie10Url = "@Url.Action("BuscarDiagnosticoCie10", "Censo")";
-            const buscarMotivoAgudizacionUrl = "@Url.Action("BuscarMotivoAgudizacion", "Censo")";
             const form = document.getElementById("censoCronicoForm");
             const csrfTokenInput = form?.querySelector("input[name='__RequestVerificationToken']");
             const direccionInput = document.getElementById("direccionInput");
@@ -1110,9 +1666,6 @@
             const cambiarCronicoPacienteDocumentoInput = document.getElementById("cambiarCronicoPacienteDocumento");
             const fechaNacimientoInput = document.getElementById("fechaNacimientoInput");
             const edadInput = document.getElementById("edadInput");
-            const motivoAgudizacionInput = document.getElementById("motivoAgudizacionInput");
-            const descripcionAgudizacionInput = document.getElementById("descripcionAgudizacionInput");
-            const detalleDescripcionCie10Input = document.getElementById("detalleDescripcionCie10Input");
             const diagnosticoCronicoInput = document.getElementById("diagnosticoCronicoInput");
             const grupoPatologiaInput = document.getElementById("grupoPatologiaInput");
             const diagnosticoComplementarioInput = document.getElementById("diagnosticoComplementarioInput");
@@ -1450,24 +2003,6 @@
             });
             diagnosticoComplementarioInput?.addEventListener("blur", () => lookupCie10(diagnosticoComplementarioInput, grupoPatologiaComplementarioInput));
 
-            motivoAgudizacionInput?.addEventListener("input", () => {
-                motivoAgudizacionInput.value = normalizeCie10(motivoAgudizacionInput.value);
-                if (descripcionAgudizacionInput) descripcionAgudizacionInput.value = "";
-                if (detalleDescripcionCie10Input) detalleDescripcionCie10Input.value = "";
-            });
-            motivoAgudizacionInput?.addEventListener("blur", async () => {
-                const codigo = normalizeCie10(motivoAgudizacionInput.value);
-                motivoAgudizacionInput.value = codigo;
-                if (codigo.length !== 4) return;
-                try {
-                    const response = await fetch(`${buscarMotivoAgudizacionUrl}?codigo=${encodeURIComponent(codigo)}`);
-                    if (!response.ok) return;
-                    const data = await response.json();
-                    if (descripcionAgudizacionInput) descripcionAgudizacionInput.value = data.descripcion || "";
-                    if (detalleDescripcionCie10Input) detalleDescripcionCie10Input.value = data.grupo || "";
-                } catch { }
-            });
-
             const syncEstadoClinicaHeridas = () => {
                 if (!clinicaHeridasSelect || !estadoClinicaHeridasSelect) return;
                 const activo = String(clinicaHeridasSelect.value || "").trim().toUpperCase() === "SI";
@@ -1476,6 +2011,103 @@
             };
             clinicaHeridasSelect?.addEventListener("change", syncEstadoClinicaHeridas);
             syncEstadoClinicaHeridas();
+
+            const programaNutricionSelect = document.getElementById("programaNutricionSelect");
+            const programaNutricionFields = document.getElementById("programaNutricionFields");
+            const syncProgramaNutricion = () => {
+                if (!programaNutricionFields) return;
+                const activo = String(programaNutricionSelect?.value || "").trim().toUpperCase() === "SI";
+                programaNutricionFields.classList.toggle("d-none", !activo);
+                if (!activo) {
+                    const fechaInicio = document.getElementById("FechaInicioNutricion");
+                    const fechaFin = document.getElementById("FechaFinNutricion");
+                    if (fechaInicio) fechaInicio.value = "";
+                    if (fechaFin) fechaFin.value = "";
+                    if (auxiliarNutricionInput) auxiliarNutricionInput.value = "";
+                    const auxMsg = getAuxiliarValidationMessage();
+                    if (auxMsg) auxMsg.textContent = "";
+                }
+            };
+            programaNutricionSelect?.addEventListener("change", syncProgramaNutricion);
+            syncProgramaNutricion();
+
+            const sondaVesicalSelect = document.getElementById("sondaVesicalSelect");
+            const sondaVesicalFields = document.getElementById("sondaVesicalFields");
+            const frecuenciaCambioSondaVesicalInput = document.getElementById("frecuenciaCambioSondaVesicalInput");
+            const fechaUltimoCambioSondaVesicalInput = document.getElementById("fechaUltimoCambioSondaVesicalInput");
+            const fechaProximoCambioSondaVesicalInput = document.getElementById("fechaProximoCambioSondaVesicalInput");
+
+            const calcularFechaProximoCambioSonda = () => {
+                if (!fechaProximoCambioSondaVesicalInput) return;
+                const base = String(fechaUltimoCambioSondaVesicalInput?.value || "").trim();
+                const dias = Number.parseInt(String(frecuenciaCambioSondaVesicalInput?.value || "").trim(), 10);
+                if (!base || !Number.isFinite(dias) || dias < 0) {
+                    fechaProximoCambioSondaVesicalInput.value = "";
+                    return;
+                }
+                const fecha = new Date(`${base}T00:00:00`);
+                if (Number.isNaN(fecha.getTime())) {
+                    fechaProximoCambioSondaVesicalInput.value = "";
+                    return;
+                }
+                fecha.setDate(fecha.getDate() + dias);
+                const y = String(fecha.getFullYear()).padStart(4, "0");
+                const m = String(fecha.getMonth() + 1).padStart(2, "0");
+                const d = String(fecha.getDate()).padStart(2, "0");
+                fechaProximoCambioSondaVesicalInput.value = `${y}-${m}-${d}`;
+            };
+
+            const syncSondaVesical = () => {
+                if (!sondaVesicalFields) return;
+                const activo = String(sondaVesicalSelect?.value || "").trim().toUpperCase() === "SI";
+                sondaVesicalFields.classList.toggle("d-none", !activo);
+                sondaVesicalFields.querySelectorAll("input, select, textarea").forEach((control) => {
+                    control.disabled = !activo;
+                });
+                if (!activo) {
+                    sondaVesicalFields.querySelectorAll("input, select, textarea").forEach((control) => {
+                        control.value = "";
+                    });
+                } else {
+                    calcularFechaProximoCambioSonda();
+                }
+            };
+
+            frecuenciaCambioSondaVesicalInput?.addEventListener("input", () => {
+                frecuenciaCambioSondaVesicalInput.value = frecuenciaCambioSondaVesicalInput.value.replace(/\D/g, "");
+                calcularFechaProximoCambioSonda();
+            });
+            fechaUltimoCambioSondaVesicalInput?.addEventListener("change", calcularFechaProximoCambioSonda);
+            sondaVesicalSelect?.addEventListener("change", syncSondaVesical);
+            syncSondaVesical();
+
+            const mipresPanalesSelect = document.getElementById("mipresPanalesSelect");
+            const mipresPanalesFields = document.getElementById("mipresPanalesFields");
+            const syncMipresPanales = () => {
+                if (!mipresPanalesFields) return;
+                const activo = String(mipresPanalesSelect?.value || "").trim().toUpperCase() === "SI";
+                mipresPanalesFields.classList.toggle("d-none", !activo);
+                mipresPanalesFields.querySelectorAll("input, select, textarea").forEach((control) => {
+                    control.disabled = !activo;
+                    if (!activo) control.value = "";
+                });
+            };
+            mipresPanalesSelect?.addEventListener("change", syncMipresPanales);
+            syncMipresPanales();
+
+            const mipresNutricionSelect = document.getElementById("mipresNutricionSelect");
+            const mipresNutricionFields = document.getElementById("mipresNutricionFields");
+            const syncMipresNutricion = () => {
+                if (!mipresNutricionFields) return;
+                const activo = String(mipresNutricionSelect?.value || "").trim().toUpperCase() === "SI";
+                mipresNutricionFields.classList.toggle("d-none", !activo);
+                mipresNutricionFields.querySelectorAll("input, select, textarea").forEach((control) => {
+                    control.disabled = !activo;
+                    if (!activo) control.value = "";
+                });
+            };
+            mipresNutricionSelect?.addEventListener("change", syncMipresNutricion);
+            syncMipresNutricion();
 
             auxiliarNutricionInput?.addEventListener("input", () => syncAuxiliarValidation(false));
             auxiliarNutricionInput?.addEventListener("change", () => syncAuxiliarValidation(true));
@@ -1514,10 +2146,1197 @@
             });
             uppercaseAllCronicoTextFields();
 
+            // ---------------- Agudizaciones ----------------
+            const agudizacionVersionSelect = document.getElementById("agudizacionVersionSelect");
+            const adicionarAgudizacionBtn = document.getElementById("adicionarAgudizacionBtn");
+            const agudizacionNumeroBadge = document.getElementById("agudizacionNumeroBadge");
+            const guardarAgudizacionBtn = document.getElementById("guardarAgudizacionBtn");
+            const agudizacionGuardadoStatus = document.getElementById("agudizacionGuardadoStatus");
+            const agudizacionAplicacionesInput = document.getElementById("agudizacionAplicacionesTotales");
+            const agudizacionDiasIvInput = document.getElementById("agudizacionDiasTratamientoIv");
+            const agudizacionFechaInicioInput = document.getElementById("agudizacionFechaInicio");
+            const agudizacionFechaFinInput = document.getElementById("agudizacionFechaFin");
+            const agudizacionCie10Input = document.getElementById("agudizacionCie10Input");
+            const agudizacionDiagnosticoInput = document.getElementById("agudizacionDiagnosticoInput");
+            const guardarAgudizacionUrl = "@Url.Action("GuardarCronicoAgudizacion", "Censo")";
+            const obtenerAgudizacionesUrl = "@Url.Action("ObtenerCronicoAgudizaciones", "Censo")";
+            const cronicoRecordId = @(Model.EditingRecordId?.ToString() ?? "0");
+            const medSuffixes = ["Principal", "2", "3", "4", "5", "6"];
+            let agudizacionesState = @Html.Raw(Json.Serialize(Model.Agudizaciones.Select(a => new
+            {
+                id = a.Id,
+                numero = a.Numero,
+                agudizacionJson = a.AgudizacionJson,
+                kardexJson = a.KardexEdicionJson,
+                requisicionJson = a.RequisicionFarmaciaJson,
+                cerrada = a.KardexCerradoAtUtc != null,
+                enviadaFarmacia = a.FarmaciaEnviadoAtUtc != null,
+                farmaciaEstado = a.FarmaciaEstado,
+                tuvoReapertura = a.TuvoReaperturaKardex,
+                reaperturaSolicitud = (object?)null
+            })));
+            let activeAgudizacionId = null;
+
+            const getAgudValue = (id) => (document.getElementById(id)?.value || "").trim();
+            const setAgudValue = (id, value) => { const el = document.getElementById(id); if (el) el.value = value || ""; };
+            const getMedToggle = (index) => document.getElementById(`agudizacionTieneMed${index}`);
+            const getMedContainer = (index) => document.getElementById(`agudizacionMed${index}Container`);
+            const isMedActive = (index) => index === 1 || !!getMedToggle(index)?.checked;
+
+            const getAgudDays = (suffix) => {
+                const value = Number.parseInt(getAgudValue(`agudizacionDiasMed${suffix}`) || "0", 10);
+                return Number.isFinite(value) && value > 0 ? value : 0;
+            };
+
+            const calcAplicaciones = (frequency, days) => {
+                if (days < 1) return 0;
+                const normalized = String(frequency || "").trim().toUpperCase();
+                if (!normalized || normalized === "NO APLICA") return 0;
+                if (normalized === "INFUSION CONTINUA") return days;
+                const match = normalized.match(/^CADA\s+(\d+(?:[.,]\d+)?)\s+HORAS$/);
+                if (!match) return 0;
+                const hours = Number.parseFloat(String(match[1]).replace(",", "."));
+                return hours > 0 ? Math.ceil((days * 24) / hours) : 0;
+            };
+
+            const parseIsoDate = (value) => {
+                const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || "").trim());
+                if (!match) return null;
+                const year = Number.parseInt(match[1], 10);
+                const month = Number.parseInt(match[2], 10);
+                const day = Number.parseInt(match[3], 10);
+                const date = new Date(year, month - 1, day);
+                return (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) ? date : null;
+            };
+
+            // Solo permite una letra al inicio seguida de hasta tres dígitos (formato CIE10).
+            const normalizeAgudizacionCie10 = (value) => {
+                const source = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+                if (!source) return "";
+                const firstLetterIndex = source.search(/[A-Z]/);
+                if (firstLetterIndex < 0) return "";
+                const trimmed = source.slice(firstLetterIndex);
+                const letter = trimmed[0];
+                const digits = trimmed.slice(1).replace(/\D/g, "").slice(0, 3);
+                return `${letter}${digits}`;
+            };
+
+            agudizacionCie10Input?.addEventListener("input", () => {
+                agudizacionCie10Input.value = normalizeAgudizacionCie10(agudizacionCie10Input.value);
+                if (agudizacionDiagnosticoInput) agudizacionDiagnosticoInput.value = "";
+            });
+            agudizacionCie10Input?.addEventListener("blur", async () => {
+                const codigo = normalizeAgudizacionCie10(agudizacionCie10Input.value);
+                agudizacionCie10Input.value = codigo;
+                if (!agudizacionDiagnosticoInput) return;
+                if (codigo.length !== 4 || !/^[A-Z][0-9]{3}$/.test(codigo)) {
+                    agudizacionDiagnosticoInput.value = "";
+                    return;
+                }
+                try {
+                    const response = await fetch(`${buscarDiagnosticoCie10Url}?codigo=${encodeURIComponent(codigo)}`);
+                    if (!response.ok) { agudizacionDiagnosticoInput.value = ""; return; }
+                    const data = await response.json();
+                    agudizacionDiagnosticoInput.value = data.diagnostico || "";
+                } catch { agudizacionDiagnosticoInput.value = ""; }
+            });
+
+            const syncAgudizacionCalculos = () => {
+                let total = 0;
+                let maxDays = 0;
+                let winningFreq = "";
+                medSuffixes.forEach((suffix, i) => {
+                    const index = i + 1;
+                    if (!isMedActive(index)) return;
+                    const days = getAgudDays(suffix);
+                    const freq = getAgudValue(`agudizacionFrecuenciaMed${suffix}`);
+                    total += calcAplicaciones(freq, days);
+                    if (days > maxDays) { maxDays = days; winningFreq = freq; }
+                });
+                if (agudizacionAplicacionesInput) agudizacionAplicacionesInput.value = total > 0 ? String(total) : "";
+                if (agudizacionDiasIvInput) agudizacionDiasIvInput.value = maxDays > 0 ? String(maxDays) : "";
+                if (agudizacionFechaInicioInput && agudizacionFechaFinInput) {
+                    const startDate = parseIsoDate(agudizacionFechaInicioInput.value);
+                    if (!startDate || maxDays < 1) {
+                        agudizacionFechaFinInput.value = "";
+                    } else {
+                        const offset = String(winningFreq || "").trim().toUpperCase() === "CADA 24 HORAS" ? maxDays - 1 : maxDays;
+                        const endDate = new Date(startDate);
+                        endDate.setDate(endDate.getDate() + offset);
+                        const y = String(endDate.getFullYear()).padStart(4, "0");
+                        const m = String(endDate.getMonth() + 1).padStart(2, "0");
+                        const d = String(endDate.getDate()).padStart(2, "0");
+                        agudizacionFechaFinInput.value = `${y}-${m}-${d}`;
+                    }
+                }
+            };
+
+            document.querySelectorAll(".js-agudizacion-calc").forEach((control) => {
+                control.addEventListener("input", syncAgudizacionCalculos);
+                control.addEventListener("change", syncAgudizacionCalculos);
+            });
+
+            const clearAgudMedFields = (index) => {
+                const suffix = medSuffixes[index - 1];
+                ["Nombre", "Dosis", "Medida", "Via", "Frecuencia", "Dias"].forEach((prefix) => {
+                    setAgudValue(`agudizacion${prefix}Med${suffix}`, "");
+                });
+            };
+
+            // Los toggles aparecen progresivamente: cada uno solo se muestra cuando
+            // el medicamento anterior está activo. Al desactivar uno, se ocultan y
+            // limpian todos los siguientes en cascada.
+            const syncAgudizacionMedProgression = () => {
+                for (let index = 2; index <= 6; index++) {
+                    const prevActive = index === 2 ? true : isMedActive(index - 1);
+                    const wrapper = document.getElementById(`agudizacionToggle${index}Wrapper`);
+                    if (wrapper) wrapper.classList.toggle("d-none", !prevActive);
+                    if (!prevActive) {
+                        const toggle = getMedToggle(index);
+                        if (toggle && toggle.checked) toggle.checked = false;
+                        getMedContainer(index)?.classList.add("d-none");
+                        clearAgudMedFields(index);
+                    }
+                }
+            };
+
+            document.querySelectorAll(".js-agudizacion-med-toggle").forEach((toggle) => {
+                toggle.addEventListener("change", () => {
+                    const index = Number(toggle.getAttribute("data-med-index"));
+                    getMedContainer(index)?.classList.toggle("d-none", !toggle.checked);
+                    if (!toggle.checked) {
+                        clearAgudMedFields(index);
+                    }
+                    syncAgudizacionMedProgression();
+                    syncAgudizacionCalculos();
+                });
+            });
+
+            const collectAgudizacionPayload = () => {
+                const payload = {
+                    codigoCie10: getAgudValue("agudizacionCie10Input"),
+                    diagnosticoDescriptivo: getAgudValue("agudizacionDiagnosticoInput"),
+                    seguimientoMedico: document.querySelector("input[name='agudizacion-seguimiento-medico']:checked")?.value || "",
+                    aplicacionesTotales: getAgudValue("agudizacionAplicacionesTotales"),
+                    diasTratamientoIv: getAgudValue("agudizacionDiasTratamientoIv"),
+                    fechaInicioTratamiento: getAgudValue("agudizacionFechaInicio"),
+                    fechaFinTratamiento: getAgudValue("agudizacionFechaFin"),
+                    fechaPromesaInicioTto: getAgudValue("agudizacionFechaPromesa"),
+                    auxiliarAsignado: getAgudValue("agudizacionAuxiliarAsignado"),
+                    medicamentos: []
+                };
+                medSuffixes.forEach((suffix, i) => {
+                    const index = i + 1;
+                    payload.medicamentos.push({
+                        numero: index,
+                        activo: isMedActive(index),
+                        nombre: getAgudValue(`agudizacionNombreMed${suffix}`),
+                        dosis: getAgudValue(`agudizacionDosisMed${suffix}`),
+                        medida: getAgudValue(`agudizacionMedidaMed${suffix}`),
+                        via: getAgudValue(`agudizacionViaMed${suffix}`),
+                        frecuencia: getAgudValue(`agudizacionFrecuenciaMed${suffix}`),
+                        dias: getAgudValue(`agudizacionDiasMed${suffix}`)
+                    });
+                });
+                return payload;
+            };
+
+            const applyAgudizacionPayload = (data) => {
+                const payload = data || {};
+                const meds = Array.isArray(payload.medicamentos) ? payload.medicamentos : [];
+                medSuffixes.forEach((suffix, i) => {
+                    const index = i + 1;
+                    const med = meds.find((m) => Number(m?.numero) === index) || {};
+                    setAgudValue(`agudizacionNombreMed${suffix}`, med.nombre);
+                    setAgudValue(`agudizacionDosisMed${suffix}`, med.dosis);
+                    setAgudValue(`agudizacionMedidaMed${suffix}`, med.medida);
+                    setAgudValue(`agudizacionViaMed${suffix}`, med.via);
+                    setAgudValue(`agudizacionFrecuenciaMed${suffix}`, med.frecuencia);
+                    setAgudValue(`agudizacionDiasMed${suffix}`, med.dias);
+                    if (index > 1) {
+                        const toggle = getMedToggle(index);
+                        if (toggle) toggle.checked = !!med.activo;
+                        getMedContainer(index)?.classList.toggle("d-none", !med.activo);
+                    }
+                });
+                setAgudValue("agudizacionCie10Input", payload.codigoCie10);
+                setAgudValue("agudizacionDiagnosticoInput", payload.diagnosticoDescriptivo);
+                setAgudValue("agudizacionAplicacionesTotales", payload.aplicacionesTotales);
+                setAgudValue("agudizacionDiasTratamientoIv", payload.diasTratamientoIv);
+                setAgudValue("agudizacionFechaInicio", payload.fechaInicioTratamiento);
+                setAgudValue("agudizacionFechaFin", payload.fechaFinTratamiento);
+                setAgudValue("agudizacionFechaPromesa", payload.fechaPromesaInicioTto);
+                setAgudValue("agudizacionAuxiliarAsignado", payload.auxiliarAsignado);
+                document.querySelectorAll("input[name='agudizacion-seguimiento-medico']").forEach((radio) => {
+                    radio.checked = radio.value === payload.seguimientoMedico;
+                });
+                syncAgudizacionMedProgression();
+                syncAgudizacionCalculos();
+            };
+
+            const clearAgudizacionForm = () => {
+                applyAgudizacionPayload({});
+                activeAgudizacionId = null;
+                if (agudizacionNumeroBadge) agudizacionNumeroBadge.classList.add("d-none");
+            };
+
+            const renderAgudizacionVersions = () => {
+                if (!agudizacionVersionSelect) return;
+                agudizacionVersionSelect.innerHTML = "";
+                const nuevaOption = document.createElement("option");
+                nuevaOption.value = "";
+                nuevaOption.textContent = "Nueva agudización";
+                agudizacionVersionSelect.appendChild(nuevaOption);
+                (agudizacionesState || []).forEach((item) => {
+                    const option = document.createElement("option");
+                    option.value = String(item.id);
+                    option.textContent = `Agudización #${item.numero}${item.cerrada ? " - kardex cerrado" : (item.enviadaFarmacia ? " - en farmacia" : "")}`;
+                    agudizacionVersionSelect.appendChild(option);
+                });
+                agudizacionVersionSelect.value = activeAgudizacionId ? String(activeAgudizacionId) : "";
+                const activa = (agudizacionesState || []).find((item) => String(item.id) === String(activeAgudizacionId));
+                if (agudizacionNumeroBadge) {
+                    agudizacionNumeroBadge.classList.toggle("d-none", !activa);
+                    if (activa) agudizacionNumeroBadge.textContent = `Agudización #${activa.numero}${activa.cerrada ? " · Kardex cerrado" : ""}`;
+                }
+            };
+
+            const loadAgudizacion = (versionId) => {
+                if (!versionId) { clearAgudizacionForm(); renderAgudizacionVersions(); updateAgudizacionReadonlyMode(); return; }
+                const item = (agudizacionesState || []).find((x) => String(x.id) === String(versionId));
+                if (!item) { clearAgudizacionForm(); renderAgudizacionVersions(); updateAgudizacionReadonlyMode(); return; }
+                activeAgudizacionId = item.id;
+                let parsed = {};
+                try { parsed = JSON.parse(item.agudizacionJson || "{}"); } catch { parsed = {}; }
+                applyAgudizacionPayload(parsed);
+                renderAgudizacionVersions();
+                updateAgudizacionReadonlyMode();
+            };
+
+            agudizacionVersionSelect?.addEventListener("change", () => loadAgudizacion(agudizacionVersionSelect.value));
+            adicionarAgudizacionBtn?.addEventListener("click", () => {
+                clearAgudizacionForm();
+                renderAgudizacionVersions();
+                updateAgudizacionReadonlyMode();
+                if (agudizacionGuardadoStatus) agudizacionGuardadoStatus.textContent = "Nueva agudización lista para diligenciar.";
+            });
+
+            guardarAgudizacionBtn?.addEventListener("click", async () => {
+                if (!cronicoRecordId || !csrfTokenInput) return;
+                guardarAgudizacionBtn.disabled = true;
+                if (agudizacionGuardadoStatus) agudizacionGuardadoStatus.textContent = "Guardando...";
+                try {
+                    const body = new URLSearchParams();
+                    body.set("id", String(cronicoRecordId));
+                    body.set("agudizacionJson", JSON.stringify(collectAgudizacionPayload()));
+                    if (activeAgudizacionId) body.set("agudizacionVersionId", String(activeAgudizacionId));
+
+                    const response = await fetch(guardarAgudizacionUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "RequestVerificationToken": csrfTokenInput.value
+                        },
+                        body: body.toString()
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        if (agudizacionGuardadoStatus) agudizacionGuardadoStatus.textContent = data.message || "No fue posible guardar la agudización.";
+                        return;
+                    }
+                    activeAgudizacionId = data.agudizacionId || activeAgudizacionId;
+                    const listResponse = await fetch(`${obtenerAgudizacionesUrl}?id=${encodeURIComponent(cronicoRecordId)}`);
+                    if (listResponse.ok) {
+                        const listData = await listResponse.json();
+                        agudizacionesState = listData.agudizaciones || [];
+                    }
+                    renderAgudizacionVersions();
+                    updateAgudizacionReadonlyMode();
+                    if (agudizacionGuardadoStatus) agudizacionGuardadoStatus.textContent = data.message || "Agudización guardada correctamente.";
+                } catch {
+                    if (agudizacionGuardadoStatus) agudizacionGuardadoStatus.textContent = "No fue posible guardar la agudización.";
+                } finally {
+                    guardarAgudizacionBtn.disabled = false;
+                }
+            });
+
+            // ---------------- Kardex y requisición de agudizaciones ----------------
+            // Pipeline independiente del censo de agudos: los documentos viven en la
+            // agudización activa (censo_cronico_agudizaciones) y se cierran cuando
+            // farmacia da OK Kardex; la reapertura requiere aprobación de un supervisor.
+            const cronicoKardexModalEl = document.getElementById("cronicoKardexModal");
+            const cronicoDocumentContextBadge = document.getElementById("cronicoDocumentContextBadge");
+            const cronicoClosedBanner = document.getElementById("cronicoDocumentClosedBanner");
+            const guardarCronicoDocumentosBtn = document.getElementById("guardarCronicoDocumentosBtn");
+            const enviarFarmaciaCronicoBtn = document.getElementById("enviarFarmaciaCronicoBtn");
+            const enviarFarmaciaCronicoWrapper = document.getElementById("enviarFarmaciaCronicoBtnWrapper");
+            const cronicoServiciosSwitch = document.getElementById("cronicoServiciosCargadosSwitch");
+            const solicitarReaperturaCronicoBtn = document.getElementById("solicitarReaperturaCronicoBtn");
+            const aprobarReaperturaCronicoBtn = document.getElementById("aprobarReaperturaCronicoBtn");
+            const rechazarReaperturaCronicoBtn = document.getElementById("rechazarReaperturaCronicoBtn");
+            const cronicoReaperturaStatusNote = document.getElementById("cronicoReaperturaStatusNote");
+            const cronicoReaperturaModalEl = document.getElementById("cronicoReaperturaModal");
+            const guardarCronicoDocumentosUrl = "@Url.Action("GuardarCronicoAgudizacionDocumentos", "Censo")";
+            const enviarFarmaciaCronicoUrl = "@Url.Action("EnviarCronicoAgudizacionAFarmacia", "Censo")";
+            const solicitarReaperturaCronicoUrl = "@Url.Action("SolicitarReaperturaKardexCronico", "Censo")";
+            const aprobarReaperturaCronicoUrl = "@Url.Action("AprobarReaperturaKardexCronico", "Censo")";
+            const rechazarReaperturaCronicoUrl = "@Url.Action("RechazarReaperturaKardexCronico", "Censo")";
+            const puedeAprobarReaperturaCronico = @Json.Serialize(Model.PuedeAprobarReapertura);
+            const cronicoMedicamentoCatalog = @Html.Raw(medicamentoCatalogJson);
+
+            const cronicoEscapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+            }[ch]));
+
+            const cronicoFeedbackModalEl = document.getElementById("cronicoFeedbackModal");
+            const showCronicoFeedback = (title, bodyHtml, tone) => {
+                const header = document.getElementById("cronicoFeedbackModalHeader");
+                const titleEl = document.getElementById("cronicoFeedbackModalTitle");
+                const bodyEl = document.getElementById("cronicoFeedbackModalBody");
+                if (!cronicoFeedbackModalEl || !header || !titleEl || !bodyEl) {
+                    window.alert(`${title}\n${String(bodyHtml || "").replace(/<[^>]+>/g, " ").trim()}`);
+                    return;
+                }
+                titleEl.textContent = title;
+                bodyEl.innerHTML = bodyHtml;
+                header.classList.remove("bg-success-subtle", "text-success-emphasis", "bg-danger-subtle", "text-danger-emphasis", "bg-warning-subtle", "text-warning-emphasis");
+                if (tone === "success") header.classList.add("bg-success-subtle", "text-success-emphasis");
+                else if (tone === "danger") header.classList.add("bg-danger-subtle", "text-danger-emphasis");
+                else header.classList.add("bg-warning-subtle", "text-warning-emphasis");
+                if (window.bootstrap && window.bootstrap.Modal) {
+                    window.bootstrap.Modal.getOrCreateInstance(cronicoFeedbackModalEl).show();
+                }
+            };
+
+            const normalizeCronicoMedKey = (value) => String(value || "")
+                .normalize("NFD")
+                .replace(/[̀-ͯ]/g, "")
+                .toUpperCase()
+                .replace(/[^A-Z0-9]+/g, " ")
+                .trim()
+                .replace(/\s+/g, " ");
+
+            const cronicoCatalogByName = new Map();
+            (Array.isArray(cronicoMedicamentoCatalog) ? cronicoMedicamentoCatalog : []).forEach((item) => {
+                [normalizeCronicoMedKey(item.Nombre), normalizeCronicoMedKey(item.NormalizedNombre)]
+                    .filter((key) => key)
+                    .forEach((key) => {
+                        if (!cronicoCatalogByName.has(key)) cronicoCatalogByName.set(key, item);
+                    });
+            });
+
+            const cronicoCatalogValue = (metadata, field) => metadata && metadata[field] ? String(metadata[field]).trim() : "";
+
+            const cronicoFormatInfusionTime = (metadata) => {
+                const value = cronicoCatalogValue(metadata, "TiempoInfusionMinutos");
+                if (!value || /NO APLICA/i.test(value) || /ORDEN MEDICA/i.test(value)) return value;
+                return /^\d+([.,]\d+)?$/.test(value) ? `${value} MIN` : value;
+            };
+
+            const getCronicoFormValue = (name) => {
+                const control = form ? form.querySelector(`[name='${name}']`) : null;
+                return control ? String(control.value || "").trim() : "";
+            };
+
+            const formatDateForCronicoKardex = (value) => {
+                const parts = String(value || "").split("-");
+                return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : (value || "");
+            };
+
+            const setCronicoKardexField = (field, value) => {
+                const control = document.querySelector(`#cronicoKardexModal [data-kardex-field='${field}']`);
+                if (control) control.value = value || "";
+            };
+
+            const setCronicoKardexMedField = (row, field, value) => {
+                const control = document.querySelector(`#cronicoKardexModal [data-kardex-med-row='${row}'] [data-kardex-med-field='${field}']`);
+                if (control) control.value = value || "";
+            };
+
+            const setCronicoRequisitionField = (field, value) => {
+                const control = document.querySelector(`#cronicoKardexModal [data-requisition-field='${field}']`);
+                if (control) control.value = value || "";
+            };
+
+            const setCronicoRequisitionRowField = (row, field, value) => {
+                const control = document.querySelector(`#cronicoKardexModal [data-requisition-row='${row}'] [data-requisition-item-field='${field}']`);
+                if (control) control.value = value || "";
+            };
+
+            const cronicoParseDecimal = (value) => {
+                const normalized = String(value || "").replace(/,/g, ".").replace(/[^0-9.]/g, "");
+                const parsed = Number.parseFloat(normalized);
+                return Number.isFinite(parsed) ? parsed : 0;
+            };
+
+            const cronicoFormatQuantity = (value) => {
+                const numeric = Number(value);
+                if (!Number.isFinite(numeric) || numeric <= 0) return "";
+                return Number.isInteger(numeric) ? String(numeric) : String(Math.round(numeric * 100) / 100);
+            };
+
+            const cronicoFrequencyPerDay = (frequency) => {
+                const normalized = String(frequency || "").toUpperCase();
+                const numberMatch = normalized.match(/(\d+(?:[.,]\d+)?)/);
+                const number = numberMatch ? cronicoParseDecimal(numberMatch[1]) : 0;
+                if (normalized.includes("24") && normalized.includes("HORA")) return 1;
+                if (normalized.includes("12") && normalized.includes("HORA")) return 2;
+                if (normalized.includes("8") && normalized.includes("HORA")) return 3;
+                if (normalized.includes("6") && normalized.includes("HORA")) return 4;
+                if (normalized.includes("4") && normalized.includes("HORA")) return 6;
+                if (number > 0 && normalized.includes("HORA")) return 24 / number;
+                if (normalized.includes("DIA") || normalized.includes("DIARIA")) return number > 0 ? number : 1;
+                return number;
+            };
+
+            const cronicoEveryThreeDaysQty = (daysValue, minimumTwoWhenLessThanOne = false) => {
+                const days = cronicoParseDecimal(daysValue);
+                if (days <= 0) return minimumTwoWhenLessThanOne ? 2 : 0;
+                const raw = days / 3;
+                if (minimumTwoWhenLessThanOne && raw < 1) return 2;
+                return Math.ceil(raw);
+            };
+
+            const getCronicoKardexMeds = () => {
+                const fechaInicio = formatDateForCronicoKardex(getAgudValue("agudizacionFechaInicio"));
+                const fechaFin = formatDateForCronicoKardex(getAgudValue("agudizacionFechaFin"));
+                return medSuffixes.map((suffix, i) => {
+                    const index = i + 1;
+                    const active = isMedActive(index);
+                    const name = active ? getAgudValue(`agudizacionNombreMed${suffix}`) : "";
+                    return {
+                        name,
+                        dose: active ? getAgudValue(`agudizacionDosisMed${suffix}`) : "",
+                        measure: active ? getAgudValue(`agudizacionMedidaMed${suffix}`) : "",
+                        route: active ? getAgudValue(`agudizacionViaMed${suffix}`) : "",
+                        frequency: active ? getAgudValue(`agudizacionFrecuenciaMed${suffix}`) : "",
+                        days: active ? getAgudValue(`agudizacionDiasMed${suffix}`) : "",
+                        startDate: name ? fechaInicio : "",
+                        endDate: name ? fechaFin : ""
+                    };
+                });
+            };
+
+            const buildCronicoDoseText = (medication) => {
+                const doseParts = [medication.dose, medication.measure].filter((part) => part);
+                return [
+                    medication.name,
+                    doseParts.join(" "),
+                    medication.route,
+                    medication.frequency,
+                    medication.days ? `POR ${medication.days} DIAS` : ""
+                ].filter((part) => part).join(" ").toUpperCase();
+            };
+
+            const syncCronicoKardexSheet = () => {
+                const tipoDocumento = getCronicoFormValue("TipoIdentificacion");
+                const numeroDocumento = getCronicoFormValue("NumeroIdentificacion");
+                setCronicoKardexField("paciente", getCronicoFormValue("NombrePaciente"));
+                setCronicoKardexField("documento", [tipoDocumento, numeroDocumento].filter((v) => v).join(" "));
+                setCronicoKardexField("direccion", [getCronicoFormValue("Direccion"), getCronicoFormValue("DetalleDireccion")].filter((v) => v).join(" "));
+                setCronicoKardexField("edad", getCronicoFormValue("Edad"));
+                setCronicoKardexField("cie10", getAgudValue("agudizacionCie10Input"));
+                setCronicoKardexField("diagnostico", getAgudValue("agudizacionDiagnosticoInput"));
+                setCronicoKardexField("auxiliarAsignado", getAgudValue("agudizacionAuxiliarAsignado"));
+                setCronicoKardexField("observaciones", "");
+
+                getCronicoKardexMeds().forEach((medication, i) => {
+                    const row = i + 1;
+                    const metadata = cronicoCatalogByName.get(normalizeCronicoMedKey(medication.name));
+                    const hasMedication = !!medication.name;
+                    const rowEl = document.querySelector(`#cronicoKardexModal [data-kardex-med-row='${row}']`);
+                    if (rowEl) rowEl.classList.toggle("d-none", row > 1 && !hasMedication);
+                    setCronicoKardexMedField(row, "presentacion", hasMedication
+                        ? [`Medicamento ${row}`, medication.name].filter((part) => part).join("\n")
+                        : `Medicamento ${row}`);
+                    setCronicoKardexMedField(row, "dosisFrecuencia", hasMedication ? buildCronicoDoseText(medication) : "");
+                    setCronicoKardexMedField(row, "vehiculoReconstitucion", cronicoCatalogValue(metadata, "VehiculoReconstitucion"));
+                    setCronicoKardexMedField(row, "volumenDilucion", cronicoCatalogValue(metadata, "DilucionRecomendada"));
+                    setCronicoKardexMedField(row, "tiempoInfusion", cronicoFormatInfusionTime(metadata));
+                    setCronicoKardexMedField(row, "fotosensible", cronicoCatalogValue(metadata, "EquipoFotosensible"));
+                    setCronicoKardexMedField(row, "cadenaFrio", cronicoCatalogValue(metadata, "CadenaFrio"));
+                    setCronicoKardexMedField(row, "aislamiento", "");
+                    setCronicoKardexMedField(row, "estabilidad", cronicoCatalogValue(metadata, "TiempoEstabilidad"));
+                    setCronicoKardexMedField(row, "bombaInfusion", cronicoCatalogValue(metadata, "BombaInfusion"));
+                    setCronicoKardexMedField(row, "fechaInicio", medication.startDate);
+                    setCronicoKardexMedField(row, "fechaFin", medication.endDate);
+                });
+            };
+
+            const syncCronicoRequisitionSheet = () => {
+                setCronicoRequisitionField("auxiliarEncargado", getAgudValue("agudizacionAuxiliarAsignado"));
+                setCronicoRequisitionField("paciente", getCronicoFormValue("NombrePaciente"));
+                setCronicoRequisitionField("documento", getCronicoFormValue("NumeroIdentificacion"));
+                setCronicoRequisitionField("direccion", getCronicoFormValue("Direccion"));
+                setCronicoRequisitionField("diagnostico", [getAgudValue("agudizacionCie10Input"), getAgudValue("agudizacionDiagnosticoInput")].filter((v) => v).join(" "));
+
+                const medications = getCronicoKardexMeds().filter((m) => m.name && m.name.toLowerCase() !== "no");
+                const rows = medications.map((medication) => {
+                    const dose = Math.max(cronicoParseDecimal(medication.dose) || 1, 1);
+                    const dailyDoses = cronicoFrequencyPerDay(medication.frequency);
+                    const days = cronicoParseDecimal(medication.days);
+                    return {
+                        descripcion: medication.name,
+                        detalle: "",
+                        cantidad: cronicoFormatQuantity(dose * dailyDoses * days),
+                        fechaInicio: medication.startDate,
+                        fechaFin: medication.endDate
+                    };
+                });
+
+                const pushDistinctCatalogRows = (description, field, quantity) => {
+                    const details = new Map();
+                    medications.forEach((medication) => {
+                        const metadata = cronicoCatalogByName.get(normalizeCronicoMedKey(medication.name));
+                        const detail = cronicoCatalogValue(metadata, field);
+                        if (detail) details.set(detail.toUpperCase(), detail);
+                    });
+                    details.forEach((detail) => {
+                        rows.push({
+                            descripcion: description,
+                            detalle: detail,
+                            cantidad: typeof quantity === "function" ? quantity() : quantity,
+                            fechaInicio: medications[0]?.startDate || "",
+                            fechaFin: medications[0]?.endDate || ""
+                        });
+                    });
+                };
+
+                const aplicacionesTotales = cronicoFormatQuantity(cronicoParseDecimal(getAgudValue("agudizacionAplicacionesTotales")));
+                const diasTratamientoIv = getAgudValue("agudizacionDiasTratamientoIv");
+                pushDistinctCatalogRows("SOLUCION PARA DILUCION", "SolucionParaDilucion", "");
+                pushDistinctCatalogRows("JERINGA", "Jeringa", aplicacionesTotales);
+                [
+                    ["JELCO #22", cronicoEveryThreeDaysQty(diasTratamientoIv, true)],
+                    ["ATI", cronicoEveryThreeDaysQty(diasTratamientoIv)],
+                    ["MACROGOTERO", cronicoEveryThreeDaysQty(diasTratamientoIv)],
+                    ["BURETRA", cronicoEveryThreeDaysQty(diasTratamientoIv)],
+                    ["GUANTES (PAR)", cronicoParseDecimal(getAgudValue("agudizacionAplicacionesTotales"))]
+                ].forEach(([descripcion, cantidad]) => {
+                    rows.push({
+                        descripcion,
+                        detalle: "",
+                        cantidad: cronicoFormatQuantity(cantidad),
+                        fechaInicio: medications[0]?.startDate || formatDateForCronicoKardex(getAgudValue("agudizacionFechaInicio")),
+                        fechaFin: medications[0]?.endDate || formatDateForCronicoKardex(getAgudValue("agudizacionFechaFin"))
+                    });
+                });
+
+                for (let row = 1; row <= 16; row += 1) {
+                    const data = rows[row - 1] || {};
+                    setCronicoRequisitionRowField(row, "item", row);
+                    setCronicoRequisitionRowField(row, "descripcion", data.descripcion || "");
+                    setCronicoRequisitionRowField(row, "detalle", data.detalle || "");
+                    setCronicoRequisitionRowField(row, "cantidad", data.cantidad || "");
+                    setCronicoRequisitionRowField(row, "fechaInicio", data.fechaInicio || "");
+                    setCronicoRequisitionRowField(row, "fechaFin", data.fechaFin || "");
+                }
+            };
+
+            const collectCronicoKardexPayload = () => {
+                const fields = {};
+                document.querySelectorAll("#cronicoKardexModal [data-kardex-field]").forEach((control) => {
+                    fields[control.dataset.kardexField] = control.value || "";
+                });
+                const medRows = Array.from(document.querySelectorAll("#cronicoKardexModal [data-kardex-med-row]"))
+                    .map((rowElement) => {
+                        const rowData = { row: rowElement.dataset.kardexMedRow };
+                        rowElement.querySelectorAll("[data-kardex-med-field]").forEach((control) => {
+                            rowData[control.dataset.kardexMedField] = control.value || "";
+                        });
+                        return rowData;
+                    });
+                return { fields, medRows };
+            };
+
+            const collectCronicoRequisitionPayload = () => {
+                const fields = {};
+                document.querySelectorAll("#cronicoKardexModal [data-requisition-field]").forEach((control) => {
+                    fields[control.dataset.requisitionField] = control.value || "";
+                });
+                const rows = Array.from(document.querySelectorAll("#cronicoKardexModal [data-requisition-row]"))
+                    .map((rowElement) => {
+                        const row = {};
+                        rowElement.querySelectorAll("[data-requisition-item-field]").forEach((control) => {
+                            row[control.dataset.requisitionItemField] = control.value || "";
+                        });
+                        return row;
+                    })
+                    .filter((row) => Object.entries(row)
+                        .some(([key, value]) => key !== "item" && String(value || "").trim().length > 0));
+                return { fields, rows };
+            };
+
+            // Datos del paciente y de la agudización que siempre se sincronizan desde el
+            // formulario (nunca se restauran del JSON guardado) para reflejar correcciones.
+            const cronicoKardexSyncedFields = new Set([
+                "paciente", "documento", "direccion", "edad", "cie10", "diagnostico", "auxiliarAsignado"
+            ]);
+
+            const loadCronicoKardexPayload = (payload) => {
+                if (!payload) return;
+                if (payload.fields) {
+                    Object.entries(payload.fields).forEach(([key, value]) => {
+                        if (cronicoKardexSyncedFields.has(key) || !value) return;
+                        const control = document.querySelector(`#cronicoKardexModal [data-kardex-field='${key}']`);
+                        if (control) control.value = value;
+                    });
+                }
+                if (Array.isArray(payload.medRows)) {
+                    payload.medRows.forEach((rowData) => {
+                        const row = rowData.row;
+                        Object.entries(rowData).forEach(([field, value]) => {
+                            if (field === "row" || !value) return;
+                            const control = document.querySelector(`#cronicoKardexModal [data-kardex-med-row='${row}'] [data-kardex-med-field='${field}']`);
+                            if (control) control.value = value;
+                        });
+                    });
+                }
+            };
+
+            const cronicoRequisitionSyncedFields = new Set([
+                "paciente", "documento", "direccion", "diagnostico", "auxiliarEncargado"
+            ]);
+
+            const loadCronicoRequisitionPayload = (payload) => {
+                if (!payload) return;
+                if (payload.fields) {
+                    Object.entries(payload.fields).forEach(([key, value]) => {
+                        if (cronicoRequisitionSyncedFields.has(key)) return;
+                        const control = document.querySelector(`#cronicoKardexModal [data-requisition-field='${key}']`);
+                        if (control) control.value = value || "";
+                    });
+                }
+                if (Array.isArray(payload.rows)) {
+                    payload.rows.forEach((rowData, index) => {
+                        const rowNum = index + 1;
+                        Object.entries(rowData).forEach(([field, value]) => {
+                            const control = document.querySelector(`#cronicoKardexModal [data-requisition-row='${rowNum}'] [data-requisition-item-field='${field}']`);
+                            if (control) control.value = value || "";
+                        });
+                    });
+                }
+            };
+
+            const getActiveAgudizacionItem = () =>
+                (agudizacionesState || []).find((x) => String(x.id) === String(activeAgudizacionId)) || null;
+
+            const isCronicoDocumentClosed = () => !!getActiveAgudizacionItem()?.cerrada;
+
+            const refreshAgudizacionesState = async () => {
+                if (!cronicoRecordId) return;
+                try {
+                    const response = await fetch(`${obtenerAgudizacionesUrl}?id=${encodeURIComponent(cronicoRecordId)}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        agudizacionesState = data.agudizaciones || [];
+                    }
+                } catch { /* se conserva el estado local */ }
+                renderAgudizacionVersions();
+            };
+
+            const setCronicoDocumentClosedMode = (closed) => {
+                cronicoKardexModalEl?.classList.toggle("is-document-closed", closed);
+                cronicoClosedBanner?.classList.toggle("d-none", !closed);
+                document
+                    .querySelectorAll("#cronicoKardexModal input, #cronicoKardexModal textarea, #cronicoKardexModal select")
+                    .forEach((control) => {
+                        if (control.id === "cronicoServiciosCargadosSwitch") {
+                            control.disabled = closed;
+                            return;
+                        }
+                        if (control.type === "hidden") return;
+                        control.readOnly = closed;
+                        if (control.matches("select, input[type=checkbox], input[type=radio]")) {
+                            control.disabled = closed;
+                        }
+                    });
+                if (guardarCronicoDocumentosBtn) guardarCronicoDocumentosBtn.disabled = closed;
+                if (enviarFarmaciaCronicoBtn) enviarFarmaciaCronicoBtn.disabled = closed || !(cronicoServiciosSwitch?.checked);
+            };
+
+            const updateCronicoReaperturaControls = () => {
+                if (!solicitarReaperturaCronicoBtn) return;
+                const closed = isCronicoDocumentClosed();
+                const solicitud = getActiveAgudizacionItem()?.reaperturaSolicitud || null;
+                const pendiente = !!(solicitud && solicitud.estado === "Pendiente");
+
+                solicitarReaperturaCronicoBtn.classList.toggle("d-none", !(closed && !pendiente));
+
+                if (cronicoReaperturaStatusNote) {
+                    if (pendiente) {
+                        const quien = solicitud.solicitante ? ` por ${solicitud.solicitante}` : "";
+                        cronicoReaperturaStatusNote.textContent = `Reapertura solicitada${quien} — pendiente de aprobación.`;
+                    }
+                    cronicoReaperturaStatusNote.classList.toggle("d-none", !pendiente);
+                }
+
+                const puedeGestionar = pendiente && puedeAprobarReaperturaCronico;
+                aprobarReaperturaCronicoBtn?.classList.toggle("d-none", !puedeGestionar);
+                rechazarReaperturaCronicoBtn?.classList.toggle("d-none", !puedeGestionar);
+            };
+
+            const postCronicoForm = async (url, fieldsObj) => {
+                const body = new URLSearchParams();
+                Object.entries(fieldsObj || {}).forEach(([k, v]) => body.set(k, String(v)));
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        ...(csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {})
+                    },
+                    body: body.toString()
+                });
+                const data = await response.json().catch(() => ({}));
+                return { ok: response.ok, data };
+            };
+
+            // Modo solo lectura de la sección Agudizaciones cuando el kardex está cerrado.
+            const agudizacionAlwaysReadonlyIds = new Set([
+                "agudizacionDiagnosticoInput", "agudizacionAplicacionesTotales",
+                "agudizacionDiasTratamientoIv", "agudizacionFechaFin"
+            ]);
+
+            const updateAgudizacionReadonlyMode = () => {
+                const pane = document.getElementById("tab-agudizaciones");
+                if (!pane) return;
+                const closed = isCronicoDocumentClosed();
+                let banner = document.getElementById("agudizacionKardexCerradoBanner");
+                if (closed && !banner) {
+                    banner = document.createElement("div");
+                    banner.id = "agudizacionKardexCerradoBanner";
+                    banner.className = "alert alert-warning mb-3";
+                    banner.setAttribute("role", "alert");
+                    banner.innerHTML = "<strong>Kardex cerrado.</strong> Esta agudización fue aprobada por farmacia y quedó en modo de solo lectura. Para modificarla usa <strong>Solicitar reapertura de kardex</strong> dentro de <strong>Gestionar kardex y requisición</strong>.";
+                    pane.querySelector(".card-body")?.prepend(banner);
+                }
+                banner?.classList.toggle("d-none", !closed);
+
+                pane.querySelectorAll("input, select, textarea").forEach((control) => {
+                    if (control.id === "agudizacionVersionSelect") return;
+                    if (control.type === "hidden") return;
+                    if (control.matches("select, input[type=checkbox], input[type=radio]")) {
+                        control.disabled = closed;
+                    } else {
+                        control.readOnly = closed || agudizacionAlwaysReadonlyIds.has(control.id);
+                    }
+                });
+                if (guardarAgudizacionBtn) guardarAgudizacionBtn.disabled = closed;
+            };
+
+            const switchCronicoDocumentPane = (target) => {
+                document.querySelectorAll("#cronicoKardexModal [data-cronico-document-target]").forEach((button) => {
+                    const isActive = button.dataset.cronicoDocumentTarget === target;
+                    button.classList.toggle("active", isActive);
+                    button.setAttribute("aria-selected", isActive ? "true" : "false");
+                });
+                document.querySelectorAll("#cronicoKardexModal [data-cronico-document-pane]").forEach((pane) => {
+                    pane.classList.toggle("active", pane.dataset.cronicoDocumentPane === target);
+                });
+            };
+
+            document.querySelectorAll("#cronicoKardexModal [data-cronico-document-target]").forEach((button) => {
+                button.addEventListener("click", () => switchCronicoDocumentPane(button.dataset.cronicoDocumentTarget || "kardex"));
+            });
+
+            if (cronicoKardexModalEl) {
+                cronicoKardexModalEl.addEventListener("show.bs.modal", (event) => {
+                    if (!activeAgudizacionId) {
+                        event.preventDefault();
+                        showCronicoFeedback(
+                            "Guarda la agudización primero",
+                            "<p class=\"mb-0\">Selecciona una agudización guardada (o guarda la nueva) antes de gestionar su kardex y requisición.</p>",
+                            "warning");
+                        return;
+                    }
+
+                    (async () => {
+                        await refreshAgudizacionesState();
+                        const item = getActiveAgudizacionItem();
+                        if (cronicoDocumentContextBadge) {
+                            cronicoDocumentContextBadge.textContent = item ? `Agudización #${item.numero}` : "";
+                        }
+                        switchCronicoDocumentPane("kardex");
+                        syncCronicoKardexSheet();
+                        syncCronicoRequisitionSheet();
+                        try { if (item?.kardexJson) loadCronicoKardexPayload(JSON.parse(item.kardexJson)); } catch { /* sync base */ }
+                        try { if (item?.requisicionJson) loadCronicoRequisitionPayload(JSON.parse(item.requisicionJson)); } catch { /* sync base */ }
+                        if (cronicoServiciosSwitch) cronicoServiciosSwitch.checked = false;
+                        setCronicoDocumentClosedMode(isCronicoDocumentClosed());
+                        updateCronicoReaperturaControls();
+                        updateAgudizacionReadonlyMode();
+                    })();
+                });
+            }
+
+            cronicoServiciosSwitch?.addEventListener("change", () => {
+                if (enviarFarmaciaCronicoBtn) {
+                    enviarFarmaciaCronicoBtn.disabled = isCronicoDocumentClosed() || !cronicoServiciosSwitch.checked;
+                }
+            });
+
+            enviarFarmaciaCronicoWrapper?.addEventListener("click", () => {
+                if (!enviarFarmaciaCronicoBtn?.disabled) return;
+                if (isCronicoDocumentClosed()) {
+                    showCronicoFeedback(
+                        "Kardex cerrado",
+                        "<p class=\"mb-0\">Este kardex y su requisición ya fueron aprobados por farmacia. Están disponibles solo para consulta.</p>",
+                        "warning");
+                    return;
+                }
+                showCronicoFeedback(
+                    "Servicios no cargados",
+                    "<p class=\"mb-0\">Primero tienes que cargar los servicios. Activa el interruptor <strong>Servicios cargados</strong> para poder enviar a farmacia.</p>",
+                    "warning");
+            });
+
+            guardarCronicoDocumentosBtn?.addEventListener("click", async () => {
+                if (!activeAgudizacionId) return;
+                if (isCronicoDocumentClosed()) {
+                    showCronicoFeedback("Kardex cerrado", "<p class=\"mb-0\">Este kardex y su requisición ya fueron aprobados por farmacia y no se pueden editar.</p>", "warning");
+                    return;
+                }
+                guardarCronicoDocumentosBtn.disabled = true;
+                try {
+                    const { ok, data } = await postCronicoForm(guardarCronicoDocumentosUrl, {
+                        agudizacionId: activeAgudizacionId,
+                        kardexJson: JSON.stringify(collectCronicoKardexPayload()),
+                        requisicionJson: JSON.stringify(collectCronicoRequisitionPayload())
+                    });
+                    if (!ok) {
+                        showCronicoFeedback("Error al guardar", `<p class="mb-0">${cronicoEscapeHtml(data.message || "No se pudo guardar.")}</p>`, "danger");
+                        return;
+                    }
+                    await refreshAgudizacionesState();
+                    showCronicoFeedback("Guardado", `<p class="mb-0">${cronicoEscapeHtml(data.message || "Documentos guardados correctamente.")}</p>`, "success");
+                } finally {
+                    guardarCronicoDocumentosBtn.disabled = isCronicoDocumentClosed();
+                }
+            });
+
+            enviarFarmaciaCronicoBtn?.addEventListener("click", async () => {
+                if (!activeAgudizacionId) return;
+                if (isCronicoDocumentClosed()) {
+                    showCronicoFeedback("Kardex cerrado", "<p class=\"mb-0\">Este kardex ya fue aprobado por farmacia y no se puede reenviar.</p>", "warning");
+                    return;
+                }
+                enviarFarmaciaCronicoBtn.disabled = true;
+                try {
+                    const { ok, data } = await postCronicoForm(enviarFarmaciaCronicoUrl, {
+                        agudizacionId: activeAgudizacionId,
+                        kardexJson: JSON.stringify(collectCronicoKardexPayload()),
+                        requisicionJson: JSON.stringify(collectCronicoRequisitionPayload())
+                    });
+                    if (!ok) {
+                        showCronicoFeedback("No se pudo enviar", `<p class="mb-0">${cronicoEscapeHtml(data.message || "No fue posible enviar el pedido a farmacia.")}</p>`, "danger");
+                        return;
+                    }
+                    await refreshAgudizacionesState();
+                    updateCronicoReaperturaControls();
+                    showCronicoFeedback("Enviado a farmacia", `<p class="mb-0">${cronicoEscapeHtml(data.message || "Pedido enviado a farmacia correctamente.")}</p>`, "success");
+                } finally {
+                    enviarFarmaciaCronicoBtn.disabled = isCronicoDocumentClosed() || !(cronicoServiciosSwitch?.checked);
+                }
+            });
+
+            if (solicitarReaperturaCronicoBtn && cronicoReaperturaModalEl) {
+                solicitarReaperturaCronicoBtn.addEventListener("click", () => {
+                    document.querySelectorAll("#cronicoReaperturaMotivosContainer input[name='cronicoReaperturaMotivo']").forEach((r) => { r.checked = false; });
+                    document.getElementById("cronicoReaperturaMotivoError")?.classList.add("d-none");
+                    if (window.bootstrap && window.bootstrap.Modal) {
+                        window.bootstrap.Modal.getOrCreateInstance(cronicoReaperturaModalEl).show();
+                    }
+                });
+
+                const confirmarReaperturaCronicoBtn = document.getElementById("confirmarReaperturaCronicoBtn");
+                confirmarReaperturaCronicoBtn?.addEventListener("click", async () => {
+                    const seleccionado = document.querySelector("#cronicoReaperturaMotivosContainer input[name='cronicoReaperturaMotivo']:checked");
+                    if (!seleccionado) {
+                        document.getElementById("cronicoReaperturaMotivoError")?.classList.remove("d-none");
+                        return;
+                    }
+                    if (!activeAgudizacionId) return;
+                    confirmarReaperturaCronicoBtn.disabled = true;
+                    try {
+                        const { ok, data } = await postCronicoForm(solicitarReaperturaCronicoUrl, {
+                            agudizacionId: activeAgudizacionId,
+                            motivo: seleccionado.value
+                        });
+                        if (window.bootstrap && window.bootstrap.Modal) {
+                            window.bootstrap.Modal.getOrCreateInstance(cronicoReaperturaModalEl).hide();
+                        }
+                        if (!ok) {
+                            showCronicoFeedback("No se pudo solicitar", `<p class="mb-0">${cronicoEscapeHtml(data.message || "Error al solicitar la reapertura.")}</p>`, "danger");
+                            return;
+                        }
+                        await refreshAgudizacionesState();
+                        updateCronicoReaperturaControls();
+                        showCronicoFeedback("Solicitud enviada", `<p class="mb-0">${cronicoEscapeHtml(data.message || "Solicitud de reapertura enviada.")}</p>`, "success");
+                    } finally {
+                        confirmarReaperturaCronicoBtn.disabled = false;
+                    }
+                });
+            }
+
+            aprobarReaperturaCronicoBtn?.addEventListener("click", async () => {
+                const solicitud = getActiveAgudizacionItem()?.reaperturaSolicitud;
+                if (!solicitud) return;
+                aprobarReaperturaCronicoBtn.disabled = true;
+                try {
+                    const { ok, data } = await postCronicoForm(aprobarReaperturaCronicoUrl, { solicitudId: solicitud.id });
+                    if (!ok) {
+                        showCronicoFeedback("No se pudo aprobar", `<p class="mb-0">${cronicoEscapeHtml(data.message || "Error al aprobar la reapertura.")}</p>`, "danger");
+                        return;
+                    }
+                    await refreshAgudizacionesState();
+                    setCronicoDocumentClosedMode(isCronicoDocumentClosed());
+                    updateCronicoReaperturaControls();
+                    updateAgudizacionReadonlyMode();
+                    showCronicoFeedback("Reapertura aprobada", `<p class="mb-0">${cronicoEscapeHtml(data.message || "El kardex quedó habilitado para edición.")}</p>`, "success");
+                } finally {
+                    aprobarReaperturaCronicoBtn.disabled = false;
+                }
+            });
+
+            rechazarReaperturaCronicoBtn?.addEventListener("click", async () => {
+                const solicitud = getActiveAgudizacionItem()?.reaperturaSolicitud;
+                if (!solicitud) return;
+                rechazarReaperturaCronicoBtn.disabled = true;
+                try {
+                    const { ok, data } = await postCronicoForm(rechazarReaperturaCronicoUrl, { solicitudId: solicitud.id });
+                    if (!ok) {
+                        showCronicoFeedback("No se pudo rechazar", `<p class="mb-0">${cronicoEscapeHtml(data.message || "Error al rechazar la reapertura.")}</p>`, "danger");
+                        return;
+                    }
+                    await refreshAgudizacionesState();
+                    updateCronicoReaperturaControls();
+                    showCronicoFeedback("Solicitud rechazada", `<p class="mb-0">${cronicoEscapeHtml(data.message || "Solicitud de reapertura rechazada.")}</p>`, "success");
+                } finally {
+                    rechazarReaperturaCronicoBtn.disabled = false;
+                }
+            });
+
+            if (agudizacionVersionSelect) {
+                if ((agudizacionesState || []).length > 0) {
+                    loadAgudizacion(agudizacionesState[agudizacionesState.length - 1].id);
+                } else {
+                    renderAgudizacionVersions();
+                }
+                syncAgudizacionMedProgression();
+                syncAgudizacionCalculos();
+                updateAgudizacionReadonlyMode();
+            }
+
+            // ---------------- Hospitalizaciones y seguimiento (multi-registro) ----------------
+            // Mismo patrón que las agudizaciones: cada hospitalización se guarda como un JSON
+            // independiente; el navegador permite alternar entre ellas y crear nuevas sin perder
+            // las anteriores. Las 7 fechas de seguimiento revelan un campo de Observación cuando
+            // se diligencian.
+            const hospVersionSelect = document.getElementById("hospVersionSelect");
+            const adicionarHospitalizacionBtn = document.getElementById("adicionarHospitalizacionBtn");
+            const hospNumeroBadge = document.getElementById("hospNumeroBadge");
+            const guardarHospitalizacionBtn = document.getElementById("guardarHospitalizacionBtn");
+            const hospGuardadoStatus = document.getElementById("hospGuardadoStatus");
+            const hospCie10Input = document.getElementById("hospCie10Input");
+            const hospDiagnosticoInput = document.getElementById("hospDiagnosticoInput");
+            const guardarHospitalizacionUrl = "@Url.Action("GuardarCronicoHospitalizacionRegistro", "Censo")";
+            const obtenerHospitalizacionesUrl = "@Url.Action("ObtenerCronicoHospitalizaciones", "Censo")";
+            let hospitalizacionesState = @Html.Raw(Json.Serialize(Model.Hospitalizaciones.Select(h => new { id = h.Id, numero = h.Numero, hospitalizacionJson = h.HospitalizacionJson })));
+            let activeHospitalizacionId = null;
+
+            const getHospValue = (id) => (document.getElementById(id)?.value || "").trim();
+            const setHospValue = (id, value) => { const el = document.getElementById(id); if (el) el.value = value || ""; };
+            const hospSeguimientoFecha = (n) => document.getElementById(`hospSeguimiento${n}Fecha`);
+            const hospSeguimientoObs = (n) => document.getElementById(`hospSeguimiento${n}Obs`);
+            const hospSeguimientoWrapper = (n) => document.getElementById(`hospSeguimiento${n}ObsWrapper`);
+
+            // Muestra u oculta el campo Observación de un seguimiento según tenga fecha.
+            const syncHospSeguimientoObs = (n, { clearWhenHidden = false } = {}) => {
+                const fecha = hospSeguimientoFecha(n)?.value?.trim();
+                const wrapper = hospSeguimientoWrapper(n);
+                const visible = !!fecha;
+                if (wrapper) wrapper.classList.toggle("d-none", !visible);
+                if (!visible && clearWhenHidden) {
+                    const obs = hospSeguimientoObs(n);
+                    if (obs) obs.value = "";
+                }
+            };
+
+            for (let n = 1; n <= 7; n++) {
+                const fechaInput = hospSeguimientoFecha(n);
+                fechaInput?.addEventListener("input", () => syncHospSeguimientoObs(n, { clearWhenHidden: true }));
+                fechaInput?.addEventListener("change", () => syncHospSeguimientoObs(n, { clearWhenHidden: true }));
+            }
+
+            // Normaliza el CIE10 (una letra + hasta tres dígitos) y autollena el diagnóstico.
+            const normalizeHospCie10 = (value) => {
+                const source = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+                if (!source) return "";
+                const firstLetterIndex = source.search(/[A-Z]/);
+                if (firstLetterIndex < 0) return "";
+                const trimmed = source.slice(firstLetterIndex);
+                const letter = trimmed[0];
+                const digits = trimmed.slice(1).replace(/\D/g, "").slice(0, 3);
+                return `${letter}${digits}`;
+            };
+
+            hospCie10Input?.addEventListener("input", () => {
+                hospCie10Input.value = normalizeHospCie10(hospCie10Input.value);
+                if (hospDiagnosticoInput) hospDiagnosticoInput.value = "";
+            });
+            hospCie10Input?.addEventListener("blur", async () => {
+                const codigo = normalizeHospCie10(hospCie10Input.value);
+                hospCie10Input.value = codigo;
+                if (!hospDiagnosticoInput) return;
+                if (codigo.length !== 4 || !/^[A-Z][0-9]{3}$/.test(codigo)) {
+                    hospDiagnosticoInput.value = "";
+                    return;
+                }
+                try {
+                    const response = await fetch(`${buscarDiagnosticoCie10Url}?codigo=${encodeURIComponent(codigo)}`);
+                    if (!response.ok) { hospDiagnosticoInput.value = ""; return; }
+                    const data = await response.json();
+                    hospDiagnosticoInput.value = data.diagnostico || "";
+                } catch { hospDiagnosticoInput.value = ""; }
+            });
+
+            const collectHospitalizacionPayload = () => {
+                const payload = {
+                    fechaHospitalizacion: getHospValue("hospFechaHospitalizacion"),
+                    motivoHospitalizacion: getHospValue("hospMotivo"),
+                    remitidoPor: getHospValue("hospRemitidoPor"),
+                    ipsIntramural: getHospValue("hospIps"),
+                    codigoCie10: getHospValue("hospCie10Input"),
+                    diagnosticoDescriptivo: getHospValue("hospDiagnosticoInput"),
+                    fechaAlta: getHospValue("hospFechaAlta"),
+                    numeroHospitalizacionesUltimoAnio: getHospValue("hospNumeroHospitalizaciones"),
+                    seguimientos: []
+                };
+                for (let n = 1; n <= 7; n++) {
+                    payload.seguimientos.push({
+                        numero: n,
+                        fecha: hospSeguimientoFecha(n)?.value?.trim() || "",
+                        observacion: hospSeguimientoObs(n)?.value?.trim() || ""
+                    });
+                }
+                return payload;
+            };
+
+            const applyHospitalizacionPayload = (data) => {
+                const payload = data || {};
+                setHospValue("hospFechaHospitalizacion", payload.fechaHospitalizacion);
+                setHospValue("hospMotivo", payload.motivoHospitalizacion);
+                setHospValue("hospRemitidoPor", payload.remitidoPor);
+                setHospValue("hospIps", payload.ipsIntramural);
+                setHospValue("hospCie10Input", payload.codigoCie10);
+                setHospValue("hospDiagnosticoInput", payload.diagnosticoDescriptivo);
+                setHospValue("hospFechaAlta", payload.fechaAlta);
+                setHospValue("hospNumeroHospitalizaciones", payload.numeroHospitalizacionesUltimoAnio);
+                const seguimientos = Array.isArray(payload.seguimientos) ? payload.seguimientos : [];
+                for (let n = 1; n <= 7; n++) {
+                    const seg = seguimientos.find((s) => Number(s?.numero) === n) || {};
+                    setHospValue(`hospSeguimiento${n}Fecha`, seg.fecha);
+                    setHospValue(`hospSeguimiento${n}Obs`, seg.observacion);
+                    syncHospSeguimientoObs(n);
+                }
+            };
+
+            const clearHospitalizacionForm = () => {
+                applyHospitalizacionPayload({});
+                activeHospitalizacionId = null;
+                if (hospNumeroBadge) hospNumeroBadge.classList.add("d-none");
+            };
+
+            const renderHospitalizacionVersions = () => {
+                if (!hospVersionSelect) return;
+                hospVersionSelect.innerHTML = "";
+                const nuevaOption = document.createElement("option");
+                nuevaOption.value = "";
+                nuevaOption.textContent = "Nueva hospitalización";
+                hospVersionSelect.appendChild(nuevaOption);
+                (hospitalizacionesState || []).forEach((item) => {
+                    const option = document.createElement("option");
+                    option.value = String(item.id);
+                    option.textContent = `Hospitalización #${item.numero}`;
+                    hospVersionSelect.appendChild(option);
+                });
+                hospVersionSelect.value = activeHospitalizacionId ? String(activeHospitalizacionId) : "";
+                const activa = (hospitalizacionesState || []).find((item) => String(item.id) === String(activeHospitalizacionId));
+                if (hospNumeroBadge) {
+                    hospNumeroBadge.classList.toggle("d-none", !activa);
+                    if (activa) hospNumeroBadge.textContent = `Hospitalización #${activa.numero}`;
+                }
+            };
+
+            const loadHospitalizacion = (versionId) => {
+                if (!versionId) { clearHospitalizacionForm(); renderHospitalizacionVersions(); return; }
+                const item = (hospitalizacionesState || []).find((x) => String(x.id) === String(versionId));
+                if (!item) { clearHospitalizacionForm(); renderHospitalizacionVersions(); return; }
+                activeHospitalizacionId = item.id;
+                let parsed = {};
+                try { parsed = JSON.parse(item.hospitalizacionJson || "{}"); } catch { parsed = {}; }
+                applyHospitalizacionPayload(parsed);
+                renderHospitalizacionVersions();
+            };
+
+            hospVersionSelect?.addEventListener("change", () => loadHospitalizacion(hospVersionSelect.value));
+            adicionarHospitalizacionBtn?.addEventListener("click", () => {
+                clearHospitalizacionForm();
+                renderHospitalizacionVersions();
+                if (hospGuardadoStatus) hospGuardadoStatus.textContent = "Nueva hospitalización lista para diligenciar.";
+            });
+
+            guardarHospitalizacionBtn?.addEventListener("click", async () => {
+                if (!cronicoRecordId || !csrfTokenInput) return;
+                guardarHospitalizacionBtn.disabled = true;
+                if (hospGuardadoStatus) hospGuardadoStatus.textContent = "Guardando...";
+                try {
+                    const body = new URLSearchParams();
+                    body.set("id", String(cronicoRecordId));
+                    body.set("hospitalizacionJson", JSON.stringify(collectHospitalizacionPayload()));
+                    if (activeHospitalizacionId) body.set("hospitalizacionVersionId", String(activeHospitalizacionId));
+
+                    const response = await fetch(guardarHospitalizacionUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "RequestVerificationToken": csrfTokenInput.value
+                        },
+                        body: body.toString()
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        if (hospGuardadoStatus) hospGuardadoStatus.textContent = data.message || "No fue posible guardar la hospitalización.";
+                        return;
+                    }
+                    activeHospitalizacionId = data.hospitalizacionId || activeHospitalizacionId;
+                    const listResponse = await fetch(`${obtenerHospitalizacionesUrl}?id=${encodeURIComponent(cronicoRecordId)}`);
+                    if (listResponse.ok) {
+                        const listData = await listResponse.json();
+                        hospitalizacionesState = listData.hospitalizaciones || [];
+                    }
+                    renderHospitalizacionVersions();
+                    if (hospGuardadoStatus) hospGuardadoStatus.textContent = data.message || "Hospitalización guardada correctamente.";
+                } catch {
+                    if (hospGuardadoStatus) hospGuardadoStatus.textContent = "No fue posible guardar la hospitalización.";
+                } finally {
+                    guardarHospitalizacionBtn.disabled = false;
+                }
+            });
+
+            if (hospVersionSelect) {
+                if ((hospitalizacionesState || []).length > 0) {
+                    loadHospitalizacion(hospitalizacionesState[hospitalizacionesState.length - 1].id);
+                } else {
+                    renderHospitalizacionVersions();
+                    for (let n = 1; n <= 7; n++) syncHospSeguimientoObs(n);
+                }
+            }
+
             form?.addEventListener("submit", (event) => {
                 const submitAction = event.submitter?.getAttribute("formaction") || "";
                 if (submitAction.includes("GuardarCronicoGestionCaso")
-                    || submitAction.includes("GuardarCronicoValidaciones")) {
+                    || submitAction.includes("GuardarCronicoHospitalizacion")) {
                     return;
                 }
                 if (direccionInput?.value.trim() && !direccionValidada && !asumirDireccionCheck?.checked) {

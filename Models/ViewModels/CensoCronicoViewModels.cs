@@ -10,6 +10,9 @@ public class CensoCronicoViewModel
 
     public string? CedulaFiltro { get; set; }
 
+    /// <summary>Días entre la fecha de ingreso y el día actual (Colombia). Se calcula en vivo, no se persiste.</summary>
+    public int DiasDeEstancia { get; set; }
+
     // ----- Sección 1: Datos básicos -----
     [Required(ErrorMessage = "Selecciona la fuente de ingreso.")]
     [Display(Name = "Fuente de ingreso")]
@@ -81,23 +84,6 @@ public class CensoCronicoViewModel
 
     [Display(Name = "Estado del paciente")]
     public string? EstadoPaciente { get; set; }
-
-    [Display(Name = "N° agudizaciones último año")]
-    public int? NumeroAgudizacionesUltimoAnio { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de agudización")]
-    public DateTime? FechaAgudizacion { get; set; }
-
-    [StringLength(10, ErrorMessage = "El motivo de agudización no puede superar 10 caracteres.")]
-    [Display(Name = "Motivo de la agudización")]
-    public string? MotivoAgudizacion { get; set; }
-
-    [Display(Name = "Descripción de agudización")]
-    public string? DescripcionAgudizacion { get; set; }
-
-    [Display(Name = "Detalle descripción CIE10")]
-    public string? DetalleDescripcionCie10 { get; set; }
 
     [StringLength(4, ErrorMessage = "El diagnóstico crónico CIE10 debe tener 4 caracteres.")]
     [Display(Name = "Diagnóstico crónico CIE10")]
@@ -233,10 +219,11 @@ public class CensoCronicoViewModel
     public string? SondaVesical { get; set; }
 
     [StringLength(50)]
-    [Display(Name = "Calibre de sonda (f)")]
+    [Display(Name = "Calibre de sonda")]
     public string? CalibreSondaVesical { get; set; }
 
     [StringLength(50)]
+    [RegularExpression(@"^[0-9]*$", ErrorMessage = "La frecuencia de cambio solo permite números.")]
     [Display(Name = "Frecuencia de cambio (días)")]
     public string? FrecuenciaCambioSondaVesical { get; set; }
 
@@ -284,57 +271,10 @@ public class CensoCronicoViewModel
     [Display(Name = "Estado Mipres")]
     public string? EstadoMipresNutricion { get; set; }
 
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de hospitalización")]
-    public DateTime? FechaHospitalizacion { get; set; }
-
-    [StringLength(200, ErrorMessage = "El motivo de la hospitalización no puede superar 200 caracteres.")]
-    [Display(Name = "Motivo de la hospitalización")]
-    public string? MotivoHospitalizacion { get; set; }
-
-    [StringLength(100, ErrorMessage = "El campo remitido por no puede superar 100 caracteres.")]
-    [Display(Name = "Remitido por")]
-    public string? RemitidoPor { get; set; }
-
-    [StringLength(200, ErrorMessage = "La IPS intramural no puede superar 200 caracteres.")]
-    [Display(Name = "IPS intramural")]
-    public string? IpsIntramural { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de 1er seguimiento (24 horas)")]
-    public DateTime? FechaPrimerSeguimiento24Horas { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de 2do seguimiento (48 horas)")]
-    public DateTime? FechaSegundoSeguimiento48Horas { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de 3er seguimiento (72 horas)")]
-    public DateTime? FechaTercerSeguimiento72Horas { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de 4to seguimiento (Semana 1)")]
-    public DateTime? FechaCuartoSeguimientoSemana1 { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de 5to seguimiento (Semana 2)")]
-    public DateTime? FechaQuintoSeguimientoSemana2 { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de 6to seguimiento (Semana 3)")]
-    public DateTime? FechaSextoSeguimientoSemana3 { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de 7mo seguimiento (Semana 4)")]
-    public DateTime? FechaSeptimoSeguimientoSemana4 { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de alta de hospitalización")]
-    public DateTime? FechaAltaHospitalizacion { get; set; }
-
-    [Display(Name = "N° hospitalizaciones en último año")]
-    public int? NumeroHospitalizacionesUltimoAnio { get; set; }
-
+    // ----- Sección 4: Hospitalización y seguimiento -----
+    // Los episodios (fecha, motivo, IPS, CIE10, 7 seguimientos con observación, alta, etc.)
+    // son multi-registro y se guardan como JSON en la colección Hospitalizaciones.
+    // Aquí solo queda el egreso del programa (evento a nivel del paciente).
     [Display(Name = "Egresa programa crónico")]
     public string? EgresaProgramaCronico { get; set; }
 
@@ -365,12 +305,30 @@ public class CensoCronicoViewModel
     public IReadOnlyList<SelectListItem> ClasificacionCasoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoPacienteOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> BarthelAuditadoOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> CalificacionBarthelOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> KarnofskyOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> FastOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> RankinOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> DisneaMmrcOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> NyhaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> SiNoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoClinicaHeridasOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> CalibreSondaVesicalOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AuxiliarEnfermeriaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> TallaPanalesOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoMipresOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> MotivoEgresoOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> MedidaMedicamentoOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> ViaAdministracionMedicamentoOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> FrecuenciaAdministracionOptions { get; set; } = [];
+    public IReadOnlyList<string> MedicamentoPrincipalOptions { get; set; } = [];
     public IReadOnlyList<string> BarrioOptions { get; set; } = [];
     public IReadOnlyList<CensoCronicoRecord> UltimosRegistros { get; set; } = [];
+    public IReadOnlyList<CensoCronicoAgudizacion> Agudizaciones { get; set; } = [];
+    public IReadOnlyList<CensoCronicoHospitalizacion> Hospitalizaciones { get; set; } = [];
+
+    // ----- Kardex y requisición de agudizaciones -----
+    public IReadOnlyList<MedicamentoCatalogItemViewModel> MedicamentoCatalog { get; set; } = [];
+    public bool PuedeAprobarReapertura { get; set; }
+    public IReadOnlyList<string> ReaperturaMotivos { get; set; } = [];
 }

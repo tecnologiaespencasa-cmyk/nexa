@@ -76,20 +76,21 @@
                     <div class="farmacia-order-list">
                         @foreach (var item in Model.Nuevos.Items)
                         {
-                            <article class="farmacia-order is-new" data-pedido-id="@item.Id">
+                            <article class="farmacia-order is-new" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
+                                        @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
@@ -99,7 +100,7 @@
                                             </a>
                                         }
                                         <button type="button" class="farmacia-doc-button farmacia-doc-button--ok-kardex"
-                                                data-action-button="ok-kardex" data-pedido-id="@item.Id">
+                                                data-action-button="ok-kardex" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                             <span>OK Kardex</span><small>Recepcion</small>
                                         </button>
                                     </div>
@@ -135,13 +136,15 @@
                         @foreach (var item in Model.Recepcionados.Items)
                         {
                             var esParcial = item.FarmaciaEsEntregaParcial == true;
-                            <article class="farmacia-order" data-pedido-id="@item.Id">
+                            var parcialKey = item.EsAgudizacionCronica ? $"c{item.Id}" : item.Id.ToString();
+                            <article class="farmacia-order" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
+                                        @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (esParcial && item.FarmaciaCantidadEntregas.HasValue)
                                         {
@@ -149,10 +152,10 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
@@ -161,28 +164,28 @@
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
-                                        <div class="farmacia-entrega-parcial-panel" data-pedido-id="@item.Id">
+                                        <div class="farmacia-entrega-parcial-panel" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                             <label class="farmacia-parcial-label">
-                                                <input type="checkbox" class="form-check-input" data-parcial-check="@item.Id" @(esParcial ? "checked" : null) />
+                                                <input type="checkbox" class="form-check-input" data-parcial-check="@parcialKey" @(esParcial ? "checked" : null) />
                                                 &iquest;Entrega parcial?
                                             </label>
-                                            <div class="farmacia-parcial-cantidad @(!esParcial ? "d-none" : null)" id="parcialCantidad_@item.Id">
+                                            <div class="farmacia-parcial-cantidad @(!esParcial ? "d-none" : null)" id="parcialCantidad_@parcialKey">
                                                 <input type="number" min="2" max="99" class="form-control form-control-sm"
                                                        placeholder="N entregas" value="@(item.FarmaciaCantidadEntregas?.ToString() ?? "")"
-                                                       data-parcial-cantidad="@item.Id" />
+                                                       data-parcial-cantidad="@parcialKey" />
                                                 <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                        data-action-button="guardar-parcial" data-pedido-id="@item.Id">Guardar</button>
+                                                        data-action-button="guardar-parcial" data-parcial-key="@parcialKey" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">Guardar</button>
                                             </div>
                                             @if (esParcial && item.FarmaciaCantidadEntregas.HasValue && item.FarmaciaEntregaActual < item.FarmaciaCantidadEntregas.Value)
                                             {
                                                 <button type="button" class="btn btn-sm btn-outline-primary mt-1"
-                                                        data-action-button="avanzar-entrega" data-pedido-id="@item.Id">
+                                                        data-action-button="avanzar-entrega" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                                     Avanzar entrega (@item.FarmaciaEntregaActual &rarr; @(item.FarmaciaEntregaActual + 1))
                                                 </button>
                                             }
                                         </div>
                                         <button type="button" class="farmacia-doc-button farmacia-doc-button--facturar"
-                                                data-action-button="facturar" data-pedido-id="@item.Id">
+                                                data-action-button="facturar" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                             <span>Facturado</span><small>Marcar</small>
                                         </button>
                                     </div>
@@ -217,13 +220,14 @@
                     <div class="farmacia-order-list">
                         @foreach (var item in Model.Facturados.Items)
                         {
-                            <article class="farmacia-order" data-pedido-id="@item.Id">
+                            <article class="farmacia-order" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
+                                        @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (item.FarmaciaEsEntregaParcial == true && item.FarmaciaCantidadEntregas.HasValue)
                                         {
@@ -231,10 +235,10 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
@@ -244,7 +248,7 @@
                                             </a>
                                         }
                                         <button type="button" class="farmacia-doc-button farmacia-doc-button--empacar"
-                                                data-action-button="empacar" data-pedido-id="@item.Id">
+                                                data-action-button="empacar" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                             <span>Listo para empacar</span><small>Mover a Empacado</small>
                                         </button>
                                     </div>
@@ -279,13 +283,14 @@
                     <div class="farmacia-order-list">
                         @foreach (var item in Model.Empacados.Items)
                         {
-                            <article class="farmacia-order" data-pedido-id="@item.Id">
+                            <article class="farmacia-order" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
+                                        @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (item.FarmaciaEmpacadoAtUtc.HasValue)
                                         {
@@ -296,10 +301,10 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
@@ -309,7 +314,7 @@
                                             </a>
                                         }
                                         <button type="button" class="farmacia-doc-button farmacia-doc-button--signature"
-                                                data-firma-button data-pedido-id="@item.Id">
+                                                data-firma-button data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                             <span>Firma</span>
                                             <small>@(item.FirmaRegistrada ? "Firmado" : "Pendiente")</small>
                                         </button>
@@ -341,20 +346,21 @@
                     <div class="farmacia-order-list">
                         @foreach (var item in Model.PorDesempacar.Items)
                         {
-                            <article class="farmacia-order @(item.FarmaciaBolsaDesempacada ? "farmacia-order--desempacada" : "farmacia-order--alert")" data-pedido-id="@item.Id">
+                            <article class="farmacia-order @(item.FarmaciaBolsaDesempacada ? "farmacia-order--desempacada" : "farmacia-order--alert")" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
+                                        @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
@@ -366,12 +372,12 @@
                                         @if (!item.FarmaciaBolsaDesempacada)
                                         {
                                             <button type="button" class="farmacia-doc-button farmacia-doc-button--signature"
-                                                    data-firma-button data-pedido-id="@item.Id">
+                                                    data-firma-button data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                                 <span>Firma</span>
                                                 <small>Pendiente</small>
                                             </button>
                                             <button type="button" class="farmacia-doc-button farmacia-doc-button--desempacar"
-                                                    data-action-button="bolsa-desempacada" data-pedido-id="@item.Id">
+                                                    data-action-button="bolsa-desempacada" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                                 <span>Bolsa desempacada</span>
                                                 <small>Confirmar</small>
                                             </button>
@@ -404,13 +410,14 @@
                         {
                             var esParcialDesp = item.FarmaciaEsEntregaParcial == true && item.FarmaciaCantidadEntregas.HasValue;
                             var entregaCompleta = esParcialDesp && item.FarmaciaEntregaActual >= item.FarmaciaCantidadEntregas!.Value;
-                            <article class="farmacia-order @(esParcialDesp && !entregaCompleta ? "farmacia-order--alert" : null)" data-pedido-id="@item.Id">
+                            <article class="farmacia-order @(esParcialDesp && !entregaCompleta ? "farmacia-order--alert" : null)" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
                                         <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
+                                        @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (!string.IsNullOrWhiteSpace(item.NombreRecibe))
                                         {
@@ -425,10 +432,10 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>Visto</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="Documento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>Visto</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
@@ -440,7 +447,7 @@
                                         @if (esParcialDesp && !entregaCompleta)
                                         {
                                             <button type="button" class="btn btn-sm btn-outline-primary farmacia-avanzar-btn"
-                                                    data-action-button="avanzar-entrega" data-pedido-id="@item.Id">
+                                                    data-action-button="avanzar-entrega" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
                                                 Avanzar entrega (@item.FarmaciaEntregaActual &rarr; @(item.FarmaciaEntregaActual + 1))
                                             </button>
                                         }
@@ -545,6 +552,25 @@
             const bolsaDesempacarUrl = "@Url.Action("SetBolsaDesempacada", "Farmacia")";
             const entregaParcialUrl = "@Url.Action("SetEntregaParcial", "Farmacia")";
             const avanzarEntregaUrl = "@Url.Action("AvanzarEntrega", "Farmacia")";
+            // Variantes para agudizaciones del censo de Programa Crónicos (misma bandeja,
+            // tabla independiente): el botón indica su origen con data-pedido-cronico.
+            const firmaCronicoUrl = "@Url.Action("FirmaCronico", "Farmacia")";
+            const guardarFirmaCronicoUrl = "@Url.Action("GuardarFirmaCronico", "Farmacia")";
+            const entregaParcialCronicoUrl = "@Url.Action("SetEntregaParcialCronico", "Farmacia")";
+            const cronicoActionUrls = {
+                "ok-kardex": "@Url.Action("SetOkKardexCronico", "Farmacia")",
+                "facturar": "@Url.Action("SetFacturadoCronico", "Farmacia")",
+                "empacar": "@Url.Action("SetEmpacadoCronico", "Farmacia")",
+                "bolsa-desempacada": "@Url.Action("SetBolsaDesempacadaCronico", "Farmacia")",
+                "avanzar-entrega": "@Url.Action("AvanzarEntregaCronico", "Farmacia")"
+            };
+            const agudosActionUrls = {
+                "ok-kardex": okKardexUrl,
+                "facturar": facturarUrl,
+                "empacar": empacarUrl,
+                "bolsa-desempacada": bolsaDesempacarUrl,
+                "avanzar-entrega": avanzarEntregaUrl
+            };
             const signatureModalElement = document.getElementById("farmaciaSignatureModal");
             const signatureForm = document.getElementById("farmaciaSignatureForm");
             const firmaPedidoId = document.getElementById("firmaPedidoId");
@@ -650,38 +676,25 @@
                 const action = btn.dataset.actionButton;
                 const id = Number(btn.dataset.pedidoId || "0");
                 if (!id) return;
+                const esCronico = btn.dataset.pedidoCronico === "true";
                 btn.disabled = true;
                 try {
-                    if (action === "ok-kardex") {
-                        const resp = await postForm(okKardexUrl, id);
-                        const data = await resp.json();
-                        if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
-                    } else if (action === "facturar") {
-                        const resp = await postForm(facturarUrl, id);
-                        const data = await resp.json();
-                        if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
-                    } else if (action === "empacar") {
-                        const resp = await postForm(empacarUrl, id);
-                        const data = await resp.json();
-                        if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
-                    } else if (action === "bolsa-desempacada") {
-                        const resp = await postForm(bolsaDesempacarUrl, id);
-                        const data = await resp.json();
-                        if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
-                    } else if (action === "avanzar-entrega") {
-                        const resp = await postForm(avanzarEntregaUrl, id);
+                    if (agudosActionUrls[action]) {
+                        const url = esCronico ? cronicoActionUrls[action] : agudosActionUrls[action];
+                        const resp = await postForm(url, id);
                         const data = await resp.json();
                         if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
                     } else if (action === "guardar-parcial") {
-                        const cantidadInput = document.querySelector(`[data-parcial-cantidad='${id}']`);
-                        const check = document.querySelector(`[data-parcial-check='${id}']`);
+                        const parcialKey = btn.dataset.parcialKey || String(id);
+                        const cantidadInput = document.querySelector(`[data-parcial-cantidad='${parcialKey}']`);
+                        const check = document.querySelector(`[data-parcial-check='${parcialKey}']`);
                         const esParcial = check?.checked ?? false;
                         const cantidad = esParcial ? Number(cantidadInput?.value || "0") : null;
                         if (esParcial && (!cantidad || cantidad < 2)) {
                             showActionMsg("La cantidad de entregas debe ser al menos 2.");
                             return;
                         }
-                        const resp = await fetch(entregaParcialUrl, {
+                        const resp = await fetch(esCronico ? entregaParcialCronicoUrl : entregaParcialUrl, {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json",
@@ -825,9 +838,12 @@
                 });
             });
 
+            let firmaEsCronicoActual = false;
+
             const openSignatureModal = async (button) => {
                 const pedidoId = Number(button.dataset.pedidoId || "0") || 0;
                 if (!pedidoId) return;
+                firmaEsCronicoActual = button.dataset.pedidoCronico === "true";
                 setSignatureStatus("Cargando firmas...", "info");
                 firmaPedidoId.value = String(pedidoId);
                 firmaNombreRecibe.value = "";
@@ -838,7 +854,7 @@
                     window.bootstrap.Modal.getOrCreateInstance(signatureModalElement).show();
                 }
                 try {
-                    const url = new URL(firmaUrl, window.location.origin);
+                    const url = new URL(firmaEsCronicoActual ? firmaCronicoUrl : firmaUrl, window.location.origin);
                     url.searchParams.set("id", String(pedidoId));
                     const response = await fetch(url.toString(), { headers: { "Accept": "application/json" } });
                     const data = await response.json();
@@ -886,7 +902,7 @@
                     try {
                         const formData = new FormData(signatureForm);
                         const token = signatureForm.querySelector("input[name='__RequestVerificationToken']")?.value || "";
-                        const response = await fetch(guardarFirmaUrl, {
+                        const response = await fetch(firmaEsCronicoActual ? guardarFirmaCronicoUrl : guardarFirmaUrl, {
                             method: "POST",
                             body: formData,
                             headers: token ? { "RequestVerificationToken": token } : {}

@@ -19,6 +19,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CensoClinicaHeridasRecord> CensoClinicaHeridas => Set<CensoClinicaHeridasRecord>();
     public DbSet<CensoNptRecord> CensoNpt => Set<CensoNptRecord>();
     public DbSet<CensoCronicoRecord> CensoCronicos => Set<CensoCronicoRecord>();
+    public DbSet<CensoCronicoAgudizacion> CensoCronicoAgudizaciones => Set<CensoCronicoAgudizacion>();
+    public DbSet<CensoCronicoHospitalizacion> CensoCronicoHospitalizaciones => Set<CensoCronicoHospitalizacion>();
+    public DbSet<CensoCronicoKardexReapertura> CensoCronicoKardexReaperturas => Set<CensoCronicoKardexReapertura>();
     public DbSet<CensoTerapiaAmbulatoriaProrroga> CensoTerapiaAmbulatoriaProrrogas => Set<CensoTerapiaAmbulatoriaProrroga>();
     public DbSet<CensoAdjunto> CensoAdjuntos => Set<CensoAdjunto>();
     public DbSet<CensoProrroga> CensoProrrogas => Set<CensoProrroga>();
@@ -469,10 +472,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.Area).HasMaxLength(10);
             entity.Property(x => x.ClasificacionCaso).HasMaxLength(20);
             entity.Property(x => x.EstadoPaciente).HasMaxLength(30);
-            entity.Property(x => x.FechaAgudizacion).HasColumnType("date");
-            entity.Property(x => x.MotivoAgudizacion).HasMaxLength(10);
-            entity.Property(x => x.DescripcionAgudizacion).HasMaxLength(300);
-            entity.Property(x => x.DetalleDescripcionCie10).HasMaxLength(120);
             entity.Property(x => x.DiagnosticoCronicoCie10).HasMaxLength(4);
             entity.Property(x => x.GrupoPatologiaCronica).HasMaxLength(300);
             entity.Property(x => x.DiagnosticoCronicoComplementario).HasMaxLength(4);
@@ -524,18 +523,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.MipresNutricion).HasMaxLength(2);
             entity.Property(x => x.FechaUltimaPrescripcionNutricion).HasColumnType("date");
             entity.Property(x => x.EstadoMipresNutricion).HasMaxLength(20);
-            entity.Property(x => x.FechaHospitalizacion).HasColumnType("date");
-            entity.Property(x => x.MotivoHospitalizacion).HasMaxLength(200);
-            entity.Property(x => x.RemitidoPor).HasMaxLength(100);
-            entity.Property(x => x.IpsIntramural).HasMaxLength(200);
-            entity.Property(x => x.FechaPrimerSeguimiento24Horas).HasColumnType("date");
-            entity.Property(x => x.FechaSegundoSeguimiento48Horas).HasColumnType("date");
-            entity.Property(x => x.FechaTercerSeguimiento72Horas).HasColumnType("date");
-            entity.Property(x => x.FechaCuartoSeguimientoSemana1).HasColumnType("date");
-            entity.Property(x => x.FechaQuintoSeguimientoSemana2).HasColumnType("date");
-            entity.Property(x => x.FechaSextoSeguimientoSemana3).HasColumnType("date");
-            entity.Property(x => x.FechaSeptimoSeguimientoSemana4).HasColumnType("date");
-            entity.Property(x => x.FechaAltaHospitalizacion).HasColumnType("date");
             entity.Property(x => x.EgresaProgramaCronico).HasMaxLength(2);
             entity.Property(x => x.MotivoEgreso).HasMaxLength(40);
             entity.Property(x => x.FechaEgreso).HasColumnType("date");
@@ -544,6 +531,69 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(x => x.NumeroIdentificacion);
             entity.HasIndex(x => x.FechaIngreso);
             entity.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<CensoCronicoAgudizacion>(entity =>
+        {
+            entity.ToTable("censo_cronico_agudizaciones");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.AgudizacionJson).HasColumnType("text").IsRequired();
+            entity.Property(x => x.KardexEdicionJson).HasColumnType("text");
+            entity.Property(x => x.RequisicionFarmaciaJson).HasColumnType("text");
+            entity.Property(x => x.FarmaciaEstado).HasMaxLength(30).HasDefaultValue("Nuevo");
+            entity.Property(x => x.FarmaciaEnviadoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.FarmaciaKardexVistoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.FarmaciaRequisicionVistoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.FarmaciaEntregaActual).HasDefaultValue(1);
+            entity.Property(x => x.FarmaciaEmpacadoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.FarmaciaNombreRecibe).HasMaxLength(160);
+            entity.Property(x => x.FarmaciaFirmaEntregaDataUrl).HasColumnType("text");
+            entity.Property(x => x.FarmaciaFirmaRecibeDataUrl).HasColumnType("text");
+            entity.Property(x => x.FarmaciaFechaHoraRecepcionUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.FarmaciaFirmaActualizadaAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.KardexCerradoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.ReaperturaSolicitadaPor).HasMaxLength(200);
+            entity.Property(x => x.ReaperturaAprobadaPor).HasMaxLength(200);
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.HasOne(x => x.CensoCronicoRecord)
+                .WithMany(x => x.Agudizaciones)
+                .HasForeignKey(x => x.CensoCronicoRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => new { x.CensoCronicoRecordId, x.Numero }).IsUnique();
+            entity.HasIndex(x => x.FarmaciaEnviadoAtUtc);
+        });
+
+        modelBuilder.Entity<CensoCronicoHospitalizacion>(entity =>
+        {
+            entity.ToTable("censo_cronico_hospitalizaciones");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.HospitalizacionJson).HasColumnType("text").IsRequired();
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.HasOne(x => x.CensoCronicoRecord)
+                .WithMany(x => x.Hospitalizaciones)
+                .HasForeignKey(x => x.CensoCronicoRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => new { x.CensoCronicoRecordId, x.Numero }).IsUnique();
+        });
+
+        modelBuilder.Entity<CensoCronicoKardexReapertura>(entity =>
+        {
+            entity.ToTable("censo_cronico_kardex_reaperturas");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Motivo).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.SolicitadoPorNombre).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.SolicitadoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.ResueltoPorNombre).HasMaxLength(200);
+            entity.Property(x => x.ResueltoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.ObservacionResolucion).HasMaxLength(500);
+            entity.HasOne(x => x.CensoCronicoAgudizacion)
+                .WithMany(x => x.Reaperturas)
+                .HasForeignKey(x => x.CensoCronicoAgudizacionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => new { x.CensoCronicoAgudizacionId, x.Estado });
         });
 
         modelBuilder.Entity<CensoTerapiaAmbulatoriaProrroga>(entity =>
