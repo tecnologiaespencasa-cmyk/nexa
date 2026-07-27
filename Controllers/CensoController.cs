@@ -1047,15 +1047,10 @@ public partial class CensoController : Controller
 
         await PopulateDropdownsAsync(model, cancellationToken);
 
-        ValidateAssistantSelections(model);
-        ValidateBasicPatientData(model);
-        ValidateRequiredPlanManejoFields(model);
-        ValidateDropdownSelections(model);
-        ValidateCie10Fields(model);
-        ValidatePhoneFields(model);
-        ValidateGestionCompleta(model);
-
-        var direccionParaGuardar = model.Direccion;
+        // Al aprobarse el kardex, la sección 3 queda bloqueada salvo los campos
+        // administrativos de cierre. Los medicamentos históricos no se pueden
+        // modificar ni se persisten desde este formulario, por lo que no deben
+        // impedir un cambio válido de estado si hoy no existen en el catálogo.
         CensoRecord? existingAddressRecord = null;
         if (model.EditingRecordId.HasValue)
         {
@@ -1064,6 +1059,17 @@ public partial class CensoController : Controller
                 .FirstOrDefaultAsync(record => record.Id == model.EditingRecordId.Value, cancellationToken);
         }
 
+        var omitirValidacionMedicamentosHistoricos = existingAddressRecord?.KardexCerradoAtUtc.HasValue == true;
+
+        ValidateAssistantSelections(model);
+        ValidateBasicPatientData(model);
+        ValidateRequiredPlanManejoFields(model, omitirValidacionMedicamentosHistoricos);
+        ValidateDropdownSelections(model, omitirValidacionMedicamentosHistoricos);
+        ValidateCie10Fields(model);
+        ValidatePhoneFields(model);
+        ValidateGestionCompleta(model);
+
+        var direccionParaGuardar = model.Direccion;
         var addressIsUnchanged = existingAddressRecord is not null
             && AreEquivalentAddresses(existingAddressRecord.Direccion, model.Direccion);
         var canReusePersistedAddressDecision = addressIsUnchanged
@@ -3689,11 +3695,13 @@ public partial class CensoController : Controller
         }
     }
 
-    private void ValidateRequiredPlanManejoFields(CensoReceptionViewModel model)
+    private void ValidateRequiredPlanManejoFields(
+        CensoReceptionViewModel model,
+        bool omitirValidacionMedicamentosHistoricos = false)
     {
         AddRequiredFieldErrorIfBlank(model.Asegurador, nameof(model.Asegurador), "Selecciona el asegurador.");
         var hasMedicationAdministration = string.Equals(model.AdministracionMedicamentos, "Si", StringComparison.OrdinalIgnoreCase);
-        if (hasMedicationAdministration)
+        if (hasMedicationAdministration && !omitirValidacionMedicamentosHistoricos)
         {
             AddRequiredFieldErrorIfBlank(model.NombreMedicamentoPrincipalTratante, nameof(model.NombreMedicamentoPrincipalTratante), "Ingresa el nombre del medicamento principal.");
             AddRequiredValueErrorIfMissing(model.DosisMedicamentoPrincipal, nameof(model.DosisMedicamentoPrincipal), "Ingresa la dosis del medicamento principal.");
@@ -3781,7 +3789,9 @@ public partial class CensoController : Controller
         }
     }
 
-    private void ValidateDropdownSelections(CensoReceptionViewModel model)
+    private void ValidateDropdownSelections(
+        CensoReceptionViewModel model,
+        bool omitirValidacionMedicamentosHistoricos = false)
     {
         model.MunicipioResidencia = ToCanonicalMunicipality(model.MunicipioResidencia) ?? string.Empty;
         if (string.IsNullOrWhiteSpace(model.MunicipioResidencia))
@@ -3848,17 +3858,18 @@ public partial class CensoController : Controller
         }
 
         var hasMedicationAdministration = string.Equals(model.AdministracionMedicamentos, "Si", StringComparison.OrdinalIgnoreCase);
-        var medicationCatalogMap = hasMedicationAdministration
+        var validarMedicamentos = hasMedicationAdministration && !omitirValidacionMedicamentosHistoricos;
+        var medicationCatalogMap = validarMedicamentos
             ? BuildMedicationCatalogMap(model.MedicamentoCatalog)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        if (hasMedicationAdministration
+        if (validarMedicamentos
             && !FrecuenciaAdministracionMxPrincipalValues.Contains(model.FrecuenciaAdministracionMxPrincipal, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.FrecuenciaAdministracionMxPrincipal), "Selecciona una frecuencia de administración MX principal válida.");
         }
 
-        if (hasMedicationAdministration)
+        if (validarMedicamentos)
         {
             model.NombreMedicamentoPrincipalTratante = ValidateMedicationCatalogSelection(
                 model.NombreMedicamentoPrincipalTratante,
@@ -3879,14 +3890,14 @@ public partial class CensoController : Controller
                 "una vía de administración válida para el medicamento principal");
         }
 
-        if (hasMedicationAdministration
+        if (validarMedicamentos
             && !string.IsNullOrWhiteSpace(model.NumeroDosisDiaMedicamentoPrincipal)
             && !NumeroDosisDiaMedicamentoPrincipalValues.Contains(model.NumeroDosisDiaMedicamentoPrincipal, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.NumeroDosisDiaMedicamentoPrincipal), "Selecciona un valor válido para número de dosis día medicamento principal.");
         }
 
-        if (hasMedicationAdministration)
+        if (validarMedicamentos)
         {
             ValidateAdditionalMedication(
                 model.TieneSegundoMedicamento,
@@ -4011,7 +4022,7 @@ public partial class CensoController : Controller
             }
         }
 
-        if (hasMedicationAdministration)
+        if (validarMedicamentos)
         {
             ValidateOptionField(
                 model.CambioFrecuenciaAdministracionTto,

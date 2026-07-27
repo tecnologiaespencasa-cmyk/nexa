@@ -6235,16 +6235,19 @@
                         return;
                     }
 
-                    const invalidSection3Medicamentos = syncSection3MedicamentoValidation(true);
-                    if (invalidSection3Medicamentos.length > 0) {
-                        event.preventDefault();
-                        openSectionTab("tab-plan-manejo-link");
-                        invalidSection3Medicamentos[0].input?.focus();
-                        showFeedbackModal(
-                            "Medicamento no válido",
-                            "<p class=\"mb-0\">Selecciona los medicamentos desde el listado de sugerencias.</p>",
-                            "warning");
-                        return;
+                    const kardexPrincipalCerrado = !!initialKardexInicialCerrado || !!documentosState?.principalCerrado;
+                    if (!kardexPrincipalCerrado) {
+                        const invalidSection3Medicamentos = syncSection3MedicamentoValidation(true);
+                        if (invalidSection3Medicamentos.length > 0) {
+                            event.preventDefault();
+                            openSectionTab("tab-plan-manejo-link");
+                            invalidSection3Medicamentos[0].input?.focus();
+                            showFeedbackModal(
+                                "Medicamento no válido",
+                                "<p class=\"mb-0\">Selecciona los medicamentos desde el listado de sugerencias.</p>",
+                                "warning");
+                            return;
+                        }
                     }
 
                     censoSaveAttempted = true;
