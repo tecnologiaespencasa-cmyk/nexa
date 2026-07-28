@@ -5104,13 +5104,14 @@ public partial class CensoController : Controller
             }
         }
 
-        foreach (var item in _medellinNeighborhoodZoneMap)
+        var partialMatch = _medellinNeighborhoodZoneMap
+            .Where(item => normalized.Contains(item.Key, StringComparison.Ordinal))
+            .OrderByDescending(item => item.Key.Length)
+            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(partialMatch.Key))
         {
-            if (normalized.Contains(item.Key, StringComparison.Ordinal))
-            {
-                zone = item.Value;
-                return true;
-            }
+            zone = partialMatch.Value;
+            return true;
         }
 
         return false;
@@ -5129,12 +5130,12 @@ public partial class CensoController : Controller
 
     private static string NormalizeKey(string value)
     {
-        var normalized = value.Trim().Normalize(NormalizationForm.FormD);
+        var normalized = value.Trim().Normalize(NormalizationForm.FormKD);
         var sb = new StringBuilder();
         foreach (var c in normalized)
         {
             var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
-            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+            if (unicodeCategory != UnicodeCategory.NonSpacingMark && char.IsLetterOrDigit(c))
             {
                 sb.Append(c);
             }
@@ -5142,8 +5143,6 @@ public partial class CensoController : Controller
 
         return sb.ToString()
             .Normalize(NormalizationForm.FormC)
-            .Replace(" ", string.Empty, StringComparison.Ordinal)
-            .Replace("-", string.Empty, StringComparison.Ordinal)
             .ToUpperInvariant();
     }
 
@@ -5802,7 +5801,7 @@ public partial class CensoController : Controller
 
     private static IReadOnlyDictionary<string, string> LoadMedellinNeighborhoodZoneMap(string contentRootPath)
     {
-        var path = Path.Combine(contentRootPath, "Data", "Seed", "neighborhood_catalog.json");
+        var path = Path.Combine(contentRootPath, "Data", "Seed", "medellin_neighborhood_zones.json");
         if (!System.IO.File.Exists(path))
         {
             return new Dictionary<string, string>(StringComparer.Ordinal);
@@ -5811,55 +5810,30 @@ public partial class CensoController : Controller
         try
         {
             var json = System.IO.File.ReadAllText(path, Encoding.UTF8);
-            var raw = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(json) ?? [];
-            var medellinEntry = raw.FirstOrDefault(x => NormalizeKey(x.Key) == "MEDELLIN");
-            var medellinNeighborhoods = medellinEntry.Value ?? [];
-            if (medellinNeighborhoods.Count == 0)
-            {
-                return new Dictionary<string, string>(StringComparer.Ordinal);
-            }
-
-            var normalizedNeighborhoods = medellinNeighborhoods
-                .Select(x => x?.Trim())
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .Cast<string>()
-                .Select(NormalizeKey)
-                .ToList();
-
-            var transitionAnchors = new[] { "CASTILLA", "VILLAHERMOSA", "LAURELES", "ELPOBLADO", "GUAYABAL" };
-            var lastAnchorIndex = -1;
-            foreach (var anchor in transitionAnchors)
-            {
-                var anchorIndex = normalizedNeighborhoods.FindIndex(x => x == anchor);
-                if (anchorIndex <= lastAnchorIndex)
-                {
-                    return new Dictionary<string, string>(StringComparer.Ordinal);
-                }
-
-                lastAnchorIndex = anchorIndex;
-            }
-
-            var transitions = new Dictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["CASTILLA"] = "Nor Occidental",
-                ["VILLAHERMOSA"] = "Centro Oriental",
-                ["LAURELES"] = "Centro Occidental",
-                ["ELPOBLADO"] = "Sur Oriental",
-                ["GUAYABAL"] = "Sur Occidental"
-            };
-
+            var zones = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(json) ?? [];
             var zoneByNeighborhood = new Dictionary<string, string>(StringComparer.Ordinal);
-            var currentZone = "Nor Oriental";
-            foreach (var neighborhood in normalizedNeighborhoods)
+            foreach (var (zone, neighborhoods) in zones)
             {
-                if (transitions.TryGetValue(neighborhood, out var transitionZone))
+                if (!ZonaDireccionValues.Contains(zone, StringComparer.OrdinalIgnoreCase))
                 {
-                    currentZone = transitionZone;
+                    throw new InvalidDataException($"Zona de Medellín no válida: {zone}.");
                 }
 
-                if (!zoneByNeighborhood.ContainsKey(neighborhood))
+                foreach (var neighborhood in neighborhoods ?? [])
                 {
-                    zoneByNeighborhood[neighborhood] = currentZone;
+                    if (string.IsNullOrWhiteSpace(neighborhood))
+                    {
+                        continue;
+                    }
+
+                    var key = NormalizeKey(neighborhood);
+                    if (zoneByNeighborhood.TryGetValue(key, out var existingZone)
+                        && !string.Equals(existingZone, zone, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidDataException($"El barrio {neighborhood} está parametrizado en más de una zona.");
+                    }
+
+                    zoneByNeighborhood[key] = zone;
                 }
             }
 

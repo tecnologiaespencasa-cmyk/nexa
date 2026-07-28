@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Security.Claims;
+using System.Text;
 using IntranetPrueba.Models.Security;
 using IntranetPrueba.Models.ViewModels;
 using IntranetPrueba.Services.Interfaces;
@@ -11,6 +13,7 @@ namespace IntranetPrueba.Controllers;
 [Authorize(Policy = SystemPermissions.UserAdministration)]
 public class UserAdministrationController : Controller
 {
+    private const int UsersPageSize = 20;
     private const int OpsPageSize = 25;
     private readonly IUserAdministrationService _userAdministrationService;
 
@@ -20,11 +23,20 @@ public class UserAdministrationController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index(string? opsSearch, int opsPage = 1, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Index(
+        string? userSearch,
+        string? userStatus,
+        int userPage = 1,
+        string? opsSearch = null,
+        int opsPage = 1,
+        CancellationToken cancellationToken = default)
     {
         var model = await BuildIndexViewModelAsync(
             nursingAssistantModel: new NursingAssistantCreateViewModel(),
             opsAssistantModel: new OpsAssistantCreateViewModel(),
+            userSearch,
+            userStatus,
+            userPage,
             opsSearch,
             opsPage,
             cancellationToken);
@@ -406,6 +418,28 @@ public class UserAdministrationController : Controller
         return HttpContext.Connection.RemoteIpAddress?.ToString();
     }
 
+    private static string NormalizeUserSearchTerm(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var decomposedValue = value.Trim().Normalize(NormalizationForm.FormD);
+        var normalized = new StringBuilder(decomposedValue.Length);
+
+        foreach (var character in decomposedValue)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark
+                && char.IsLetterOrDigit(character))
+            {
+                normalized.Append(char.ToUpperInvariant(character));
+            }
+        }
+
+        return normalized.ToString();
+    }
+
     private static List<NursingAssistantListItemViewModel> MapNursingAssistants(IEnumerable<NursingAssistantDto> assistants)
     {
         return assistants
@@ -444,6 +478,9 @@ public class UserAdministrationController : Controller
         var model = await BuildIndexViewModelAsync(
             nursingAssistantModel,
             opsAssistantModel,
+            userSearch: null,
+            userStatus: null,
+            userPage: 1,
             opsSearch: null,
             opsPage: 1,
             cancellationToken);
@@ -454,6 +491,9 @@ public class UserAdministrationController : Controller
     private async Task<UserAdministrationIndexViewModel> BuildIndexViewModelAsync(
         NursingAssistantCreateViewModel nursingAssistantModel,
         OpsAssistantCreateViewModel opsAssistantModel,
+        string? userSearch,
+        string? userStatus,
+        int userPage,
         string? opsSearch,
         int opsPage,
         CancellationToken cancellationToken)
@@ -462,6 +502,37 @@ public class UserAdministrationController : Controller
         var nursingAssistants = await _userAdministrationService.GetNursingAssistantsAsync(onlyActive: false, cancellationToken);
         var opsAssistants = await _userAdministrationService.GetOpsAssistantsAsync(onlyActive: false, cancellationToken);
         var mappedOpsAssistants = MapOpsAssistants(opsAssistants);
+
+        var userSearchTerm = userSearch?.Trim() ?? string.Empty;
+        var normalizedUserSearch = NormalizeUserSearchTerm(userSearchTerm);
+        var normalizedUserStatus = userStatus?.Trim() ?? string.Empty;
+        if (normalizedUserStatus is not "Activo" and not "Inactivo")
+        {
+            normalizedUserStatus = string.Empty;
+        }
+
+        var filteredUsers = users
+            .Where(user => string.IsNullOrWhiteSpace(normalizedUserSearch)
+                || NormalizeUserSearchTerm(user.Username).Contains(normalizedUserSearch, StringComparison.Ordinal)
+                || NormalizeUserSearchTerm(user.FullName).Contains(normalizedUserSearch, StringComparison.Ordinal)
+                || NormalizeUserSearchTerm(user.Email).Contains(normalizedUserSearch, StringComparison.Ordinal)
+                || NormalizeUserSearchTerm(user.NationalId).Contains(normalizedUserSearch, StringComparison.Ordinal))
+            .Where(user => normalizedUserStatus switch
+            {
+                "Activo" => user.IsActive,
+                "Inactivo" => !user.IsActive,
+                _ => true
+            })
+            .ToList();
+
+        var userTotalCount = filteredUsers.Count;
+        var userTotalPages = Math.Max(1, (int)Math.Ceiling(userTotalCount / (double)UsersPageSize));
+        var currentUserPage = Math.Clamp(userPage, 1, userTotalPages);
+        var pagedUsers = filteredUsers
+            .Skip((currentUserPage - 1) * UsersPageSize)
+            .Take(UsersPageSize)
+            .Select(MapToViewModel)
+            .ToList();
 
         var normalizedSearch = opsSearch?.Trim() ?? string.Empty;
         if (!string.IsNullOrWhiteSpace(normalizedSearch))
@@ -483,7 +554,13 @@ public class UserAdministrationController : Controller
 
         return new UserAdministrationIndexViewModel
         {
-            Users = users.Select(MapToViewModel).ToList(),
+            Users = pagedUsers,
+            UserSearchTerm = userSearchTerm,
+            UserStatusFilter = normalizedUserStatus,
+            UserCurrentPage = currentUserPage,
+            UserPageSize = UsersPageSize,
+            UserTotalPages = userTotalPages,
+            UserTotalCount = userTotalCount,
             NursingAssistants = MapNursingAssistants(nursingAssistants),
             OpsAssistants = pagedOpsAssistants,
             OpsSearchTerm = normalizedSearch,

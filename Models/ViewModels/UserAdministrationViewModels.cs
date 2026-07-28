@@ -51,6 +51,12 @@ public class OpsAssistantCreateViewModel
 public class UserAdministrationIndexViewModel
 {
     public List<UserListItemViewModel> Users { get; set; } = [];
+    public string UserSearchTerm { get; set; } = string.Empty;
+    public string UserStatusFilter { get; set; } = string.Empty;
+    public int UserCurrentPage { get; set; } = 1;
+    public int UserPageSize { get; set; } = 20;
+    public int UserTotalPages { get; set; }
+    public int UserTotalCount { get; set; }
     public List<NursingAssistantListItemViewModel> NursingAssistants { get; set; } = [];
     public List<OpsAssistantListItemViewModel> OpsAssistants { get; set; } = [];
     public string OpsSearchTerm { get; set; } = string.Empty;

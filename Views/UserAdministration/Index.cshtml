@@ -18,6 +18,35 @@
     <div class="alert alert-danger">@errorMessage</div>
 }
 
+<div class="card mb-3">
+    <div class="card-body">
+        <form asp-action="Index" method="get" class="row g-2 align-items-end">
+            <div class="col-lg-6">
+                <label for="userSearch" class="form-label">Buscar usuarios</label>
+                <input id="userSearch" name="userSearch" value="@Model.UserSearchTerm" class="form-control" placeholder="Nombre, usuario, correo o cédula" />
+            </div>
+            <div class="col-sm-6 col-lg-2">
+                <label for="userStatus" class="form-label">Estado</label>
+                <select id="userStatus" name="userStatus" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="Activo" selected="@(Model.UserStatusFilter == "Activo" ? "selected" : null)">Activo</option>
+                    <option value="Inactivo" selected="@(Model.UserStatusFilter == "Inactivo" ? "selected" : null)">Inactivo</option>
+                </select>
+            </div>
+            <div class="col-sm-6 col-lg-2">
+                <button type="submit" class="btn btn-primary w-100">Buscar</button>
+            </div>
+            <div class="col-sm-6 col-lg-2">
+                <a asp-action="Index" class="btn btn-outline-secondary w-100">Limpiar</a>
+            </div>
+        </form>
+        <div class="d-flex justify-content-between align-items-center mt-3 small text-muted">
+            <span>Resultados: @Model.UserTotalCount</span>
+            <span>Página @Model.UserCurrentPage de @Model.UserTotalPages · 20 por página</span>
+        </div>
+    </div>
+</div>
+
 <div class="table-responsive">
     <table class="table table-striped align-middle">
         <thead>
@@ -69,6 +98,26 @@
         </tbody>
     </table>
 </div>
+
+@if (Model.UserTotalPages > 1)
+{
+    <nav aria-label="Paginación de usuarios" class="mb-4">
+        <ul class="pagination mb-0">
+            <li class="page-item @(Model.UserCurrentPage == 1 ? "disabled" : null)">
+                <a class="page-link" asp-action="Index" asp-route-userSearch="@Model.UserSearchTerm" asp-route-userStatus="@Model.UserStatusFilter" asp-route-userPage="@(Model.UserCurrentPage - 1)">Anterior</a>
+            </li>
+            @for (var pageNumber = 1; pageNumber <= Model.UserTotalPages; pageNumber++)
+            {
+                <li class="page-item @(pageNumber == Model.UserCurrentPage ? "active" : null)">
+                    <a class="page-link" asp-action="Index" asp-route-userSearch="@Model.UserSearchTerm" asp-route-userStatus="@Model.UserStatusFilter" asp-route-userPage="@pageNumber">@pageNumber</a>
+                </li>
+            }
+            <li class="page-item @(Model.UserCurrentPage == Model.UserTotalPages ? "disabled" : null)">
+                <a class="page-link" asp-action="Index" asp-route-userSearch="@Model.UserSearchTerm" asp-route-userStatus="@Model.UserStatusFilter" asp-route-userPage="@(Model.UserCurrentPage + 1)">Siguiente</a>
+            </li>
+        </ul>
+    </nav>
+}
 
 <div class="card mt-4">
     <div class="card-header">

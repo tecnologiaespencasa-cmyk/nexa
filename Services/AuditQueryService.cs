@@ -1,4 +1,5 @@
 using IntranetPrueba.Data.Repositories.Interfaces;
+using IntranetPrueba.Helpers;
 using IntranetPrueba.Services.Interfaces;
 using IntranetPrueba.Services.Models;
 
@@ -17,17 +18,35 @@ public class AuditQueryService : IAuditQueryService
         AuditLogSearchRequest request,
         CancellationToken cancellationToken = default)
     {
-        var fromUtc = request.FromDate?.Date;
-        DateTime? toUtc = null;
-        if (request.ToDate.HasValue)
+        var today = AuditRetentionPolicy.GetLatestAllowedDate(DateTime.UtcNow);
+        var earliestAllowedDate = AuditRetentionPolicy.GetEarliestAllowedDate(DateTime.UtcNow);
+        var fromDate = request.FromDate?.Date;
+        var toDate = request.ToDate?.Date;
+
+        if ((fromDate.HasValue && fromDate.Value < earliestAllowedDate)
+            || (toDate.HasValue && toDate.Value < earliestAllowedDate))
         {
-            toUtc = request.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            return ServiceResult<AuditLogSearchResultDto>.Failure(
+                $"Solo se pueden consultar registros de los últimos {AuditRetentionPolicy.RetentionDays} días.");
         }
 
-        if (fromUtc.HasValue && toUtc.HasValue && fromUtc > toUtc)
+        if ((fromDate.HasValue && fromDate.Value > today)
+            || (toDate.HasValue && toDate.Value > today))
+        {
+            return ServiceResult<AuditLogSearchResultDto>.Failure("No se permiten fechas posteriores a la fecha actual.");
+        }
+
+        if (fromDate.HasValue && toDate.HasValue && fromDate > toDate)
         {
             return ServiceResult<AuditLogSearchResultDto>.Failure("La fecha inicial no puede ser mayor a la fecha final.");
         }
+
+        DateTime? fromUtc = fromDate.HasValue
+            ? ColombiaTime.ConvertToUtc(fromDate.Value)
+            : null;
+        DateTime? toUtc = toDate.HasValue
+            ? ColombiaTime.ConvertToUtc(toDate.Value.AddDays(1))
+            : null;
 
         var actions = await _auditLogRepository.GetDistinctActionsAsync(cancellationToken);
         var logs = await _auditLogRepository.SearchAsync(

@@ -3,6 +3,8 @@
 @{
     ViewData["Title"] = "Auditoria";
     var cultureEs = new CultureInfo("es-CO");
+    var earliestAllowedDate = Model.EarliestAllowedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var latestAllowedDate = Model.LatestAllowedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 }
 
 @functions {
@@ -237,11 +239,11 @@
             <div class="row g-2 align-items-end">
                 <div class="col-sm-6 col-lg-3">
                     <label asp-for="Filter.FromDate" class="form-label small mb-1"></label>
-                    <input asp-for="Filter.FromDate" type="date" class="form-control form-control-sm" />
+                    <input asp-for="Filter.FromDate" type="date" min="@earliestAllowedDate" max="@latestAllowedDate" class="form-control form-control-sm" />
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <label asp-for="Filter.ToDate" class="form-label small mb-1"></label>
-                    <input asp-for="Filter.ToDate" type="date" class="form-control form-control-sm" />
+                    <input asp-for="Filter.ToDate" type="date" min="@earliestAllowedDate" max="@latestAllowedDate" class="form-control form-control-sm" />
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <label asp-for="Filter.Username" class="form-label small mb-1"></label>
@@ -263,6 +265,7 @@
                 <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Limpiar</a>
                 <span class="ms-auto visible-count" id="visibleCount"></span>
             </div>
+            <p class="text-muted small mb-0 mt-2">Solo están disponibles los registros de los últimos 14 días.</p>
         </form>
     </div>
 </div>
@@ -340,6 +343,20 @@ else
 @section Scripts {
 <script>
 (function () {
+    var fromDateInput = document.getElementById('Filter_FromDate');
+    var toDateInput = document.getElementById('Filter_ToDate');
+
+    function syncDateRangeBounds() {
+        if (fromDateInput && toDateInput) {
+            toDateInput.min = fromDateInput.value || '@earliestAllowedDate';
+            fromDateInput.max = toDateInput.value || '@latestAllowedDate';
+        }
+    }
+
+    fromDateInput?.addEventListener('change', syncDateRangeBounds);
+    toDateInput?.addEventListener('change', syncDateRangeBounds);
+    syncDateRangeBounds();
+
     var rows = document.querySelectorAll('#auditLog tbody tr[data-cat]');
     var tabs = document.querySelectorAll('#categoryTabs .category-tab');
     var visibleCount = document.getElementById('visibleCount');

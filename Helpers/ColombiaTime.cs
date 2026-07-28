@@ -16,4 +16,9 @@ public static class ColombiaTime
 
     public static DateTime? Convert(DateTime? utc) =>
         utc.HasValue ? Convert(utc.Value) : null;
+
+    public static DateTime ConvertToUtc(DateTime colombiaDateTime) =>
+        TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(colombiaDateTime, DateTimeKind.Unspecified),
+            Zone);
 }

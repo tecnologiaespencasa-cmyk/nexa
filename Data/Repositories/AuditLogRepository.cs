@@ -43,7 +43,7 @@ public class AuditLogRepository : IAuditLogRepository
 
         if (toUtc.HasValue)
         {
-            query = query.Where(log => log.PerformedAtUtc <= toUtc.Value);
+            query = query.Where(log => log.PerformedAtUtc < toUtc.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(action))
@@ -80,8 +80,9 @@ public class AuditLogRepository : IAuditLogRepository
 
     public async Task<AuditTodayStats> GetTodayStatsAsync(CancellationToken cancellationToken = default)
     {
-        var todayStart = DateTime.UtcNow.Date;
-        var todayEnd = todayStart.AddDays(1);
+        var colombiaToday = Helpers.ColombiaTime.Convert(DateTime.UtcNow).Date;
+        var todayStart = Helpers.ColombiaTime.ConvertToUtc(colombiaToday);
+        var todayEnd = Helpers.ColombiaTime.ConvertToUtc(colombiaToday.AddDays(1));
 
         var logs = await _context.AuditLogs
             .AsNoTracking()

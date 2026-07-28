@@ -44,6 +44,8 @@ public class AuditStatsViewModel
 public class AuditIndexViewModel
 {
     public AuditFilterViewModel Filter { get; set; } = new();
+    public DateTime EarliestAllowedDate { get; set; }
+    public DateTime LatestAllowedDate { get; set; }
     public List<string> AvailableActions { get; set; } = [];
     public List<AuditLogItemViewModel> Logs { get; set; } = [];
     public AuditStatsViewModel Stats { get; set; } = new();

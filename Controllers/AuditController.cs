@@ -11,46 +11,56 @@ namespace IntranetPrueba.Controllers;
 public class AuditController : Controller
 {
     private readonly IAuditQueryService _auditQueryService;
+    private readonly ILogger<AuditController> _logger;
 
-    public AuditController(IAuditQueryService auditQueryService)
+    public AuditController(
+        IAuditQueryService auditQueryService,
+        ILogger<AuditController> logger)
     {
         _auditQueryService = auditQueryService;
+        _logger = logger;
     }
 
     [HttpGet]
     public async Task<IActionResult> Index([FromQuery] AuditFilterViewModel filter, CancellationToken cancellationToken)
     {
-        var stats = await _auditQueryService.GetTodayStatsAsync(cancellationToken);
-
-        var serviceResult = await _auditQueryService.SearchAsync(
-            new AuditLogSearchRequest
-            {
-                FromDate = filter.FromDate,
-                ToDate = filter.ToDate,
-                Username = filter.Username,
-                Action = filter.Action,
-                Take = 500
-            },
-            cancellationToken);
-
-        if (!serviceResult.Succeeded || serviceResult.Value is null)
-        {
-            ModelState.AddModelError(string.Empty, serviceResult.ErrorMessage ?? "No se pudo consultar la bitacora.");
-            return View(new AuditIndexViewModel { Filter = filter });
-        }
-
+        var nowUtc = DateTime.UtcNow;
         var model = new AuditIndexViewModel
         {
             Filter = filter,
-            AvailableActions = serviceResult.Value.AvailableActions.ToList(),
-            Stats = new AuditStatsViewModel
+            EarliestAllowedDate = AuditRetentionPolicy.GetEarliestAllowedDate(nowUtc),
+            LatestAllowedDate = AuditRetentionPolicy.GetLatestAllowedDate(nowUtc)
+        };
+
+        try
+        {
+            var stats = await _auditQueryService.GetTodayStatsAsync(cancellationToken);
+            var serviceResult = await _auditQueryService.SearchAsync(
+                new AuditLogSearchRequest
+                {
+                    FromDate = filter.FromDate,
+                    ToDate = filter.ToDate,
+                    Username = filter.Username,
+                    Action = filter.Action,
+                    Take = 500
+                },
+                cancellationToken);
+
+            if (!serviceResult.Succeeded || serviceResult.Value is null)
+            {
+                ModelState.AddModelError(string.Empty, serviceResult.ErrorMessage ?? "No se pudo consultar la bitácora.");
+                return View(model);
+            }
+
+            model.AvailableActions = serviceResult.Value.AvailableActions.ToList();
+            model.Stats = new AuditStatsViewModel
             {
                 TodayTotal = stats.TotalEvents,
                 TodayUniqueUsers = stats.UniqueUsers,
                 TodayFailedLogins = stats.FailedLogins,
                 TodayOperational = stats.OperationalEvents
-            },
-            Logs = serviceResult.Value.Logs.Select(log => new AuditLogItemViewModel
+            };
+            model.Logs = serviceResult.Value.Logs.Select(log => new AuditLogItemViewModel
             {
                 Id = log.Id,
                 PerformedAtUtc = log.PerformedAtUtc,
@@ -60,8 +70,13 @@ public class AuditController : Controller
                 IpAddress = log.IpAddress,
                 Username = log.Username,
                 FullName = log.FullName
-            }).ToList()
-        };
+            }).ToList();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogError(exception, "No fue posible cargar el centro de auditoría.");
+            ModelState.AddModelError(string.Empty, "No fue posible cargar la auditoría. Intenta nuevamente.");
+        }
 
         return View(model);
     }
