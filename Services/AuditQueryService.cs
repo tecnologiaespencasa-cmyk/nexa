@@ -49,12 +49,30 @@ public class AuditQueryService : IAuditQueryService
             : null;
 
         var actions = await _auditLogRepository.GetDistinctActionsAsync(cancellationToken);
+        var categoryCountsByAction = await _auditLogRepository.GetActionCountsAsync(
+            fromUtc,
+            toUtc,
+            request.Username,
+            request.Action,
+            cancellationToken);
+        var totalCount = await _auditLogRepository.CountAsync(
+            fromUtc,
+            toUtc,
+            request.Username,
+            request.Action,
+            request.Category,
+            cancellationToken);
+        var pageSize = Math.Clamp(request.PageSize, 1, 200);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        var currentPage = Math.Clamp(request.Page, 1, totalPages);
         var logs = await _auditLogRepository.SearchAsync(
             fromUtc: fromUtc,
             toUtc: toUtc,
             username: request.Username,
             action: request.Action,
-            take: request.Take,
+            category: request.Category,
+            skip: (currentPage - 1) * pageSize,
+            take: pageSize,
             cancellationToken: cancellationToken);
 
         var result = new AuditLogSearchResultDto
@@ -70,10 +88,40 @@ public class AuditQueryService : IAuditQueryService
                 IpAddress = log.IpAddress,
                 Username = log.Username,
                 FullName = log.FullName
-            }).ToList()
+            }).ToList(),
+            CategoryCounts = categoryCountsByAction
+                .GroupBy(item => GetCategory(item.Key))
+                .ToDictionary(group => group.Key, group => group.Sum(item => item.Value)),
+            TotalCount = totalCount,
+            CurrentPage = currentPage,
+            PageSize = pageSize,
+            TotalPages = totalPages
         };
 
         return ServiceResult<AuditLogSearchResultDto>.Success(result);
+    }
+
+    private static string GetCategory(string action)
+    {
+        var normalizedAction = action.ToUpperInvariant();
+        if (normalizedAction is "LOGIN_SUCCESS" or "LOGIN_FAILED" or "LOGOUT" or "ACCESS_DENIED")
+        {
+            return "auth";
+        }
+
+        if (normalizedAction.StartsWith("USER_")
+            || normalizedAction.StartsWith("NURSING_")
+            || normalizedAction == "BOOTSTRAP_ADMIN_PASSWORD_RESET")
+        {
+            return "usuarios";
+        }
+
+        if (normalizedAction.StartsWith("CENSO_"))
+        {
+            return "censo";
+        }
+
+        return normalizedAction.StartsWith("FARMACIA_") ? "farmacia" : "otros";
     }
 
     public async Task<AuditTodayStatsDto> GetTodayStatsAsync(CancellationToken cancellationToken = default)

@@ -10,6 +10,7 @@ namespace IntranetPrueba.Controllers;
 [Authorize(Policy = SystemPermissions.AuditRead)]
 public class AuditController : Controller
 {
+    private const int AuditPageSize = 100;
     private readonly IAuditQueryService _auditQueryService;
     private readonly ILogger<AuditController> _logger;
 
@@ -42,7 +43,9 @@ public class AuditController : Controller
                     ToDate = filter.ToDate,
                     Username = filter.Username,
                     Action = filter.Action,
-                    Take = 500
+                    Category = filter.Category,
+                    Page = filter.Page,
+                    PageSize = AuditPageSize
                 },
                 cancellationToken);
 
@@ -53,6 +56,12 @@ public class AuditController : Controller
             }
 
             model.AvailableActions = serviceResult.Value.AvailableActions.ToList();
+            model.CategoryCounts = serviceResult.Value.CategoryCounts;
+            model.TotalCount = serviceResult.Value.TotalCount;
+            model.CurrentPage = serviceResult.Value.CurrentPage;
+            model.PageSize = serviceResult.Value.PageSize;
+            model.TotalPages = serviceResult.Value.TotalPages;
+            model.Filter.Page = serviceResult.Value.CurrentPage;
             model.Stats = new AuditStatsViewModel
             {
                 TodayTotal = stats.TotalEvents,

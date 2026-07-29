@@ -1,10 +1,18 @@
 @model AuditIndexViewModel
 @using System.Globalization
+@using IntranetPrueba.Services.Models
 @{
     ViewData["Title"] = "Auditoria";
     var cultureEs = new CultureInfo("es-CO");
     var earliestAllowedDate = Model.EarliestAllowedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     var latestAllowedDate = Model.LatestAllowedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var selectedCategory = Model.Filter.Category?.Trim().ToLowerInvariant() ?? string.Empty;
+    var firstVisibleRecord = Model.TotalCount == 0 ? 0 : ((Model.CurrentPage - 1) * Model.PageSize) + 1;
+    var lastVisibleRecord = Math.Min(Model.TotalCount, firstVisibleRecord + Model.Logs.Count - 1);
+    var totalAcrossCategories = Model.CategoryCounts.Values.Sum();
+
+    int GetCategoryCount(string category) =>
+        Model.CategoryCounts.TryGetValue(category, out var count) ? count : 0;
 }
 
 @functions {
@@ -217,24 +225,26 @@
     <div class="card-body pb-2 pt-3">
         <!-- Category tabs -->
         <div class="d-flex gap-1 flex-wrap mb-3" id="categoryTabs">
-            <button class="category-tab active" data-cat="">
-                Todos <span class="badge bg-secondary ms-1 rounded-pill" id="cnt-all" style="font-size:.65rem">…</span>
+            <button type="submit" form="auditFilterForm" class="category-tab @(selectedCategory == string.Empty ? "active" : string.Empty)" onclick="document.getElementById('Filter_Category').value=''; document.getElementById('Filter_Page').value='1';">
+                Todos <span class="badge bg-secondary ms-1 rounded-pill" style="font-size:.65rem">@totalAcrossCategories</span>
             </button>
-            <button class="category-tab" data-cat="auth">
-                Seguridad <span class="badge bg-secondary ms-1 rounded-pill" id="cnt-auth" style="font-size:.65rem">…</span>
+            <button type="submit" form="auditFilterForm" class="category-tab @(selectedCategory == "auth" ? "active" : string.Empty)" onclick="document.getElementById('Filter_Category').value='auth'; document.getElementById('Filter_Page').value='1';">
+                Seguridad <span class="badge bg-secondary ms-1 rounded-pill" style="font-size:.65rem">@GetCategoryCount("auth")</span>
             </button>
-            <button class="category-tab" data-cat="usuarios">
-                Usuarios <span class="badge bg-secondary ms-1 rounded-pill" id="cnt-usuarios" style="font-size:.65rem">…</span>
+            <button type="submit" form="auditFilterForm" class="category-tab @(selectedCategory == "usuarios" ? "active" : string.Empty)" onclick="document.getElementById('Filter_Category').value='usuarios'; document.getElementById('Filter_Page').value='1';">
+                Usuarios <span class="badge bg-secondary ms-1 rounded-pill" style="font-size:.65rem">@GetCategoryCount("usuarios")</span>
             </button>
-            <button class="category-tab" data-cat="censo">
-                Censo <span class="badge bg-secondary ms-1 rounded-pill" id="cnt-censo" style="font-size:.65rem">…</span>
+            <button type="submit" form="auditFilterForm" class="category-tab @(selectedCategory == "censo" ? "active" : string.Empty)" onclick="document.getElementById('Filter_Category').value='censo'; document.getElementById('Filter_Page').value='1';">
+                Censo <span class="badge bg-secondary ms-1 rounded-pill" style="font-size:.65rem">@GetCategoryCount("censo")</span>
             </button>
-            <button class="category-tab" data-cat="farmacia">
-                Farmacia <span class="badge bg-secondary ms-1 rounded-pill" id="cnt-farmacia" style="font-size:.65rem">…</span>
+            <button type="submit" form="auditFilterForm" class="category-tab @(selectedCategory == "farmacia" ? "active" : string.Empty)" onclick="document.getElementById('Filter_Category').value='farmacia'; document.getElementById('Filter_Page').value='1';">
+                Farmacia <span class="badge bg-secondary ms-1 rounded-pill" style="font-size:.65rem">@GetCategoryCount("farmacia")</span>
             </button>
         </div>
 
-        <form method="get">
+        <form method="get" id="auditFilterForm">
+            <input asp-for="Filter.Category" type="hidden" />
+            <input asp-for="Filter.Page" type="hidden" />
             <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
             <div class="row g-2 align-items-end">
                 <div class="col-sm-6 col-lg-3">
@@ -246,8 +256,8 @@
                     <input asp-for="Filter.ToDate" type="date" min="@earliestAllowedDate" max="@latestAllowedDate" class="form-control form-control-sm" />
                 </div>
                 <div class="col-sm-6 col-lg-3">
-                    <label asp-for="Filter.Username" class="form-label small mb-1"></label>
-                    <input asp-for="Filter.Username" class="form-control form-control-sm" placeholder="Usuario" />
+                    <label asp-for="Filter.Username" class="form-label small mb-1">Usuario o nombre</label>
+                    <input asp-for="Filter.Username" class="form-control form-control-sm" placeholder="Usuario o nombre completo" />
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <label asp-for="Filter.Action" class="form-label small mb-1"></label>
@@ -261,11 +271,11 @@
                 </div>
             </div>
             <div class="mt-2 d-flex gap-2 align-items-center">
-                <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+                <button type="submit" class="btn btn-primary btn-sm" onclick="document.getElementById('Filter_Page').value='1';">Filtrar</button>
                 <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Limpiar</a>
-                <span class="ms-auto visible-count" id="visibleCount"></span>
+                <span class="ms-auto visible-count">Mostrando @firstVisibleRecord–@lastVisibleRecord de @Model.TotalCount registros</span>
             </div>
-            <p class="text-muted small mb-0 mt-2">Solo están disponibles los registros de los últimos 14 días.</p>
+            <p class="text-muted small mb-0 mt-2">Solo están disponibles los registros de los últimos @AuditRetentionPolicy.RetentionDays días.</p>
         </form>
     </div>
 </div>
@@ -340,6 +350,35 @@ else
     </div>
 }
 
+@if (Model.TotalPages > 1)
+{
+    <form method="get" class="d-flex justify-content-center align-items-center gap-3 mt-4">
+        <input type="hidden" name="Filter.FromDate" value="@(Model.Filter.FromDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))" />
+        <input type="hidden" name="Filter.ToDate" value="@(Model.Filter.ToDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))" />
+        <input type="hidden" name="Filter.Username" value="@Model.Filter.Username" />
+        <input type="hidden" name="Filter.Action" value="@Model.Filter.Action" />
+        <input type="hidden" name="Filter.Category" value="@Model.Filter.Category" />
+
+        @if (Model.CurrentPage == 1)
+        {
+            <button type="button" class="btn btn-outline-secondary btn-sm" disabled>Anterior</button>
+        }
+        else
+        {
+            <button type="submit" name="Filter.Page" value="@(Model.CurrentPage - 1)" class="btn btn-outline-secondary btn-sm">Anterior</button>
+        }
+        <span class="text-muted small">Página @Model.CurrentPage de @Model.TotalPages</span>
+        @if (Model.CurrentPage == Model.TotalPages)
+        {
+            <button type="button" class="btn btn-outline-secondary btn-sm" disabled>Siguiente</button>
+        }
+        else
+        {
+            <button type="submit" name="Filter.Page" value="@(Model.CurrentPage + 1)" class="btn btn-outline-secondary btn-sm">Siguiente</button>
+        }
+    </form>
+}
+
 @section Scripts {
 <script>
 (function () {
@@ -356,89 +395,6 @@ else
     fromDateInput?.addEventListener('change', syncDateRangeBounds);
     toDateInput?.addEventListener('change', syncDateRangeBounds);
     syncDateRangeBounds();
-
-    var rows = document.querySelectorAll('#auditLog tbody tr[data-cat]');
-    var tabs = document.querySelectorAll('#categoryTabs .category-tab');
-    var visibleCount = document.getElementById('visibleCount');
-
-    // Count per category
-    var counts = { '': 0, auth: 0, usuarios: 0, censo: 0, farmacia: 0, otros: 0 };
-    rows.forEach(function (r) {
-        var cat = r.dataset.cat || 'otros';
-        counts['']++;
-        if (counts[cat] !== undefined) counts[cat]++;
-        else counts['otros']++;
-    });
-
-    document.getElementById('cnt-all').textContent     = counts[''];
-    document.getElementById('cnt-auth').textContent    = counts.auth;
-    document.getElementById('cnt-usuarios').textContent= counts.usuarios;
-    document.getElementById('cnt-censo').textContent   = counts.censo;
-    document.getElementById('cnt-farmacia').textContent= counts.farmacia;
-
-    function updateVisibleCount() {
-        var visible = document.querySelectorAll('#auditLog tbody tr[data-cat]:not(.hidden-row)').length;
-        visibleCount.textContent = 'Mostrando ' + visible + ' de ' + counts[''] + ' registros';
-    }
-
-    function applyCategory(cat) {
-        // Show/hide rows
-        rows.forEach(function (r) {
-            if (!cat || r.dataset.cat === cat) {
-                r.classList.remove('hidden-row');
-            } else {
-                r.classList.add('hidden-row');
-            }
-        });
-
-        // Show/hide date dividers and cards together
-        var dateGroups = document.querySelectorAll('[data-date]');
-        dateGroups.forEach(function (divider) {
-            var date = divider.dataset.date;
-            var card = divider.nextElementSibling;
-            var visibleInGroup = document.querySelectorAll(
-                '#auditLog tbody tr[data-cat]:not(.hidden-row)'
-            );
-            // Check if any visible row in this date group exists
-            var hasVisible = Array.from(visibleInGroup).some(function (r) {
-                return r.closest('table').closest('.card').previousElementSibling === divider;
-            });
-            divider.style.display = hasVisible || !cat ? '' : 'none';
-            if (card) card.style.display = hasVisible || !cat ? '' : 'none';
-        });
-
-        updateVisibleCount();
-    }
-
-    // Re-implement date group visibility more reliably
-    function applyFilter(cat) {
-        rows.forEach(function (r) {
-            r.classList.toggle('hidden-row', cat !== '' && r.dataset.cat !== cat);
-        });
-
-        // Hide date-divider + card if all rows in that card are hidden
-        var cards = document.querySelectorAll('#auditLog .card');
-        var dividers = document.querySelectorAll('#auditLog .audit-date-divider');
-        cards.forEach(function (card, i) {
-            var anyVisible = Array.from(card.querySelectorAll('tbody tr')).some(function (r) {
-                return !r.classList.contains('hidden-row');
-            });
-            card.style.display = anyVisible ? '' : 'none';
-            if (dividers[i]) dividers[i].style.display = anyVisible ? '' : 'none';
-        });
-
-        updateVisibleCount();
-    }
-
-    tabs.forEach(function (tab) {
-        tab.addEventListener('click', function () {
-            tabs.forEach(function (t) { t.classList.remove('active'); });
-            tab.classList.add('active');
-            applyFilter(tab.dataset.cat || '');
-        });
-    });
-
-    applyFilter('');
 })();
 </script>
 }

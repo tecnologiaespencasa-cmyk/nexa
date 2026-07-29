@@ -31,6 +31,10 @@ public class AuditFilterViewModel
     [Display(Name = "Acción")]
     [StringLength(100)]
     public string? Action { get; set; }
+
+    public string? Category { get; set; }
+
+    public int Page { get; set; } = 1;
 }
 
 public class AuditStatsViewModel
@@ -49,4 +53,9 @@ public class AuditIndexViewModel
     public List<string> AvailableActions { get; set; } = [];
     public List<AuditLogItemViewModel> Logs { get; set; } = [];
     public AuditStatsViewModel Stats { get; set; } = new();
+    public IReadOnlyDictionary<string, int> CategoryCounts { get; set; } = new Dictionary<string, int>();
+    public int TotalCount { get; set; }
+    public int CurrentPage { get; set; } = 1;
+    public int PageSize { get; set; } = 100;
+    public int TotalPages { get; set; } = 1;
 }

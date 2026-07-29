@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using IntranetPrueba.Helpers;
+using IntranetPrueba.Models.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
@@ -19,10 +21,11 @@ public partial class CensoController
         }
 
         var extension = Path.GetExtension(file.FileName);
-        if (!string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(file.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase))
+        var isPdf = string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase);
+        var isExcel = string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase);
+        if (!isPdf && !isExcel)
         {
-            return BadRequest(new { message = "Solo se permiten archivos PDF." });
+            return BadRequest(new { message = "Solo se permiten archivos PDF o Excel (.xlsx)." });
         }
 
         const long maxBytes = 10L * 1024 * 1024;
@@ -41,17 +44,29 @@ public partial class CensoController
         string documentText;
         try
         {
-            documentText = ExtractPdfText(bytes);
+            documentText = isPdf
+                ? ExtractPdfText(bytes)
+                : RemisionExcelTextExtractor.ExtractFormatoRemisionText(bytes);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "No fue posible leer el PDF de remisión {FileName}.", file.FileName);
-            return BadRequest(new { message = "No fue posible leer el PDF. Verifica que el archivo no esté dañado o protegido." });
+            _logger.LogError(ex, "No fue posible leer el archivo de remisión {FileName}.", file.FileName);
+            return BadRequest(new
+            {
+                message = isPdf
+                    ? "No fue posible leer el PDF. Verifica que el archivo no esté dañado o protegido."
+                    : "No fue posible leer el Excel. Verifica que sea un archivo .xlsx válido e incluya la hoja 'Formato Remisión'."
+            });
         }
 
         if (string.IsNullOrWhiteSpace(documentText))
         {
-            return BadRequest(new { message = "El PDF no contiene texto extraíble. Puede tratarse de un documento escaneado como imagen." });
+            return BadRequest(new
+            {
+                message = isPdf
+                    ? "El PDF no contiene texto extraíble. Puede tratarse de un documento escaneado como imagen."
+                    : "La hoja 'Formato Remisión' no contiene información para analizar."
+            });
         }
 
         var result = await _remisionExtractionService.ExtractRemisionDataAsync(documentText, cancellationToken);
@@ -64,8 +79,41 @@ public partial class CensoController
             ? (Guid?)extraccionUid
             : null;
         await _auditService.LogAsync("CENSO_EXTRACCION_REMISION", "Censo",
-            $"Archivo: {file.FileName}",
+            $"Archivo {(!isPdf ? "Excel" : "PDF")}: {file.FileName}",
             extraccionAuditUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        using var document = JsonDocument.Parse(result.Json);
+        return Json(new { success = true, data = document.RootElement.Clone() });
+    }
+
+    [HttpPost]
+    [RequestSizeLimit(1024 * 1024)]
+    public async Task<IActionResult> ExtraerDatosRemisionTexto(
+        [FromBody] RemisionTextExtractionRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var documentText = request?.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(documentText))
+        {
+            return BadRequest(new { message = "Pega el contenido del correo o la remisión antes de procesarlo." });
+        }
+
+        if (documentText.Length > 50000)
+        {
+            return BadRequest(new { message = "El texto pegado es demasiado largo. Usa máximo 50.000 caracteres." });
+        }
+
+        var result = await _remisionExtractionService.ExtractRemisionDataAsync(documentText, cancellationToken);
+        if (!result.Succeeded || string.IsNullOrWhiteSpace(result.Json))
+        {
+            return BadRequest(new { message = result.ErrorMessage ?? "No fue posible extraer los datos del texto." });
+        }
+
+        var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)
+            ? (Guid?)userId
+            : null;
+        await _auditService.LogAsync("CENSO_EXTRACCION_REMISION", "Censo", "Texto pegado", auditUserId,
+            HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
 
         using var document = JsonDocument.Parse(result.Json);
         return Json(new { success = true, data = document.RootElement.Clone() });

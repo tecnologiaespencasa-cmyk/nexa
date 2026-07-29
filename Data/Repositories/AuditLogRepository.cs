@@ -1,4 +1,5 @@
 using IntranetPrueba.Data.Repositories.Interfaces;
+using IntranetPrueba.Data.Entities;
 using IntranetPrueba.Data.Repositories.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,13 +29,62 @@ public class AuditLogRepository : IAuditLogRepository
         DateTime? toUtc,
         string? username,
         string? action,
+        string? category,
+        int skip,
         int take,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.AuditLogs
-            .AsNoTracking()
-            .Include(log => log.PerformedByUser)
-            .AsQueryable();
+        return await CreateFilteredQuery(fromUtc, toUtc, username, action, category)
+            .OrderByDescending(log => log.PerformedAtUtc)
+            .Skip(Math.Max(skip, 0))
+            .Take(Math.Clamp(take, 1, 1000))
+            .Select(log => new AuditLogRow
+            {
+                Id = log.Id,
+                PerformedAtUtc = log.PerformedAtUtc,
+                Action = log.Action,
+                Entity = log.Entity,
+                Details = log.Details,
+                IpAddress = log.IpAddress,
+                PerformedByUserId = log.PerformedByUserId,
+                Username = log.PerformedByUser != null ? log.PerformedByUser.Username : null,
+                FullName = log.PerformedByUser != null ? log.PerformedByUser.FullName : null
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task<int> CountAsync(
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        string? username,
+        string? action,
+        string? category,
+        CancellationToken cancellationToken = default) =>
+        CreateFilteredQuery(fromUtc, toUtc, username, action, category).CountAsync(cancellationToken);
+
+    public async Task<IReadOnlyDictionary<string, int>> GetActionCountsAsync(
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        string? username,
+        string? action,
+        CancellationToken cancellationToken = default)
+    {
+        var counts = await CreateFilteredQuery(fromUtc, toUtc, username, action, category: null)
+            .GroupBy(log => log.Action)
+            .Select(group => new { Action = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(item => item.Action, item => item.Count, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private IQueryable<AuditLog> CreateFilteredQuery(
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        string? username,
+        string? action,
+        string? category)
+    {
+        var query = _context.AuditLogs.AsNoTracking().AsQueryable();
 
         if (fromUtc.HasValue)
         {
@@ -54,28 +104,41 @@ public class AuditLogRepository : IAuditLogRepository
 
         if (!string.IsNullOrWhiteSpace(username))
         {
-            var usernameFilter = username.Trim().ToUpperInvariant();
+            var userFilter = username.Trim().ToUpperInvariant();
             query = query.Where(log =>
                 log.PerformedByUser != null
-                && log.PerformedByUser.Username.ToUpper().Contains(usernameFilter));
+                && (log.PerformedByUser.Username.ToUpper().Contains(userFilter)
+                    || log.PerformedByUser.FullName.ToUpper().Contains(userFilter)));
         }
 
-        return await query
-            .OrderByDescending(log => log.PerformedAtUtc)
-            .Take(Math.Clamp(take, 1, 1000))
-            .Select(log => new AuditLogRow
-            {
-                Id = log.Id,
-                PerformedAtUtc = log.PerformedAtUtc,
-                Action = log.Action,
-                Entity = log.Entity,
-                Details = log.Details,
-                IpAddress = log.IpAddress,
-                PerformedByUserId = log.PerformedByUserId,
-                Username = log.PerformedByUser != null ? log.PerformedByUser.Username : null,
-                FullName = log.PerformedByUser != null ? log.PerformedByUser.FullName : null
-            })
-            .ToListAsync(cancellationToken);
+        return ApplyCategory(query, category);
+    }
+
+    private static IQueryable<AuditLog> ApplyCategory(IQueryable<AuditLog> query, string? category)
+    {
+        return category?.Trim().ToLowerInvariant() switch
+        {
+            "auth" => query.Where(log => log.Action.ToUpper() == "LOGIN_SUCCESS"
+                || log.Action.ToUpper() == "LOGIN_FAILED"
+                || log.Action.ToUpper() == "LOGOUT"
+                || log.Action.ToUpper() == "ACCESS_DENIED"),
+            "usuarios" => query.Where(log => log.Action.ToUpper().StartsWith("USER_")
+                || log.Action.ToUpper().StartsWith("NURSING_")
+                || log.Action.ToUpper() == "BOOTSTRAP_ADMIN_PASSWORD_RESET"),
+            "censo" => query.Where(log => log.Action.ToUpper().StartsWith("CENSO_")),
+            "farmacia" => query.Where(log => log.Action.ToUpper().StartsWith("FARMACIA_")),
+            "otros" => query.Where(log =>
+                log.Action.ToUpper() != "LOGIN_SUCCESS"
+                && log.Action.ToUpper() != "LOGIN_FAILED"
+                && log.Action.ToUpper() != "LOGOUT"
+                && log.Action.ToUpper() != "ACCESS_DENIED"
+                && !log.Action.ToUpper().StartsWith("USER_")
+                && !log.Action.ToUpper().StartsWith("NURSING_")
+                && log.Action.ToUpper() != "BOOTSTRAP_ADMIN_PASSWORD_RESET"
+                && !log.Action.ToUpper().StartsWith("CENSO_")
+                && !log.Action.ToUpper().StartsWith("FARMACIA_")),
+            _ => query
+        };
     }
 
     public async Task<AuditTodayStats> GetTodayStatsAsync(CancellationToken cancellationToken = default)

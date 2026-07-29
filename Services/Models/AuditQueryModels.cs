@@ -6,7 +6,9 @@ public class AuditLogSearchRequest
     public DateTime? ToDate { get; set; }
     public string? Username { get; set; }
     public string? Action { get; set; }
-    public int Take { get; set; } = 300;
+    public string? Category { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 100;
 }
 
 public class AuditLogListItemDto
@@ -25,6 +27,11 @@ public class AuditLogSearchResultDto
 {
     public IReadOnlyList<string> AvailableActions { get; set; } = [];
     public IReadOnlyList<AuditLogListItemDto> Logs { get; set; } = [];
+    public IReadOnlyDictionary<string, int> CategoryCounts { get; set; } = new Dictionary<string, int>();
+    public int TotalCount { get; set; }
+    public int CurrentPage { get; set; }
+    public int PageSize { get; set; }
+    public int TotalPages { get; set; }
 }
 
 public class AuditTodayStatsDto

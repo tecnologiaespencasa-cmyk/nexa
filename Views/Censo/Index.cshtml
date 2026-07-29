@@ -2801,7 +2801,7 @@
                     </span>
                     <div>
                         <h5 class="modal-title" id="censoExtractorModalTitle">Extractor inteligente de remisi&oacute;n</h5>
-                        <p class="mb-0">Adjunta el PDF de la remisi&oacute;n, revisa los datos capturados y c&oacute;pialos al censo.</p>
+                        <p class="mb-0">Carga un PDF o Excel, o pega un correo de remisi&oacute;n; revisa los datos y c&oacute;pialos al censo.</p>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -2862,7 +2862,7 @@
                                             <path d="M17 8l-5-5-5 5"></path>
                                             <path d="M12 3v12"></path>
                                         </svg>
-                                        <span>Cargar otro PDF</span>
+                                        <span>Procesar otra remisi&oacute;n</span>
                                     </button>
                                 </div>
                                 <div class="censo-extractor-result__body">
@@ -2884,28 +2884,47 @@
                         </div>
                     </div>
                     <div class="censo-extractor-pane censo-extractor-pane--right">
-                        <div id="extractorDropzone" class="censo-extractor-dropzone" role="button" tabindex="0" aria-label="Arrastra o selecciona el PDF de remisi&oacute;n">
-                            <div class="censo-extractor-dropzone__icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <path d="M17 8l-5-5-5 5"></path>
-                                    <path d="M12 3v12"></path>
-                                </svg>
-                            </div>
-                            <h6 class="mt-4 mb-1">Arrastra el PDF aqu&iacute;</h6>
-                            <div class="censo-extractor-dropzone__divider"><span>o</span></div>
-                            <button type="button" class="btn censo-extractor-gradient-btn" id="extractorBuscarBtn">
-                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <circle cx="11" cy="11" r="7"></circle>
-                                    <path d="m20 20-3.5-3.5"></path>
-                                </svg>
-                                <span>Buscar archivo</span>
+                        <div class="censo-extractor-source-tabs" role="tablist" aria-label="Origen de la remisión">
+                            <button type="button" class="censo-extractor-source-tab is-active" data-extractor-source="file" role="tab" aria-selected="true">
+                                Cargar archivo
                             </button>
-                            <div class="censo-extractor-dropzone__meta">
-                                <span class="censo-extractor-pill">PDF</span>
-                                <span>M&aacute;ximo 10 MB</span>
+                            <button type="button" class="censo-extractor-source-tab" data-extractor-source="text" role="tab" aria-selected="false">
+                                Pegar texto de correo
+                            </button>
+                        </div>
+                        <div id="extractorFileSourcePanel">
+                            <div id="extractorDropzone" class="censo-extractor-dropzone" role="button" tabindex="0" aria-label="Arrastra o selecciona el archivo de remisión">
+                                <div class="censo-extractor-dropzone__icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <path d="M17 8l-5-5-5 5"></path>
+                                        <path d="M12 3v12"></path>
+                                    </svg>
+                                </div>
+                                <h6 class="mt-4 mb-1">Arrastra el archivo aqu&iacute;</h6>
+                                <div class="censo-extractor-dropzone__divider"><span>o</span></div>
+                                <button type="button" class="btn censo-extractor-gradient-btn" id="extractorBuscarBtn">
+                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="11" cy="11" r="7"></circle>
+                                        <path d="m20 20-3.5-3.5"></path>
+                                    </svg>
+                                    <span>Buscar archivo</span>
+                                </button>
+                                <div class="censo-extractor-dropzone__meta">
+                                    <span class="censo-extractor-pill">PDF o XLSX</span>
+                                    <span>M&aacute;ximo 10 MB</span>
+                                </div>
+                                <input type="file" id="extractorFileInput" accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx" class="d-none" />
                             </div>
-                            <input type="file" id="extractorFileInput" accept="application/pdf,.pdf" class="d-none" />
+                        </div>
+                        <div id="extractorTextSourcePanel" class="censo-extractor-text-source d-none">
+                            <label for="extractorTextInput" class="form-label">Contenido de la remisi&oacute;n recibida por correo</label>
+                            <p class="text-muted small mb-3">Pega aquí el correo completo o el texto de la remisión. La información será organizada para el censo.</p>
+                            <textarea id="extractorTextInput" class="form-control" rows="14" maxlength="50000" placeholder="Pega aquí el texto del correo…"></textarea>
+                            <div class="d-flex justify-content-between align-items-center gap-3 mt-3">
+                                <span class="small text-muted" id="extractorTextCounter">0 / 50.000 caracteres</span>
+                                <button type="button" class="btn censo-extractor-gradient-btn" id="extractorProcesarTextoBtn">Procesar texto</button>
+                            </div>
                         </div>
                         <div id="extractorDocViewer" class="censo-extractor-docviewer d-none">
                             <div class="censo-extractor-docviewer__label">
@@ -2915,8 +2934,12 @@
                                         <path d="M14 2v6h6"></path>
                                     </svg>
                                 </span>
-                                <span>Vista del documento</span>
+                                <span id="extractorDocViewerTitle">Vista del documento</span>
                                 <span class="censo-extractor-docviewer__name" id="extractorDocName"></span>
+                            </div>
+                            <div id="extractorFilePreviewMessage" class="censo-extractor-file-preview d-none">
+                                <strong>Archivo Excel cargado</strong>
+                                <span>Se analizará la hoja <em>Formato Remisión</em>.</span>
                             </div>
                             <iframe id="extractorPdfFrame" class="censo-extractor-pdf" title="Vista previa del PDF de remisi&oacute;n"></iframe>
                         </div>
@@ -8246,6 +8269,7 @@
         (() => {
             // ── Extractor de datos de remisión (IA) ──
             const extraerDatosRemisionUrl = "@Url.Action("ExtraerDatosRemision", "Censo")";
+            const extraerDatosRemisionTextoUrl = "@Url.Action("ExtraerDatosRemisionTexto", "Censo")";
             const abrirBtn = document.getElementById("abrirExtractorRemisionBtn");
             const modalEl = document.getElementById("censoExtractorModal");
             if (!abrirBtn || !modalEl) {
@@ -8262,9 +8286,17 @@
             const medsContainer = document.getElementById("extractorMeds");
             const dropzone = document.getElementById("extractorDropzone");
             const fileInput = document.getElementById("extractorFileInput");
+            const fileSourcePanel = document.getElementById("extractorFileSourcePanel");
+            const textSourcePanel = document.getElementById("extractorTextSourcePanel");
+            const sourceTabs = document.querySelectorAll("[data-extractor-source]");
+            const textInput = document.getElementById("extractorTextInput");
+            const textCounter = document.getElementById("extractorTextCounter");
+            const procesarTextoBtn = document.getElementById("extractorProcesarTextoBtn");
             const pdfFrame = document.getElementById("extractorPdfFrame");
             const docViewer = document.getElementById("extractorDocViewer");
             const docName = document.getElementById("extractorDocName");
+            const docViewerTitle = document.getElementById("extractorDocViewerTitle");
+            const filePreviewMessage = document.getElementById("extractorFilePreviewMessage");
             const loadingStepsList = document.getElementById("extractorLoadingStepsList");
             const errorBox = document.getElementById("extractorError");
             const whatsappBtn = document.getElementById("extractorWhatsappBtn");
@@ -8316,8 +8348,8 @@
             ];
 
             const loadingSteps = [
-                "Leyendo el documento…",
-                "Extrayendo el texto del PDF…",
+                "Leyendo la información…",
+                "Preparando el contenido…",
                 "Analizando con inteligencia artificial…",
                 "Estructurando los datos capturados…"
             ];
@@ -8392,6 +8424,23 @@
                 }
             };
 
+            const updateTextCounter = () => {
+                if (textCounter && textInput) {
+                    textCounter.textContent = `${textInput.value.length.toLocaleString("es-CO")} / 50.000 caracteres`;
+                }
+            };
+
+            const showSource = (source) => {
+                const isText = source === "text";
+                if (fileSourcePanel) fileSourcePanel.classList.toggle("d-none", isText);
+                if (textSourcePanel) textSourcePanel.classList.toggle("d-none", !isText);
+                sourceTabs.forEach((tab) => {
+                    const active = tab.dataset.extractorSource === source;
+                    tab.classList.toggle("is-active", active);
+                    tab.setAttribute("aria-selected", active ? "true" : "false");
+                });
+            };
+
             const resetExtractor = () => {
                 stopLoadingAnimation();
                 clearError();
@@ -8403,10 +8452,16 @@
                 if (whatsappBtn) whatsappBtn.classList.add("d-none");
                 if (copiarCensoBtn) copiarCensoBtn.classList.add("d-none");
                 if (pdfFrame) pdfFrame.removeAttribute("src");
+                if (pdfFrame) pdfFrame.classList.remove("d-none");
+                if (filePreviewMessage) filePreviewMessage.classList.add("d-none");
                 if (docViewer) docViewer.classList.add("d-none");
                 if (docName) docName.textContent = "";
+                if (docViewerTitle) docViewerTitle.textContent = "Vista del documento";
                 if (dropzone) dropzone.classList.remove("d-none");
                 if (fileInput) fileInput.value = "";
+                if (textInput) textInput.value = "";
+                updateTextCounter();
+                showSource("file");
                 if (currentObjectUrl) {
                     URL.revokeObjectURL(currentObjectUrl);
                     currentObjectUrl = null;
@@ -8657,13 +8712,21 @@
                 if (copiarCensoBtn) copiarCensoBtn.classList.remove("d-none");
             };
 
+            const restoreFileSource = () => {
+                if (docViewer) docViewer.classList.add("d-none");
+                if (fileSourcePanel) fileSourcePanel.classList.remove("d-none");
+                if (dropzone) dropzone.classList.remove("d-none");
+            };
+
             const extractFromFile = async (file) => {
                 if (isExtracting) return;
                 clearError();
 
                 const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
-                if (!isPdf) {
-                    showError("Solo se permiten archivos PDF.");
+                const isExcel = /\.xlsx$/i.test(file.name)
+                    || file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                if (!isPdf && !isExcel) {
+                    showError("Solo se permiten archivos PDF o Excel (.xlsx).");
                     return;
                 }
                 if (file.size > 10 * 1024 * 1024) {
@@ -8673,12 +8736,27 @@
 
                 if (currentObjectUrl) {
                     URL.revokeObjectURL(currentObjectUrl);
+                    currentObjectUrl = null;
                 }
-                currentObjectUrl = URL.createObjectURL(file);
-                if (pdfFrame) pdfFrame.src = currentObjectUrl;
+                if (isPdf) {
+                    currentObjectUrl = URL.createObjectURL(file);
+                    if (pdfFrame) {
+                        pdfFrame.src = currentObjectUrl;
+                        pdfFrame.classList.remove("d-none");
+                    }
+                    if (filePreviewMessage) filePreviewMessage.classList.add("d-none");
+                    if (docViewerTitle) docViewerTitle.textContent = "Vista del documento";
+                } else {
+                    if (pdfFrame) {
+                        pdfFrame.removeAttribute("src");
+                        pdfFrame.classList.add("d-none");
+                    }
+                    if (filePreviewMessage) filePreviewMessage.classList.remove("d-none");
+                    if (docViewerTitle) docViewerTitle.textContent = "Archivo a analizar";
+                }
                 if (docViewer) docViewer.classList.remove("d-none");
                 if (docName) docName.textContent = file.name;
-                if (dropzone) dropzone.classList.add("d-none");
+                if (fileSourcePanel) fileSourcePanel.classList.add("d-none");
                 if (whatsappBtn) whatsappBtn.classList.add("d-none");
                 if (copiarCensoBtn) copiarCensoBtn.classList.add("d-none");
 
@@ -8704,6 +8782,63 @@
 
                     if (!response.ok || !result || !result.success) {
                         showError(result?.message ?? "No fue posible extraer los datos del documento. Intenta nuevamente.");
+                        setLeftPanel(idlePanel);
+                        restoreFileSource();
+                        return;
+                    }
+
+                    showResults(result.data ?? {});
+                } catch {
+                    showError("Error de conexión al extraer los datos. Intenta nuevamente.");
+                    setLeftPanel(idlePanel);
+                    restoreFileSource();
+                } finally {
+                    stopLoadingAnimation();
+                    isExtracting = false;
+                }
+            };
+
+            const extractFromText = async () => {
+                if (isExtracting) return;
+                const text = textInput?.value.trim() ?? "";
+                clearError();
+
+                if (!text) {
+                    showError("Pega el contenido del correo o la remisión antes de procesarlo.");
+                    textInput?.focus();
+                    return;
+                }
+
+                if (text.length > 50000) {
+                    showError("El texto pegado es demasiado largo. Usa máximo 50.000 caracteres.");
+                    return;
+                }
+
+                if (whatsappBtn) whatsappBtn.classList.add("d-none");
+                if (copiarCensoBtn) copiarCensoBtn.classList.add("d-none");
+                isExtracting = true;
+                setLeftPanel(loadingPanel);
+                startLoadingAnimation();
+
+                try {
+                    const response = await fetch(extraerDatosRemisionTextoUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            ...(csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {})
+                        },
+                        body: JSON.stringify({ text })
+                    });
+
+                    let result = null;
+                    try {
+                        result = await response.json();
+                    } catch {
+                        result = null;
+                    }
+
+                    if (!response.ok || !result || !result.success) {
+                        showError(result?.message ?? "No fue posible extraer los datos del texto. Intenta nuevamente.");
                         setLeftPanel(idlePanel);
                         return;
                     }
@@ -8944,6 +9079,30 @@
             abrirBtn.addEventListener("click", () => {
                 getModal()?.show();
             });
+
+            sourceTabs.forEach((tab) => {
+                tab.addEventListener("click", () => {
+                    if (isExtracting) return;
+                    resetExtractor();
+                    showSource(tab.dataset.extractorSource ?? "file");
+                    if (tab.dataset.extractorSource === "text") textInput?.focus();
+                });
+            });
+
+            if (textInput) {
+                textInput.addEventListener("input", updateTextCounter);
+                textInput.addEventListener("keydown", (event) => {
+                    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                        event.preventDefault();
+                        extractFromText();
+                    }
+                });
+                updateTextCounter();
+            }
+
+            if (procesarTextoBtn) {
+                procesarTextoBtn.addEventListener("click", extractFromText);
+            }
 
             if (dropzone && fileInput) {
                 dropzone.addEventListener("click", () => fileInput.click());

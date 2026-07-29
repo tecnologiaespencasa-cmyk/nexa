@@ -163,7 +163,31 @@
                         <span class="censo-nav__content">
                             <span class="censo-nav__eyebrow">Sección 4</span>
                             <span class="censo-nav__title">Hospitalización y seguimiento</span>
-                            <span class="censo-nav__description">Hospitalización, seguimientos y egreso del programa.</span>
+                            <span class="censo-nav__description">Hospitalización y seguimientos del paciente.</span>
+                        </span>
+                    </button>
+
+                    <button class="list-group-item list-group-item-action censo-nav__item"
+                            id="tab-gestion-alta-link"
+                            data-bs-toggle="list"
+                            data-bs-target="#tab-gestion-alta"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-gestion-alta"
+                            aria-selected="false">
+                        <span class="censo-nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                <path d="M8 3v4"></path>
+                                <path d="M16 3v4"></path>
+                                <path d="M4 10h16"></path>
+                                <path d="m9 15 2 2 4-5"></path>
+                            </svg>
+                        </span>
+                        <span class="censo-nav__content">
+                            <span class="censo-nav__eyebrow">Sección 5</span>
+                            <span class="censo-nav__title">Gestión del alta</span>
+                            <span class="censo-nav__description">Egreso del programa crónico.</span>
                         </span>
                     </button>
                 </div>
@@ -1229,7 +1253,29 @@
                                         <span class="censo-prorroga-actions__status ms-3 text-muted small" id="hospGuardadoStatus"></span>
                                     </div>
                                 </section>
+                            }
+                        </div>
+                    </div>
+                </div>
 
+                @* ---------- Sección 5: Gestión del alta ---------- *@
+                <div class="tab-pane fade" id="tab-gestion-alta" role="tabpanel" aria-labelledby="tab-gestion-alta-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Programa Cronicos</span>
+                                <h2 class="h5 mb-0">Gestión del alta</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el egreso del programa.
+                                </div>
+                            }
+                            else
+                            {
                                 <section class="censo-field-section">
                                     <div class="censo-field-section__header">
                                         <span class="censo-field-section__icon" aria-hidden="true">
@@ -1645,6 +1691,7 @@
             const buscarBarriosUrl = "@Url.Action("BuscarBarrios", "Censo")";
             const defaultsMunicipioUrl = "@Url.Action("ObtenerDefaultsMunicipio", "Censo")";
             const buscarDiagnosticoCie10Url = "@Url.Action("BuscarDiagnosticoCie10", "Censo")";
+            const buscarGrupoPatologiaCronicaUrl = "@Url.Action("BuscarGrupoPatologiaCronica", "Censo")";
             const form = document.getElementById("censoCronicoForm");
             const csrfTokenInput = form?.querySelector("input[name='__RequestVerificationToken']");
             const direccionInput = document.getElementById("direccionInput");
@@ -1992,13 +2039,38 @@
                 } catch { groupInput.value = ""; }
             };
 
+            // "Diagnóstico crónico CIE10" está restringido al catálogo cerrado de patologías
+            // crónicas: el grupo solo se autocompleta si el código pertenece a ese listado.
+            const lookupGrupoPatologiaCronica = async (codeInput, groupInput) => {
+                if (!codeInput || !groupInput) return;
+                const codigo = normalizeCie10(codeInput.value);
+                codeInput.value = codigo;
+                if (codigo.length !== 4) { groupInput.value = ""; return; }
+                try {
+                    const response = await fetch(`${buscarGrupoPatologiaCronicaUrl}?codigo=${encodeURIComponent(codigo)}`);
+                    if (!response.ok) { groupInput.value = ""; return; }
+                    const data = await response.json();
+                    groupInput.value = data.grupo || "";
+                } catch { groupInput.value = ""; }
+            };
+
+            // El diagnóstico complementario no puede iniciar por Z (factores que influyen en el
+            // estado de salud) ni R (síntomas y signos): se elimina esa letra apenas se escribe.
+            const normalizeComplementarioCie10 = (value) => {
+                let normalized = normalizeCie10(value);
+                while (normalized && (normalized[0] === "Z" || normalized[0] === "R")) {
+                    normalized = normalized.slice(1);
+                }
+                return normalized;
+            };
+
             diagnosticoCronicoInput?.addEventListener("input", () => {
                 diagnosticoCronicoInput.value = normalizeCie10(diagnosticoCronicoInput.value);
                 if (grupoPatologiaInput) grupoPatologiaInput.value = "";
             });
-            diagnosticoCronicoInput?.addEventListener("blur", () => lookupCie10(diagnosticoCronicoInput, grupoPatologiaInput));
+            diagnosticoCronicoInput?.addEventListener("blur", () => lookupGrupoPatologiaCronica(diagnosticoCronicoInput, grupoPatologiaInput));
             diagnosticoComplementarioInput?.addEventListener("input", () => {
-                diagnosticoComplementarioInput.value = normalizeCie10(diagnosticoComplementarioInput.value);
+                diagnosticoComplementarioInput.value = normalizeComplementarioCie10(diagnosticoComplementarioInput.value);
                 if (grupoPatologiaComplementarioInput) grupoPatologiaComplementarioInput.value = "";
             });
             diagnosticoComplementarioInput?.addEventListener("blur", () => lookupCie10(diagnosticoComplementarioInput, grupoPatologiaComplementarioInput));

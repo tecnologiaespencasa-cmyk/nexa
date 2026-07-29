@@ -25,9 +25,9 @@ public partial class CensoController
     private const string CronicoEstadoInactivo = "Inactivo";
     private static readonly string[] CronicoBarthelAuditadoValues = ["Si", "No", "Sin dato"];
     private static readonly string[] CronicoCalificacionBarthelValues =
-        Enumerable.Range(0, 21).Select(i => $"{i * 5}%").ToArray();
+        Enumerable.Range(0, 21).Select(i => $"{i * 5}").ToArray();
     private static readonly string[] CronicoKarnofskyValues =
-        Enumerable.Range(0, 11).Select(i => $"{i * 10}%").ToArray();
+        Enumerable.Range(0, 11).Select(i => $"{i * 10}").ToArray();
     private static readonly string[] CronicoFastValues = ["1", "2", "3", "4", "5", "6", "7"];
     private static readonly string[] CronicoRankinValues = ["1", "2", "3", "4", "5", "6"];
     private static readonly string[] CronicoDisneaMmrcValues = ["1", "2", "3", "4"];
@@ -50,6 +50,84 @@ public partial class CensoController
         "FALLECE",
         "ALTA VOLUNTARIA"
     ];
+
+    // Catálogo cerrado de diagnósticos crónicos: "Diagnóstico crónico CIE10" solo admite estos
+    // códigos; "Grupo de patología crónica" se autocompleta desde el valor asociado.
+    private static readonly IReadOnlyDictionary<string, string> CronicoDiagnosticoCatalog = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["M029"] = "ENFERMEDADES OSTEOARTICULARES",
+        ["U071"] = "ENFERMEDADES RESPIRATORIAS",
+        ["F03X"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["E135"] = "ENFERMEDADES CARDIOVASCULARES",
+        ["G710"] = "ENFERMEDAD METABÓLICA",
+        ["R521"] = "ENFERMEDADES OSTEOARTICULARES",
+        ["I743"] = "ENFERMEDADES CARDIOVASCULARES",
+        ["I742"] = "ENFERMEDADES CARDIOVASCULARES",
+        ["G934"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["C819"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["B209"] = "ENFERMEDADES INFECCIOSAS",
+        ["J449"] = "ENFERMEDADES RESPIRATORIAS",
+        ["I771"] = "ENFERMEDAD CARDIOVASCULAR",
+        ["G912"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["D760"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["I500"] = "ENFERMEDADES CARDIOVASCULARES",
+        ["N180"] = "ENFERMEDADES RENALES",
+        ["C959"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C859"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["G039"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["C900"] = "ENFERMEDAD NEOPLÁSICA",
+        ["I272"] = "ENFERMEDADES RESPIRATORIAS",
+        ["K746"] = "ENFERMEDADES HEPÁTICAS",
+        ["M866"] = "ENFERMEDADES OSTEOARTICULARES",
+        ["R522"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["G809"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["M159"] = "ENFERMEDADES OSTEOARTICULARES",
+        ["G619"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["F729"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["G09X"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["T911"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["T095"] = "ENFERMEDADES OSTEOARTICULARES",
+        ["T922"] = "ENFERMEDADES OSTEOARTICULARES",
+        ["T921"] = "ENFERMEDADES OSTEOARTICULARES",
+        ["I691"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["I690"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["I692"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["I693"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["T932"] = "ENFERMEDADES OSTEOARTICULARES",
+        ["T913"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["T905"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["T940"] = "ENFERMEDADES OSTEOARTICULARES",
+        ["M510"] = "ENFERMEDADES NEUROLÓGICAS",
+        ["D489"] = "ENFERMEDAD NEOPLÁSICA",
+        ["C73X"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C329"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C509"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C449"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C61X"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C679"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C249"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C402"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C710"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C189"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C539"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C541"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C159"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C169"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C260"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C699"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C56X"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C609"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C20X"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C64X"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C795"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C349"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["C023"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["L899"] = "ENFERMEDADES DE LA PIEL",
+        ["C229"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["I830"] = "ENFERMEDADES CARDIOVASCULARES",
+        ["Q793"] = "ENFERMEDADES NEOPLÁSICAS",
+        ["A46X"] = "ENFERMEDADES NEOPLÁSICAS",
+    };
 
     [HttpGet]
     public async Task<IActionResult> ProgramaCronicos(
@@ -463,6 +541,21 @@ public partial class CensoController
         });
     }
 
+    // Autocompletado de "Grupo de patología crónica" a partir del catálogo cerrado
+    // (CronicoDiagnosticoCatalog), NO del catálogo CIE10 general de la aplicación.
+    [HttpGet]
+    public IActionResult BuscarGrupoPatologiaCronica(string codigo)
+    {
+        var normalizedCode = NormalizeCie10(codigo);
+        var found = CronicoDiagnosticoCatalog.TryGetValue(normalizedCode, out var grupo);
+        return Json(new
+        {
+            found,
+            codigo = normalizedCode,
+            grupo = found ? grupo : string.Empty
+        });
+    }
+
     // Exportable a Excel del censo de Programa Crónicos. Incluye todos los campos del
     // registro (no los JSON de agudizaciones/hospitalizaciones, pensado para público no
     // técnico) más "Días de estancia" calculado en vivo (hoy - fecha de ingreso).
@@ -788,19 +881,24 @@ public partial class CensoController
 
     private void ResolveCronicoCatalogFields(CensoCronicoViewModel model)
     {
+        // Diagnóstico crónico CIE10: restringido al catálogo cerrado de patologías crónicas;
+        // el grupo mostrado es el asociado a ese código (no la descripción CIE10 general).
         model.DiagnosticoCronicoCie10 = NormalizeCie10(model.DiagnosticoCronicoCie10);
         if (!string.IsNullOrWhiteSpace(model.DiagnosticoCronicoCie10)
-            && _cie10Catalog.TryGetValue(model.DiagnosticoCronicoCie10, out var diag))
+            && CronicoDiagnosticoCatalog.TryGetValue(model.DiagnosticoCronicoCie10, out var grupo))
         {
-            model.GrupoPatologiaCronica = diag;
+            model.GrupoPatologiaCronica = grupo;
         }
         else if (string.IsNullOrWhiteSpace(model.DiagnosticoCronicoCie10))
         {
             model.GrupoPatologiaCronica = null;
         }
 
+        // Diagnóstico crónico complementario: catálogo CIE10 general, excluyendo Z y R
+        // (factores que influyen en el estado de salud / síntomas y signos, no diagnósticos).
         model.DiagnosticoCronicoComplementario = NormalizeCie10(model.DiagnosticoCronicoComplementario);
         if (!string.IsNullOrWhiteSpace(model.DiagnosticoCronicoComplementario)
+            && !StartsWithZOrR(model.DiagnosticoCronicoComplementario)
             && _cie10Catalog.TryGetValue(model.DiagnosticoCronicoComplementario, out var diagComp))
         {
             model.GrupoPatologiaCronicaComplementario = diagComp;
@@ -1045,16 +1143,27 @@ public partial class CensoController
         }
 
         if (!string.IsNullOrWhiteSpace(model.DiagnosticoCronicoCie10)
-            && !_cie10Catalog.ContainsKey(model.DiagnosticoCronicoCie10))
+            && !CronicoDiagnosticoCatalog.ContainsKey(model.DiagnosticoCronicoCie10))
         {
-            ModelState.AddModelError(nameof(model.DiagnosticoCronicoCie10), "El diagnóstico crónico CIE10 no existe en el catálogo parametrizado.");
+            ModelState.AddModelError(nameof(model.DiagnosticoCronicoCie10), "El diagnóstico crónico CIE10 debe pertenecer al listado parametrizado de patologías crónicas.");
         }
 
-        if (!string.IsNullOrWhiteSpace(model.DiagnosticoCronicoComplementario)
-            && !_cie10Catalog.ContainsKey(model.DiagnosticoCronicoComplementario))
+        if (!string.IsNullOrWhiteSpace(model.DiagnosticoCronicoComplementario))
         {
-            ModelState.AddModelError(nameof(model.DiagnosticoCronicoComplementario), "El diagnóstico crónico complementario no existe en el catálogo parametrizado.");
+            if (StartsWithZOrR(model.DiagnosticoCronicoComplementario))
+            {
+                ModelState.AddModelError(nameof(model.DiagnosticoCronicoComplementario), "El diagnóstico crónico complementario no puede iniciar por Z ni R.");
+            }
+            else if (!_cie10Catalog.ContainsKey(model.DiagnosticoCronicoComplementario))
+            {
+                ModelState.AddModelError(nameof(model.DiagnosticoCronicoComplementario), "El diagnóstico crónico complementario no existe en el catálogo parametrizado.");
+            }
         }
+    }
+
+    private static bool StartsWithZOrR(string? code)
+    {
+        return !string.IsNullOrEmpty(code) && (code[0] == 'Z' || code[0] == 'R');
     }
 
     private void ValidateCronicoServicios(CensoCronicoViewModel model)

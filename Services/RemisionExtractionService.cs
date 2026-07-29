@@ -17,7 +17,7 @@ public class RemisionExtractionService : IRemisionExtractionService
 
     private const string SystemPrompt = """
 Eres un asistente de extracción de datos clínicos para el censo del programa agudos de Especialistas En Casa (medicina domiciliaria).
-Recibirás el texto plano de un documento de remisión de pacientes y debes extraer los datos solicitados en formato JSON.
+Recibirás el texto plano de un documento de remisión, una hoja de Excel "Formato Remisión" o el cuerpo de un correo de remisión de pacientes. Debes extraer los datos solicitados en formato JSON.
 
 Reglas estrictas:
 - NO inventes ningún dato. Si un dato no aparece en el documento, retorna null en ese campo.

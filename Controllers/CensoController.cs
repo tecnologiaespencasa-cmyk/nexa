@@ -531,6 +531,9 @@ public partial class CensoController : Controller
         "AC QUIROFANOS",
         "PARTICULAR",
         "PANAMERICAN LIFE DE COLOMBIA",
+        "CLINICA NOEL",
+        "IPS HUMANITAS",
+        "IPS SURA CORDOBA",
     ];
 
     private static readonly string[] MunicipiosResidenciaValues =
@@ -2443,8 +2446,12 @@ public partial class CensoController : Controller
     [HttpGet]
     public async Task<IActionResult> ExportarExcel(CancellationToken cancellationToken)
     {
+        // Excluir las copias de despacho de prórroga (FarmaciaProrrogaDeId / VersionId no nulos),
+        // igual que la tabla del censo en pantalla (IsEditableCensoRecordExpression). Estas copias
+        // internas del flujo de farmacia harían aparecer al paciente duplicado en el exportable.
         var records = await _context.Censos
             .AsNoTracking()
+            .Where(IsEditableCensoRecordExpression())
             .OrderBy(x => x.Id)
             .ToListAsync(cancellationToken);
 
@@ -2570,7 +2577,13 @@ public partial class CensoController : Controller
             (fechaDesde, fechaHasta) = (fechaHasta, fechaDesde);
         }
 
-        var query = ApplyHistoryFilters(_context.Censos.AsNoTracking(), cedulaFiltro, fechaDesde, fechaHasta);
+        // Mismo filtro que la tabla en pantalla: excluir las copias de despacho de prórroga
+        // (FarmaciaProrrogaDeId / VersionId no nulos) para no duplicar al paciente en el exportable.
+        var query = ApplyHistoryFilters(
+            _context.Censos.AsNoTracking().Where(IsEditableCensoRecordExpression()),
+            cedulaFiltro,
+            fechaDesde,
+            fechaHasta);
         var records = await query
             .OrderByDescending(x => x.FechaIngreso)
             .ThenByDescending(x => x.HoraIngreso)
