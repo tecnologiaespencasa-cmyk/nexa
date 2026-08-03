@@ -1,0 +1,396 @@
+@model EspacioDocumentacionAdminViewModel
+@{
+    ViewData["Title"] = "Administrar documentación";
+}
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/espacio-corporativo.css" asp-append-version="true" />
+}
+
+<section class="espacio">
+
+    <header class="espacio-hero">
+        <div class="espacio-shell">
+            <div class="espacio-hero__grid">
+                <div>
+                    <span class="espacio-hero__eyebrow">
+                        <i class="bi bi-journal-bookmark-fill" aria-hidden="true"></i>
+                        Mi espacio corporativo &middot; Administraci&oacute;n
+                    </span>
+                    <h1>Documentaci&oacute;n de la empresa</h1>
+                    <p>Publica pol&iacute;ticas, manuales y formatos como archivo, enlace o texto redactado. Cada documento aparece como una tarjeta para todos los colaboradores.</p>
+                </div>
+                <div class="espacio-hero__actions">
+                    <button type="button" class="espacio-admin-btn" data-documento-nuevo>
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        Nuevo documento
+                    </button>
+                    <a class="espacio-admin-btn" asp-action="Index">
+                        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                        Volver
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="espacio-shell">
+
+        @await Html.PartialAsync("_EspacioAlertas")
+
+        <div class="espacio-metrics">
+            <div class="espacio-metric espacio-metric--ok">
+                <span>Publicados</span>
+                <strong>@Model.TotalPublicados</strong>
+            </div>
+            <div class="espacio-metric espacio-metric--alert">
+                <span>Borradores</span>
+                <strong>@Model.TotalBorradores</strong>
+            </div>
+            <div class="espacio-metric espacio-metric--info">
+                <span>Visualizaciones</span>
+                <strong>@Model.TotalDescargas</strong>
+            </div>
+        </div>
+
+        <section class="espacio-panel">
+            <div class="espacio-panel__head">
+                <div class="espacio-panel__title">
+                    <span class="espacio-panel__icon" aria-hidden="true">
+                        <i class="bi bi-journal-bookmark-fill" aria-hidden="true"></i>
+                    </span>
+                    <div>
+                        <h2>Biblioteca documental</h2>
+                        <span>@Model.Documentos.Count documento(s) en la vista actual</span>
+                    </div>
+                </div>
+                <button type="button" class="espacio-btn espacio-btn--primary" data-documento-nuevo>
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    Agregar documento
+                </button>
+            </div>
+
+            <div class="espacio-panel__body">
+                <form method="get" asp-action="Documentacion" class="espacio-toolbar">
+                    <div class="espacio-search">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <input type="search" name="busqueda" value="@Model.Busqueda"
+                               placeholder="T&iacute;tulo, descripci&oacute;n, etiquetas o c&oacute;digo..." aria-label="Buscar documentos" />
+                    </div>
+
+                    <select class="espacio-select" name="categoria" aria-label="Filtrar por categor&iacute;a">
+                        <option value="">Todas las categor&iacute;as</option>
+                        @foreach (var categoria in Model.Categorias)
+                        {
+                            <option value="@categoria" selected="@(categoria == Model.CategoriaFiltro)">@categoria</option>
+                        }
+                    </select>
+
+                    <select class="espacio-select" name="tipo" aria-label="Filtrar por tipo">
+                        <option value="">Todos los tipos</option>
+                        @foreach (var tipo in Model.TiposDocumento)
+                        {
+                            <option value="@tipo" selected="@(tipo == Model.TipoFiltro)">@tipo</option>
+                        }
+                    </select>
+
+                    <button type="submit" class="espacio-btn espacio-btn--primary">Filtrar</button>
+                    <a class="espacio-btn espacio-btn--soft" asp-action="Documentacion">Limpiar</a>
+                </form>
+
+                @if (Model.Documentos.Count == 0)
+                {
+                    <div class="espacio-empty">
+                        <i class="bi bi-file-earmark-text-fill" aria-hidden="true"></i>
+                        <strong>A&uacute;n no hay documentos</strong>
+                        <span>Crea el primero con el bot&oacute;n <em>Agregar documento</em>; aparecer&aacute; como tarjeta en la pantalla principal.</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="espacio-table-wrap">
+                        <table class="espacio-table">
+                            <thead>
+                                <tr>
+                                    <th>Documento</th>
+                                    <th>Categor&iacute;a</th>
+                                    <th>Tipo</th>
+                                    <th>Origen</th>
+                                    <th>Estado</th>
+                                    <th>Uso</th>
+                                    <th>Publicado</th>
+                                    <th style="text-align:right;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var documento in Model.Documentos)
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="espacio-table__strong">@documento.Titulo</span>
+                                            <span class="espacio-table__sub">
+                                                @if (!string.IsNullOrWhiteSpace(documento.CodigoDocumento))
+                                                {
+                                                    <text>@documento.CodigoDocumento &middot; </text>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(documento.Version))
+                                                {
+                                                    @* Sin espacio antes del @, Razor lo interpreta como un correo y lo imprime literal. *@
+                                                    <text>Versi&oacute;n @documento.Version &middot; </text>
+                                                }
+                                                @documento.CreadoPorNombre
+                                            </span>
+                                        </td>
+                                        <td><span class="espacio-tag espacio-tag--cat">@documento.Categoria</span></td>
+                                        <td>@documento.TipoDocumento</td>
+                                        <td>
+                                            <span class="espacio-table__strong">@documento.TipoContenido</span>
+                                            <span class="espacio-table__sub">
+                                                @if (!string.IsNullOrWhiteSpace(documento.ArchivoNombre))
+                                                {
+                                                    <text>@documento.ArchivoNombre (@documento.TamanoLegible)</text>
+                                                }
+                                                else if (!string.IsNullOrWhiteSpace(documento.EnlaceUrl))
+                                                {
+                                                    <text>@documento.EnlaceUrl</text>
+                                                }
+                                                else
+                                                {
+                                                    <text>Contenido redactado</text>
+                                                }
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @if (documento.Publicado)
+                                            {
+                                                <span class="espacio-chip espacio-chip--activo">Publicado</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="espacio-chip espacio-chip--neutro">Borrador</span>
+                                            }
+                                            @if (documento.Destacado)
+                                            {
+                                                <span class="espacio-chip espacio-chip--reportada mt-1">Destacado</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="espacio-table__strong">@documento.Descargas visualizacion(es)</span>
+                                            <span class="espacio-table__sub">@documento.Favoritos favorito(s)</span>
+                                        </td>
+                                        <td>
+                                            <span class="espacio-table__strong">@documento.FechaCreacion.ToString("dd/MM/yyyy")</span>
+                                            @if (documento.FechaActualizacion.HasValue)
+                                            {
+                                                <span class="espacio-table__sub">Act. @documento.FechaActualizacion.Value.ToString("dd/MM/yyyy")</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="espacio-table__actions">
+                                                @if (documento.TipoContenido == "Archivo")
+                                                {
+                                                    <a class="espacio-icon-btn" title="Ver archivo" target="_blank" rel="noopener"
+                                                       asp-action="Documento" asp-route-id="@documento.Id">
+                                                        <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                                                    </a>
+                                                }
+
+                                                <button type="button"
+                                                        class="espacio-icon-btn espacio-icon-btn--primary"
+                                                        title="Editar"
+                                                        data-documento-editar
+                                                        data-id="@documento.Id"
+                                                        data-titulo="@documento.Titulo"
+                                                        data-descripcion="@documento.Descripcion"
+                                                        data-categoria="@documento.Categoria"
+                                                        data-tipo-documento="@documento.TipoDocumento"
+                                                        data-tipo-contenido="@documento.TipoContenido"
+                                                        data-version="@documento.Version"
+                                                        data-codigo="@documento.CodigoDocumento"
+                                                        data-etiquetas="@documento.Etiquetas"
+                                                        data-enlace="@documento.EnlaceUrl"
+                                                        data-contenido="@documento.ContenidoTexto"
+                                                        data-archivo="@documento.ArchivoNombre"
+                                                        data-vigencia="@(documento.FechaVigencia?.ToString("yyyy-MM-dd"))"
+                                                        data-publicado="@(documento.Publicado ? "true" : "false")"
+                                                        data-destacado="@(documento.Destacado ? "true" : "false")">
+                                                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                                </button>
+
+                                                <form asp-action="AlternarPublicacion" method="post" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@documento.Id" />
+                                                    <button type="submit" class="espacio-icon-btn"
+                                                            title="@(documento.Publicado ? "Pasar a borrador" : "Publicar")">
+                                                        @if (documento.Publicado)
+                                                        {
+                                                            <i class="bi bi-eye-slash-fill" aria-hidden="true"></i>
+                                                        }
+                                                        else
+                                                        {
+                                                            <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                                                        }
+                                                    </button>
+                                                </form>
+
+                                                <form asp-action="EliminarDocumento" method="post" data-confirmar="¿Eliminar el documento '@documento.Titulo'?" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@documento.Id" />
+                                                    <button type="submit" class="espacio-icon-btn espacio-icon-btn--danger" title="Eliminar">
+                                                        <i class="bi bi-trash3-fill" aria-hidden="true"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+
+    @* ══ MODAL: crear / editar documento ══ *@
+    <div class="espacio-modal" id="espacioDocumentoModal" role="dialog" aria-modal="true" aria-labelledby="espacioDocumentoModalTitulo">
+        <div class="espacio-modal__card espacio-modal__card--lg">
+            <form asp-action="GuardarDocumento" method="post" enctype="multipart/form-data" id="espacioDocumentoForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Id" />
+
+                <div class="espacio-modal__head">
+                    <div>
+                        <h3 id="espacioDocumentoModalTitulo">Nuevo documento</h3>
+                        <p>Puedes cargar un archivo, enlazar a un recurso externo o redactar el contenido</p>
+                    </div>
+                    <button type="button" class="espacio-modal__close" data-modal-cerrar aria-label="Cerrar">&times;</button>
+                </div>
+
+                <div class="espacio-modal__body">
+                    <div class="espacio-form-grid">
+                        <div class="espacio-form-field espacio-form-field--full">
+                            <label for="docTitulo">T&iacute;tulo <span class="req">*</span></label>
+                            <input type="text" name="Titulo" id="docTitulo" maxlength="200" required
+                                   placeholder="Ej: Pol&iacute;tica de tratamiento de datos personales" />
+                        </div>
+
+                        <div class="espacio-form-field espacio-form-field--full">
+                            <label for="docDescripcion">Descripci&oacute;n</label>
+                            <textarea name="Descripcion" id="docDescripcion" maxlength="1000"
+                                      placeholder="Resumen corto que ver&aacute;n los colaboradores en la tarjeta."></textarea>
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="docCategoria">Categor&iacute;a <span class="req">*</span></label>
+                            <select name="Categoria" id="docCategoria" required>
+                                <option value="">Selecciona...</option>
+                                @foreach (var categoria in Model.Categorias)
+                                {
+                                    <option value="@categoria">@categoria</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="docTipoDocumento">Tipo de documento <span class="req">*</span></label>
+                            <select name="TipoDocumento" id="docTipoDocumento" required>
+                                <option value="">Selecciona...</option>
+                                @foreach (var tipo in Model.TiposDocumento)
+                                {
+                                    <option value="@tipo">@tipo</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="docTipoContenido">&iquest;C&oacute;mo se carga? <span class="req">*</span></label>
+                            <select name="TipoContenido" id="docTipoContenido" required>
+                                @foreach (var tipo in Model.TiposContenido)
+                                {
+                                    <option value="@tipo">@tipo</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="docVersion">Versi&oacute;n</label>
+                            <input type="text" name="Version" id="docVersion" maxlength="30" placeholder="Ej: 2.1" />
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="docCodigo">C&oacute;digo del documento</label>
+                            <input type="text" name="CodigoDocumento" id="docCodigo" maxlength="60" placeholder="Ej: GH-PO-001" />
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="docVigencia">Fecha de vigencia</label>
+                            <input type="date" name="FechaVigencia" id="docVigencia" />
+                        </div>
+
+                        <div class="espacio-form-field espacio-form-field--full">
+                            <label for="docEtiquetas">Etiquetas</label>
+                            <input type="text" name="Etiquetas" id="docEtiquetas" maxlength="300"
+                                   placeholder="Separadas por coma. Ej: seguridad, contrase&ntilde;as, ingreso" />
+                            <small>Se usan en el buscador de la pantalla principal.</small>
+                        </div>
+
+                        @* ── Origen: archivo ── *@
+                        <div class="espacio-form-field espacio-form-field--full" data-contenido="Archivo">
+                            <label for="docArchivo">Archivo</label>
+                            <input type="file" name="Archivo" id="docArchivo"
+                                   accept="@string.Join(",", Model.ExtensionesPermitidas)" />
+                            <small>
+                                Formatos permitidos: @string.Join(", ", Model.ExtensionesPermitidas). M&aacute;ximo 25 MB.
+                            </small>
+                            <small id="espacioDocArchivoActual" style="color:#a50f0f;"></small>
+                        </div>
+
+                        @* ── Origen: enlace ── *@
+                        <div class="espacio-form-field espacio-form-field--full" data-contenido="Enlace">
+                            <label for="docEnlace">Enlace</label>
+                            <input type="url" name="EnlaceUrl" id="docEnlace" maxlength="1000"
+                                   placeholder="https://..." />
+                            <small>Ideal para documentos en SharePoint, OneDrive o Google Drive.</small>
+                        </div>
+
+                        @* ── Origen: texto ── *@
+                        <div class="espacio-form-field espacio-form-field--full" data-contenido="Texto">
+                            <label for="docContenido">Contenido</label>
+                            <textarea name="ContenidoTexto" id="docContenido" style="min-height:220px;"
+                                      placeholder="Redacta aqu&iacute; la pol&iacute;tica, manual o instructivo."></textarea>
+                            <small>Se muestra a los colaboradores en un lector dentro de la intranet.</small>
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label class="espacio-switch">
+                                <input type="checkbox" name="Publicado" value="true" checked />
+                                <span>Publicado</span>
+                            </label>
+                            <small>Si lo desmarcas queda como borrador visible solo para administradores.</small>
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label class="espacio-switch">
+                                <input type="checkbox" name="Destacado" value="true" />
+                                <span>Destacar</span>
+                            </label>
+                            <small>Los destacados aparecen primero en la pantalla principal.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="espacio-modal__foot">
+                    <button type="button" class="espacio-btn espacio-btn--soft" data-modal-cerrar>Cancelar</button>
+                    <button type="submit" class="espacio-btn espacio-btn--primary">Guardar documento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+@section Scripts
+{
+    <script src="~/js/espacio-corporativo.js" asp-append-version="true"></script>
+}

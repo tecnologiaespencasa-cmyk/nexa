@@ -10,6 +10,14 @@ public static class SystemPermissions
     public const string Farmacia = "SCREEN_FARMACIA";
     public const string Aprobacion = "APPROVAL_REAPERTURA_KARDEX";
     public const string AnalistaAsistencial = "ANALISTA_ASISTENCIAL";
+    public const string EspacioCorporativo = "SCREEN_ESPACIO_CORPORATIVO";
+    public const string EspacioCorporativoAdmin = "SCREEN_ESPACIO_CORPORATIVO_ADMIN";
+
+    /// <summary>
+    /// Politica compuesta: permite el ingreso al espacio corporativo tanto al usuario basico
+    /// como al administrador (no es un permiso almacenado en base de datos).
+    /// </summary>
+    public const string EspacioCorporativoAccess = "POLICY_ESPACIO_CORPORATIVO_ACCESS";
 
     public static readonly string[] ScreenPermissions =
     {
@@ -20,6 +28,8 @@ public static class SystemPermissions
         InventarioBiomedico,
         Farmacia,
         Aprobacion,
-        AnalistaAsistencial
+        AnalistaAsistencial,
+        EspacioCorporativo,
+        EspacioCorporativoAdmin
     };
 }

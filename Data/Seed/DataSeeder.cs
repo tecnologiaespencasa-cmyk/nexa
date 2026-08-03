@@ -222,7 +222,9 @@ public static class DataSeeder
             new { Code = SystemPermissions.InventarioBiomedico, Description = "Inventario biomedico" },
             new { Code = SystemPermissions.Farmacia, Description = "Farmacia" },
             new { Code = SystemPermissions.Aprobacion, Description = "Aprobacion" },
-            new { Code = SystemPermissions.AnalistaAsistencial, Description = "AnalistaAsistencial" }
+            new { Code = SystemPermissions.AnalistaAsistencial, Description = "AnalistaAsistencial" },
+            new { Code = SystemPermissions.EspacioCorporativo, Description = "Mi espacio corporativo - Basico" },
+            new { Code = SystemPermissions.EspacioCorporativoAdmin, Description = "Mi espacio corporativo - Administrador" }
         };
 
         var existingCodes = await context.Permissions

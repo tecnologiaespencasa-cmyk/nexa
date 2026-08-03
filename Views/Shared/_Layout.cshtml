@@ -37,6 +37,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/nexa-loader.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/IntranetPrueba.styles.css" asp-append-version="true" />
@@ -64,6 +65,7 @@
                                 var canReportes = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Reportes)).Succeeded;
                                 var canInventario = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.InventarioBiomedico)).Succeeded;
                                 var canFarmacia = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Farmacia)).Succeeded;
+                                var canEspacioCorporativo = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.EspacioCorporativoAccess)).Succeeded;
                             }
 
                             <li class="nav-item">
@@ -71,11 +73,7 @@
                                    asp-controller="Home"
                                    asp-action="Index">
                                     <span class="intranet-nav-link__icon" aria-hidden="true">
-                                        <svg viewBox="0 0 24 24" focusable="false">
-                                            <path d="M3 11.5 12 4l9 7.5"></path>
-                                            <path d="M5 10.5V20h14v-9.5"></path>
-                                            <path d="M9.5 20v-5h5v5"></path>
-                                        </svg>
+                                        <i class="bi bi-house-door-fill" aria-hidden="true"></i>
                                     </span>
                                     <span>Inicio</span>
                                 </a>
@@ -88,13 +86,7 @@
                                        asp-controller="UserAdministration"
                                        asp-action="Index">
                                         <span class="intranet-nav-link__icon" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" focusable="false">
-                                                <rect x="4" y="3" width="16" height="18" rx="3"></rect>
-                                                <path d="M9 8h6"></path>
-                                                <path d="M9 12h6"></path>
-                                                <path d="M10 16h4"></path>
-                                                <path d="M12 6v4"></path>
-                                            </svg>
+                                            <i class="bi bi-people-fill" aria-hidden="true"></i>
                                         </span>
                                         <span>Administraci&oacute;n</span>
                                     </a>
@@ -108,12 +100,7 @@
                                        asp-controller="Audit"
                                        asp-action="Index">
                                         <span class="intranet-nav-link__icon" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" focusable="false">
-                                                <rect x="5" y="4" width="14" height="16" rx="2"></rect>
-                                                <path d="M9 8h6"></path>
-                                                <path d="M9 12h6"></path>
-                                                <path d="M9 16h3"></path>
-                                            </svg>
+                                            <i class="bi bi-shield-check" aria-hidden="true"></i>
                                         </span>
                                         <span>Auditor&iacute;a</span>
                                     </a>
@@ -128,12 +115,7 @@
                                             data-bs-toggle="dropdown"
                                             aria-expanded="false">
                                         <span class="intranet-nav-link__icon" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" focusable="false">
-                                                <path d="M15 19a6 6 0 0 0-12 0"></path>
-                                                <circle cx="9" cy="8" r="3"></circle>
-                                                <path d="M19 8v6"></path>
-                                                <path d="M16 11h6"></path>
-                                            </svg>
+                                            <i class="bi bi-clipboard2-pulse-fill" aria-hidden="true"></i>
                                         </span>
                                         <span>Censos</span>
                                     </button>
@@ -204,12 +186,7 @@
                                        asp-controller="Reportes"
                                        asp-action="Index">
                                         <span class="intranet-nav-link__icon" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" focusable="false">
-                                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
-                                                <path d="M14 3v5h5"></path>
-                                                <path d="M9 13h6"></path>
-                                                <path d="M9 17h4"></path>
-                                            </svg>
+                                            <i class="bi bi-bar-chart-line-fill" aria-hidden="true"></i>
                                         </span>
                                         <span>Reportes</span>
                                     </a>
@@ -223,14 +200,7 @@
                                        asp-controller="Farmacia"
                                        asp-action="Index">
                                         <span class="intranet-nav-link__icon" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" focusable="false">
-                                                <path d="M9 3h6"></path>
-                                                <path d="M10 3v2"></path>
-                                                <path d="M14 3v2"></path>
-                                                <rect x="5" y="5" width="14" height="16" rx="3"></rect>
-                                                <path d="M8 12h8"></path>
-                                                <path d="M12 8v8"></path>
-                                            </svg>
+                                            <i class="bi bi-capsule" aria-hidden="true"></i>
                                         </span>
                                         <span>Farmacia</span>
                                     </a>
@@ -244,17 +214,41 @@
                                        asp-controller="InventarioBiomedico"
                                        asp-action="Index">
                                         <span class="intranet-nav-link__icon" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" focusable="false">
-                                                <rect x="6" y="4" width="12" height="16" rx="2"></rect>
-                                                <path d="M9 4V3h6v1"></path>
-                                                <path d="M9 11h6"></path>
-                                                <path d="M12 8v6"></path>
-                                            </svg>
+                                            <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
                                         </span>
                                         <span>Inventario biom&eacute;dico</span>
                                     </a>
                                 </li>
                             }
+
+                            @if (canEspacioCorporativo)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link intranet-nav-link @(string.Equals(controllerName, "EspacioCorporativo", System.StringComparison.OrdinalIgnoreCase) ? "active" : null)"
+                                       asp-controller="EspacioCorporativo"
+                                       asp-action="Index">
+                                        <span class="intranet-nav-link__icon" aria-hidden="true">
+                                            <i class="bi bi-briefcase-fill" aria-hidden="true"></i>
+                                        </span>
+                                        <span>Mi espacio corporativo</span>
+                                    </a>
+                                </li>
+                            }
+
+                            @* Menu de desbordamiento: recoge los modulos que no caben en una sola linea. *@
+                            <li class="nav-item dropdown intranet-nav-overflow" data-nav-overflow hidden>
+                                <button class="nav-link dropdown-toggle intranet-nav-link intranet-nav-link--dropdown"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        aria-expanded="false"
+                                        aria-label="Mas modulos">
+                                    <span class="intranet-nav-link__icon" aria-hidden="true">
+                                        <i class="bi bi-three-dots" aria-hidden="true"></i>
+                                    </span>
+                                    <span>M&aacute;s</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end intranet-censo-dropdown" data-nav-overflow-menu></ul>
+                            </li>
                         </ul>
 
                         <ul class="navbar-nav intranet-navbar-actions">

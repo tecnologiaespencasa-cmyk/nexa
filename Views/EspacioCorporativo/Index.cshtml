@@ -1,0 +1,469 @@
+@model EspacioCorporativoIndexViewModel
+@using IntranetPrueba.Helpers
+@{
+    ViewData["Title"] = "Mi espacio corporativo";
+}
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/espacio-corporativo.css" asp-append-version="true" />
+}
+
+<section class="espacio">
+
+    @* ══ HERO ══ *@
+    <header class="espacio-hero">
+        <div class="espacio-shell">
+            <div class="espacio-hero__grid">
+                <div>
+                    <span class="espacio-hero__eyebrow">
+                        <i class="bi bi-briefcase-fill" aria-hidden="true"></i>
+                        Mi espacio corporativo
+                    </span>
+                    <h1>Hola, @Model.NombreUsuario</h1>
+                    <p>
+                        Consulta los equipos que tienes asignados, reporta cualquier novedad al &aacute;rea de TI y
+                        accede a la documentaci&oacute;n oficial de la compa&ntilde;&iacute;a.
+                    </p>
+                </div>
+
+                @if (Model.EsAdministrador)
+                {
+                    <div class="espacio-hero__actions">
+                        <a class="espacio-admin-btn" asp-action="Activos">
+                            <i class="bi bi-pc-display" aria-hidden="true"></i>
+                            Activos
+                        </a>
+                        <a class="espacio-admin-btn" asp-action="Documentacion">
+                            <i class="bi bi-journal-bookmark-fill" aria-hidden="true"></i>
+                            Administrar documentaci&oacute;n
+                        </a>
+                    </div>
+                }
+            </div>
+
+            <div class="espacio-hero__stats">
+                <div class="espacio-stat">
+                    <span>Equipos asignados</span>
+                    <strong>@Model.MisActivos.Count</strong>
+                </div>
+                <div class="espacio-stat">
+                    <span>Novedades abiertas</span>
+                    <strong>@Model.NovedadesAbiertas</strong>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="espacio-shell">
+
+        @await Html.PartialAsync("_EspacioAlertas")
+
+        @* ══ MIS ACTIVOS ══ *@
+        <section class="espacio-panel">
+            <div class="espacio-panel__head">
+                <div class="espacio-panel__title">
+                    <span class="espacio-panel__icon"><i class="bi bi-pc-display" aria-hidden="true"></i></span>
+                    <div>
+                        <h2>Mis activos</h2>
+                        <span>Equipos de TI bajo tu responsabilidad</span>
+                    </div>
+                </div>
+
+                <button type="button" class="espacio-btn espacio-btn--primary" data-novedad-abrir data-activo-id="">
+                    <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                    Reportar novedad
+                </button>
+            </div>
+
+            <div class="espacio-panel__body">
+                @if (Model.MisActivos.Count == 0)
+                {
+                    <div class="espacio-empty">
+                        <i class="bi bi-pc-display" aria-hidden="true"></i>
+                        <strong>No tienes equipos asignados</strong>
+                        <span>
+                            Cuando el &aacute;rea de TI te asigne un equipo lo ver&aacute;s aqu&iacute; con su serial y estado.
+                            Si ya recibiste uno, rep&oacute;rtalo con el bot&oacute;n <em>Reportar novedad</em>.
+                        </span>
+                    </div>
+                }
+                else
+                {
+                    <div class="espacio-activos-grid">
+                        @foreach (var activo in Model.MisActivos)
+                        {
+                            var titulo = string.IsNullOrWhiteSpace(activo.NombreEquipo)
+                                ? $"{activo.TipoActivo} {activo.Marca}".Trim()
+                                : activo.NombreEquipo;
+
+                            <article class="espacio-activo-card">
+                                <div class="espacio-activo-card__top">
+                                    <span class="espacio-activo-card__icon">
+                                        <i class="bi @EspacioIconos.ParaTipoActivo(activo.TipoActivo)" aria-hidden="true"></i>
+                                    </span>
+                                    <div style="flex:1;min-width:0;">
+                                        <span class="espacio-activo-card__type">@activo.TipoActivo</span>
+                                        <h3>@titulo</h3>
+                                    </div>
+                                    <span class="espacio-chip @EspacioIconos.ClaseEstadoActivo(activo.Estado)">@activo.Estado</span>
+                                </div>
+
+                                <div class="espacio-activo-card__meta">
+                                    <div class="espacio-field">
+                                        <span>Marca</span>
+                                        <strong>@activo.Marca</strong>
+                                    </div>
+                                    <div class="espacio-field">
+                                        <span>Serie</span>
+                                        <strong>@activo.Serie</strong>
+                                    </div>
+                                    <div class="espacio-field">
+                                        <span>Serial</span>
+                                        <strong>@activo.Serial</strong>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(activo.CodigoActivo))
+                                    {
+                                        <div class="espacio-field">
+                                            <span>C&oacute;digo activo</span>
+                                            <strong>@activo.CodigoActivo</strong>
+                                        </div>
+                                    }
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(activo.Especificaciones))
+                                {
+                                    <div class="espacio-field">
+                                        <span>Especificaciones</span>
+                                        <strong>@activo.Especificaciones</strong>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(activo.Nota))
+                                {
+                                    <div class="espacio-field">
+                                        <span>Nota</span>
+                                        <strong>@activo.Nota</strong>
+                                    </div>
+                                }
+
+                                <div class="espacio-activo-card__foot">
+                                    <span class="espacio-doc-card__meta">
+                                        @if (activo.FechaAsignacion.HasValue)
+                                        {
+                                            <text>Asignado el @activo.FechaAsignacion.Value.ToString("dd/MM/yyyy")</text>
+                                        }
+                                        @if (activo.NovedadesAbiertas > 0)
+                                        {
+                                            <text> &middot; @activo.NovedadesAbiertas novedad(es) abierta(s)</text>
+                                        }
+                                    </span>
+                                    <button type="button"
+                                            class="espacio-btn espacio-btn--ghost espacio-btn--sm"
+                                            data-novedad-abrir
+                                            data-activo-id="@activo.Id">
+                                        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                                        Novedad
+                                    </button>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+
+                @if (Model.MisNovedades.Count > 0)
+                {
+                    <details class="mt-4" open="@(Model.NovedadesAbiertas > 0 ? "open" : null)">
+                        <summary style="cursor:pointer;font-weight:800;padding:.5rem 0;">
+                            Mis novedades reportadas (@Model.MisNovedades.Count)
+                        </summary>
+                        <div class="espacio-novedad-list mt-2">
+                            @foreach (var novedad in Model.MisNovedades)
+                            {
+                                var cerrada = novedad.Estado is "Resuelta" or "Rechazada";
+                                var claseEstado = cerrada
+                                    ? "is-cerrada"
+                                    : novedad.Estado == "En proceso" ? "is-proceso" : "is-abierta";
+
+                                <article class="espacio-novedad @claseEstado">
+                                    <div class="espacio-novedad__head">
+                                        <h4 class="espacio-novedad__title">#@novedad.Id &middot; @novedad.Tipo</h4>
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            @if (!string.IsNullOrWhiteSpace(novedad.Prioridad))
+                                            {
+                                                <span class="espacio-chip @EspacioIconos.ClasePrioridad(novedad.Prioridad)">@novedad.Prioridad</span>
+                                            }
+                                            <span class="espacio-chip @EspacioIconos.ClaseEstadoNovedad(novedad.Estado)">@novedad.Estado</span>
+                                        </div>
+                                    </div>
+                                    <p class="espacio-novedad__desc">@novedad.Descripcion</p>
+                                    @if (!string.IsNullOrWhiteSpace(novedad.RespuestaAdmin))
+                                    {
+                                        <div class="espacio-novedad__answer">
+                                            <strong>Respuesta de TI</strong>
+                                            @novedad.RespuestaAdmin
+                                        </div>
+                                    }
+                                    <div class="espacio-novedad__meta">
+                                        <span>@novedad.EquipoDescripcion</span>
+                                        <span>Reportada: @novedad.FechaReporte.ToString("dd/MM/yyyy hh:mm tt")</span>
+                                        @if (novedad.FechaResolucion.HasValue)
+                                        {
+                                            <span>Cerrada: @novedad.FechaResolucion.Value.ToString("dd/MM/yyyy")</span>
+                                        }
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                    </details>
+                }
+            </div>
+        </section>
+
+        @* ══ DOCUMENTACIÓN ══ *@
+        <section class="espacio-panel">
+            <div class="espacio-panel__head">
+                <div class="espacio-panel__title">
+                    <span class="espacio-panel__icon"><i class="bi bi-journal-bookmark-fill" aria-hidden="true"></i></span>
+                    <div>
+                        <h2>Documentaci&oacute;n de la empresa</h2>
+                        <span>Pol&iacute;ticas, manuales, formatos y material institucional</span>
+                    </div>
+                </div>
+                <span class="espacio-doc-card__meta" id="espacioDocsContador">@Model.TotalDocumentos documento(s)</span>
+            </div>
+
+            <div class="espacio-panel__body">
+                @if (Model.Documentos.Count == 0)
+                {
+                    <div class="espacio-empty">
+                        <i class="bi bi-file-earmark-text-fill" aria-hidden="true"></i>
+                        <strong>A&uacute;n no hay documentaci&oacute;n publicada</strong>
+                        <span>El administrador ir&aacute; agregando pol&iacute;ticas, manuales y formatos; apareceran aqu&iacute; autom&aacute;ticamente.</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="espacio-toolbar">
+                        <div class="espacio-search">
+                            <i class="bi bi-search" aria-hidden="true"></i>
+                            <input type="search"
+                                   id="espacioDocBuscar"
+                                   placeholder="Buscar por t&iacute;tulo, etiqueta, c&oacute;digo..."
+                                   aria-label="Buscar documentos" />
+                        </div>
+
+                        <select class="espacio-select" id="espacioDocTipo" aria-label="Filtrar por tipo de documento">
+                            <option value="">Todos los tipos</option>
+                            @foreach (var tipo in Model.TiposDocumento)
+                            {
+                                <option value="@tipo">@tipo</option>
+                            }
+                        </select>
+
+                        <button type="button" class="espacio-btn espacio-btn--ghost" id="espacioDocFavoritos" aria-pressed="false">
+                            <i class="bi bi-star-fill" aria-hidden="true"></i>
+                            Solo favoritos
+                        </button>
+                    </div>
+
+                    <div class="espacio-cat-filters" id="espacioDocCategorias">
+                        <button type="button" class="espacio-cat-chip is-active" data-categoria="">
+                            Todas <small>@Model.TotalDocumentos</small>
+                        </button>
+                        @foreach (var categoria in Model.Categorias.Where(c => Model.ConteoPorCategoria.ContainsKey(c)))
+                        {
+                            <button type="button" class="espacio-cat-chip" data-categoria="@categoria">
+                                @categoria <small>@Model.ConteoPorCategoria[categoria]</small>
+                            </button>
+                        }
+                    </div>
+
+                    <div class="espacio-docs-grid" id="espacioDocsGrid">
+                        @foreach (var documento in Model.Documentos)
+                        {
+                            <article class="espacio-doc-card @(documento.Destacado ? "is-destacado" : null)"
+                                     data-doc-id="@documento.Id"
+                                     data-categoria="@documento.Categoria"
+                                     data-tipo="@documento.TipoDocumento"
+                                     data-favorito="@(documento.EsFavorito ? "true" : "false")"
+                                     data-busqueda="@documento.TextoBusqueda">
+                                <div class="espacio-doc-card__top">
+                                    <span class="espacio-doc-card__icon espacio-doc-card__icon--@documento.TipoContenido.ToLowerInvariant()">
+                                        <i class="bi @EspacioIconos.ParaTipoContenido(documento.TipoContenido)" aria-hidden="true"></i>
+                                        @if (!string.IsNullOrWhiteSpace(documento.ExtensionArchivo))
+                                        {
+                                            <span class="espacio-doc-ext">@documento.ExtensionArchivo</span>
+                                        }
+                                    </span>
+                                    <button type="button"
+                                            class="espacio-fav @(documento.EsFavorito ? "is-active" : null)"
+                                            data-favorito-btn="@documento.Id"
+                                            title="@(documento.EsFavorito ? "Quitar de favoritos" : "Agregar a favoritos")"
+                                            aria-label="Alternar favorito">
+                                        <i class="bi bi-star-fill" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+
+                                <h3>@documento.Titulo</h3>
+
+                                @if (!string.IsNullOrWhiteSpace(documento.Descripcion))
+                                {
+                                    <p>@documento.Descripcion</p>
+                                }
+
+                                <div class="espacio-doc-card__tags">
+                                    <span class="espacio-tag espacio-tag--cat">@documento.Categoria</span>
+                                    <span class="espacio-tag">@documento.TipoDocumento</span>
+                                    @if (!string.IsNullOrWhiteSpace(documento.Version))
+                                    {
+                                        <span class="espacio-tag">Versi&oacute;n @documento.Version</span>
+                                    }
+                                    @if (documento.Destacado)
+                                    {
+                                        <span class="espacio-tag espacio-tag--cat">Destacado</span>
+                                    }
+                                </div>
+
+                                <div class="espacio-doc-card__foot">
+                                    <span class="espacio-doc-card__meta">
+                                        @documento.FechaPublicacion.ToString("dd/MM/yyyy")
+                                        @if (!string.IsNullOrWhiteSpace(documento.TamanoLegible))
+                                        {
+                                            <text> &middot; @documento.TamanoLegible</text>
+                                        }
+                                    </span>
+
+                                    @switch (documento.TipoContenido)
+                                    {
+                                        case "Archivo":
+                                            <a class="espacio-btn espacio-btn--primary espacio-btn--sm"
+                                               asp-action="Documento"
+                                               asp-route-id="@documento.Id"
+                                               target="_blank"
+                                               rel="noopener">
+                                                <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                                                Ver
+                                            </a>
+                                            break;
+                                        case "Enlace":
+                                            <a class="espacio-btn espacio-btn--primary espacio-btn--sm"
+                                               href="@documento.EnlaceUrl"
+                                               target="_blank"
+                                               rel="noopener noreferrer">
+                                                <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                                                Ir al enlace
+                                            </a>
+                                            break;
+                                        default:
+                                            <button type="button"
+                                                    class="espacio-btn espacio-btn--primary espacio-btn--sm"
+                                                    data-doc-leer="@documento.Id">
+                                                <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                                                Leer
+                                            </button>
+                                            break;
+                                    }
+                                </div>
+                            </article>
+                        }
+                    </div>
+
+                    <div class="espacio-empty mt-3" id="espacioDocsVacio" style="display:none;">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <strong>Sin resultados</strong>
+                        <span>Ajusta la b&uacute;squeda o los filtros para encontrar el documento que necesitas.</span>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+
+    @* ══ MODAL: reportar novedad ══ *@
+    <div class="espacio-modal" id="espacioNovedadModal" role="dialog" aria-modal="true" aria-labelledby="espacioNovedadTitulo">
+        <div class="espacio-modal__card espacio-modal__card--sm">
+            <form asp-action="ReportarNovedad" method="post">
+                @Html.AntiForgeryToken()
+                <div class="espacio-modal__head">
+                    <div>
+                        <h3 id="espacioNovedadTitulo">Reportar novedad</h3>
+                        <p>El &aacute;rea de TI recibir&aacute; el detalle por correo</p>
+                    </div>
+                    <button type="button" class="espacio-modal__close" data-modal-cerrar aria-label="Cerrar">&times;</button>
+                </div>
+
+                <div class="espacio-modal__body">
+                    <div class="espacio-form-grid">
+                        <div class="espacio-form-field espacio-form-field--full">
+                            <label for="novedadActivoId">Equipo <span class="req">*</span></label>
+                            <select name="ActivoId" id="novedadActivoId" class="espacio-select" style="width:100%;">
+                                @foreach (var activo in Model.MisActivos)
+                                {
+                                    var etiqueta = string.IsNullOrWhiteSpace(activo.NombreEquipo)
+                                        ? $"{activo.TipoActivo} {activo.Marca} — Serial {activo.Serial}"
+                                        : $"{activo.NombreEquipo} — Serial {activo.Serial}";
+                                    <option value="@activo.Id">@etiqueta</option>
+                                }
+                                <option value="">Otro equipo (no registrado)</option>
+                            </select>
+                        </div>
+
+                        <div class="espacio-form-field espacio-form-field--full" id="novedadEquipoLibreWrap" style="display:none;">
+                            <label for="novedadEquipoLibre">&iquest;Cu&aacute;l equipo? <span class="req">*</span></label>
+                            <input type="text" name="EquipoReferencia" id="novedadEquipoLibre" maxlength="200"
+                                   placeholder="Ej: Port&aacute;til HP asignado en recepci&oacute;n" />
+                            <small>Describe el equipo cuando no aparece en tu lista de activos.</small>
+                        </div>
+
+                        <div class="espacio-form-field espacio-form-field--full">
+                            <label for="novedadTipo">Tipo de novedad <span class="req">*</span></label>
+                            <select name="Tipo" id="novedadTipo" required>
+                                <option value="">Selecciona...</option>
+                                @foreach (var tipo in Model.TiposNovedad)
+                                {
+                                    <option value="@tipo">@tipo</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="espacio-form-field espacio-form-field--full">
+                            <label for="novedadDescripcion">Descripci&oacute;n <span class="req">*</span></label>
+                            <textarea name="Descripcion" id="novedadDescripcion" required minlength="10" maxlength="2000"
+                                      placeholder="Cu&eacute;ntanos qu&eacute; ocurri&oacute;, desde cu&aacute;ndo y c&oacute;mo afecta tu trabajo."></textarea>
+                            <small>M&iacute;nimo 10 caracteres.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="espacio-modal__foot">
+                    <button type="button" class="espacio-btn espacio-btn--soft" data-modal-cerrar>Cancelar</button>
+                    <button type="submit" class="espacio-btn espacio-btn--primary">Enviar novedad</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @* ══ MODAL: lector de documento en texto ══ *@
+    <div class="espacio-modal" id="espacioLectorModal" role="dialog" aria-modal="true" aria-labelledby="espacioLectorTitulo">
+        <div class="espacio-modal__card">
+            <div class="espacio-modal__head">
+                <div>
+                    <h3 id="espacioLectorTitulo">Documento</h3>
+                    <p id="espacioLectorSubtitulo"></p>
+                </div>
+                <button type="button" class="espacio-modal__close" data-modal-cerrar aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="espacio-modal__body">
+                <div class="espacio-reader" id="espacioLectorContenido"></div>
+            </div>
+            <div class="espacio-modal__foot">
+                <button type="button" class="espacio-btn espacio-btn--soft" data-modal-cerrar>Cerrar</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts
+{
+    <script src="~/js/espacio-corporativo.js" asp-append-version="true"></script>
+}

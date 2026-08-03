@@ -29,6 +29,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Medicamento> Medicamentos => Set<Medicamento>();
     public DbSet<NursingAssistant> NursingAssistants => Set<NursingAssistant>();
     public DbSet<OpsAssistant> OpsAssistants => Set<OpsAssistant>();
+    public DbSet<EspacioActivo> EspacioActivos => Set<EspacioActivo>();
+    public DbSet<EspacioActivoNovedad> EspacioActivoNovedades => Set<EspacioActivoNovedad>();
+    public DbSet<EspacioActivoMovimiento> EspacioActivoMovimientos => Set<EspacioActivoMovimiento>();
+    public DbSet<EspacioDocumento> EspacioDocumentos => Set<EspacioDocumento>();
+    public DbSet<EspacioDocumentoFavorito> EspacioDocumentoFavoritos => Set<EspacioDocumentoFavorito>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -711,6 +716,140 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
             entity.HasIndex(x => x.NormalizedName).IsUnique();
+        });
+
+        modelBuilder.Entity<EspacioActivo>(entity =>
+        {
+            entity.ToTable("espacio_activos");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.TipoActivo).HasMaxLength(60).IsRequired();
+            entity.Property(x => x.NombreEquipo).HasMaxLength(150);
+            entity.Property(x => x.Marca).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.Serie).HasMaxLength(120).IsRequired();
+            entity.Property(x => x.Serial).HasMaxLength(120).IsRequired();
+            entity.Property(x => x.Especificaciones).HasMaxLength(2000);
+            entity.Property(x => x.CodigoActivo).HasMaxLength(60);
+            entity.Property(x => x.ResponsableNombre).HasMaxLength(160);
+            entity.Property(x => x.Estado).HasMaxLength(40).IsRequired().HasDefaultValue("Disponible");
+            entity.Property(x => x.Nota).HasMaxLength(2000);
+            entity.Property(x => x.Eliminado).HasDefaultValue(false);
+            entity.Property(x => x.CreadoPorNombre).HasMaxLength(160);
+            entity.Property(x => x.ActualizadoPorNombre).HasMaxLength(160);
+            entity.Property(x => x.FechaAsignacionUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.EliminadoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
+
+            entity.HasOne(x => x.ResponsableUser)
+                .WithMany()
+                .HasForeignKey(x => x.ResponsableUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(x => x.Serial);
+            entity.HasIndex(x => x.CodigoActivo);
+            entity.HasIndex(x => x.ResponsableUserId);
+            entity.HasIndex(x => x.Estado);
+            entity.HasIndex(x => x.Eliminado);
+        });
+
+        modelBuilder.Entity<EspacioActivoNovedad>(entity =>
+        {
+            entity.ToTable("espacio_activo_novedades");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.EquipoReferencia).HasMaxLength(200);
+            entity.Property(x => x.ReportadoPorNombre).HasMaxLength(160).IsRequired();
+            entity.Property(x => x.ReportadoPorEmail).HasMaxLength(150);
+            entity.Property(x => x.Tipo).HasMaxLength(60).IsRequired();
+            entity.Property(x => x.Descripcion).HasMaxLength(2000).IsRequired();
+            entity.Property(x => x.Estado).HasMaxLength(30).IsRequired().HasDefaultValue("Reportada");
+            entity.Property(x => x.Prioridad).HasMaxLength(20);
+            entity.Property(x => x.Clasificacion).HasMaxLength(60);
+            entity.Property(x => x.RespuestaAdmin).HasMaxLength(2000);
+            entity.Property(x => x.AtendidoPorNombre).HasMaxLength(160);
+            entity.Property(x => x.NotificacionEnviada).HasDefaultValue(false);
+            entity.Property(x => x.ResueltoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
+
+            entity.HasOne(x => x.EspacioActivo)
+                .WithMany(x => x.Novedades)
+                .HasForeignKey(x => x.EspacioActivoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(x => x.EspacioActivoId);
+            entity.HasIndex(x => x.ReportadoPorUserId);
+            entity.HasIndex(x => x.Estado);
+            entity.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<EspacioActivoMovimiento>(entity =>
+        {
+            entity.ToTable("espacio_activo_movimientos");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Tipo).HasMaxLength(40).IsRequired();
+            entity.Property(x => x.Detalle).HasMaxLength(600).IsRequired();
+            entity.Property(x => x.RegistradoPorNombre).HasMaxLength(160);
+            entity.Property(x => x.RegistradoAtUtc).HasColumnType("timestamp with time zone");
+
+            entity.HasOne(x => x.EspacioActivo)
+                .WithMany(x => x.Movimientos)
+                .HasForeignKey(x => x.EspacioActivoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => new { x.EspacioActivoId, x.RegistradoAtUtc });
+        });
+
+        modelBuilder.Entity<EspacioDocumento>(entity =>
+        {
+            entity.ToTable("espacio_documentos");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Titulo).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Descripcion).HasMaxLength(1000);
+            entity.Property(x => x.Categoria).HasMaxLength(60).IsRequired();
+            entity.Property(x => x.TipoDocumento).HasMaxLength(40).IsRequired();
+            entity.Property(x => x.TipoContenido).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.Version).HasMaxLength(30);
+            entity.Property(x => x.CodigoDocumento).HasMaxLength(60);
+            entity.Property(x => x.ArchivoNombre).HasMaxLength(260);
+            entity.Property(x => x.ArchivoContentType).HasMaxLength(150);
+            entity.Property(x => x.EnlaceUrl).HasMaxLength(1000);
+            entity.Property(x => x.ContenidoTexto).HasColumnType("text");
+            entity.Property(x => x.Etiquetas).HasMaxLength(300);
+            // Sin HasDefaultValue: con un default de BD en true, EF interpretaria "false"
+            // como valor no asignado y ningun documento podria guardarse como borrador.
+            entity.Property(x => x.Destacado).HasDefaultValue(false);
+            entity.Property(x => x.Eliminado).HasDefaultValue(false);
+            entity.Property(x => x.Descargas).HasDefaultValue(0);
+            entity.Property(x => x.FechaVigencia).HasColumnType("date");
+            entity.Property(x => x.CreadoPorNombre).HasMaxLength(160);
+            entity.Property(x => x.ActualizadoPorNombre).HasMaxLength(160);
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
+
+            entity.HasIndex(x => x.Categoria);
+            entity.HasIndex(x => x.TipoDocumento);
+            entity.HasIndex(x => x.Publicado);
+            entity.HasIndex(x => x.Eliminado);
+            entity.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<EspacioDocumentoFavorito>(entity =>
+        {
+            entity.ToTable("espacio_documento_favoritos");
+            entity.HasKey(x => new { x.EspacioDocumentoId, x.UserId });
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
+
+            entity.HasOne(x => x.EspacioDocumento)
+                .WithMany(x => x.Favoritos)
+                .HasForeignKey(x => x.EspacioDocumentoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => x.UserId);
         });
 
         modelBuilder.Entity<AppRole>().HasData(

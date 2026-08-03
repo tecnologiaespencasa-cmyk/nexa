@@ -21,13 +21,17 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
             return;
         }
 
-        var hasPermission = await _currentUserPermissionService.HasPermissionAsync(
-            context.User,
-            requirement.PermissionCode);
-
-        if (hasPermission)
+        foreach (var permissionCode in requirement.PermissionCodes)
         {
-            context.Succeed(requirement);
+            var hasPermission = await _currentUserPermissionService.HasPermissionAsync(
+                context.User,
+                permissionCode);
+
+            if (hasPermission)
+            {
+                context.Succeed(requirement);
+                return;
+            }
         }
     }
 }

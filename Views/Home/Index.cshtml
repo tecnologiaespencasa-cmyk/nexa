@@ -56,6 +56,14 @@
         },
         new
         {
+            Allowed = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.EspacioCorporativoAccess)).Succeeded,
+            Controller = "EspacioCorporativo",
+            Title = "Mi espacio corporativo",
+            Description = "Consulta tus equipos asignados, reporta novedades y accede a la documentacion.",
+            IconPath = "M5 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm4-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2h-2V5h-2v2H9Zm-6 8h18v2H3Z"
+        },
+        new
+        {
             Allowed = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.UserAdministration)).Succeeded,
             Controller = "UserAdministration",
             Title = "Administracion",
@@ -122,59 +130,54 @@
         <div class="home-section-heading">
             <div>
                 <span class="home-section-kicker">Centro de ayuda</span>
-                <h2>Manual de uso, guias y documentacion</h2>
+                <h2>Documentacion, politicas y material de apoyo</h2>
             </div>
-            <p>Muy pronto encontraras aqui el material de apoyo para navegar la intranet con mayor facilidad.</p>
+            <p>Todo el material institucional vive en Mi espacio corporativo, junto con los equipos que tienes asignados.</p>
         </div>
 
         <div class="home-resource-grid">
             <article class="home-resource-card">
-                <span class="home-resource-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false">
-                        <path d="M7 3h7.59A2 2 0 0 1 16 3.59l3.41 3.41A2 2 0 0 1 20 8.41V19a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm7 1.5V8h3.5Z"></path>
-                    </svg>
-                </span>
+                <span class="home-resource-icon" aria-hidden="true"><i class="bi bi-file-earmark-text-fill" aria-hidden="true"></i></span>
                 <div class="home-resource-content">
-                    <strong>Manual de uso</strong>
-                    <span>Instrucciones claras para conocer el funcionamiento general del sistema y sus modulos principales.</span>
+                    <strong>Politicas y manuales</strong>
+                    <span>Consulta el material oficial de cada area, siempre en su version vigente.</span>
                 </div>
             </article>
 
             <article class="home-resource-card">
-                <span class="home-resource-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false">
-                        <path d="M4 5a2 2 0 0 1 2-2h4v18H6a2 2 0 0 1-2-2Zm8-2h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6Zm1.5 4v2h4V7Zm0 4v2h4v-2Z"></path>
-                    </svg>
-                </span>
+                <span class="home-resource-icon" aria-hidden="true"><i class="bi bi-search" aria-hidden="true"></i></span>
                 <div class="home-resource-content">
-                    <strong>Guias</strong>
-                    <span>Recorridos practicos paso a paso para tareas frecuentes, procesos internos y buenas practicas de uso.</span>
+                    <strong>Busqueda y favoritos</strong>
+                    <span>Filtra por categoria o tipo de documento y marca como favoritos los que mas usas.</span>
                 </div>
             </article>
 
             <article class="home-resource-card">
-                <span class="home-resource-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false">
-                        <path d="M12 2 2 7l10 5 8.18-4.09V17H22V7ZM6 11.91V16l6 3 6-3v-4.09l-6 3Z"></path>
-                    </svg>
-                </span>
+                <span class="home-resource-icon" aria-hidden="true"><i class="bi bi-pc-display" aria-hidden="true"></i></span>
                 <div class="home-resource-content">
-                    <strong>Documentacion</strong>
-                    <span>Espacio pensado para reunir politicas, novedades, referencias operativas y contenido institucional.</span>
+                    <strong>Tus equipos asignados</strong>
+                    <span>Revisa serial y estado de tus activos, y reporta cualquier novedad al area de TI.</span>
                 </div>
             </article>
         </div>
 
-        <div class="home-coming-soon">
-            <div class="home-coming-soon-copy">
-                <span class="home-coming-soon-kicker">Proximamente</span>
-                <h3>Estamos preparando una base de conocimiento para Nexa</h3>
-                <p>
-                    Aqui se publicaran tutoriales, preguntas frecuentes, actualizaciones del sistema y material de consulta
-                    para que cada usuario tenga apoyo rapido en su trabajo diario.
-                </p>
+        @if ((await AuthorizationService.AuthorizeAsync(User, SystemPermissions.EspacioCorporativoAccess)).Succeeded)
+        {
+            <div class="home-coming-soon">
+                <div class="home-coming-soon-copy">
+                    <span class="home-coming-soon-kicker">Ya disponible</span>
+                    <h3>Mi espacio corporativo</h3>
+                    <p>
+                        Encuentra alli la documentacion publicada por cada area y la informacion de los equipos
+                        que tienes a tu cargo.
+                    </p>
+                    <a class="home-coming-soon-cta" asp-controller="EspacioCorporativo" asp-action="Index">
+                        Ir a Mi espacio corporativo
+                        <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    </a>
+                </div>
             </div>
-        </div>
+        }
     </div>
 </section>
 

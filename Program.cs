@@ -45,6 +45,7 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddScoped<ICurrentUserPermissionService, CurrentUserPermissionService>();
 builder.Services.AddScoped<IFarmaciaDispatchNotificationService, FarmaciaDispatchNotificationService>();
+builder.Services.AddScoped<IEspacioCorporativoNotificationService, EspacioCorporativoNotificationService>();
 builder.Services.AddHostedService<EmpacadoNotificationHostedService>();
 builder.Services.AddHostedService<AuditRetentionHostedService>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
@@ -85,6 +86,14 @@ builder.Services.AddAuthorization(options =>
             policy.AddRequirements(new PermissionRequirement(permissionCode));
         });
     }
+
+    options.AddPolicy(SystemPermissions.EspacioCorporativoAccess, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.AddRequirements(new PermissionRequirement(
+            SystemPermissions.EspacioCorporativo,
+            SystemPermissions.EspacioCorporativoAdmin));
+    });
 });
 
 var app = builder.Build();

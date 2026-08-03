@@ -1,0 +1,29 @@
+@{
+    var successMessage = TempData["SuccessMessage"] as string;
+    var errorMessage = TempData["ErrorMessage"] as string;
+    var warningMessage = TempData["WarningMessage"] as string;
+}
+
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="espacio-alert espacio-alert--ok" role="status">
+        <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+        <span>@successMessage</span>
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(warningMessage))
+{
+    <div class="espacio-alert espacio-alert--warn" role="status">
+        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+        <span>@warningMessage</span>
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="espacio-alert espacio-alert--error" role="alert">
+        <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+        <span>@errorMessage</span>
+    </div>
+}

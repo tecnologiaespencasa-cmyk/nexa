@@ -730,20 +730,45 @@ textarea {
   background: linear-gradient(135deg, rgba(188, 23, 40, 0.12), rgba(37, 150, 190, 0.14));
   border-radius: 0.9rem;
   color: #bc1728;
-  display: inline-flex;
+  display: flex;
+  flex: none;
   height: 3.2rem;
   justify-content: center;
   width: 3.2rem;
 }
 
-.home-resource-icon svg,
 .home-module-chip svg {
   fill: currentColor;
 }
 
-.home-resource-icon svg {
-  height: 1.55rem;
-  width: 1.55rem;
+.home-resource-icon .bi {
+  font-size: 1.5rem;
+}
+
+.home-coming-soon-cta {
+  align-items: center;
+  background: linear-gradient(135deg, #e53935, #a50f0f);
+  border-radius: 14px;
+  box-shadow: 0 12px 26px rgba(229, 57, 53, 0.28);
+  color: #fff;
+  display: inline-flex;
+  font-weight: 800;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+  padding: 0.72rem 1.15rem;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.home-coming-soon-cta:hover,
+.home-coming-soon-cta:focus {
+  box-shadow: 0 18px 34px rgba(229, 57, 53, 0.36);
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+.home-coming-soon-cta .bi {
+  font-size: 1.05rem;
 }
 
 .home-resource-content {
@@ -1004,7 +1029,7 @@ body {
   align-items: center;
   display: inline-flex;
   flex: 0 0 auto;
-  margin-right: clamp(1.4rem, 4vw, 5.5rem);
+  margin-right: clamp(0.9rem, 2vw, 2.4rem);
   max-width: 178px;
   overflow: visible;
   padding: 0;
@@ -1022,16 +1047,21 @@ body {
 
 .intranet-navbar-collapse {
   align-items: center;
-  gap: 1.4rem;
+  gap: 0.9rem;
   justify-content: space-between;
 }
 
+/* Una sola linea: la lista ocupa el espacio restante y nunca envuelve.
+   Los modulos que no caben los mueve el script a la opcion "Mas".
+   No usar overflow:hidden aqui: recortaria los dropdown-menu de Bootstrap. */
 .intranet-nav-links {
   align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
   margin-bottom: 0;
+  min-width: 0;
 }
 
 .intranet-nav-link {
@@ -1041,10 +1071,11 @@ body {
   border-radius: 22px;
   color: #1c2438 !important;
   display: inline-flex;
-  gap: 0.62rem;
+  gap: 0.45rem;
+  font-size: 0.94rem;
   font-weight: 700;
-  min-height: 46px;
-  padding: 0.68rem 1rem;
+  min-height: 44px;
+  padding: 0.6rem 0.72rem;
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   white-space: nowrap;
 }
@@ -1057,14 +1088,51 @@ body {
   justify-content: center;
 }
 
-.intranet-nav-link__icon svg {
-  fill: none;
-  height: 1.18rem;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-  width: 1.18rem;
+/* Iconos: Bootstrap Icons (webfont). El <i> se vuelve contenedor flex para que el
+   glifo salga del flujo en linea y deje de depender del `vertical-align: -.125em`
+   que aplica la libreria y que lo descentraba dentro de los contenedores. */
+.intranet-nav-link__icon .bi,
+.home-resource-icon .bi,
+.home-coming-soon-cta .bi {
+  align-items: center;
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  line-height: 1;
+}
+
+.intranet-nav-link__icon .bi::before,
+.home-resource-icon .bi::before,
+.home-coming-soon-cta .bi::before {
+  display: block;
+  line-height: 1;
+}
+
+.intranet-nav-link__icon .bi {
+  font-size: 1.08rem;
+}
+
+.intranet-nav-links > li[hidden] {
+  display: none !important;
+}
+
+.intranet-nav-overflow .dropdown-item {
+  align-items: center;
+  display: flex;
+  gap: 0.55rem;
+}
+
+.intranet-nav-overflow .dropdown-header {
+  color: #6b7488;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.5rem 0.9rem 0.2rem;
+  text-transform: uppercase;
+}
+
+.intranet-nav-overflow .intranet-nav-overflow__child {
+  padding-left: 1.65rem;
 }
 
 .intranet-nav-link:hover,
@@ -1291,10 +1359,21 @@ body {
     padding-top: 0.75rem;
   }
 
+  /* En el menu colapsado se apilan todos: el desbordamiento no aplica. */
   .intranet-nav-links,
   .intranet-navbar-actions {
     align-items: stretch;
     width: 100%;
+  }
+
+  .intranet-nav-links {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0.2rem;
+  }
+
+  .intranet-nav-overflow {
+    display: none !important;
   }
 
   .intranet-navbar-actions {

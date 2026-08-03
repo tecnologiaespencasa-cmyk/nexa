@@ -1,0 +1,561 @@
+@model EspacioActivosAdminViewModel
+@using IntranetPrueba.Helpers
+@using IntranetPrueba.Models.EspacioCorporativo
+@{
+    ViewData["Title"] = "Administración de activos";
+}
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/espacio-corporativo.css" asp-append-version="true" />
+}
+
+<section class="espacio">
+
+    <header class="espacio-hero">
+        <div class="espacio-shell">
+            <div class="espacio-hero__grid">
+                <div>
+                    <span class="espacio-hero__eyebrow">
+                        <i class="bi bi-pc-display" aria-hidden="true"></i>
+                        Mi espacio corporativo &middot; Administraci&oacute;n
+                    </span>
+                    <h1>Activos de TI</h1>
+                    <p>Registra, asigna y da seguimiento a los equipos de la compa&ntilde;&iacute;a, y gestiona las novedades reportadas por los colaboradores.</p>
+                </div>
+                <div class="espacio-hero__actions">
+                    <button type="button" class="espacio-admin-btn" data-activo-nuevo>
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        Nuevo activo
+                    </button>
+                    <a class="espacio-admin-btn" asp-action="Index">
+                        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                        Volver
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="espacio-shell">
+
+        @await Html.PartialAsync("_EspacioAlertas")
+
+        <div class="espacio-metrics">
+            <div class="espacio-metric">
+                <span>Total activos</span>
+                <strong>@Model.Metricas.Total</strong>
+            </div>
+            <div class="espacio-metric espacio-metric--ok">
+                <span>Asignados</span>
+                <strong>@Model.Metricas.Asignados</strong>
+            </div>
+            <div class="espacio-metric espacio-metric--info">
+                <span>Disponibles</span>
+                <strong>@Model.Metricas.Disponibles</strong>
+            </div>
+            <div class="espacio-metric espacio-metric--alert">
+                <span>Mantenimiento</span>
+                <strong>@Model.Metricas.EnMantenimiento</strong>
+            </div>
+            <div class="espacio-metric">
+                <span>Dados de baja</span>
+                <strong>@Model.Metricas.DadosDeBaja</strong>
+            </div>
+            <div class="espacio-metric espacio-metric--alert">
+                <span>Novedades abiertas</span>
+                <strong>@Model.Metricas.NovedadesAbiertas</strong>
+            </div>
+        </div>
+
+        @* ══ INVENTARIO ══ *@
+        <section class="espacio-panel">
+            <div class="espacio-panel__head">
+                <div class="espacio-panel__title">
+                    <span class="espacio-panel__icon"><i class="bi bi-hdd-rack-fill" aria-hidden="true"></i></span>
+                    <div>
+                        <h2>Inventario</h2>
+                        <span>@Model.Activos.Count activo(s) en la vista actual</span>
+                    </div>
+                </div>
+                <button type="button" class="espacio-btn espacio-btn--primary" data-activo-nuevo>
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    Agregar activo
+                </button>
+            </div>
+
+            <div class="espacio-panel__body">
+                <form method="get" asp-action="Activos" class="espacio-toolbar">
+                    <input type="hidden" name="estadoNovedad" value="@Model.EstadoNovedadFiltro" />
+                    <div class="espacio-search">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <input type="search" name="busqueda" value="@Model.Busqueda"
+                               placeholder="Serial, serie, marca, c&oacute;digo o responsable..." aria-label="Buscar activos" />
+                    </div>
+
+                    <select class="espacio-select" name="tipo" aria-label="Filtrar por tipo">
+                        <option value="">Todos los tipos</option>
+                        @foreach (var tipo in Model.TiposActivo)
+                        {
+                            <option value="@tipo" selected="@(tipo == Model.TipoFiltro)">@tipo</option>
+                        }
+                    </select>
+
+                    <select class="espacio-select" name="estado" aria-label="Filtrar por estado">
+                        <option value="">Todos los estados</option>
+                        @foreach (var estado in Model.EstadosActivo)
+                        {
+                            <option value="@estado" selected="@(estado == Model.EstadoFiltro)">@estado</option>
+                        }
+                    </select>
+
+                    <select class="espacio-select" name="responsable" aria-label="Filtrar por responsable">
+                        <option value="">Todos los responsables</option>
+                        @foreach (var usuario in Model.Responsables)
+                        {
+                            <option value="@usuario.Id" selected="@(usuario.Id.ToString() == Model.ResponsableFiltro)">@usuario.NombreCompleto</option>
+                        }
+                    </select>
+
+                    <button type="submit" class="espacio-btn espacio-btn--primary">Filtrar</button>
+                    <a class="espacio-btn espacio-btn--soft" asp-action="Activos">Limpiar</a>
+                </form>
+
+                @if (Model.Activos.Count == 0)
+                {
+                    <div class="espacio-empty">
+                        <i class="bi bi-pc-display" aria-hidden="true"></i>
+                        <strong>Sin activos registrados</strong>
+                        <span>Agrega el primer equipo con el bot&oacute;n <em>Agregar activo</em> o ajusta los filtros de b&uacute;squeda.</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="espacio-table-wrap">
+                        <table class="espacio-table" id="espacioTablaActivos">
+                            <thead>
+                                <tr>
+                                    <th>Equipo</th>
+                                    <th>Marca / Serie</th>
+                                    <th>Serial</th>
+                                    <th>C&oacute;digo</th>
+                                    <th>Responsable</th>
+                                    <th>Estado</th>
+                                    <th>Novedades</th>
+                                    <th style="text-align:right;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var activo in Model.Activos)
+                                {
+                                    var titulo = string.IsNullOrWhiteSpace(activo.NombreEquipo)
+                                        ? $"{activo.TipoActivo} {activo.Marca}".Trim()
+                                        : activo.NombreEquipo;
+
+                                    <tr>
+                                        <td>
+                                            <span class="espacio-table__strong">@titulo</span>
+                                            <span class="espacio-table__sub">@activo.TipoActivo</span>
+                                        </td>
+                                        <td>
+                                            <span class="espacio-table__strong">@activo.Marca</span>
+                                            <span class="espacio-table__sub">@activo.Serie</span>
+                                        </td>
+                                        <td>@activo.Serial</td>
+                                        <td>@(string.IsNullOrWhiteSpace(activo.CodigoActivo) ? "—" : activo.CodigoActivo)</td>
+                                        <td>
+                                            @if (string.IsNullOrWhiteSpace(activo.ResponsableNombre))
+                                            {
+                                                <span class="espacio-table__sub">Sin asignar</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="espacio-table__strong">@activo.ResponsableNombre</span>
+                                                @if (activo.FechaAsignacion.HasValue)
+                                                {
+                                                    <span class="espacio-table__sub">desde @activo.FechaAsignacion.Value.ToString("dd/MM/yyyy")</span>
+                                                }
+                                            }
+                                        </td>
+                                        <td><span class="espacio-chip @EspacioIconos.ClaseEstadoActivo(activo.Estado)">@activo.Estado</span></td>
+                                        <td>
+                                            @if (activo.NovedadesAbiertas > 0)
+                                            {
+                                                <span class="espacio-chip espacio-chip--reportada">@activo.NovedadesAbiertas abierta(s)</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="espacio-table__sub">Sin novedades</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="espacio-table__actions">
+                                                <button type="button"
+                                                        class="espacio-icon-btn espacio-icon-btn--primary"
+                                                        title="Editar / asignar"
+                                                        data-activo-editar
+                                                        data-id="@activo.Id"
+                                                        data-tipo-activo="@activo.TipoActivo"
+                                                        data-nombre-equipo="@activo.NombreEquipo"
+                                                        data-marca="@activo.Marca"
+                                                        data-serie="@activo.Serie"
+                                                        data-serial="@activo.Serial"
+                                                        data-especificaciones="@activo.Especificaciones"
+                                                        data-codigo-activo="@activo.CodigoActivo"
+                                                        data-responsable-id="@activo.ResponsableUserId"
+                                                        data-estado="@activo.Estado"
+                                                        data-nota="@activo.Nota">
+                                                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                                </button>
+
+                                                <button type="button"
+                                                        class="espacio-icon-btn"
+                                                        title="Historial"
+                                                        data-activo-historial="@activo.Id">
+                                                    <i class="bi bi-clock-history" aria-hidden="true"></i>
+                                                </button>
+
+                                                <form asp-action="EliminarActivo" method="post" data-confirmar="¿Eliminar el activo @activo.Serial del inventario?" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@activo.Id" />
+                                                    <button type="submit" class="espacio-icon-btn espacio-icon-btn--danger" title="Eliminar">
+                                                        <i class="bi bi-trash3-fill" aria-hidden="true"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </section>
+
+        @* ══ NOVEDADES ══ *@
+        <section class="espacio-panel">
+            <div class="espacio-panel__head">
+                <div class="espacio-panel__title">
+                    <span class="espacio-panel__icon"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i></span>
+                    <div>
+                        <h2>Novedades reportadas</h2>
+                        <span>Flujo: Reportada &rarr; En proceso &rarr; Solucionada o rechazada</span>
+                    </div>
+                </div>
+
+                <form method="get" asp-action="Activos" class="d-flex gap-2 flex-wrap">
+                    <input type="hidden" name="busqueda" value="@Model.Busqueda" />
+                    <input type="hidden" name="estado" value="@Model.EstadoFiltro" />
+                    <input type="hidden" name="tipo" value="@Model.TipoFiltro" />
+                    <input type="hidden" name="responsable" value="@Model.ResponsableFiltro" />
+                    <select class="espacio-select" name="estadoNovedad" aria-label="Filtrar novedades por estado" onchange="this.form.submit()">
+                        <option value="">Todas las novedades</option>
+                        @foreach (var estado in Model.EstadosNovedad)
+                        {
+                            <option value="@estado" selected="@(estado == Model.EstadoNovedadFiltro)">@estado</option>
+                        }
+                    </select>
+                </form>
+            </div>
+
+            <div class="espacio-panel__body">
+                @if (Model.Novedades.Count == 0)
+                {
+                    <div class="espacio-empty">
+                        <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                        <strong>No hay novedades para mostrar</strong>
+                        <span>Cuando un colaborador reporte una novedad con su equipo, aparecer&aacute; aqu&iacute; y llegar&aacute; un correo al l&iacute;der de tecnolog&iacute;a.</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="espacio-table-wrap">
+                        <table class="espacio-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Equipo</th>
+                                    <th>Reportado por</th>
+                                    <th>Tipo</th>
+                                    <th>Clasificaci&oacute;n</th>
+                                    <th>Prioridad</th>
+                                    <th>Estado</th>
+                                    <th>Fecha</th>
+                                    <th style="text-align:right;">Gestionar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var novedad in Model.Novedades)
+                                {
+                                    <tr>
+                                        <td>@novedad.Id</td>
+                                        <td>
+                                            <span class="espacio-table__strong">@novedad.EquipoDescripcion</span>
+                                            @if (!string.IsNullOrWhiteSpace(novedad.CodigoActivo))
+                                            {
+                                                <span class="espacio-table__sub">C&oacute;digo @novedad.CodigoActivo</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="espacio-table__strong">@novedad.ReportadoPorNombre</span>
+                                            <span class="espacio-table__sub">@novedad.ReportadoPorEmail</span>
+                                        </td>
+                                        <td>@novedad.Tipo</td>
+                                        <td>@(string.IsNullOrWhiteSpace(novedad.Clasificacion) ? "Sin clasificar" : novedad.Clasificacion)</td>
+                                        <td>
+                                            @if (string.IsNullOrWhiteSpace(novedad.Prioridad))
+                                            {
+                                                <span class="espacio-table__sub">—</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="espacio-chip @EspacioIconos.ClasePrioridad(novedad.Prioridad)">@novedad.Prioridad</span>
+                                            }
+                                        </td>
+                                        <td><span class="espacio-chip @EspacioIconos.ClaseEstadoNovedad(novedad.Estado)">@novedad.Estado</span></td>
+                                        <td>
+                                            <span class="espacio-table__strong">@novedad.FechaReporte.ToString("dd/MM/yyyy")</span>
+                                            <span class="espacio-table__sub">@novedad.FechaReporte.ToString("hh:mm tt")</span>
+                                        </td>
+                                        <td>
+                                            <div class="espacio-table__actions">
+                                                <button type="button"
+                                                        class="espacio-btn espacio-btn--ghost espacio-btn--sm"
+                                                        data-novedad-gestionar
+                                                        data-id="@novedad.Id"
+                                                        data-estado="@novedad.Estado"
+                                                        data-clasificacion="@novedad.Clasificacion"
+                                                        data-prioridad="@novedad.Prioridad"
+                                                        data-respuesta="@novedad.RespuestaAdmin"
+                                                        data-tipo="@novedad.Tipo"
+                                                        data-equipo="@novedad.EquipoDescripcion"
+                                                        data-descripcion="@novedad.Descripcion">
+                                                    Gestionar
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+
+    @* ══ MODAL: crear / editar activo ══ *@
+    <div class="espacio-modal" id="espacioActivoModal" role="dialog" aria-modal="true" aria-labelledby="espacioActivoModalTitulo">
+        <div class="espacio-modal__card espacio-modal__card--lg">
+            <form asp-action="GuardarActivo" method="post" id="espacioActivoForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Id" />
+
+                <div class="espacio-modal__head">
+                    <div>
+                        <h3 id="espacioActivoModalTitulo">Nuevo activo</h3>
+                        <p>Los campos marcados con * son obligatorios</p>
+                    </div>
+                    <button type="button" class="espacio-modal__close" data-modal-cerrar aria-label="Cerrar">&times;</button>
+                </div>
+
+                <div class="espacio-modal__body">
+                    <div class="espacio-form-grid">
+                        <div class="espacio-form-field">
+                            <label for="activoTipo">Tipo de activo <span class="req">*</span></label>
+                            <select name="TipoActivo" id="activoTipo" required>
+                                <option value="">Selecciona...</option>
+                                @foreach (var tipo in Model.TiposActivo)
+                                {
+                                    <option value="@tipo">@tipo</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="activoNombre">Nombre del equipo</label>
+                            <input type="text" name="NombreEquipo" id="activoNombre" maxlength="150" placeholder="Ej: NEXA-PC-014" />
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="activoMarca">Marca <span class="req">*</span></label>
+                            <input type="text" name="Marca" id="activoMarca" maxlength="80" required placeholder="Ej: Lenovo" />
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="activoSerie">Serie <span class="req">*</span></label>
+                            <input type="text" name="Serie" id="activoSerie" maxlength="120" required placeholder="Ej: ThinkPad E14 Gen 4" />
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="activoSerial">Serial <span class="req">*</span></label>
+                            <input type="text" name="Serial" id="activoSerial" maxlength="120" required placeholder="Ej: PF3XK92L" />
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="activoCodigo">C&oacute;digo de activo</label>
+                            <input type="text" name="CodigoActivo" id="activoCodigo" maxlength="60" placeholder="Ej: AF-000145" />
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="activoResponsable">Responsable</label>
+                            <select name="ResponsableUserId" id="activoResponsable">
+                                <option value="">Sin asignar</option>
+                                @foreach (var usuario in Model.Responsables)
+                                {
+                                    <option value="@usuario.Id">@usuario.NombreCompleto (@usuario.Usuario)</option>
+                                }
+                            </select>
+                            <small>Solo aparecen los usuarios activos del portal.</small>
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="activoEstado">Estado</label>
+                            <select name="Estado" id="activoEstado">
+                                <option value="">Autom&aacute;tico seg&uacute;n asignaci&oacute;n</option>
+                                @foreach (var estado in Model.EstadosActivo)
+                                {
+                                    <option value="@estado">@estado</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="espacio-form-field espacio-form-field--full">
+                            <label for="activoEspecificaciones">Especificaciones</label>
+                            <textarea name="Especificaciones" id="activoEspecificaciones" maxlength="2000"
+                                      placeholder="Procesador, memoria, disco, sistema operativo, accesorios incluidos..."></textarea>
+                        </div>
+
+                        <div class="espacio-form-field espacio-form-field--full">
+                            <label for="activoNota">Nota</label>
+                            <textarea name="Nota" id="activoNota" maxlength="2000"
+                                      placeholder="Observaciones internas del &aacute;rea de TI."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="espacio-modal__foot">
+                    <button type="button" class="espacio-btn espacio-btn--soft" data-modal-cerrar>Cancelar</button>
+                    <button type="submit" class="espacio-btn espacio-btn--primary">Guardar activo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @* ══ MODAL: gestionar novedad (flujo por transiciones) ══ *@
+    <div class="espacio-modal" id="espacioNovedadGestionModal" role="dialog" aria-modal="true" aria-labelledby="espacioNovedadGestionTitulo">
+        <div class="espacio-modal__card">
+            <form asp-action="GestionarNovedad" method="post" id="espacioNovedadGestionForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Id" />
+                <input type="hidden" name="estadoNovedadFiltro" value="@Model.EstadoNovedadFiltro" />
+
+                <div class="espacio-modal__head">
+                    <div>
+                        <h3 id="espacioNovedadGestionTitulo">Gestionar novedad</h3>
+                        <p id="espacioNovedadResumen"></p>
+                    </div>
+                    <button type="button" class="espacio-modal__close" data-modal-cerrar aria-label="Cerrar">&times;</button>
+                </div>
+
+                <div class="espacio-modal__body">
+
+                    @* Línea de tiempo del flujo; el paso actual lo marca el script. *@
+                    <div class="espacio-flujo" id="espacioNovedadFlujo">
+                        @foreach (var paso in EspacioCorporativoCatalogos.PasosFlujoNovedad)
+                        {
+                            <div class="espacio-flujo__paso" data-paso="@paso">
+                                <span class="espacio-flujo__disco"><i class="bi @EspacioIconos.IconoEstadoNovedad(paso)" aria-hidden="true"></i></span>
+                                <span class="espacio-flujo__etiqueta">@paso</span>
+                            </div>
+                        }
+                        <div class="espacio-flujo__paso" data-paso="@EspacioCorporativoCatalogos.EstadoNovedadRechazada" data-paso-alterno hidden>
+                            <span class="espacio-flujo__disco"><i class="bi bi-x-circle-fill" aria-hidden="true"></i></span>
+                            <span class="espacio-flujo__etiqueta">Rechazada</span>
+                        </div>
+                    </div>
+
+                    <div class="espacio-novedad__answer mb-3">
+                        <strong>Reporte del colaborador</strong>
+                        <span id="espacioNovedadDetalle"></span>
+                    </div>
+
+                    <div class="espacio-form-grid">
+                        <div class="espacio-form-field">
+                            <label for="novedadClasificacion">Clasificaci&oacute;n</label>
+                            <select name="Clasificacion" id="novedadClasificacion">
+                                @foreach (var clasificacion in Model.ClasificacionesNovedad)
+                                {
+                                    <option value="@clasificacion">@clasificacion</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="novedadPrioridad">Prioridad</label>
+                            <select name="Prioridad" id="novedadPrioridad">
+                                <option value="">Sin definir</option>
+                                @foreach (var prioridad in Model.PrioridadesNovedad)
+                                {
+                                    <option value="@prioridad">@prioridad</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="espacio-form-field espacio-form-field--full">
+                            <label for="novedadRespuesta">Respuesta al colaborador</label>
+                            <textarea name="RespuestaAdmin" id="novedadRespuesta" maxlength="2000"
+                                      placeholder="Diagn&oacute;stico, acciones realizadas o pr&oacute;ximos pasos."></textarea>
+                            <small>Al mover la novedad de paso se env&iacute;a un correo de seguimiento a quien la report&oacute;.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="espacio-modal__foot">
+                    <button type="button" class="espacio-btn espacio-btn--soft" data-modal-cerrar>Cancelar</button>
+                    <button type="submit" class="espacio-btn espacio-btn--ghost">Guardar clasificaci&oacute;n</button>
+
+                    @* Un grupo de botones por estado de origen; el script muestra el que aplica. *@
+                    @foreach (var origen in EspacioCorporativoCatalogos.EstadosNovedad)
+                    {
+                        <div class="espacio-flujo-acciones" data-flujo-desde="@origen" hidden>
+                            @foreach (var destino in EspacioCorporativoCatalogos.TransicionesDesde(origen))
+                            {
+                                <button type="submit"
+                                        name="Destino"
+                                        value="@destino"
+                                        class="espacio-btn @EspacioCorporativoCatalogos.ClaseTransicion(destino)">
+                                    <i class="bi @EspacioCorporativoCatalogos.IconoTransicion(origen, destino)" aria-hidden="true"></i>
+                                    @EspacioCorporativoCatalogos.EtiquetaTransicion(origen, destino)
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @* ══ MODAL: historial del activo ══ *@
+    <div class="espacio-modal" id="espacioHistorialModal" role="dialog" aria-modal="true" aria-labelledby="espacioHistorialTitulo">
+        <div class="espacio-modal__card espacio-modal__card--sm">
+            <div class="espacio-modal__head">
+                <div>
+                    <h3 id="espacioHistorialTitulo">Historial del activo</h3>
+                    <p>Trazabilidad de asignaciones, estados y novedades</p>
+                </div>
+                <button type="button" class="espacio-modal__close" data-modal-cerrar aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="espacio-modal__body" id="espacioHistorialContenido"></div>
+            <div class="espacio-modal__foot">
+                <button type="button" class="espacio-btn espacio-btn--soft" data-modal-cerrar>Cerrar</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts
+{
+    <script src="~/js/espacio-corporativo.js" asp-append-version="true"></script>
+}

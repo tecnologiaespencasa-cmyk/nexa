@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using IntranetPrueba.Services.Interfaces;
 using IntranetPrueba.Services.Models;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +26,9 @@ Reglas estrictas:
 - No corrijas ni completes información: extrae los valores tal como aparecen (solo puedes normalizar mayúsculas, tildes y espacios).
 - tipo_documento: una de [CC, TI, CE, PA, RC, PE, PPT] deducida del tipo de identificación (Cédula de ciudadanía -> CC, Tarjeta de identidad -> TI, Cédula de extranjería -> CE, Pasaporte -> PA, Registro civil -> RC, Permiso especial de permanencia -> PE, Permiso por protección temporal -> PPT). Si no aparece, null.
 - documento: solo el número de identificación, sin puntos ni espacios.
+- REGLA CRÍTICA DE IDENTIDAD: nombre, tipo_documento y documento corresponden EXCLUSIVAMENTE al paciente. Busca primero el bloque que esté rotulado como "Paciente", "Identificación del paciente", "Número de identificación" o equivalente. El tipo y número deben provenir del mismo bloque de datos del paciente.
+- NUNCA uses para el paciente el documento de un médico, profesional, prescriptor, firmante, responsable, cuidador, familiar, acompañante o contacto. Ignora de forma estricta los documentos que aparezcan junto a expresiones como "Médico", "Medicina general", "Especialidad", "Firma", "Profesional", "Registro médico" o al final de una orden/prescripción. Si solo encuentras un documento de un profesional o hay duda sobre a quién pertenece, retorna documento y tipo_documento como null.
+- Ejemplo: si el encabezado identifica a "Paciente" y más abajo aparece "MARIO... CC: 71744574 MEDICINA GENERAL", ese último documento pertenece al médico y NO puede usarse como documento del paciente.
 - Los teléfonos deben contener solo dígitos, sin espacios ni guiones. telefono1 es el celular o teléfono principal del paciente; telefono2 es un teléfono alternativo distinto (puede aparecer dentro del resumen de historia clínica, por ejemplo el del cuidador). Si solo existe uno, telefono2 debe ser null. Nunca repitas el mismo número en ambos campos.
 - fecha_nacimiento y fecha_consulta deben ir en formato YYYY-MM-DD. fecha_consulta es la fecha de admisión o de remisión que registre el documento.
 - edad: edad del paciente en años (número entero) si aparece en el documento; si no, null.
@@ -127,7 +132,7 @@ Reglas estrictas:
                     "El servicio de extracción no está disponible en este momento. Intenta nuevamente.");
             }
 
-            return ParseResponsesApiBody(body);
+            return ParseResponsesApiBody(body, normalizedText);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -140,7 +145,7 @@ Reglas estrictas:
         }
     }
 
-    private RemisionExtractionResult ParseResponsesApiBody(string body)
+    private RemisionExtractionResult ParseResponsesApiBody(string body, string documentText)
     {
         try
         {
@@ -201,7 +206,7 @@ Reglas estrictas:
                     {
                     }
 
-                    return RemisionExtractionResult.Success(jsonText);
+                    return ApplyPatientIdentityGuard(jsonText, documentText);
                 }
             }
 
@@ -270,6 +275,68 @@ Reglas estrictas:
     }
 
     private static object NullableType(string type) => new { type = new[] { type, "null" } };
+
+    private RemisionExtractionResult ApplyPatientIdentityGuard(string jsonText, string documentText)
+    {
+        try
+        {
+            var result = JsonNode.Parse(jsonText)?.AsObject();
+            var documentNumber = result?["documento"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(documentNumber)
+                || !AppearsOnlyInProfessionalContext(documentText, documentNumber))
+            {
+                return RemisionExtractionResult.Success(jsonText);
+            }
+
+            result!["documento"] = null;
+            _logger.LogWarning(
+                "Se descartó una identificación extraída porque solo aparece en un contexto de profesional o firma.");
+            return RemisionExtractionResult.Success(result.ToJsonString());
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            _logger.LogWarning(ex, "No fue posible aplicar la validación adicional de identidad del paciente.");
+            return RemisionExtractionResult.Success(jsonText);
+        }
+    }
+
+    private static bool AppearsOnlyInProfessionalContext(string documentText, string documentNumber)
+    {
+        var digits = Regex.Replace(documentNumber, "\\D", string.Empty);
+        if (digits.Length < 5)
+        {
+            return false;
+        }
+
+        var numberPattern = string.Join("\\D*", digits.Select(digit => Regex.Escape(digit.ToString())));
+        var matches = Regex.Matches(documentText, $"(?<!\\d){numberPattern}(?!\\d)", RegexOptions.CultureInvariant);
+        if (matches.Count == 0)
+        {
+            return false;
+        }
+
+        var isOnlyProfessional = true;
+        foreach (Match match in matches)
+        {
+            var start = Math.Max(0, match.Index - 260);
+            var length = Math.Min(documentText.Length - start, match.Length + 520);
+            var context = documentText.Substring(start, length);
+            var hasPatientMarker = Regex.IsMatch(context,
+                "paciente|identificaci[oó]n|documento de identidad|historia cl[ií]nica|n[uú]mero de identificaci[oó]n",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var hasProfessionalMarker = Regex.IsMatch(context,
+                "m[eé]dico|medicina general|profesional|prescriptor|firma|firmado|especialidad|registro m[eé]dico|doctor|doctora",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+            if (hasPatientMarker || !hasProfessionalMarker)
+            {
+                isOnlyProfessional = false;
+                break;
+            }
+        }
+
+        return isOnlyProfessional;
+    }
 
     private static string Truncate(string value, int maxLength)
         => value.Length <= maxLength ? value : value[..maxLength];
