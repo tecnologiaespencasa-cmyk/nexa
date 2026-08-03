@@ -2012,10 +2012,10 @@ public partial class CensoController : Controller
         }
 
         var extension = Path.GetExtension(file.FileName);
-        if (!string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(file.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase))
+        var isPdf = string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase);
+        if (!isPdf && !SpreadsheetFileSupport.IsSupportedSpreadsheet(file.FileName))
         {
-            return BadRequest(new { message = "Solo se permiten archivos PDF." });
+            return BadRequest(new { message = $"Solo se permiten archivos PDF o {SpreadsheetFileSupport.SupportedFormatsDescription}." });
         }
 
         const long maxBytes = 10L * 1024 * 1024;
@@ -2078,7 +2078,10 @@ public partial class CensoController : Controller
             return NotFound();
         }
 
-        return File(adjunto.FileData, "application/pdf", adjunto.FileName);
+        var contentType = string.Equals(Path.GetExtension(adjunto.FileName), ".pdf", StringComparison.OrdinalIgnoreCase)
+            ? "application/pdf"
+            : SpreadsheetFileSupport.GetContentType(adjunto.FileName);
+        return File(adjunto.FileData, contentType, adjunto.FileName);
     }
 
     [HttpGet]

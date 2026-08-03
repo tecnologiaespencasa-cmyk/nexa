@@ -2615,12 +2615,12 @@
             </div>
             <div class="censo-adjuntos-panel px-3 pb-2 border-top pt-2">
                 <div class="d-flex align-items-center gap-2 mb-2">
-                    <strong class="small">Adjuntos PDF</strong>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="subirAdjuntoBtn" title="Subir adjunto PDF">
+                    <strong class="small">Adjuntos</strong>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="subirAdjuntoBtn" title="Subir PDF o archivo de hoja de cálculo">
                         <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Subir PDF
+                        Subir archivo
                     </button>
-                    <input type="file" id="adjuntoFileInput" accept=".pdf,application/pdf" class="d-none" aria-label="Seleccionar archivo PDF" />
+                    <input type="file" id="adjuntoFileInput" accept=".pdf,.xls,.xlsx,.xlsm,.xlsb,.xlt,.xltx,.xltm,.ods,application/pdf" class="d-none" aria-label="Seleccionar PDF o archivo de hoja de cálculo" />
                     <span id="adjuntoUploadStatus" class="small text-muted"></span>
                 </div>
                 <ul class="list-group list-group-flush censo-adjuntos-list" id="adjuntosList" style="max-height:140px;overflow-y:auto;"></ul>
@@ -2911,10 +2911,10 @@
                                     <span>Buscar archivo</span>
                                 </button>
                                 <div class="censo-extractor-dropzone__meta">
-                                    <span class="censo-extractor-pill">PDF o XLSX</span>
+                                    <span class="censo-extractor-pill">PDF, Excel u ODS</span>
                                     <span>M&aacute;ximo 10 MB</span>
                                 </div>
-                                <input type="file" id="extractorFileInput" accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx" class="d-none" />
+                                <input type="file" id="extractorFileInput" accept="application/pdf,.pdf,.xls,.xlsx,.xlsm,.xlsb,.xlt,.xltx,.xltm,.ods" class="d-none" />
                             </div>
                         </div>
                         <div id="extractorTextSourcePanel" class="censo-extractor-text-source d-none">
@@ -2938,7 +2938,7 @@
                                 <span class="censo-extractor-docviewer__name" id="extractorDocName"></span>
                             </div>
                             <div id="extractorFilePreviewMessage" class="censo-extractor-file-preview d-none">
-                                <strong>Archivo Excel cargado</strong>
+                                <strong>Archivo de hoja de cálculo cargado</strong>
                                 <span>Se analizará la hoja <em>Formato Remisión</em>.</span>
                             </div>
                             <iframe id="extractorPdfFrame" class="censo-extractor-pdf" title="Vista previa del PDF de remisi&oacute;n"></iframe>
@@ -8723,10 +8723,9 @@
                 clearError();
 
                 const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
-                const isExcel = /\.xlsx$/i.test(file.name)
-                    || file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                const isExcel = /\.(xls|xlsx|xlsm|xlsb|xlt|xltx|xltm|ods)$/i.test(file.name);
                 if (!isPdf && !isExcel) {
-                    showError("Solo se permiten archivos PDF o Excel (.xlsx).");
+                    showError("Solo se permiten archivos PDF o hojas de cálculo Excel y ODS.");
                     return;
                 }
                 if (file.size > 10 * 1024 * 1024) {

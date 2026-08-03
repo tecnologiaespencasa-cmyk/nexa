@@ -1,60 +1,53 @@
+using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using ExcelDataReader;
 
 namespace IntranetPrueba.Helpers;
 
 public static class RemisionExcelTextExtractor
 {
-    private const string SpreadsheetNamespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-    private const string RelationshipNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-    private const string PackageRelationshipNamespace = "http://schemas.openxmlformats.org/package/2006/relationships";
+    private const string OdsOfficeNamespace = "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
+    private const string OdsTableNamespace = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
+    private const string OdsTextNamespace = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
     private const long MaxUncompressedWorksheetBytes = 20L * 1024 * 1024;
+    private const string ExtractedTextHeader = "Contenido de la hoja Formato Remisión:";
 
-    public static string ExtractFormatoRemisionText(byte[] workbookBytes)
+    static RemisionExcelTextExtractor()
     {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
+
+    public static string ExtractFormatoRemisionText(byte[] workbookBytes, string fileName)
+    {
+        if (string.Equals(Path.GetExtension(fileName), ".ods", StringComparison.OrdinalIgnoreCase))
+        {
+            return ExtractOdsFormatoRemisionText(workbookBytes);
+        }
+
         using var stream = new MemoryStream(workbookBytes, writable: false);
-        using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
-
-        var workbook = ReadXml(archive, "xl/workbook.xml");
-        var workbookRelationships = ReadXml(archive, "xl/_rels/workbook.xml.rels");
-        var ns = (XNamespace)SpreadsheetNamespace;
-        var relNs = (XNamespace)RelationshipNamespace;
-        var packageRelNs = (XNamespace)PackageRelationshipNamespace;
-
-        var sheet = workbook
-            .Descendants(ns + "sheet")
-            .FirstOrDefault(item => string.Equals(
-                NormalizeSheetName((string?)item.Attribute("name")),
-                NormalizeSheetName("Formato Remisión"),
-                StringComparison.Ordinal));
-
-        if (sheet is null)
+        using var reader = ExcelReaderFactory.CreateReader(stream);
+        do
         {
-            throw new InvalidDataException("No se encontró la hoja 'Formato Remisión' en el archivo.");
+            if (string.Equals(NormalizeSheetName(reader.Name), NormalizeSheetName("Formato Remisión"), StringComparison.Ordinal))
+            {
+                return BuildTextFromExcelReader(reader);
+            }
         }
+        while (reader.NextResult());
 
-        var relationshipId = (string?)sheet.Attribute(relNs + "id");
-        var target = workbookRelationships
-            .Descendants(packageRelNs + "Relationship")
-            .FirstOrDefault(item => string.Equals((string?)item.Attribute("Id"), relationshipId, StringComparison.Ordinal))?
-            .Attribute("Target")?.Value;
+        throw new InvalidDataException("No se encontró la hoja 'Formato Remisión' en el archivo.");
+    }
 
-        if (string.IsNullOrWhiteSpace(target))
+    private static string BuildTextFromExcelReader(IExcelDataReader reader)
+    {
+        var result = new StringBuilder(ExtractedTextHeader);
+        while (reader.Read())
         {
-            throw new InvalidDataException("No fue posible leer la hoja 'Formato Remisión'.");
-        }
-
-        var worksheetPath = ResolveWorkbookPart(target);
-        var sharedStrings = ReadSharedStrings(archive, ns);
-        var worksheet = ReadXml(archive, worksheetPath);
-        var result = new StringBuilder("Contenido de la hoja Formato Remisión:");
-
-        foreach (var row in worksheet.Descendants(ns + "sheetData").Elements(ns + "row"))
-        {
-            var values = row.Elements(ns + "c")
-                .Select(cell => GetCellValue(cell, ns, sharedStrings))
+            var values = Enumerable.Range(0, reader.FieldCount)
+                .Select(index => FormatExcelValue(reader.GetValue(index)))
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .ToArray();
 
@@ -65,22 +58,54 @@ public static class RemisionExcelTextExtractor
             }
         }
 
-        if (result.Length == "Contenido de la hoja Formato Remisión:".Length)
+        return ValidateExtractedText(result);
+    }
+
+    private static string ExtractOdsFormatoRemisionText(byte[] workbookBytes)
+    {
+        using var stream = new MemoryStream(workbookBytes, writable: false);
+        using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
+        var document = ReadXml(archive, "content.xml");
+        var officeNs = (XNamespace)OdsOfficeNamespace;
+        var tableNs = (XNamespace)OdsTableNamespace;
+        var textNs = (XNamespace)OdsTextNamespace;
+        var sheet = document.Descendants(tableNs + "table")
+            .FirstOrDefault(item => string.Equals(
+                NormalizeSheetName((string?)item.Attribute(tableNs + "name")),
+                NormalizeSheetName("Formato Remisión"),
+                StringComparison.Ordinal));
+
+        if (sheet is null)
         {
-            throw new InvalidDataException("La hoja 'Formato Remisión' no contiene información para analizar.");
+            throw new InvalidDataException("No se encontró la hoja 'Formato Remisión' en el archivo.");
         }
 
-        return result.ToString();
+        var result = new StringBuilder(ExtractedTextHeader);
+        foreach (var row in sheet.Elements(tableNs + "table-row"))
+        {
+            var values = row.Elements(tableNs + "table-cell")
+                .Select(cell => GetOdsCellValue(cell, officeNs, textNs))
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .ToArray();
+
+            if (values.Length > 0)
+            {
+                result.AppendLine();
+                result.Append(string.Join(" | ", values));
+            }
+        }
+
+        return ValidateExtractedText(result);
     }
 
     private static XDocument ReadXml(ZipArchive archive, string path)
     {
         var entry = archive.GetEntry(path)
-            ?? throw new InvalidDataException("El archivo Excel no tiene la estructura esperada.");
+            ?? throw new InvalidDataException("El archivo de hoja de cálculo no tiene la estructura esperada.");
 
         if (entry.Length > MaxUncompressedWorksheetBytes)
         {
-            throw new InvalidDataException("El contenido de la hoja Excel es demasiado grande para procesarlo.");
+            throw new InvalidDataException("El contenido de la hoja de cálculo es demasiado grande para procesarlo.");
         }
 
         using var entryStream = entry.Open();
@@ -88,53 +113,44 @@ public static class RemisionExcelTextExtractor
         return XDocument.Load(reader);
     }
 
-    private static IReadOnlyList<string> ReadSharedStrings(ZipArchive archive, XNamespace ns)
+    private static string GetOdsCellValue(XElement cell, XNamespace officeNs, XNamespace textNs)
     {
-        if (archive.GetEntry("xl/sharedStrings.xml") is null)
+        var text = string.Join(" ", cell.Descendants(textNs + "p")
+            .Select(paragraph => paragraph.Value.Trim())
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        if (!string.IsNullOrWhiteSpace(text))
         {
-            return Array.Empty<string>();
+            return text;
         }
 
-        var sharedStrings = ReadXml(archive, "xl/sharedStrings.xml");
-        return sharedStrings.Descendants(ns + "si")
-            .Select(item => string.Concat(item.Descendants(ns + "t").Select(text => text.Value)))
-            .ToArray();
+        return cell.Attribute(officeNs + "value")?.Value
+            ?? cell.Attribute(officeNs + "date-value")?.Value
+            ?? cell.Attribute(officeNs + "boolean-value")?.Value
+            ?? string.Empty;
     }
 
-    private static string GetCellValue(XElement cell, XNamespace ns, IReadOnlyList<string> sharedStrings)
+    private static string FormatExcelValue(object? value) => value switch
     {
-        var type = (string?)cell.Attribute("t");
-        if (string.Equals(type, "s", StringComparison.OrdinalIgnoreCase)
-            && int.TryParse(cell.Element(ns + "v")?.Value, out var sharedStringIndex)
-            && sharedStringIndex >= 0
-            && sharedStringIndex < sharedStrings.Count)
-        {
-            return sharedStrings[sharedStringIndex].Trim();
-        }
+        null => string.Empty,
+        DateTime date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty,
+        _ => value.ToString()?.Trim() ?? string.Empty
+    };
 
-        if (string.Equals(type, "inlineStr", StringComparison.OrdinalIgnoreCase))
-        {
-            return string.Concat(cell.Descendants(ns + "t").Select(text => text.Value)).Trim();
-        }
-
-        return cell.Element(ns + "v")?.Value.Trim() ?? string.Empty;
-    }
-
-    private static string ResolveWorkbookPart(string target)
+    private static string ValidateExtractedText(StringBuilder result)
     {
-        var normalizedTarget = target.Replace('\\', '/').TrimStart('/');
-        if (normalizedTarget.Contains("..", StringComparison.Ordinal)
-            || !normalizedTarget.StartsWith("worksheets/", StringComparison.OrdinalIgnoreCase))
+        if (result.Length == ExtractedTextHeader.Length)
         {
-            throw new InvalidDataException("La ubicación de la hoja Excel no es válida.");
+            throw new InvalidDataException("La hoja 'Formato Remisión' no contiene información para analizar.");
         }
 
-        return $"xl/{normalizedTarget}";
+        return result.ToString();
     }
 
     private static string NormalizeSheetName(string? value)
         => string.Concat((value ?? string.Empty).Normalize(NormalizationForm.FormD)
-            .Where(character => char.GetUnicodeCategory(character) != System.Globalization.UnicodeCategory.NonSpacingMark))
+            .Where(character => char.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark))
             .Trim()
             .ToUpperInvariant();
 }

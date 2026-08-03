@@ -468,7 +468,10 @@ public class FarmaciaController : Controller
             return NotFound();
         }
 
-        return File(adjunto.FileData, "application/pdf", adjunto.FileName);
+        var contentType = string.Equals(Path.GetExtension(adjunto.FileName), ".pdf", StringComparison.OrdinalIgnoreCase)
+            ? "application/pdf"
+            : SpreadsheetFileSupport.GetContentType(adjunto.FileName);
+        return File(adjunto.FileData, contentType, adjunto.FileName);
     }
 
     [HttpGet]

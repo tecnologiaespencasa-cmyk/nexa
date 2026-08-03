@@ -22,10 +22,10 @@ public partial class CensoController
 
         var extension = Path.GetExtension(file.FileName);
         var isPdf = string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase);
-        var isExcel = string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase);
-        if (!isPdf && !isExcel)
+        var isSpreadsheet = SpreadsheetFileSupport.IsSupportedSpreadsheet(file.FileName);
+        if (!isPdf && !isSpreadsheet)
         {
-            return BadRequest(new { message = "Solo se permiten archivos PDF o Excel (.xlsx)." });
+            return BadRequest(new { message = $"Solo se permiten archivos PDF o {SpreadsheetFileSupport.SupportedFormatsDescription}." });
         }
 
         const long maxBytes = 10L * 1024 * 1024;
@@ -46,7 +46,7 @@ public partial class CensoController
         {
             documentText = isPdf
                 ? ExtractPdfText(bytes)
-                : RemisionExcelTextExtractor.ExtractFormatoRemisionText(bytes);
+                : RemisionExcelTextExtractor.ExtractFormatoRemisionText(bytes, file.FileName);
         }
         catch (Exception ex)
         {
@@ -55,7 +55,7 @@ public partial class CensoController
             {
                 message = isPdf
                     ? "No fue posible leer el PDF. Verifica que el archivo no esté dañado o protegido."
-                    : "No fue posible leer el Excel. Verifica que sea un archivo .xlsx válido e incluya la hoja 'Formato Remisión'."
+                    : "No fue posible leer la hoja de cálculo. Verifica que el archivo sea válido e incluya la hoja 'Formato Remisión'."
             });
         }
 
@@ -79,7 +79,7 @@ public partial class CensoController
             ? (Guid?)extraccionUid
             : null;
         await _auditService.LogAsync("CENSO_EXTRACCION_REMISION", "Censo",
-            $"Archivo {(!isPdf ? "Excel" : "PDF")}: {file.FileName}",
+            $"Archivo {(isPdf ? "PDF" : "hoja de cálculo")}: {file.FileName}",
             extraccionAuditUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
 
         using var document = JsonDocument.Parse(result.Json);
