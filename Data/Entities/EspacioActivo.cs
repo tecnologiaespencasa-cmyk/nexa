@@ -68,4 +68,6 @@ public class EspacioActivo
     public ICollection<EspacioActivoNovedad> Novedades { get; set; } = new List<EspacioActivoNovedad>();
 
     public ICollection<EspacioActivoMovimiento> Movimientos { get; set; } = new List<EspacioActivoMovimiento>();
+
+    public ICollection<EspacioActivoActa> Actas { get; set; } = new List<EspacioActivoActa>();
 }

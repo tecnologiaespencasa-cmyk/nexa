@@ -87,6 +87,20 @@ public partial class EspacioCorporativoController
             .Select(group => new { ActivoId = group.Key, Total = group.Count() })
             .ToDictionaryAsync(x => x.ActivoId, x => x.Total, cancellationToken);
 
+        // Ultima acta firmada por activo: define si el equipo esta entregado o devuelto.
+        var actasPorActivo = (await _context.EspacioActivoActas
+                .AsNoTracking()
+                .Select(x => new { x.EspacioActivoId, x.Tipo, x.FirmadaAtUtc, x.Id })
+                .ToListAsync(cancellationToken))
+            .GroupBy(x => x.EspacioActivoId)
+            .ToDictionary(
+                group => group.Key,
+                group => new
+                {
+                    Total = group.Count(),
+                    Ultima = group.OrderByDescending(x => x.FirmadaAtUtc).ThenByDescending(x => x.Id).First()
+                });
+
         model.Activos = activos
             .Select(activo => new EspacioActivoAdminItemViewModel
             {
@@ -105,12 +119,23 @@ public partial class EspacioCorporativoController
                 FechaAsignacion = ColombiaTime.Convert(activo.FechaAsignacionUtc),
                 FechaCreacion = ColombiaTime.Convert(activo.CreatedAtUtc),
                 FechaActualizacion = ColombiaTime.Convert(activo.UpdatedAtUtc),
-                NovedadesAbiertas = novedadesAbiertasPorActivo.TryGetValue(activo.Id, out var total) ? total : 0
+                NovedadesAbiertas = novedadesAbiertasPorActivo.TryGetValue(activo.Id, out var total) ? total : 0,
+                UltimaActaTipo = actasPorActivo.TryGetValue(activo.Id, out var acta) ? acta.Ultima.Tipo : null,
+                UltimaActaFecha = actasPorActivo.TryGetValue(activo.Id, out var actaFecha)
+                    ? ColombiaTime.Convert(actaFecha.Ultima.FirmadaAtUtc)
+                    : null,
+                TotalActas = actasPorActivo.TryGetValue(activo.Id, out var actaTotal) ? actaTotal.Total : 0
             })
             .ToList();
 
         model.Novedades = await BuildNovedadesAdminAsync(model.EstadoNovedadFiltro, cancellationToken);
         model.Metricas = await BuildMetricasAsync(cancellationToken);
+
+        var miFirma = await GetFirmaGuardadaAsync(cancellationToken);
+        model.TieneFirmaGuardada = miFirma is not null;
+        model.MiFirmaDataUrl = miFirma?.FirmaDataUrl;
+        model.MiFirmaNombre = miFirma?.NombreFirmante ?? GetCurrentUserFullName();
+        model.MiFirmaCargo = miFirma?.Cargo;
 
         return View(model);
     }
@@ -139,7 +164,7 @@ public partial class EspacioCorporativoController
 
         if (model.ResponsableUserId.HasValue && responsable is null)
         {
-            TempData[ErrorMessageKey] = "El responsable seleccionado no existe o esta inactivo.";
+            TempData[ErrorMessageKey] = "El responsable seleccionado no existe o está inactivo.";
             return RedirectToAction(nameof(Activos));
         }
 
@@ -202,19 +227,19 @@ public partial class EspacioCorporativoController
         var movimientos = new List<(string Tipo, string Detalle)>();
         if (esNuevo)
         {
-            movimientos.Add(("Creacion", $"Activo creado ({activo.TipoActivo} {activo.Marca}, serial {activo.Serial})."));
+            movimientos.Add(("Creación", $"Activo creado ({activo.TipoActivo} {activo.Marca}, serial {activo.Serial})."));
         }
         else
         {
-            movimientos.Add(("Actualizacion", $"Datos del activo actualizados (serial {activo.Serial})."));
+            movimientos.Add(("Actualización", $"Datos del activo actualizados (serial {activo.Serial})."));
         }
 
         if (responsableAnteriorId != activo.ResponsableUserId)
         {
             movimientos.Add(activo.ResponsableUserId.HasValue
-                ? ("Asignacion", $"Asignado a {activo.ResponsableNombre}." +
+                ? ("Asignación", $"Asignado a {activo.ResponsableNombre}." +
                     (responsableAnteriorId.HasValue ? $" Responsable anterior: {responsableAnteriorNombre}." : string.Empty))
-                : ("Devolucion", $"Activo liberado. Responsable anterior: {responsableAnteriorNombre}."));
+                : ("Devolución", $"Activo liberado. Responsable anterior: {responsableAnteriorNombre}."));
         }
 
         if (!esNuevo && !string.Equals(estadoAnterior, activo.Estado, StringComparison.OrdinalIgnoreCase))
@@ -262,7 +287,7 @@ public partial class EspacioCorporativoController
 
         await RegistrarMovimientoAsync(
             activo.Id,
-            "Eliminacion",
+            "Eliminación",
             $"Activo retirado del inventario (serial {activo.Serial}).",
             cancellationToken);
 
@@ -334,8 +359,8 @@ public partial class EspacioCorporativoController
             {
                 await RegistrarMovimientoAsync(
                     novedad.EspacioActivoId.Value,
-                    "Gestion novedad",
-                    $"Novedad #{novedad.Id}: {estadoAnterior} -> {novedad.Estado}. Clasificacion: {novedad.Clasificacion}.",
+                    "Gestión novedad",
+                    $"Novedad #{novedad.Id}: {estadoAnterior} -> {novedad.Estado}. Clasificación: {novedad.Clasificacion}.",
                     cancellationToken);
             }
         }
@@ -480,7 +505,7 @@ public partial class EspacioCorporativoController
             Asignados = ContarEstado(EspacioCorporativoCatalogos.EstadoActivoAsignado),
             Disponibles = ContarEstado(EspacioCorporativoCatalogos.EstadoActivoDisponible),
             EnMantenimiento = ContarEstado(EspacioCorporativoCatalogos.EstadoActivoMantenimiento)
-                + ContarEstado("En reparacion"),
+                + ContarEstado("En reparación"),
             DadosDeBaja = ContarEstado(EspacioCorporativoCatalogos.EstadoActivoDadoBaja),
             NovedadesAbiertas = novedadesAbiertas,
             NovedadesSinClasificar = sinClasificar
@@ -520,12 +545,12 @@ public partial class EspacioCorporativoController
     {
         if (!EspacioCorporativoCatalogos.EsTipoActivoValido(model.TipoActivo))
         {
-            ModelState.AddModelError(nameof(model.TipoActivo), "Selecciona un tipo de activo valido.");
+            ModelState.AddModelError(nameof(model.TipoActivo), "Selecciona un tipo de activo válido.");
         }
 
         if (!string.IsNullOrWhiteSpace(model.Estado) && !EspacioCorporativoCatalogos.EsEstadoActivoValido(model.Estado))
         {
-            ModelState.AddModelError(nameof(model.Estado), "Selecciona un estado valido.");
+            ModelState.AddModelError(nameof(model.Estado), "Selecciona un estado válido.");
         }
     }
 

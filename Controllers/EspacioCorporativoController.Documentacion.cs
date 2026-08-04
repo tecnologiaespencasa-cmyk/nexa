@@ -317,17 +317,17 @@ public partial class EspacioCorporativoController
     {
         if (!EspacioCorporativoCatalogos.EsCategoriaDocumentoValida(model.Categoria))
         {
-            ModelState.AddModelError(nameof(model.Categoria), "Selecciona una categoria valida.");
+            ModelState.AddModelError(nameof(model.Categoria), "Selecciona una categoría válida.");
         }
 
         if (!EspacioCorporativoCatalogos.EsTipoDocumentoValido(model.TipoDocumento))
         {
-            ModelState.AddModelError(nameof(model.TipoDocumento), "Selecciona un tipo de documento valido.");
+            ModelState.AddModelError(nameof(model.TipoDocumento), "Selecciona un tipo de documento válido.");
         }
 
         if (!EspacioCorporativoCatalogos.EsTipoContenidoValido(model.TipoContenido))
         {
-            ModelState.AddModelError(nameof(model.TipoContenido), "Selecciona como se cargara el documento.");
+            ModelState.AddModelError(nameof(model.TipoContenido), "Selecciona cómo se cargará el documento.");
             return null;
         }
 
@@ -380,7 +380,7 @@ public partial class EspacioCorporativoController
         {
             ModelState.AddModelError(
                 nameof(model.Archivo),
-                $"El archivo supera el maximo permitido ({FormatearTamano(EspacioCorporativoCatalogos.TamanoMaximoArchivoBytes)}).");
+                $"El archivo supera el máximo permitido ({FormatearTamano(EspacioCorporativoCatalogos.TamanoMaximoArchivoBytes)}).");
             return null;
         }
 
@@ -390,7 +390,7 @@ public partial class EspacioCorporativoController
         {
             ModelState.AddModelError(
                 nameof(model.Archivo),
-                $"Formato no permitido. Formatos validos: {string.Join(", ", EspacioCorporativoCatalogos.ExtensionesPermitidas.Keys)}.");
+                $"Formato no permitido. Formatos válidos: {string.Join(", ", EspacioCorporativoCatalogos.ExtensionesPermitidas.Keys)}.");
             return null;
         }
 

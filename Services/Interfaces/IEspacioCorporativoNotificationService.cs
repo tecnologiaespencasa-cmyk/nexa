@@ -1,4 +1,5 @@
 using IntranetPrueba.Data.Entities;
+using IntranetPrueba.Services.Models;
 
 namespace IntranetPrueba.Services.Interfaces;
 
@@ -19,5 +20,13 @@ public interface IEspacioCorporativoNotificationService
         EspacioActivoNovedad novedad,
         EspacioActivo? activo,
         string estadoAnterior,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Envia al correo indicado en el acta la copia firmada, con el documento completo
+    /// tambien adjunto como archivo HTML autocontenido.
+    /// </summary>
+    Task<ServiceResult> EnviarCopiaActaAsync(
+        EspacioActaDocumental acta,
         CancellationToken cancellationToken = default);
 }

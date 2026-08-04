@@ -182,6 +182,15 @@ public class EspacioActivosAdminViewModel
     public IReadOnlyList<string> ClasificacionesNovedad { get; set; } = [];
 
     public EspacioActivosMetricasViewModel Metricas { get; set; } = new();
+
+    /// <summary>Firma almacenada del administrador que esta viendo la pantalla.</summary>
+    public bool TieneFirmaGuardada { get; set; }
+
+    public string? MiFirmaDataUrl { get; set; }
+
+    public string? MiFirmaNombre { get; set; }
+
+    public string? MiFirmaCargo { get; set; }
 }
 
 public class EspacioActivosMetricasViewModel
@@ -234,6 +243,17 @@ public class EspacioActivoAdminItemViewModel
     public DateTime? FechaActualizacion { get; set; }
 
     public int NovedadesAbiertas { get; set; }
+
+    /// <summary>Tipo de la ultima acta firmada (Entrega / Devolucion), o null si no tiene.</summary>
+    public string? UltimaActaTipo { get; set; }
+
+    public DateTime? UltimaActaFecha { get; set; }
+
+    public int TotalActas { get; set; }
+
+    /// <summary>El equipo esta entregado con acta firmada y sin devolucion posterior.</summary>
+    public bool EntregaFirmada =>
+        string.Equals(UltimaActaTipo, "Entrega", StringComparison.OrdinalIgnoreCase);
 }
 
 public class EspacioNovedadAdminItemViewModel
@@ -269,6 +289,229 @@ public class EspacioNovedadAdminItemViewModel
     public DateTime FechaReporte { get; set; }
 
     public DateTime? FechaResolucion { get; set; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Actas de entrega / devolucion con firma
+// ─────────────────────────────────────────────────────────────────────────────
+
+public class EspacioFirmaGuardadaViewModel
+{
+    [StringLength(160, ErrorMessage = "Maximo 160 caracteres.")]
+    public string? NombreFirmante { get; set; }
+
+    [StringLength(120, ErrorMessage = "Maximo 120 caracteres.")]
+    public string? Cargo { get; set; }
+
+    public string? FirmaDataUrl { get; set; }
+}
+
+public class EspacioActaFormViewModel
+{
+    public long ActivoId { get; set; }
+
+    /// <summary>Entrega | Devolucion</summary>
+    [Required]
+    [StringLength(20)]
+    public string Tipo { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Indica el nombre de quien recibe.")]
+    [StringLength(160, ErrorMessage = "Maximo 160 caracteres.")]
+    public string RecibePorNombre { get; set; } = string.Empty;
+
+    [StringLength(30, ErrorMessage = "Maximo 30 caracteres.")]
+    public string? RecibePorDocumento { get; set; }
+
+    [StringLength(2000, ErrorMessage = "Maximo 2000 caracteres.")]
+    public string? Observaciones { get; set; }
+
+    /// <summary>Firma de quien recibe: siempre se traza en el momento.</summary>
+    public string? FirmaRecibeDataUrl { get; set; }
+
+    /// <summary>
+    /// Firma de quien entrega. Solo llega desde el cliente cuando el administrador
+    /// aun no tiene una firma guardada; en el resto de los casos se toma la almacenada.
+    /// </summary>
+    public string? FirmaEntregaDataUrl { get; set; }
+
+    /// <summary>Guardar la firma trazada como la firma por defecto del administrador.</summary>
+    public bool GuardarFirmaEntrega { get; set; } = true;
+}
+
+public class EspacioActaResumenViewModel
+{
+    public long Id { get; set; }
+
+    public string Tipo { get; set; } = string.Empty;
+
+    public string EntregaPorNombre { get; set; } = string.Empty;
+
+    public string RecibePorNombre { get; set; } = string.Empty;
+
+    public string? RecibePorDocumento { get; set; }
+
+    public string? Observaciones { get; set; }
+
+    public DateTime FechaFirma { get; set; }
+}
+
+public class EspacioActaDocumentoViewModel
+{
+    public long Id { get; set; }
+
+    public string Tipo { get; set; } = string.Empty;
+
+    public string TituloActa { get; set; } = string.Empty;
+
+    public string EquipoDescripcion { get; set; } = string.Empty;
+
+    public string Serial { get; set; } = string.Empty;
+
+    public string? CodigoActivo { get; set; }
+
+    public string? Especificaciones { get; set; }
+
+    public string EntregaPorNombre { get; set; } = string.Empty;
+
+    public string? EntregaPorCargo { get; set; }
+
+    public string FirmaEntregaDataUrl { get; set; } = string.Empty;
+
+    public string RecibePorNombre { get; set; } = string.Empty;
+
+    public string? RecibePorDocumento { get; set; }
+
+    public string FirmaRecibeDataUrl { get; set; } = string.Empty;
+
+    public string? Observaciones { get; set; }
+
+    public DateTime FechaFirma { get; set; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Modulo de Actas por plantilla
+// ─────────────────────────────────────────────────────────────────────────────
+
+public class EspacioActasIndexViewModel
+{
+    public string? Busqueda { get; set; }
+
+    public string? PlantillaFiltro { get; set; }
+
+    public IReadOnlyList<EspacioCorporativo.EspacioActaPlantilla> Plantillas { get; set; } = [];
+
+    public IReadOnlyList<EspacioActaEmitidaViewModel> Actas { get; set; } = [];
+
+    public int TotalActas { get; set; }
+
+    public int TotalCorreosPendientes { get; set; }
+
+    public bool TieneFirmaGuardada { get; set; }
+}
+
+public class EspacioActaEmitidaViewModel
+{
+    public long Id { get; set; }
+
+    public string PlantillaNombre { get; set; } = string.Empty;
+
+    public string TituloActa { get; set; } = string.Empty;
+
+    public string NombreRecibe { get; set; } = string.Empty;
+
+    public string? DocumentoRecibe { get; set; }
+
+    public string? CorreoRecibe { get; set; }
+
+    public string? UsuarioRecibe { get; set; }
+
+    public string EmitidaPorNombre { get; set; } = string.Empty;
+
+    public bool CorreoEnviado { get; set; }
+
+    public string? CorreoError { get; set; }
+
+    public DateTime FechaFirma { get; set; }
+}
+
+/// <summary>Formulario de captura de variables de una plantilla.</summary>
+public class EspacioActaCapturaViewModel
+{
+    public string PlantillaCodigo { get; set; } = string.Empty;
+
+    public EspacioCorporativo.EspacioActaPlantilla? Plantilla { get; set; }
+
+    /// <summary>Valores por clave de campo.</summary>
+    public Dictionary<string, string?> Valores { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public string? MensajeError { get; set; }
+}
+
+/// <summary>Pantalla de previsualizacion y firma del acta antes de emitirla.</summary>
+public class EspacioActaFirmaViewModel
+{
+    public string PlantillaCodigo { get; set; } = string.Empty;
+
+    public string TituloActa { get; set; } = string.Empty;
+
+    public string PlantillaNombre { get; set; } = string.Empty;
+
+    public string RotuloRecibe { get; set; } = "Recibe";
+
+    public string CuerpoHtml { get; set; } = string.Empty;
+
+    public Dictionary<string, string?> Valores { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public string NombreRecibe { get; set; } = string.Empty;
+
+    public string? DocumentoRecibe { get; set; }
+
+    public string? CorreoRecibe { get; set; }
+
+    public string EmitidaPorNombre { get; set; } = string.Empty;
+
+    public string? EmitidaPorCargo { get; set; }
+
+    public string? EmitidaPorDocumento { get; set; }
+
+    public string? FirmaEmiteDataUrl { get; set; }
+
+    public bool TieneFirmaGuardada { get; set; }
+
+    public DateTime Fecha { get; set; }
+
+    /// <summary>Error de validacion al intentar emitir, sin perder lo ya capturado.</summary>
+    public string? MensajeError { get; set; }
+}
+
+/// <summary>Acta ya emitida, para verla o imprimirla.</summary>
+public class EspacioActaEmitidaDocumentoViewModel
+{
+    public long Id { get; set; }
+
+    public string TituloActa { get; set; } = string.Empty;
+
+    public string PlantillaNombre { get; set; } = string.Empty;
+
+    public string RotuloRecibe { get; set; } = "Recibe";
+
+    public string CuerpoHtml { get; set; } = string.Empty;
+
+    public string NombreRecibe { get; set; } = string.Empty;
+
+    public string? DocumentoRecibe { get; set; }
+
+    public string EmitidaPorNombre { get; set; } = string.Empty;
+
+    public string? EmitidaPorCargo { get; set; }
+
+    public string? EmitidaPorDocumento { get; set; }
+
+    public string FirmaEmiteDataUrl { get; set; } = string.Empty;
+
+    public string FirmaRecibeDataUrl { get; set; } = string.Empty;
+
+    public DateTime FechaFirma { get; set; }
 }
 
 public class EspacioUsuarioOpcionViewModel

@@ -1,0 +1,220 @@
+@model EspacioActasIndexViewModel
+@{
+    ViewData["Title"] = "Actas";
+}
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/espacio-corporativo.css" asp-append-version="true" />
+}
+
+<section class="espacio">
+
+    <header class="espacio-hero">
+        <div class="espacio-shell">
+            <div class="espacio-hero__grid">
+                <div>
+                    <span class="espacio-hero__eyebrow">
+                        <i class="bi bi-file-earmark-text-fill" aria-hidden="true"></i>
+                        Mi espacio corporativo &middot; Administraci&oacute;n
+                    </span>
+                    <h1>Actas</h1>
+                    <p>Genera actas a partir de plantillas, f&iacute;rmalas digitalmente y env&iacute;a la copia al correo del colaborador.</p>
+                </div>
+                <div class="espacio-hero__actions">
+                    <a class="espacio-admin-btn" asp-action="Index">
+                        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                        Volver
+                    </a>
+                </div>
+            </div>
+
+            <div class="espacio-hero__stats">
+                <div class="espacio-stat">
+                    <span>Actas emitidas</span>
+                    <strong>@Model.TotalActas</strong>
+                </div>
+                <div class="espacio-stat">
+                    <span>Correos pendientes</span>
+                    <strong>@Model.TotalCorreosPendientes</strong>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="espacio-shell">
+
+        @await Html.PartialAsync("_EspacioAlertas")
+
+        @if (!Model.TieneFirmaGuardada)
+        {
+            <div class="espacio-alert espacio-alert--warn" role="status">
+                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                <span>
+                    A&uacute;n no tienes una firma guardada. Puedes trazarla al emitir la primera acta,
+                    o dejarla lista desde <a asp-action="Activos">Activos &rarr; Mi firma</a>.
+                </span>
+            </div>
+        }
+
+        @* ══ PLANTILLAS DISPONIBLES ══ *@
+        <section class="espacio-panel">
+            <div class="espacio-panel__head">
+                <div class="espacio-panel__title">
+                    <span class="espacio-panel__icon espacio-panel__icon--info"><i class="bi bi-journals" aria-hidden="true"></i></span>
+                    <div>
+                        <h2>Plantillas disponibles</h2>
+                        <span>Elige una plantilla para generar un acta nueva</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="espacio-panel__body">
+                <div class="espacio-plantillas-grid">
+                    @foreach (var plantilla in Model.Plantillas)
+                    {
+                        <a class="espacio-plantilla-card" asp-action="ActaNueva" asp-route-codigo="@plantilla.Codigo">
+                            <span class="espacio-plantilla-card__icon">
+                                <i class="bi @plantilla.Icono" aria-hidden="true"></i>
+                            </span>
+                            <div>
+                                <strong>@plantilla.Nombre</strong>
+                                <span>@plantilla.Descripcion</span>
+                            </div>
+                            <i class="bi bi-arrow-right espacio-plantilla-card__flecha" aria-hidden="true"></i>
+                        </a>
+                    }
+                </div>
+            </div>
+        </section>
+
+        @* ══ ACTAS EMITIDAS ══ *@
+        <section class="espacio-panel">
+            <div class="espacio-panel__head">
+                <div class="espacio-panel__title">
+                    <span class="espacio-panel__icon espacio-panel__icon--success"><i class="bi bi-archive-fill" aria-hidden="true"></i></span>
+                    <div>
+                        <h2>Actas emitidas</h2>
+                        <span>@Model.Actas.Count acta(s) en la vista actual</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="espacio-panel__body">
+                <form method="get" asp-action="Actas" class="espacio-toolbar">
+                    <div class="espacio-search">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <input type="search" name="busqueda" value="@Model.Busqueda"
+                               placeholder="Documento, nombre, usuario o correo..." aria-label="Buscar actas" />
+                    </div>
+
+                    <select class="espacio-select" name="plantilla" aria-label="Filtrar por plantilla">
+                        <option value="">Todas las plantillas</option>
+                        @foreach (var plantilla in Model.Plantillas)
+                        {
+                            <option value="@plantilla.Codigo" selected="@(plantilla.Codigo == Model.PlantillaFiltro)">
+                                @plantilla.Nombre
+                            </option>
+                        }
+                    </select>
+
+                    <button type="submit" class="espacio-btn espacio-btn--primary">Filtrar</button>
+                    <a class="espacio-btn espacio-btn--soft" asp-action="Actas">Limpiar</a>
+                </form>
+
+                @if (Model.Actas.Count == 0)
+                {
+                    <div class="espacio-empty">
+                        <i class="bi bi-file-earmark-text-fill" aria-hidden="true"></i>
+                        <strong>No hay actas para mostrar</strong>
+                        <span>Genera la primera desde una de las plantillas de arriba, o ajusta los filtros de b&uacute;squeda.</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="espacio-table-wrap">
+                        <table class="espacio-table">
+                            <thead>
+                                <tr>
+                                    <th>Acta</th>
+                                    <th>Recibe</th>
+                                    <th>Documento</th>
+                                    <th>Usuario</th>
+                                    <th>Emitida por</th>
+                                    <th>Copia por correo</th>
+                                    <th>Fecha</th>
+                                    <th style="text-align:right;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var acta in Model.Actas)
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="espacio-table__strong">N&deg; @acta.Id</span>
+                                            <span class="espacio-table__sub">@acta.PlantillaNombre</span>
+                                        </td>
+                                        <td>
+                                            <span class="espacio-table__strong">@acta.NombreRecibe</span>
+                                            <span class="espacio-table__sub">@acta.CorreoRecibe</span>
+                                        </td>
+                                        <td>@(string.IsNullOrWhiteSpace(acta.DocumentoRecibe) ? "—" : acta.DocumentoRecibe)</td>
+                                        <td>@(string.IsNullOrWhiteSpace(acta.UsuarioRecibe) ? "—" : acta.UsuarioRecibe)</td>
+                                        <td>@acta.EmitidaPorNombre</td>
+                                        <td>
+                                            @if (acta.CorreoEnviado)
+                                            {
+                                                <span class="espacio-chip espacio-chip--resuelta">Enviada</span>
+                                            }
+                                            else if (string.IsNullOrWhiteSpace(acta.CorreoRecibe))
+                                            {
+                                                <span class="espacio-table__sub">Sin correo</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="espacio-chip espacio-chip--rechazada">No enviada</span>
+                                                @if (!string.IsNullOrWhiteSpace(acta.CorreoError))
+                                                {
+                                                    <span class="espacio-table__sub" title="@acta.CorreoError">Ver detalle</span>
+                                                }
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="espacio-table__strong">@acta.FechaFirma.ToString("dd/MM/yyyy")</span>
+                                            <span class="espacio-table__sub">@acta.FechaFirma.ToString("hh:mm tt")</span>
+                                        </td>
+                                        <td>
+                                            <div class="espacio-table__actions">
+                                                <a class="espacio-icon-btn espacio-icon-btn--primary" title="Ver acta"
+                                                   target="_blank" rel="noopener"
+                                                   asp-action="ActaVer" asp-route-id="@acta.Id">
+                                                    <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                                                </a>
+
+                                                @if (!string.IsNullOrWhiteSpace(acta.CorreoRecibe))
+                                                {
+                                                    <form asp-action="ActaReenviarCorreo" method="post" style="display:inline;">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@acta.Id" />
+                                                        <button type="submit" class="espacio-icon-btn" title="Reenviar copia por correo">
+                                                            <i class="bi bi-envelope-fill" aria-hidden="true"></i>
+                                                        </button>
+                                                    </form>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+</section>
+
+@section Scripts
+{
+    <script src="~/js/espacio-corporativo.js" asp-append-version="true"></script>
+}

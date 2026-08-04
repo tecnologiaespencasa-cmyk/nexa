@@ -28,6 +28,14 @@
                         <i class="bi bi-plus-lg" aria-hidden="true"></i>
                         Nuevo activo
                     </button>
+                    <button type="button" class="espacio-admin-btn" data-mi-firma>
+                        <i class="bi bi-vector-pen" aria-hidden="true"></i>
+                        Mi firma
+                        @if (Model.TieneFirmaGuardada)
+                        {
+                            <span class="espacio-firma-pill">Guardada</span>
+                        }
+                    </button>
                     <a class="espacio-admin-btn" asp-action="Index">
                         <i class="bi bi-arrow-left" aria-hidden="true"></i>
                         Volver
@@ -141,6 +149,7 @@
                                     <th>C&oacute;digo</th>
                                     <th>Responsable</th>
                                     <th>Estado</th>
+                                    <th>Entrega</th>
                                     <th>Novedades</th>
                                     <th style="text-align:right;">Acciones</th>
                                 </tr>
@@ -179,6 +188,22 @@
                                         </td>
                                         <td><span class="espacio-chip @EspacioIconos.ClaseEstadoActivo(activo.Estado)">@activo.Estado</span></td>
                                         <td>
+                                            @if (activo.EntregaFirmada)
+                                            {
+                                                <span class="espacio-chip espacio-chip--resuelta">Acta firmada</span>
+                                                <span class="espacio-table__sub">@activo.UltimaActaFecha?.ToString("dd/MM/yyyy")</span>
+                                            }
+                                            else if (activo.TotalActas > 0)
+                                            {
+                                                <span class="espacio-chip espacio-chip--disponible">Devuelto</span>
+                                                <span class="espacio-table__sub">@activo.UltimaActaFecha?.ToString("dd/MM/yyyy")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="espacio-table__sub">Sin firmar</span>
+                                            }
+                                        </td>
+                                        <td>
                                             @if (activo.NovedadesAbiertas > 0)
                                             {
                                                 <span class="espacio-chip espacio-chip--reportada">@activo.NovedadesAbiertas abierta(s)</span>
@@ -206,6 +231,13 @@
                                                         data-estado="@activo.Estado"
                                                         data-nota="@activo.Nota">
                                                     <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                                </button>
+
+                                                <button type="button"
+                                                        class="espacio-icon-btn espacio-icon-btn--primary"
+                                                        title="@(activo.EntregaFirmada ? "Firmar devolucion o ver actas" : "Firmar entrega")"
+                                                        data-acta-abrir="@activo.Id">
+                                                    <i class="bi bi-vector-pen" aria-hidden="true"></i>
                                                 </button>
 
                                                 <button type="button"
@@ -237,7 +269,7 @@
         <section class="espacio-panel">
             <div class="espacio-panel__head">
                 <div class="espacio-panel__title">
-                    <span class="espacio-panel__icon"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i></span>
+                    <span class="espacio-panel__icon espacio-panel__icon--warn"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i></span>
                     <div>
                         <h2>Novedades reportadas</h2>
                         <span>Flujo: Reportada &rarr; En proceso &rarr; Solucionada o rechazada</span>
@@ -532,6 +564,158 @@
                             }
                         </div>
                     }
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @* ══ MODAL: acta de entrega / devolución con firma ══ *@
+    <div class="espacio-modal" id="espacioActaModal" role="dialog" aria-modal="true" aria-labelledby="espacioActaTitulo">
+        <div class="espacio-modal__card espacio-modal__card--lg">
+            <form id="espacioActaForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="ActivoId" />
+                <input type="hidden" name="Tipo" />
+                <input type="hidden" name="FirmaRecibeDataUrl" />
+                <input type="hidden" name="FirmaEntregaDataUrl" />
+
+                <div class="espacio-modal__head">
+                    <div>
+                        <h3 id="espacioActaTitulo">Acta de entrega</h3>
+                        <p id="espacioActaSubtitulo"></p>
+                    </div>
+                    <button type="button" class="espacio-modal__close" data-modal-cerrar aria-label="Cerrar">&times;</button>
+                </div>
+
+                <div class="espacio-modal__body">
+                    <div class="espacio-acta-equipo" id="espacioActaEquipo"></div>
+
+                    <div class="espacio-form-grid">
+                        <div class="espacio-form-field">
+                            <label for="actaRecibeNombre">Nombre de quien recibe <span class="req">*</span></label>
+                            <input type="text" name="RecibePorNombre" id="actaRecibeNombre" maxlength="160" required autocomplete="off" />
+                        </div>
+
+                        <div class="espacio-form-field">
+                            <label for="actaRecibeDocumento">Documento de identidad</label>
+                            <input type="text" name="RecibePorDocumento" id="actaRecibeDocumento" maxlength="30" autocomplete="off"
+                                   placeholder="C&eacute;dula de quien firma" />
+                        </div>
+
+                        <div class="espacio-form-field espacio-form-field--full">
+                            <label for="actaObservaciones">Observaciones</label>
+                            <textarea name="Observaciones" id="actaObservaciones" maxlength="2000"
+                                      placeholder="Estado del equipo, accesorios entregados, compromisos..."></textarea>
+                        </div>
+                    </div>
+
+                    @* Firma de TI: se muestra la guardada; solo se pide trazarla si aún no existe. *@
+                    <div class="espacio-firma-bloque" id="espacioActaFirmaEntrega">
+                        <div class="espacio-firma-bloque__head">
+                            <span>Firma de quien entrega (&aacute;rea de TI)</span>
+                            <button type="button" class="espacio-btn espacio-btn--soft espacio-btn--sm" data-firma-limpiar="actaEntregaCanvas" hidden>
+                                Limpiar
+                            </button>
+                        </div>
+                        <div class="espacio-firma-guardada" id="espacioActaFirmaGuardada" hidden>
+                            <img alt="Firma guardada" />
+                            <div>
+                                <strong id="espacioActaFirmaNombre"></strong>
+                                <span>Firma guardada &mdash; se usa autom&aacute;ticamente en cada acta.</span>
+                            </div>
+                        </div>
+                        <div class="espacio-firma-pad" id="espacioActaFirmaPad" hidden>
+                            <canvas id="actaEntregaCanvas" aria-label="Firma de quien entrega"></canvas>
+                            <label class="espacio-switch mt-2">
+                                <input type="checkbox" name="GuardarFirmaEntrega" value="true" checked />
+                                <span>Guardar esta firma para no volver a trazarla</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="espacio-firma-bloque">
+                        <div class="espacio-firma-bloque__head">
+                            <span>Firma de quien recibe <span class="req">*</span></span>
+                            <button type="button" class="espacio-btn espacio-btn--soft espacio-btn--sm" data-firma-limpiar="actaRecibeCanvas">
+                                Limpiar
+                            </button>
+                        </div>
+                        <div class="espacio-firma-pad">
+                            <canvas id="actaRecibeCanvas" aria-label="Firma de quien recibe"></canvas>
+                        </div>
+                    </div>
+
+                    <p class="espacio-acta-aviso" id="espacioActaAviso" hidden></p>
+
+                    <details class="mt-3" id="espacioActaHistorialWrap" hidden>
+                        <summary style="cursor:pointer;font-weight:800;padding:.4rem 0;">Actas firmadas de este equipo</summary>
+                        <div class="espacio-timeline mt-2" id="espacioActaHistorial"></div>
+                    </details>
+                </div>
+
+                <div class="espacio-modal__foot">
+                    <button type="button" class="espacio-btn espacio-btn--soft" data-modal-cerrar>Cancelar</button>
+                    <button type="submit" class="espacio-btn espacio-btn--primary" id="espacioActaGuardar">
+                        <i class="bi bi-vector-pen" aria-hidden="true"></i>
+                        Firmar acta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @* ══ MODAL: mi firma guardada ══ *@
+    <div class="espacio-modal" id="espacioMiFirmaModal" role="dialog" aria-modal="true" aria-labelledby="espacioMiFirmaTitulo">
+        <div class="espacio-modal__card espacio-modal__card--sm">
+            <form id="espacioMiFirmaForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="FirmaDataUrl" />
+
+                <div class="espacio-modal__head">
+                    <div>
+                        <h3 id="espacioMiFirmaTitulo">Mi firma</h3>
+                        <p>Se guarda una sola vez y se usa en todas las actas que firmes</p>
+                    </div>
+                    <button type="button" class="espacio-modal__close" data-modal-cerrar aria-label="Cerrar">&times;</button>
+                </div>
+
+                <div class="espacio-modal__body">
+                    <div class="espacio-form-grid">
+                        <div class="espacio-form-field">
+                            <label for="miFirmaNombre">Nombre que aparece en el acta</label>
+                            <input type="text" name="NombreFirmante" id="miFirmaNombre" maxlength="160"
+                                   value="@Model.MiFirmaNombre" autocomplete="off" />
+                        </div>
+                        <div class="espacio-form-field">
+                            <label for="miFirmaCargo">Cargo</label>
+                            <input type="text" name="Cargo" id="miFirmaCargo" maxlength="120"
+                                   value="@Model.MiFirmaCargo" placeholder="Ej: L&iacute;der de Tecnolog&iacute;a" autocomplete="off" />
+                        </div>
+                    </div>
+
+                    <div class="espacio-firma-bloque">
+                        <div class="espacio-firma-bloque__head">
+                            <span>Traza tu firma</span>
+                            <button type="button" class="espacio-btn espacio-btn--soft espacio-btn--sm" data-firma-limpiar="miFirmaCanvas">
+                                Limpiar
+                            </button>
+                        </div>
+                        <div class="espacio-firma-pad">
+                            <canvas id="miFirmaCanvas" data-firma-inicial="@Model.MiFirmaDataUrl" aria-label="Mi firma"></canvas>
+                        </div>
+                        <small class="espacio-flujo-nota">Puedes firmar con el mouse o con el dedo si usas pantalla t&aacute;ctil.</small>
+                    </div>
+
+                    <p class="espacio-acta-aviso" id="espacioMiFirmaAviso" hidden></p>
+                </div>
+
+                <div class="espacio-modal__foot">
+                    @if (Model.TieneFirmaGuardada)
+                    {
+                        <button type="button" class="espacio-btn espacio-btn--danger" id="espacioMiFirmaEliminar">Eliminar firma</button>
+                    }
+                    <button type="button" class="espacio-btn espacio-btn--soft" data-modal-cerrar>Cancelar</button>
+                    <button type="submit" class="espacio-btn espacio-btn--primary">Guardar firma</button>
                 </div>
             </form>
         </div>

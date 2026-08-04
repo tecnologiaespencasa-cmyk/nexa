@@ -1,7 +1,7 @@
 namespace IntranetPrueba.Models.EspacioCorporativo;
 
 /// <summary>
-/// Catalogos fijos del modulo "Mi espacio corporativo".
+/// Catálogos fijos del módulo "Mi espacio corporativo".
 /// </summary>
 public static class EspacioCorporativoCatalogos
 {
@@ -21,15 +21,40 @@ public static class EspacioCorporativoCatalogos
 
     public const string ClasificacionSinClasificar = "Sin clasificar";
 
+    public const string ActaEntrega = "Entrega";
+    public const string ActaDevolucion = "Devolución";
+
+    /// <summary>Tamaño máximo de una firma almacenada como data URL PNG (~1 MB).</summary>
+    public const int LongitudMaximaFirma = 1_000_000;
+
+    /// <summary>
+    /// Valida que el valor sea una firma PNG en data URL y no contenido arbitrario.
+    /// </summary>
+    public static bool EsFirmaValida(string? dataUrl)
+    {
+        if (string.IsNullOrWhiteSpace(dataUrl))
+        {
+            return false;
+        }
+
+        var normalizado = dataUrl.Trim();
+        return normalizado.Length <= LongitudMaximaFirma
+            && normalizado.StartsWith("data:image/png;base64,", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool EsTipoActaValido(string? tipo) =>
+        string.Equals(tipo, ActaEntrega, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(tipo, ActaDevolucion, StringComparison.OrdinalIgnoreCase);
+
     public static readonly string[] TiposActivo =
     [
-        "Portatil",
+        "Portátil",
         "Computador de escritorio",
         "Monitor",
         "Impresora",
-        "Escaner",
-        "Telefono movil",
-        "Telefono IP",
+        "Escáner",
+        "Teléfono móvil",
+        "Teléfono IP",
         "Tablet",
         "Diadema",
         "Teclado",
@@ -38,7 +63,7 @@ public static class EspacioCorporativoCatalogos
         "Servidor",
         "Router / Switch",
         "UPS",
-        "Camara",
+        "Cámara",
         "Video proyector",
         "Disco externo",
         "Otro"
@@ -49,15 +74,15 @@ public static class EspacioCorporativoCatalogos
         EstadoActivoAsignado,
         EstadoActivoDisponible,
         EstadoActivoMantenimiento,
-        "En reparacion",
+        "En reparación",
         "Extraviado",
         EstadoActivoDadoBaja
     ];
 
     public static readonly string[] TiposNovedad =
     [
-        "Dano del equipo",
-        "Perdida o extravio",
+        "Daño del equipo",
+        "Pérdida o extravío",
         "Robo",
         "Solicitud de cambio",
         "Mantenimiento",
@@ -68,7 +93,7 @@ public static class EspacioCorporativoCatalogos
     ];
 
     /// <summary>
-    /// Flujo de una novedad. Entra en "Reportada" y avanza por transiciones explicitas;
+    /// Flujo de una novedad. Entra en "Reportada" y avanza por transiciones explícitas;
     /// no se elige el estado de forma libre.
     /// </summary>
     public static readonly string[] EstadosNovedad =
@@ -88,7 +113,7 @@ public static class EspacioCorporativoCatalogos
     ];
 
     /// <summary>
-    /// Transiciones validas desde cada estado, en el orden en que se muestran los botones.
+    /// Transiciones válidas desde cada estado, en el orden en que se muestran los botones.
     /// </summary>
     private static readonly IReadOnlyDictionary<string, string[]> Transiciones =
         new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
@@ -108,7 +133,7 @@ public static class EspacioCorporativoCatalogos
         !string.IsNullOrWhiteSpace(destino)
         && TransicionesDesde(estadoActual).Contains(destino, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Texto del boton que ejecuta cada transicion.</summary>
+    /// <summary>Texto del botón que ejecuta cada transición.</summary>
     public static string EtiquetaTransicion(string estadoActual, string destino)
     {
         if (string.Equals(destino, EstadoNovedadEnProceso, StringComparison.OrdinalIgnoreCase))
@@ -121,7 +146,7 @@ public static class EspacioCorporativoCatalogos
             : "Rechazar novedad";
     }
 
-    /// <summary>Clase de Bootstrap Icons del boton de cada transicion.</summary>
+    /// <summary>Clase de Bootstrap Icons del botón de cada transición.</summary>
     public static string IconoTransicion(string estadoActual, string destino)
     {
         if (string.Equals(destino, EstadoNovedadEnProceso, StringComparison.OrdinalIgnoreCase))
@@ -134,7 +159,7 @@ public static class EspacioCorporativoCatalogos
             : "bi-x-circle-fill";
     }
 
-    /// <summary>Clase visual del boton de cada transicion.</summary>
+    /// <summary>Clase visual del botón de cada transición.</summary>
     public static string ClaseTransicion(string destino) =>
         string.Equals(destino, EstadoNovedadRechazada, StringComparison.OrdinalIgnoreCase)
             ? "espacio-btn--danger"
@@ -145,7 +170,7 @@ public static class EspacioCorporativoCatalogos
         "Baja",
         "Media",
         "Alta",
-        "Critica"
+        "Crítica"
     ];
 
     public static readonly string[] ClasificacionesNovedad =
@@ -155,8 +180,8 @@ public static class EspacioCorporativoCatalogos
         "Software",
         "Red y conectividad",
         "Accesorios",
-        "Garantia",
-        "Reposicion",
+        "Garantía",
+        "Reposición",
         "Uso indebido"
     ];
 
@@ -169,19 +194,19 @@ public static class EspacioCorporativoCatalogos
         "Calidad",
         "SST",
         "Gerencia",
-        "Juridica",
+        "Jurídica",
         "Operaciones",
         "Asistencial"
     ];
 
     public static readonly string[] TiposDocumento =
     [
-        "Politica",
+        "Política",
         "Manual",
         "Formato",
         "Procedimiento",
         "Instructivo",
-        "Guia",
+        "Guía",
         "Reglamento",
         "Acta",
         "Otro"
@@ -213,7 +238,7 @@ public static class EspacioCorporativoCatalogos
             [".zip"] = "application/zip"
         };
 
-    /// <summary>Tamano maximo permitido para un archivo cargado (25 MB).</summary>
+    /// <summary>Tamaño máximo permitido para un archivo cargado (25 MB).</summary>
     public const long TamanoMaximoArchivoBytes = 25L * 1024 * 1024;
 
     public static bool EsEstadoActivoValido(string? estado) =>

@@ -1,0 +1,152 @@
+@model EspacioActaCapturaViewModel
+@using IntranetPrueba.Models.EspacioCorporativo
+@{
+    var plantilla = Model.Plantilla!;
+    ViewData["Title"] = plantilla.Nombre;
+}
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/espacio-corporativo.css" asp-append-version="true" />
+}
+
+<section class="espacio">
+
+    <header class="espacio-hero">
+        <div class="espacio-shell">
+            <div class="espacio-hero__grid">
+                <div>
+                    <span class="espacio-hero__eyebrow">
+                        <i class="bi @plantilla.Icono" aria-hidden="true"></i>
+                        Nueva acta &middot; Paso 1 de 2
+                    </span>
+                    <h1>@plantilla.Nombre</h1>
+                    <p>@plantilla.Descripcion</p>
+                </div>
+                <div class="espacio-hero__actions">
+                    <a class="espacio-admin-btn" asp-action="Actas">
+                        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                        Volver
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="espacio-shell">
+
+        @await Html.PartialAsync("_EspacioAlertas")
+
+        @if (!string.IsNullOrWhiteSpace(Model.MensajeError))
+        {
+            <div class="espacio-alert espacio-alert--error" role="alert">
+                <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                <span>@Model.MensajeError</span>
+            </div>
+        }
+
+        <section class="espacio-panel">
+            <div class="espacio-panel__head">
+                <div class="espacio-panel__title">
+                    <span class="espacio-panel__icon espacio-panel__icon--info"><i class="bi bi-pencil-square" aria-hidden="true"></i></span>
+                    <div>
+                        <h2>Datos del acta</h2>
+                        <span>Completa las variables; luego podr&aacute;s revisar el documento antes de firmarlo</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="espacio-panel__body">
+                <form asp-action="ActaPrevisualizar" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="plantillaCodigo" value="@plantilla.Codigo" />
+
+                    <div class="espacio-form-grid">
+                        @foreach (var campo in plantilla.Campos)
+                        {
+                            var nombre = $"valores[{campo.Clave}]";
+                            var id = $"campo_{campo.Clave}";
+                            var valor = Model.Valores.GetValueOrDefault(campo.Clave);
+                            var esAncho = campo.Tipo is EspacioActaTipoCampo.Enlaces or EspacioActaTipoCampo.TextoLargo;
+
+                            <div class="espacio-form-field @(esAncho ? "espacio-form-field--full" : null)">
+                                <label for="@id">
+                                    @campo.Etiqueta
+                                    @if (campo.Requerido)
+                                    {
+                                        <span class="req">*</span>
+                                    }
+                                    @if (!campo.VisibleEnActa)
+                                    {
+                                        <span class="espacio-campo-oculto">No sale en el acta</span>
+                                    }
+                                </label>
+
+                                @switch (campo.Tipo)
+                                {
+                                    case EspacioActaTipoCampo.Seleccion:
+                                        <select name="@nombre" id="@id" required="@campo.Requerido">
+                                            <option value="">Selecciona...</option>
+                                            @foreach (var opcion in campo.Opciones)
+                                            {
+                                                <option value="@opcion.Valor" selected="@(opcion.Valor == valor)">@opcion.Etiqueta</option>
+                                            }
+                                        </select>
+                                        break;
+
+                                    case EspacioActaTipoCampo.Enlaces:
+                                    case EspacioActaTipoCampo.TextoLargo:
+                                        <textarea name="@nombre" id="@id" maxlength="@campo.MaxLength"
+                                                  required="@campo.Requerido" placeholder="@campo.Placeholder">@valor</textarea>
+                                        break;
+
+                                    case EspacioActaTipoCampo.Correo:
+                                        <input type="email" name="@nombre" id="@id" maxlength="@campo.MaxLength"
+                                               required="@campo.Requerido" value="@valor"
+                                               placeholder="@campo.Placeholder" autocomplete="off" />
+                                        break;
+
+                                    case EspacioActaTipoCampo.Credencial:
+                                        <div class="espacio-credencial">
+                                            <input type="password" name="@nombre" id="@id" maxlength="@campo.MaxLength"
+                                                   required="@campo.Requerido" value="@valor"
+                                                   placeholder="@campo.Placeholder" autocomplete="new-password" />
+                                            <button type="button" class="espacio-icon-btn" data-ver-credencial="@id"
+                                                    title="Mostrar u ocultar">
+                                                <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                        break;
+
+                                    default:
+                                        <input type="text" name="@nombre" id="@id" maxlength="@campo.MaxLength"
+                                               required="@campo.Requerido" value="@valor"
+                                               placeholder="@campo.Placeholder" autocomplete="off" />
+                                        break;
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(campo.Ayuda))
+                                {
+                                    <small>@campo.Ayuda</small>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="d-flex gap-2 flex-wrap mt-4">
+                        <button type="submit" class="espacio-btn espacio-btn--primary">
+                            <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                            Ver documento
+                        </button>
+                        <a class="espacio-btn espacio-btn--soft" asp-action="Actas">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+</section>
+
+@section Scripts
+{
+    <script src="~/js/espacio-corporativo.js" asp-append-version="true"></script>
+}

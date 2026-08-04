@@ -1,22 +1,25 @@
 namespace IntranetPrueba.Helpers;
 
 /// <summary>
-/// Mapeos de "Mi espacio corporativo" entre valores de catalogo y su representacion visual.
-/// Los iconos son de Bootstrap Icons (wwwroot/lib/bootstrap-icons); estos metodos devuelven
+/// Mapeos de "Mi espacio corporativo" entre valores de catálogo y su representación visual.
+/// Los iconos son de Bootstrap Icons (wwwroot/lib/bootstrap-icons); estos métodos devuelven
 /// el nombre de la clase para usarla como <c>&lt;i class="bi @EspacioIconos.ParaTipoActivo(x)"&gt;</c>.
+/// Los patrones deben quedar en minúscula y con las mismas tildes que
+/// <see cref="EspacioCorporativo.EspacioCorporativoCatalogos.TiposActivo"/>, porque solo se
+/// aplica <c>ToLowerInvariant()</c> (una tilde no se pierde al pasar a minúsculas).
 /// </summary>
 public static class EspacioIconos
 {
     public static string ParaTipoActivo(string? tipoActivo) => (tipoActivo ?? string.Empty).ToLowerInvariant() switch
     {
-        "portatil" => "bi-laptop",
+        "portátil" => "bi-laptop",
         "computador de escritorio" => "bi-pc-display",
         "monitor" => "bi-display",
         "video proyector" => "bi-projector-fill",
         "impresora" => "bi-printer-fill",
-        "escaner" => "bi-upc-scan",
-        "telefono movil" => "bi-phone-fill",
-        "telefono ip" => "bi-telephone-fill",
+        "escáner" => "bi-upc-scan",
+        "teléfono móvil" => "bi-phone-fill",
+        "teléfono ip" => "bi-telephone-fill",
         "tablet" => "bi-tablet-fill",
         "diadema" => "bi-headset",
         "teclado" => "bi-keyboard-fill",
@@ -25,7 +28,7 @@ public static class EspacioIconos
         "servidor" => "bi-hdd-rack-fill",
         "router / switch" => "bi-router-fill",
         "ups" => "bi-battery-charging",
-        "camara" => "bi-camera-video-fill",
+        "cámara" => "bi-camera-video-fill",
         "disco externo" => "bi-device-hdd-fill",
         _ => "bi-box-seam-fill"
     };
@@ -42,7 +45,7 @@ public static class EspacioIconos
         "activo" => "espacio-chip--activo",
         "disponible" => "espacio-chip--disponible",
         "en mantenimiento" => "espacio-chip--mantenimiento",
-        "en reparacion" => "espacio-chip--reparacion",
+        "en reparación" => "espacio-chip--reparacion",
         "extraviado" => "espacio-chip--extraviado",
         "dado de baja" => "espacio-chip--baja",
         _ => "espacio-chip--neutro"
@@ -62,7 +65,7 @@ public static class EspacioIconos
         "baja" => "espacio-chip--prioridad-baja",
         "media" => "espacio-chip--prioridad-media",
         "alta" => "espacio-chip--prioridad-alta",
-        "critica" => "espacio-chip--prioridad-critica",
+        "crítica" => "espacio-chip--prioridad-critica",
         _ => "espacio-chip--neutro"
     };
 

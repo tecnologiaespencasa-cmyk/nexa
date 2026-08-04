@@ -94,7 +94,7 @@ public partial class EspacioCorporativoController : Controller
 
         if (!EspacioCorporativoCatalogos.EsTipoNovedadValido(model.Tipo))
         {
-            ModelState.AddModelError(nameof(model.Tipo), "Selecciona un tipo de novedad valido.");
+            ModelState.AddModelError(nameof(model.Tipo), "Selecciona un tipo de novedad válido.");
         }
 
         EspacioActivo? activo = null;
@@ -112,7 +112,7 @@ public partial class EspacioCorporativoController : Controller
             else if (activo.ResponsableUserId != userId.Value)
             {
                 // Solo el responsable puede reportar novedades del equipo asignado.
-                ModelState.AddModelError(nameof(model.ActivoId), "El equipo seleccionado no esta asignado a tu usuario.");
+                ModelState.AddModelError(nameof(model.ActivoId), "El equipo seleccionado no está asignado a tu usuario.");
                 activo = null;
             }
         }
@@ -166,12 +166,12 @@ public partial class EspacioCorporativoController : Controller
         {
             novedad.NotificacionEnviada = true;
             await _context.SaveChangesAsync(cancellationToken);
-            TempData[SuccessMessageKey] = $"Novedad #{novedad.Id} registrada. El area de TI fue notificada por correo.";
+            TempData[SuccessMessageKey] = $"Novedad #{novedad.Id} registrada. El área de TI fue notificada por correo.";
         }
         else
         {
             TempData[SuccessMessageKey] = $"Novedad #{novedad.Id} registrada correctamente.";
-            TempData[WarningMessageKey] = "No fue posible enviar el correo de notificacion; el area de TI vera la novedad en la bandeja de activos.";
+            TempData[WarningMessageKey] = "No fue posible enviar el correo de notificación; el área de TI verá la novedad en la bandeja de activos.";
         }
 
         await LogAuditAsync(
@@ -550,7 +550,7 @@ public partial class EspacioCorporativoController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "No se pudo registrar la auditoria de {Action}.", action);
+            _logger.LogWarning(ex, "No se pudo registrar la auditoría de {Action}.", action);
         }
     }
 

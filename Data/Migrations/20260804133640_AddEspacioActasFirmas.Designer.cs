@@ -3,6 +3,7 @@ using System;
 using IntranetPrueba.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IntranetPrueba.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260804133640_AddEspacioActasFirmas")]
+    partial class AddEspacioActasFirmas
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2479,106 +2482,6 @@ namespace IntranetPrueba.Data.Migrations
                     b.HasIndex("NumeroIdentificacion");
 
                     b.ToTable("censo_terapias_ambulatorias", (string)null);
-                });
-
-            modelBuilder.Entity("IntranetPrueba.Data.Entities.EspacioActaDocumental", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<bool>("CorreoEnviado")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<DateTime?>("CorreoEnviadoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CorreoError")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("CorreoRecibe")
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<string>("CuerpoHtml")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("DocumentoRecibe")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
-
-                    b.Property<string>("EmitidaPorCargo")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<string>("EmitidaPorDocumento")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
-
-                    b.Property<string>("EmitidaPorNombre")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<Guid?>("EmitidaPorUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("FirmaEmiteDataUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FirmaRecibeDataUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("FirmadaAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("NombreRecibe")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<string>("PlantillaCodigo")
-                        .IsRequired()
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
-
-                    b.Property<string>("PlantillaNombre")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("TituloActa")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("UsuarioRecibe")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<string>("ValoresJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DocumentoRecibe");
-
-                    b.HasIndex("FirmadaAtUtc");
-
-                    b.HasIndex("PlantillaCodigo");
-
-                    b.HasIndex("UsuarioRecibe");
-
-                    b.ToTable("espacio_actas_documentales", (string)null);
                 });
 
             modelBuilder.Entity("IntranetPrueba.Data.Entities.EspacioActivo", b =>

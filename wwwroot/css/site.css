@@ -1088,17 +1088,21 @@ body {
   justify-content: center;
 }
 
-/* Iconos: Bootstrap Icons (webfont). El <i> se vuelve contenedor flex para que el
-   glifo salga del flujo en linea y deje de depender del `vertical-align: -.125em`
-   que aplica la libreria y que lo descentraba dentro de los contenedores. */
+/* Iconos: Bootstrap Icons (webfont). `width/height: 1em` le da a .bi una caja
+   cuadrada real (en vez de encogerse a los margenes del glifo, que varian de un
+   icono a otro); `margin: auto` en el ::before lo centra dentro de esa caja con
+   el truco de auto-margins en flex, a prueba de fallos frente al
+   `vertical-align: -.125em` que aplica la libreria. */
 .intranet-nav-link__icon .bi,
 .home-resource-icon .bi,
 .home-coming-soon-cta .bi {
   align-items: center;
   display: inline-flex;
   flex: none;
+  height: 1em;
   justify-content: center;
   line-height: 1;
+  width: 1em;
 }
 
 .intranet-nav-link__icon .bi::before,
@@ -1106,6 +1110,7 @@ body {
 .home-coming-soon-cta .bi::before {
   display: block;
   line-height: 1;
+  margin: auto;
 }
 
 .intranet-nav-link__icon .bi {

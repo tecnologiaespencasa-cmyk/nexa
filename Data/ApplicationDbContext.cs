@@ -34,6 +34,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<EspacioActivoMovimiento> EspacioActivoMovimientos => Set<EspacioActivoMovimiento>();
     public DbSet<EspacioDocumento> EspacioDocumentos => Set<EspacioDocumento>();
     public DbSet<EspacioDocumentoFavorito> EspacioDocumentoFavoritos => Set<EspacioDocumentoFavorito>();
+    public DbSet<EspacioActivoActa> EspacioActivoActas => Set<EspacioActivoActa>();
+    public DbSet<EspacioFirmaUsuario> EspacioFirmasUsuario => Set<EspacioFirmaUsuario>();
+    public DbSet<EspacioActaDocumental> EspacioActasDocumentales => Set<EspacioActaDocumental>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -797,6 +800,76 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(x => new { x.EspacioActivoId, x.RegistradoAtUtc });
+        });
+
+        modelBuilder.Entity<EspacioActivoActa>(entity =>
+        {
+            entity.ToTable("espacio_activo_actas");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Tipo).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.EntregaPorNombre).HasMaxLength(160).IsRequired();
+            entity.Property(x => x.EntregaPorCargo).HasMaxLength(120);
+            entity.Property(x => x.FirmaEntregaDataUrl).HasColumnType("text").IsRequired();
+            entity.Property(x => x.RecibePorNombre).HasMaxLength(160).IsRequired();
+            entity.Property(x => x.RecibePorDocumento).HasMaxLength(30);
+            entity.Property(x => x.FirmaRecibeDataUrl).HasColumnType("text").IsRequired();
+            entity.Property(x => x.Observaciones).HasMaxLength(2000);
+            entity.Property(x => x.EquipoDescripcion).HasMaxLength(300).IsRequired();
+            entity.Property(x => x.Serial).HasMaxLength(120).IsRequired();
+            entity.Property(x => x.CodigoActivo).HasMaxLength(60);
+            entity.Property(x => x.Especificaciones).HasMaxLength(2000);
+            entity.Property(x => x.FirmadaAtUtc).HasColumnType("timestamp with time zone");
+
+            entity.HasOne(x => x.EspacioActivo)
+                .WithMany(x => x.Actas)
+                .HasForeignKey(x => x.EspacioActivoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => new { x.EspacioActivoId, x.FirmadaAtUtc });
+        });
+
+        modelBuilder.Entity<EspacioActaDocumental>(entity =>
+        {
+            entity.ToTable("espacio_actas_documentales");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.PlantillaCodigo).HasMaxLength(60).IsRequired();
+            entity.Property(x => x.PlantillaNombre).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.TituloActa).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.NombreRecibe).HasMaxLength(160).IsRequired();
+            entity.Property(x => x.DocumentoRecibe).HasMaxLength(30);
+            entity.Property(x => x.CorreoRecibe).HasMaxLength(150);
+            entity.Property(x => x.UsuarioRecibe).HasMaxLength(120);
+            entity.Property(x => x.ValoresJson).HasColumnType("text").IsRequired();
+            entity.Property(x => x.CuerpoHtml).HasColumnType("text").IsRequired();
+            entity.Property(x => x.EmitidaPorNombre).HasMaxLength(160).IsRequired();
+            entity.Property(x => x.EmitidaPorCargo).HasMaxLength(120);
+            entity.Property(x => x.EmitidaPorDocumento).HasMaxLength(30);
+            entity.Property(x => x.FirmaEmiteDataUrl).HasColumnType("text").IsRequired();
+            entity.Property(x => x.FirmaRecibeDataUrl).HasColumnType("text").IsRequired();
+            entity.Property(x => x.CorreoEnviado).HasDefaultValue(false);
+            entity.Property(x => x.CorreoError).HasMaxLength(500);
+            entity.Property(x => x.CorreoEnviadoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.FirmadaAtUtc).HasColumnType("timestamp with time zone");
+
+            entity.HasIndex(x => x.PlantillaCodigo);
+            entity.HasIndex(x => x.DocumentoRecibe);
+            entity.HasIndex(x => x.UsuarioRecibe);
+            entity.HasIndex(x => x.FirmadaAtUtc);
+        });
+
+        modelBuilder.Entity<EspacioFirmaUsuario>(entity =>
+        {
+            entity.ToTable("espacio_firmas_usuario");
+            entity.HasKey(x => x.UserId);
+            entity.Property(x => x.FirmaDataUrl).HasColumnType("text").IsRequired();
+            entity.Property(x => x.NombreFirmante).HasMaxLength(160);
+            entity.Property(x => x.Cargo).HasMaxLength(120);
+            entity.Property(x => x.ActualizadaAtUtc).HasColumnType("timestamp with time zone");
+
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<EspacioDocumento>(entity =>

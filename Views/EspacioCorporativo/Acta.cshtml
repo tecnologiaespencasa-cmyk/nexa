@@ -1,0 +1,255 @@
+@model EspacioActaDocumentoViewModel
+@{
+    ViewData["Title"] = Model.TituloActa;
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@Model.TituloActa - @Model.Serial</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            background: #f3f5f8;
+            color: #24272e;
+            font-family: "Nunito", "Segoe UI", sans-serif;
+            margin: 0;
+            padding: 2rem 1rem;
+        }
+
+        .acta {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 18px 40px rgba(20, 25, 35, 0.1);
+            margin: 0 auto;
+            max-width: 820px;
+            padding: 2.4rem 2.6rem 2.8rem;
+        }
+
+        .acta-encabezado {
+            align-items: flex-start;
+            border-bottom: 3px solid #e53935;
+            display: flex;
+            gap: 1.5rem;
+            justify-content: space-between;
+            padding-bottom: 1.1rem;
+        }
+
+        .acta-logo { height: 54px; width: auto; }
+
+        .acta-encabezado h1 {
+            color: #a50f0f;
+            font-size: 1.32rem;
+            font-weight: 800;
+            margin: 0;
+            text-align: right;
+        }
+
+        .acta-encabezado span {
+            color: #7b8490;
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .acta-intro {
+            font-size: 0.95rem;
+            line-height: 1.65;
+            margin: 1.5rem 0 0.4rem;
+        }
+
+        h2 {
+            border-bottom: 1px solid #eceff3;
+            color: #a50f0f;
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            margin: 1.7rem 0 0.7rem;
+            padding-bottom: 0.35rem;
+            text-transform: uppercase;
+        }
+
+        table { border-collapse: collapse; font-size: 0.9rem; width: 100%; }
+
+        td { border: 1px solid #e6e9ee; padding: 0.55rem 0.7rem; vertical-align: top; }
+
+        td.etiqueta {
+            background: #fbfcfd;
+            color: #5b6472;
+            font-weight: 700;
+            white-space: nowrap;
+            width: 32%;
+        }
+
+        .acta-firmas {
+            display: flex;
+            gap: 2.5rem;
+            margin-top: 2.4rem;
+        }
+
+        .acta-firma { flex: 1 1 0; text-align: center; }
+
+        .acta-firma img {
+            display: block;
+            height: 90px;
+            margin: 0 auto;
+            max-width: 100%;
+            object-fit: contain;
+        }
+
+        .acta-firma-linea {
+            border-top: 1.5px solid #24272e;
+            margin: 0.2rem auto 0.5rem;
+        }
+
+        .acta-firma strong { display: block; font-size: 0.92rem; }
+
+        .acta-firma span {
+            color: #7b8490;
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .acta-pie {
+            border-top: 1px solid #eceff3;
+            color: #8a929c;
+            font-size: 0.74rem;
+            margin-top: 2.2rem;
+            padding-top: 0.8rem;
+            text-align: center;
+        }
+
+        .acta-acciones {
+            display: flex;
+            gap: 0.6rem;
+            justify-content: center;
+            margin: 0 auto 1.4rem;
+            max-width: 820px;
+        }
+
+        .acta-boton {
+            background: linear-gradient(135deg, #e53935, #a50f0f);
+            border: 0;
+            border-radius: 11px;
+            color: #fff;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 800;
+            padding: 0.6rem 1.15rem;
+            text-decoration: none;
+        }
+
+        .acta-boton--claro { background: #fff; box-shadow: 0 6px 16px rgba(20, 25, 35, 0.1); color: #4b5563; }
+
+        @@media print {
+            body { background: #fff; padding: 0; }
+            .acta { box-shadow: none; max-width: none; padding: 0; }
+            .acta-acciones { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="acta-acciones">
+        <button type="button" class="acta-boton" onclick="window.print()">Imprimir o guardar en PDF</button>
+        <button type="button" class="acta-boton acta-boton--claro" onclick="window.close()">Cerrar</button>
+    </div>
+
+    <article class="acta">
+        <header class="acta-encabezado">
+            <img class="acta-logo" src="~/images/especialistas-en-casa-logo.png" alt="Especialistas en Casa" />
+            <div>
+                <h1>@Model.TituloActa</h1>
+                <span>Acta N&deg; @Model.Id &middot; @Model.FechaFirma.ToString("dd/MM/yyyy hh:mm tt")</span>
+            </div>
+        </header>
+
+        <p class="acta-intro">
+            @if (Model.Tipo == "Devolución")
+            {
+                <text>
+                    Mediante la presente acta se deja constancia de que <strong>@Model.RecibePorNombre</strong>
+                    hace entrega a <strong>Especialistas en Casa</strong> del equipo descrito a continuaci&oacute;n,
+                    el cual se recibe en las condiciones observadas al momento de la firma.
+                </text>
+            }
+            else
+            {
+                <text>
+                    Mediante la presente acta se deja constancia de que <strong>Especialistas en Casa</strong>
+                    entrega a <strong>@Model.RecibePorNombre</strong> el equipo descrito a continuaci&oacute;n,
+                    quien lo recibe a satisfacci&oacute;n y se compromete a su uso, cuidado y custodia
+                    conforme a las pol&iacute;ticas internas de la compa&ntilde;&iacute;a.
+                </text>
+            }
+        </p>
+
+        <h2>Datos del equipo</h2>
+        <table>
+            <tr>
+                <td class="etiqueta">Equipo</td>
+                <td>@Model.EquipoDescripcion</td>
+            </tr>
+            <tr>
+                <td class="etiqueta">Serial</td>
+                <td>@Model.Serial</td>
+            </tr>
+            <tr>
+                <td class="etiqueta">C&oacute;digo de activo</td>
+                <td>@(string.IsNullOrWhiteSpace(Model.CodigoActivo) ? "No registra" : Model.CodigoActivo)</td>
+            </tr>
+            <tr>
+                <td class="etiqueta">Especificaciones</td>
+                <td>@(string.IsNullOrWhiteSpace(Model.Especificaciones) ? "No registra" : Model.Especificaciones)</td>
+            </tr>
+        </table>
+
+        <h2>Observaciones</h2>
+        <table>
+            <tr>
+                <td>@(string.IsNullOrWhiteSpace(Model.Observaciones) ? "Sin observaciones." : Model.Observaciones)</td>
+            </tr>
+        </table>
+
+        <div class="acta-firmas">
+            <div class="acta-firma">
+                <img src="@Model.FirmaEntregaDataUrl" alt="Firma de quien entrega" />
+                <div class="acta-firma-linea"></div>
+                <strong>@Model.EntregaPorNombre</strong>
+                <span>@(string.IsNullOrWhiteSpace(Model.EntregaPorCargo) ? "Área de Tecnología" : Model.EntregaPorCargo)</span>
+                <span>@(Model.Tipo == "Devolución" ? "Recibe por la compañía" : "Entrega")</span>
+            </div>
+
+            <div class="acta-firma">
+                <img src="@Model.FirmaRecibeDataUrl" alt="Firma de quien recibe" />
+                <div class="acta-firma-linea"></div>
+                <strong>@Model.RecibePorNombre</strong>
+                <span>
+                    @if (!string.IsNullOrWhiteSpace(Model.RecibePorDocumento))
+                    {
+                        <text>C.C. @Model.RecibePorDocumento</text>
+                    }
+                    else
+                    {
+                        <text>Colaborador</text>
+                    }
+                </span>
+                <span>@(Model.Tipo == "Devolución" ? "Entrega el equipo" : "Recibe")</span>
+            </div>
+        </div>
+
+        <p class="acta-pie">
+            Documento generado electr&oacute;nicamente por Nexa &middot; Especialistas en Casa.
+            Las firmas fueron capturadas de forma digital al momento de la @(Model.Tipo == "Devolución" ? "devoluci&oacute;n" : "entrega").
+        </p>
+    </article>
+</body>
+</html>

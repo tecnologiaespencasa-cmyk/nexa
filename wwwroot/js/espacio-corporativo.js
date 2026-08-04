@@ -305,7 +305,7 @@
         if (!historialContenido) return;
 
         if (!datos.movimientos || datos.movimientos.length === 0) {
-          historialContenido.innerHTML = "<p>Este activo aun no registra movimientos.</p>";
+          historialContenido.innerHTML = "<p>Este activo aún no registra movimientos.</p>";
           return;
         }
 
@@ -535,5 +535,441 @@
         fila.style.display = termino === "" || texto.includes(termino) ? "" : "none";
       });
     });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Firma digital: pad de trazo y actas de entrega / devolución
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Convierte un <canvas> en un pad de firma. Guarda el trazo como PNG data URL.
+   * Se redimensiona según el devicePixelRatio para que la firma no salga pixelada.
+   */
+  function crearPadFirma(canvas) {
+    if (!canvas) return null;
+
+    const contexto = canvas.getContext("2d");
+    let dibujando = false;
+    let hayTrazo = false;
+
+    const pintarFondo = (ancho, alto) => {
+      contexto.fillStyle = "#ffffff";
+      contexto.fillRect(0, 0, ancho, alto);
+      contexto.lineWidth = 2.2;
+      contexto.lineCap = "round";
+      contexto.lineJoin = "round";
+      contexto.strokeStyle = "#16202e";
+    };
+
+    const ajustar = () => {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0) return;
+      const previo = hayTrazo ? canvas.toDataURL("image/png") : "";
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      canvas.width = Math.round(rect.width * ratio);
+      canvas.height = Math.round(rect.height * ratio);
+      contexto.setTransform(ratio, 0, 0, ratio, 0, 0);
+      pintarFondo(rect.width, rect.height);
+      if (previo) {
+        pintar(previo);
+      }
+    };
+
+    const pintar = (dataUrl) => {
+      if (!dataUrl) return;
+      const imagen = new Image();
+      imagen.onload = () => {
+        const rect = canvas.getBoundingClientRect();
+        contexto.drawImage(imagen, 0, 0, rect.width, rect.height);
+        hayTrazo = true;
+      };
+      imagen.src = dataUrl;
+    };
+
+    const punto = (evento) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: evento.clientX - rect.left, y: evento.clientY - rect.top };
+    };
+
+    canvas.addEventListener("pointerdown", (evento) => {
+      evento.preventDefault();
+      canvas.setPointerCapture(evento.pointerId);
+      const p = punto(evento);
+      contexto.beginPath();
+      contexto.moveTo(p.x, p.y);
+      dibujando = true;
+      hayTrazo = true;
+    });
+
+    canvas.addEventListener("pointermove", (evento) => {
+      if (!dibujando) return;
+      evento.preventDefault();
+      const p = punto(evento);
+      contexto.lineTo(p.x, p.y);
+      contexto.stroke();
+    });
+
+    ["pointerup", "pointercancel", "pointerleave"].forEach((tipo) => {
+      canvas.addEventListener(tipo, () => {
+        dibujando = false;
+      });
+    });
+
+    return {
+      ajustar,
+      cargar: (dataUrl) => {
+        ajustar();
+        pintar(dataUrl);
+      },
+      limpiar: () => {
+        const rect = canvas.getBoundingClientRect();
+        contexto.clearRect(0, 0, rect.width, rect.height);
+        pintarFondo(rect.width, rect.height);
+        hayTrazo = false;
+      },
+      tieneTrazo: () => hayTrazo,
+      obtener: () => (hayTrazo ? canvas.toDataURL("image/png") : "")
+    };
+  }
+
+  const pads = new Map();
+  document.querySelectorAll("canvas[id$='Canvas']").forEach((canvas) => {
+    const pad = crearPadFirma(canvas);
+    if (pad) pads.set(canvas.id, pad);
+  });
+
+  document.querySelectorAll("[data-firma-limpiar]").forEach((boton) => {
+    boton.addEventListener("click", () => {
+      pads.get(boton.dataset.firmaLimpiar)?.limpiar();
+    });
+  });
+
+  window.addEventListener("resize", () => {
+    document.querySelectorAll(".espacio-modal.is-open canvas[id$='Canvas']").forEach((canvas) => {
+      pads.get(canvas.id)?.ajustar();
+    });
+  });
+
+  const mostrarAviso = (elemento, mensaje, esError) => {
+    if (!elemento) return;
+    elemento.textContent = mensaje || "";
+    elemento.hidden = !mensaje;
+    elemento.classList.toggle("is-error", Boolean(esError));
+  };
+
+  // ── Mi firma guardada ─────────────────────────────────────────────────────
+
+  const miFirmaModal = document.getElementById("espacioMiFirmaModal");
+  const miFirmaForm = document.getElementById("espacioMiFirmaForm");
+  const miFirmaAviso = document.getElementById("espacioMiFirmaAviso");
+  const miFirmaCanvas = document.getElementById("miFirmaCanvas");
+
+  document.querySelectorAll("[data-mi-firma]").forEach((boton) => {
+    boton.addEventListener("click", () => {
+      mostrarAviso(miFirmaAviso, "", false);
+      abrirModal(miFirmaModal);
+      // El canvas debe medirse cuando el modal ya es visible.
+      window.requestAnimationFrame(() => {
+        const pad = pads.get("miFirmaCanvas");
+        const inicial = miFirmaCanvas?.dataset.firmaInicial;
+        if (inicial) {
+          pad?.cargar(inicial);
+        } else {
+          pad?.ajustar();
+        }
+      });
+    });
+  });
+
+  miFirmaForm?.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const pad = pads.get("miFirmaCanvas");
+
+    if (!pad?.tieneTrazo()) {
+      mostrarAviso(miFirmaAviso, "Traza tu firma antes de guardarla.", true);
+      return;
+    }
+
+    miFirmaForm.querySelector('[name="FirmaDataUrl"]').value = pad.obtener();
+
+    try {
+      const respuesta = await fetch("/EspacioCorporativo/GuardarMiFirma", {
+        method: "POST",
+        headers: { RequestVerificationToken: obtenerToken() },
+        body: new FormData(miFirmaForm)
+      });
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        mostrarAviso(miFirmaAviso, datos.message || "No se pudo guardar la firma.", true);
+        return;
+      }
+
+      mostrarAviso(miFirmaAviso, datos.mensaje, false);
+      window.setTimeout(() => window.location.reload(), 900);
+    } catch (error) {
+      console.error(error);
+      mostrarAviso(miFirmaAviso, "No fue posible guardar la firma.", true);
+    }
+  });
+
+  document.getElementById("espacioMiFirmaEliminar")?.addEventListener("click", async () => {
+    if (!window.confirm("¿Eliminar tu firma guardada? Deberás trazarla de nuevo en la próxima acta.")) {
+      return;
+    }
+
+    try {
+      const respuesta = await fetch("/EspacioCorporativo/EliminarMiFirma", {
+        method: "POST",
+        headers: { RequestVerificationToken: obtenerToken() }
+      });
+      if (!respuesta.ok) throw new Error("fallo");
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+      mostrarAviso(miFirmaAviso, "No fue posible eliminar la firma.", true);
+    }
+  });
+
+  // ── Acta de entrega / devolución ──────────────────────────────────────────
+
+  const actaModal = document.getElementById("espacioActaModal");
+  const actaForm = document.getElementById("espacioActaForm");
+  const actaAviso = document.getElementById("espacioActaAviso");
+  const actaTitulo = document.getElementById("espacioActaTitulo");
+  const actaSubtitulo = document.getElementById("espacioActaSubtitulo");
+  const actaEquipo = document.getElementById("espacioActaEquipo");
+  const actaFirmaGuardada = document.getElementById("espacioActaFirmaGuardada");
+  const actaFirmaPad = document.getElementById("espacioActaFirmaPad");
+  const actaHistorialWrap = document.getElementById("espacioActaHistorialWrap");
+  const actaHistorial = document.getElementById("espacioActaHistorial");
+
+  const campoActa = (nombre) => actaForm?.querySelector(`[name="${nombre}"]`);
+
+  function pintarDatoEquipo(etiqueta, valor) {
+    if (!valor) return "";
+    const bloque = document.createElement("div");
+    bloque.className = "espacio-field";
+    const titulo = document.createElement("span");
+    titulo.textContent = etiqueta;
+    const dato = document.createElement("strong");
+    dato.textContent = valor;
+    bloque.appendChild(titulo);
+    bloque.appendChild(dato);
+    return bloque.outerHTML;
+  }
+
+  document.querySelectorAll("[data-acta-abrir]").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      const activoId = boton.getAttribute("data-acta-abrir");
+      mostrarAviso(actaAviso, "", false);
+
+      try {
+        const respuesta = await fetch(`/EspacioCorporativo/Acta?id=${encodeURIComponent(activoId)}`, {
+          headers: { Accept: "application/json" }
+        });
+        if (!respuesta.ok) throw new Error("fallo");
+        const datos = await respuesta.json();
+
+        const esDevolucion = datos.siguienteTipo === "Devolución";
+        campoActa("ActivoId").value = datos.activo.id;
+        campoActa("Tipo").value = datos.siguienteTipo;
+        campoActa("RecibePorNombre").value = esDevolucion ? "" : datos.activo.responsable || "";
+        campoActa("RecibePorDocumento").value = "";
+        campoActa("Observaciones").value = "";
+
+        actaTitulo.textContent = esDevolucion ? "Acta de devolución" : "Acta de entrega";
+        actaSubtitulo.textContent = esDevolucion
+          ? "Registra la devolución del equipo con la firma de quien lo entrega"
+          : "Deja constancia firmada de la entrega del equipo";
+
+        actaEquipo.innerHTML = [
+          pintarDatoEquipo("Equipo", datos.activo.descripcion),
+          pintarDatoEquipo("Serial", datos.activo.serial),
+          pintarDatoEquipo("Codigo", datos.activo.codigo),
+          pintarDatoEquipo("Responsable", datos.activo.responsable)
+        ].join("");
+
+        // La firma de TI solo se pide cuando aún no hay una guardada.
+        const tieneFirma = Boolean(datos.firmaGuardada);
+        actaFirmaGuardada.hidden = !tieneFirma;
+        actaFirmaPad.hidden = tieneFirma;
+        document.querySelector('[data-firma-limpiar="actaEntregaCanvas"]').hidden = tieneFirma;
+
+        if (tieneFirma) {
+          actaFirmaGuardada.querySelector("img").src = datos.firmaGuardada.dataUrl;
+          document.getElementById("espacioActaFirmaNombre").textContent =
+            [datos.firmaGuardada.nombre, datos.firmaGuardada.cargo].filter(Boolean).join(" · ");
+        }
+
+        if (datos.actas.length > 0) {
+          actaHistorialWrap.hidden = false;
+          actaHistorial.innerHTML = datos.actas
+            .map((acta) => {
+              const item = document.createElement("div");
+              item.className = "espacio-timeline__item";
+              const titulo = document.createElement("strong");
+              titulo.textContent = `${acta.tipo} — ${acta.recibePor}`;
+              const meta = document.createElement("span");
+              meta.textContent = `${acta.fecha} · entrega ${acta.entregaPor}`;
+              const enlace = document.createElement("a");
+              enlace.href = `/EspacioCorporativo/ActaDocumento?id=${acta.id}`;
+              enlace.target = "_blank";
+              enlace.rel = "noopener";
+              enlace.className = "espacio-acta-enlace";
+              enlace.textContent = "Ver acta";
+              item.appendChild(titulo);
+              item.appendChild(meta);
+              item.appendChild(enlace);
+              return item.outerHTML;
+            })
+            .join("");
+        } else {
+          actaHistorialWrap.hidden = true;
+          actaHistorial.innerHTML = "";
+        }
+
+        abrirModal(actaModal);
+        window.requestAnimationFrame(() => {
+          pads.get("actaRecibeCanvas")?.limpiar();
+          pads.get("actaRecibeCanvas")?.ajustar();
+          if (!tieneFirma) {
+            pads.get("actaEntregaCanvas")?.limpiar();
+            pads.get("actaEntregaCanvas")?.ajustar();
+          }
+        });
+      } catch (error) {
+        console.error(error);
+        window.alert("No fue posible cargar la información del acta.");
+      }
+    });
+  });
+
+  // ── Módulo de Actas: mostrar credenciales y firmar el documento ───────────
+
+  document.querySelectorAll("[data-ver-credencial]").forEach((boton) => {
+    boton.addEventListener("click", () => {
+      const campo = document.getElementById(boton.dataset.verCredencial);
+      if (!campo) return;
+      const oculto = campo.type === "password";
+      campo.type = oculto ? "text" : "password";
+      boton.querySelector("i")?.classList.toggle("bi-eye-fill", !oculto);
+      boton.querySelector("i")?.classList.toggle("bi-eye-slash-fill", oculto);
+    });
+  });
+
+  const emitirForm = document.getElementById("espacioActaEmitirForm");
+  const emitirAviso = document.getElementById("espacioEmitirAviso");
+  const vistaFirmaRecibe = document.getElementById("vistaFirmaRecibe");
+  const vistaFirmaEmite = document.getElementById("vistaFirmaEmite");
+
+  if (emitirForm) {
+    // Los pads de esta pantalla ya son visibles al cargar: se miden de una vez.
+    window.requestAnimationFrame(() => {
+      pads.get("recibeCanvas")?.ajustar();
+      pads.get("emiteCanvas")?.ajustar();
+    });
+
+    // Reflejar la firma trazada dentro de la previsualización del documento.
+    const reflejar = (idCanvas, contenedor) => {
+      const canvas = document.getElementById(idCanvas);
+      if (!canvas || !contenedor) return;
+      canvas.addEventListener("pointerup", () => {
+        const dataUrl = pads.get(idCanvas)?.obtener();
+        if (!dataUrl) return;
+        let imagen = contenedor.querySelector("img");
+        if (!imagen) {
+          imagen = document.createElement("img");
+          imagen.alt = "Firma";
+          contenedor.appendChild(imagen);
+        }
+        imagen.src = dataUrl;
+      });
+    };
+
+    reflejar("recibeCanvas", vistaFirmaRecibe);
+    reflejar("emiteCanvas", vistaFirmaEmite);
+
+    emitirForm.addEventListener("submit", (evento) => {
+      const padRecibe = pads.get("recibeCanvas");
+      const padEmite = pads.get("emiteCanvas");
+
+      if (!padRecibe?.tieneTrazo()) {
+        evento.preventDefault();
+        mostrarAviso(emitirAviso, "Falta la firma de quien recibe.", true);
+        return;
+      }
+
+      // El canvas de emisión solo existe cuando aún no hay firma guardada.
+      if (padEmite && !padEmite.tieneTrazo()) {
+        evento.preventDefault();
+        mostrarAviso(emitirAviso, "Traza tu firma para emitir el acta.", true);
+        return;
+      }
+
+      emitirForm.querySelector('[name="firmaRecibeDataUrl"]').value = padRecibe.obtener();
+      if (padEmite) {
+        emitirForm.querySelector('[name="firmaEmiteDataUrl"]').value = padEmite.obtener();
+      }
+
+      const boton = document.getElementById("espacioEmitirBoton");
+      if (boton) {
+        boton.disabled = true;
+        boton.textContent = "Firmando...";
+      }
+    });
+  }
+
+  actaForm?.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    mostrarAviso(actaAviso, "", false);
+
+    const padRecibe = pads.get("actaRecibeCanvas");
+    if (!padRecibe?.tieneTrazo()) {
+      mostrarAviso(actaAviso, "Falta la firma de quien recibe.", true);
+      return;
+    }
+
+    if (!campoActa("RecibePorNombre").value.trim()) {
+      mostrarAviso(actaAviso, "Indica el nombre de quien recibe.", true);
+      return;
+    }
+
+    campoActa("FirmaRecibeDataUrl").value = padRecibe.obtener();
+
+    if (!actaFirmaPad.hidden) {
+      const padEntrega = pads.get("actaEntregaCanvas");
+      if (!padEntrega?.tieneTrazo()) {
+        mostrarAviso(actaAviso, "Traza tu firma de entrega para continuar.", true);
+        return;
+      }
+      campoActa("FirmaEntregaDataUrl").value = padEntrega.obtener();
+    }
+
+    const boton = document.getElementById("espacioActaGuardar");
+    boton.disabled = true;
+
+    try {
+      const respuesta = await fetch("/EspacioCorporativo/FirmarActa", {
+        method: "POST",
+        headers: { RequestVerificationToken: obtenerToken() },
+        body: new FormData(actaForm)
+      });
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        mostrarAviso(actaAviso, datos.message || "No se pudo firmar el acta.", true);
+        return;
+      }
+
+      mostrarAviso(actaAviso, `${datos.mensaje} Abriendo el acta...`, false);
+      window.open(datos.urlActa, "_blank", "noopener");
+      window.setTimeout(() => window.location.reload(), 1200);
+    } catch (error) {
+      console.error(error);
+      mostrarAviso(actaAviso, "No fue posible firmar el acta.", true);
+    } finally {
+      boton.disabled = false;
+    }
   });
 })();
