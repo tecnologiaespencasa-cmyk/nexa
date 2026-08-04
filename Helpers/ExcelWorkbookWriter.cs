@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO.Compression;
+using System.Security;
 using System.Text;
 using System.Xml;
 using IntranetPrueba.Models.Reports;
@@ -40,6 +41,38 @@ public static class ExcelWorkbookWriter
             WriteTextEntry(archive, "xl/_rels/workbook.xml.rels", BuildWorkbookRelationships());
             WriteTextEntry(archive, "xl/styles.xml", BuildStyles());
             WriteWorksheetEntry(archive, rows);
+        }
+
+        return output.ToArray();
+    }
+
+    public static byte[] BuildTableWorkbook(
+        string worksheetName,
+        IReadOnlyList<string> headers,
+        IReadOnlyList<IReadOnlyList<string?>> rows,
+        DateTime generatedAt)
+    {
+        if (headers.Count == 0)
+        {
+            throw new ArgumentException("El libro debe tener al menos una columna.", nameof(headers));
+        }
+
+        if (rows.Any(row => row.Count != headers.Count))
+        {
+            throw new ArgumentException("Cada fila debe tener el mismo número de columnas que el encabezado.", nameof(rows));
+        }
+
+        using var output = new MemoryStream();
+        using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            WriteTextEntry(archive, "[Content_Types].xml", BuildContentTypes());
+            WriteTextEntry(archive, "_rels/.rels", BuildRootRelationships());
+            WriteTextEntry(archive, "docProps/app.xml", BuildAppProperties());
+            WriteTextEntry(archive, "docProps/core.xml", BuildCoreProperties(generatedAt));
+            WriteTextEntry(archive, "xl/workbook.xml", BuildWorkbook(worksheetName));
+            WriteTextEntry(archive, "xl/_rels/workbook.xml.rels", BuildWorkbookRelationships());
+            WriteTextEntry(archive, "xl/styles.xml", BuildStyles());
+            WriteTableWorksheetEntry(archive, headers, rows);
         }
 
         return output.ToArray();
@@ -98,6 +131,97 @@ public static class ExcelWorkbookWriter
 
         writer.WriteStartElement("autoFilter");
         writer.WriteAttributeString("ref", $"A1:J{lastRow}");
+        writer.WriteEndElement();
+
+        writer.WriteStartElement("pageMargins");
+        writer.WriteAttributeString("left", "0.7");
+        writer.WriteAttributeString("right", "0.7");
+        writer.WriteAttributeString("top", "0.75");
+        writer.WriteAttributeString("bottom", "0.75");
+        writer.WriteAttributeString("header", "0.3");
+        writer.WriteAttributeString("footer", "0.3");
+        writer.WriteEndElement();
+
+        writer.WriteEndElement();
+        writer.WriteEndDocument();
+    }
+
+    private static void WriteTableWorksheetEntry(
+        ZipArchive archive,
+        IReadOnlyList<string> headers,
+        IReadOnlyList<IReadOnlyList<string?>> rows)
+    {
+        var entry = archive.CreateEntry("xl/worksheets/sheet1.xml", CompressionLevel.Optimal);
+        using var stream = entry.Open();
+        using var writer = XmlWriter.Create(stream, CreateXmlSettings());
+        var lastRow = rows.Count + 1;
+        var lastColumn = GetColumnName(headers.Count);
+
+        writer.WriteStartDocument(true);
+        writer.WriteStartElement("worksheet", SpreadsheetNamespace);
+        writer.WriteAttributeString("xmlns", "r", null, RelationshipNamespace);
+
+        writer.WriteStartElement("dimension");
+        writer.WriteAttributeString("ref", $"A1:{lastColumn}{lastRow}");
+        writer.WriteEndElement();
+
+        writer.WriteStartElement("sheetViews");
+        writer.WriteStartElement("sheetView");
+        writer.WriteAttributeString("workbookViewId", "0");
+        writer.WriteStartElement("pane");
+        writer.WriteAttributeString("ySplit", "1");
+        writer.WriteAttributeString("topLeftCell", "A2");
+        writer.WriteAttributeString("activePane", "bottomLeft");
+        writer.WriteAttributeString("state", "frozen");
+        writer.WriteEndElement();
+        writer.WriteEndElement();
+        writer.WriteEndElement();
+
+        writer.WriteStartElement("sheetFormatPr");
+        writer.WriteAttributeString("defaultRowHeight", "18");
+        writer.WriteEndElement();
+
+        writer.WriteStartElement("cols");
+        for (var index = 0; index < headers.Count; index++)
+        {
+            var width = Math.Clamp(headers[index].Length + 4d, 14d, 34d);
+            writer.WriteStartElement("col");
+            writer.WriteAttributeString("min", (index + 1).ToString(CultureInfo.InvariantCulture));
+            writer.WriteAttributeString("max", (index + 1).ToString(CultureInfo.InvariantCulture));
+            writer.WriteAttributeString("width", width.ToString("0.##", CultureInfo.InvariantCulture));
+            writer.WriteAttributeString("customWidth", "1");
+            writer.WriteEndElement();
+        }
+        writer.WriteEndElement();
+
+        writer.WriteStartElement("sheetData");
+        writer.WriteStartElement("row");
+        writer.WriteAttributeString("r", "1");
+        writer.WriteAttributeString("ht", "31.2");
+        writer.WriteAttributeString("customHeight", "1");
+        for (var index = 0; index < headers.Count; index++)
+        {
+            WriteInlineStringCell(writer, $"{GetColumnName(index + 1)}1", headers[index], styleIndex: 1);
+        }
+        writer.WriteEndElement();
+
+        for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+        {
+            var rowNumber = rowIndex + 2;
+            writer.WriteStartElement("row");
+            writer.WriteAttributeString("r", rowNumber.ToString(CultureInfo.InvariantCulture));
+            writer.WriteAttributeString("ht", "30");
+            writer.WriteAttributeString("customHeight", "1");
+            for (var columnIndex = 0; columnIndex < headers.Count; columnIndex++)
+            {
+                WriteInlineStringCell(writer, $"{GetColumnName(columnIndex + 1)}{rowNumber}", rows[rowIndex][columnIndex], styleIndex: 4);
+            }
+            writer.WriteEndElement();
+        }
+        writer.WriteEndElement();
+
+        writer.WriteStartElement("autoFilter");
+        writer.WriteAttributeString("ref", $"A1:{lastColumn}{lastRow}");
         writer.WriteEndElement();
 
         writer.WriteStartElement("pageMargins");
@@ -237,13 +361,24 @@ public static class ExcelWorkbookWriter
         </Relationships>
         """;
 
-    private static string BuildWorkbook() => """
-        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-          <bookViews><workbookView/></bookViews>
-          <sheets><sheet name="ACTIVOS" sheetId="1" r:id="rId1"/></sheets>
-        </workbook>
-        """;
+    private static string BuildWorkbook(string worksheetName = "ACTIVOS")
+    {
+        var safeWorksheetName = worksheetName.Trim();
+        if (safeWorksheetName.Length > 31)
+        {
+            safeWorksheetName = safeWorksheetName[..31];
+        }
+
+        safeWorksheetName = SecurityElement.Escape(safeWorksheetName) ?? "Hoja 1";
+
+        return $"""
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+              <bookViews><workbookView/></bookViews>
+              <sheets><sheet name="{safeWorksheetName}" sheetId="1" r:id="rId1"/></sheets>
+            </workbook>
+            """;
+    }
 
     private static string BuildWorkbookRelationships() => """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>

@@ -3,6 +3,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text;
 using IntranetPrueba.Data.Entities;
+using IntranetPrueba.Helpers;
 using IntranetPrueba.Models.ViewModels;
 using IntranetPrueba.Services.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -404,12 +405,11 @@ public partial class CensoController
             .OrderBy(x => x.Id)
             .ToListAsync(cancellationToken);
 
-        var content = BuildTerapiaAmbulatoriaExcelXml(records);
-        var bytes = Encoding.UTF8.GetBytes(content);
+        var bytes = BuildTerapiaAmbulatoriaWorkbook(records);
         var fileName = string.IsNullOrWhiteSpace(cedulaFiltro)
-            ? $"censo_terapias_ambulatorias_{DateTime.Now:yyyyMMdd_HHmmss}.xls"
-            : $"censo_terapias_ambulatorias_{cedulaFiltro}_{DateTime.Now:yyyyMMdd_HHmmss}.xls";
-        return File(bytes, "application/vnd.ms-excel", fileName);
+            ? $"censo_terapias_ambulatorias_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx"
+            : $"censo_terapias_ambulatorias_{cedulaFiltro}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
 
@@ -1417,6 +1417,99 @@ public partial class CensoController
         return validFechas.Count == 0 ? null : validFechas[0];
     }
 
+
+    private static byte[] BuildTerapiaAmbulatoriaWorkbook(IReadOnlyList<CensoTerapiaAmbulatoriaRecord> records)
+    {
+        string[] headers =
+        [
+            "Id", "NombrePaciente", "TipoIdentificacion", "NumeroIdentificacion", "FechaNacimiento", "Edad",
+            "CorreoElectronico", "Cantidad", "FrecuenciaTerapia", "TipoTerapia", "TieneSegundoTratamiento",
+            "SegundoTratamientoCantidad", "SegundoTratamientoFrecuenciaTerapia", "SegundoTratamientoTipoTerapia",
+            "TieneTercerTratamiento", "TercerTratamientoCantidad", "TercerTratamientoFrecuenciaTerapia",
+            "TercerTratamientoTipoTerapia", "CodigoCie10", "DiagnosticoDescriptivo", "NumeroAutorizacion",
+            "Direccion", "DireccionValidada", "AsumirDireccionErrada", "DetalleDireccion", "ClasificacionZonaSura",
+            "MunicipioResidencia", "Barrio", "ZonaDireccionSegunMunicipio", "Area", "IpsQueRemite",
+            "TelefonoPrincipal", "TelefonoAdicional1", "TelefonoAdicional2", "Fisioterapeuta", "GestionEnSistema",
+            "EstadoGestion", "EstadoPaciente", "FechaIngreso", "FechaInicio", "FechaFin", "FechaAlta", "MotivoAlta",
+            "EstadoAlta", "AltaNotificacionEnviadaAtUtc", "CreatedAtUtc", "UpdatedAtUtc", "Prorroga_Id",
+            "Prorroga_TipoTerapia", "Prorroga_FechaSolicitudProrroga", "Prorroga_FechaSolicitudAsegurador",
+            "Prorroga_FechaEntregaAutorizacion", "Prorroga_CodigoAutorizacion", "Prorroga_Frecuencia",
+            "Prorroga_Cantidad", "Prorroga_CreatedAtUtc"
+        ];
+
+        var rows = new List<IReadOnlyList<string?>>();
+        foreach (var item in records)
+        {
+            var prorrogas = item.Prorrogas.Count > 0
+                ? item.Prorrogas.OrderBy(x => x.Id).Cast<CensoTerapiaAmbulatoriaProrroga?>()
+                : [null];
+
+            foreach (var prorroga in prorrogas)
+            {
+                rows.Add(
+                [
+                    item.Id.ToString(CultureInfo.InvariantCulture),
+                    item.NombrePaciente,
+                    item.TipoIdentificacion,
+                    item.NumeroIdentificacion,
+                    item.FechaNacimiento.ToString("yyyy-MM-dd"),
+                    item.Edad.ToString(CultureInfo.InvariantCulture),
+                    item.CorreoElectronico,
+                    item.Cantidad.ToString(CultureInfo.InvariantCulture),
+                    item.FrecuenciaTerapia,
+                    item.TipoTerapia,
+                    item.TieneSegundoTratamiento ? "Sí" : "No",
+                    item.SegundoTratamientoCantidad?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                    item.SegundoTratamientoFrecuenciaTerapia ?? string.Empty,
+                    item.SegundoTratamientoTipoTerapia ?? string.Empty,
+                    item.TieneTercerTratamiento ? "Sí" : "No",
+                    item.TercerTratamientoCantidad?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                    item.TercerTratamientoFrecuenciaTerapia ?? string.Empty,
+                    item.TercerTratamientoTipoTerapia ?? string.Empty,
+                    item.CodigoCie10,
+                    item.DiagnosticoDescriptivo,
+                    item.NumeroAutorizacion,
+                    item.Direccion ?? string.Empty,
+                    item.DireccionValidada ? "Sí" : "No",
+                    item.AsumirDireccionErrada ? "Sí" : "No",
+                    item.DetalleDireccion ?? string.Empty,
+                    item.ClasificacionZonaSura ?? string.Empty,
+                    item.MunicipioResidencia ?? string.Empty,
+                    item.Barrio ?? string.Empty,
+                    item.ZonaDireccionSegunMunicipio ?? string.Empty,
+                    item.Area ?? string.Empty,
+                    item.IpsQueRemite,
+                    item.TelefonoPrincipal,
+                    item.TelefonoAdicional1 ?? string.Empty,
+                    item.TelefonoAdicional2 ?? string.Empty,
+                    item.Fisioterapeuta,
+                    item.GestionEnSistema ? "Sí" : "No",
+                    item.EstadoGestion,
+                    item.EstadoPaciente,
+                    item.FechaIngreso.ToString("yyyy-MM-dd"),
+                    item.FechaInicio.ToString("yyyy-MM-dd"),
+                    FormatNullableDate(item.FechaFin),
+                    FormatNullableDate(item.FechaAlta),
+                    item.MotivoAlta ?? string.Empty,
+                    item.EstadoAlta,
+                    item.AltaNotificacionEnviadaAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty,
+                    item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"),
+                    item.UpdatedAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty,
+                    prorroga?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                    prorroga?.TipoTerapia ?? string.Empty,
+                    prorroga?.FechaSolicitudProrroga.ToString("yyyy-MM-dd") ?? string.Empty,
+                    prorroga?.FechaSolicitudAsegurador.ToString("yyyy-MM-dd") ?? string.Empty,
+                    prorroga?.FechaEntregaAutorizacion.ToString("yyyy-MM-dd") ?? string.Empty,
+                    prorroga?.CodigoAutorizacion ?? string.Empty,
+                    prorroga?.Frecuencia.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                    prorroga?.Cantidad ?? string.Empty,
+                    prorroga?.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty
+                ]);
+            }
+        }
+
+        return ExcelWorkbookWriter.BuildTableWorkbook("Terapias Ambulatorias", headers, rows, DateTime.UtcNow);
+    }
 
     private static string BuildTerapiaAmbulatoriaExcelXml(IReadOnlyList<CensoTerapiaAmbulatoriaRecord> records)
     {
