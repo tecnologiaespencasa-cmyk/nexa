@@ -55,7 +55,7 @@ public partial class CensoController
             {
                 message = isPdf
                     ? "No fue posible leer el PDF. Verifica que el archivo no esté dañado o protegido."
-                    : "No fue posible leer la hoja de cálculo. Verifica que el archivo sea válido e incluya la hoja 'Formato Remisión'."
+                    : "No fue posible leer la hoja de cálculo. Verifica que el archivo sea válido y tenga información de la remisión o del paciente."
             });
         }
 
@@ -65,7 +65,7 @@ public partial class CensoController
             {
                 message = isPdf
                     ? "El PDF no contiene texto extraíble. Puede tratarse de un documento escaneado como imagen."
-                    : "La hoja 'Formato Remisión' no contiene información para analizar."
+                    : "La hoja de cálculo no contiene información para analizar."
             });
         }
 

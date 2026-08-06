@@ -20,6 +20,11 @@
     var isCensoNpt = isCensoView && string.Equals(actionName, "Npt", System.StringComparison.OrdinalIgnoreCase);
     var showNavigation = User.Identity?.IsAuthenticated == true && !isLoginPage;
     var currentUserName = User.FindFirstValue("full_name") ?? User.Identity?.Name ?? "Usuario";
+    var currentUserRoles = User.FindAll(ClaimTypes.Role)
+        .Select(claim => claim.Value)
+        .Where(role => !string.IsNullOrWhiteSpace(role))
+        .Distinct(System.StringComparer.OrdinalIgnoreCase);
+    var currentUserRole = string.Join(" · ", currentUserRoles.DefaultIfEmpty("Sin rol asignado"));
     var bodyClasses = string.Join(" ", new[]
     {
         isCensoView ? "page-censo" : null,
@@ -255,13 +260,11 @@
                             <li class="nav-item dropdown intranet-profile">
                                 <button class="btn intranet-profile-toggle dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     <span class="intranet-profile-icon" aria-hidden="true">
-                                        <svg viewBox="0 0 24 24" focusable="false">
-                                            <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.86 0-7 2.24-7 5v1h14v-1c0-2.76-3.14-5-7-5Z"></path>
-                                        </svg>
+                                        <img src="@Url.Action("Photo", "Profile")" alt="" />
                                     </span>
                                     <span class="intranet-profile-copy">
                                         <span class="intranet-profile-name">@currentUserName</span>
-                                        <span class="intranet-profile-role">Administrador</span>
+                                        <span class="intranet-profile-role">@currentUserRole</span>
                                     </span>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end intranet-profile-dropdown">
@@ -270,8 +273,13 @@
                                     </li>
                                     <li><hr class="dropdown-divider" /></li>
                                     <li>
+                                        <a class="dropdown-item" asp-controller="Profile" asp-action="Index">
+                                            <i class="bi bi-gear me-2" aria-hidden="true"></i>Mi perfil
+                                        </a>
+                                    </li>
+                                    <li>
                                         <form asp-controller="Auth" asp-action="Logout" method="post">
-                                            <button type="submit" class="dropdown-item">Cerrar sesion</button>
+                                            <button type="submit" class="dropdown-item">Cerrar sesión</button>
                                         </form>
                                     </li>
                                 </ul>

@@ -13,7 +13,26 @@ public static class RemisionExcelTextExtractor
     private const string OdsTableNamespace = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
     private const string OdsTextNamespace = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
     private const long MaxUncompressedWorksheetBytes = 20L * 1024 * 1024;
-    private const string ExtractedTextHeader = "Contenido de la hoja Formato Remisión:";
+    private const string PreferredSheetName = "Formato Remisión";
+    private const int MinimumEvidenceScore = 6;
+    private static readonly string[] RemisionIndicators =
+    {
+        "FORMATOREMISION",
+        "DATOSDELPACIENTE",
+        "PACIENTE",
+        "NOMBREYAPELLIDOS",
+        "NOMBREDEL PACIENTE",
+        "TIPODEIDENTIFICACION",
+        "NUMERODEIDENTIFICACION",
+        "DOCUMENTODEIDENTIDAD",
+        "DATOSIPSREMITENTE",
+        "IPSREMITENTE",
+        "NOMBREIPS",
+        "DIAGNOSTICO",
+        "DIRECCION",
+        "CUIDADOR",
+        "MEDICAMENTOS"
+    };
 
     static RemisionExcelTextExtractor()
     {
@@ -29,21 +48,22 @@ public static class RemisionExcelTextExtractor
 
         using var stream = new MemoryStream(workbookBytes, writable: false);
         using var reader = ExcelReaderFactory.CreateReader(stream);
+        var candidates = new List<SheetExtractionCandidate>();
         do
         {
-            if (string.Equals(NormalizeSheetName(reader.Name), NormalizeSheetName("Formato Remisión"), StringComparison.Ordinal))
-            {
-                return BuildTextFromExcelReader(reader);
-            }
+            candidates.Add(BuildTextFromExcelReader(reader));
         }
         while (reader.NextResult());
 
-        throw new InvalidDataException("No se encontró la hoja 'Formato Remisión' en el archivo.");
+        return SelectSheet(candidates).Text;
     }
 
-    private static string BuildTextFromExcelReader(IExcelDataReader reader)
+    private static SheetExtractionCandidate BuildTextFromExcelReader(IExcelDataReader reader)
     {
-        var result = new StringBuilder(ExtractedTextHeader);
+        var sheetName = reader.Name;
+        var result = new StringBuilder(BuildExtractedTextHeader(sheetName));
+        var nonEmptyRows = 0;
+        var evidenceScore = ScoreSheetName(sheetName);
         while (reader.Read())
         {
             var values = Enumerable.Range(0, reader.FieldCount)
@@ -53,12 +73,15 @@ public static class RemisionExcelTextExtractor
 
             if (values.Length > 0)
             {
+                var rowText = string.Join(" | ", values);
                 result.AppendLine();
-                result.Append(string.Join(" | ", values));
+                result.Append(rowText);
+                nonEmptyRows++;
+                evidenceScore += ScoreRow(rowText);
             }
         }
 
-        return ValidateExtractedText(result);
+        return new SheetExtractionCandidate(sheetName, result.ToString(), nonEmptyRows, evidenceScore);
     }
 
     private static string ExtractOdsFormatoRemisionText(byte[] workbookBytes)
@@ -69,18 +92,23 @@ public static class RemisionExcelTextExtractor
         var officeNs = (XNamespace)OdsOfficeNamespace;
         var tableNs = (XNamespace)OdsTableNamespace;
         var textNs = (XNamespace)OdsTextNamespace;
-        var sheet = document.Descendants(tableNs + "table")
-            .FirstOrDefault(item => string.Equals(
-                NormalizeSheetName((string?)item.Attribute(tableNs + "name")),
-                NormalizeSheetName("Formato Remisión"),
-                StringComparison.Ordinal));
+        var candidates = document.Descendants(tableNs + "table")
+            .Select(sheet => BuildTextFromOdsSheet(sheet, officeNs, tableNs, textNs))
+            .ToList();
 
-        if (sheet is null)
-        {
-            throw new InvalidDataException("No se encontró la hoja 'Formato Remisión' en el archivo.");
-        }
+        return SelectSheet(candidates).Text;
+    }
 
-        var result = new StringBuilder(ExtractedTextHeader);
+    private static SheetExtractionCandidate BuildTextFromOdsSheet(
+        XElement sheet,
+        XNamespace officeNs,
+        XNamespace tableNs,
+        XNamespace textNs)
+    {
+        var sheetName = (string?)sheet.Attribute(tableNs + "name") ?? "Hoja sin nombre";
+        var result = new StringBuilder(BuildExtractedTextHeader(sheetName));
+        var nonEmptyRows = 0;
+        var evidenceScore = ScoreSheetName(sheetName);
         foreach (var row in sheet.Elements(tableNs + "table-row"))
         {
             var values = row.Elements(tableNs + "table-cell")
@@ -90,12 +118,15 @@ public static class RemisionExcelTextExtractor
 
             if (values.Length > 0)
             {
+                var rowText = string.Join(" | ", values);
                 result.AppendLine();
-                result.Append(string.Join(" | ", values));
+                result.Append(rowText);
+                nonEmptyRows++;
+                evidenceScore += ScoreRow(rowText);
             }
         }
 
-        return ValidateExtractedText(result);
+        return new SheetExtractionCandidate(sheetName, result.ToString(), nonEmptyRows, evidenceScore);
     }
 
     private static XDocument ReadXml(ZipArchive archive, string path)
@@ -138,19 +169,52 @@ public static class RemisionExcelTextExtractor
         _ => value.ToString()?.Trim() ?? string.Empty
     };
 
-    private static string ValidateExtractedText(StringBuilder result)
+    private static SheetExtractionCandidate SelectSheet(IEnumerable<SheetExtractionCandidate> candidates)
     {
-        if (result.Length == ExtractedTextHeader.Length)
+        var populatedSheets = candidates
+            .Where(candidate => candidate.NonEmptyRows > 0)
+            .ToList();
+        if (populatedSheets.Count == 0)
         {
-            throw new InvalidDataException("La hoja 'Formato Remisión' no contiene información para analizar.");
+            throw new InvalidDataException("El archivo no contiene información para analizar.");
         }
 
-        return result.ToString();
+        var preferredSheet = populatedSheets.FirstOrDefault(candidate =>
+            string.Equals(NormalizeSheetName(candidate.SheetName), NormalizeSheetName(PreferredSheetName), StringComparison.Ordinal));
+        if (preferredSheet is not null)
+        {
+            return preferredSheet;
+        }
+
+        var bestCandidate = populatedSheets
+            .OrderByDescending(candidate => candidate.EvidenceScore)
+            .ThenByDescending(candidate => candidate.NonEmptyRows)
+            .First();
+
+        if (populatedSheets.Count == 1 || bestCandidate.EvidenceScore >= MinimumEvidenceScore)
+        {
+            return bestCandidate;
+        }
+
+        throw new InvalidDataException("No se encontró una hoja con información de remisión o del paciente.");
+    }
+
+    private static string BuildExtractedTextHeader(string sheetName)
+        => $"Contenido de la hoja {sheetName.Trim()}:";
+
+    private static int ScoreSheetName(string sheetName)
+        => NormalizeSheetName(sheetName).Contains(NormalizeSheetName(PreferredSheetName), StringComparison.Ordinal) ? 20 : 0;
+
+    private static int ScoreRow(string rowText)
+    {
+        var normalizedText = NormalizeSheetName(rowText);
+        return RemisionIndicators.Count(indicator => normalizedText.Contains(NormalizeSheetName(indicator), StringComparison.Ordinal));
     }
 
     private static string NormalizeSheetName(string? value)
         => string.Concat((value ?? string.Empty).Normalize(NormalizationForm.FormD)
-            .Where(character => char.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark))
-            .Trim()
+            .Where(character => char.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark && char.IsLetterOrDigit(character)))
             .ToUpperInvariant();
+
+    private sealed record SheetExtractionCandidate(string SheetName, string Text, int NonEmptyRows, int EvidenceScore);
 }

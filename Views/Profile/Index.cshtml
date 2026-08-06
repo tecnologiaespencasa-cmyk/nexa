@@ -1,0 +1,125 @@
+@model ProfileIndexViewModel
+@{
+    ViewData["Title"] = "Mi perfil";
+}
+
+<section class="profile-page">
+    <div class="profile-heading">
+        <div>
+            <p class="profile-heading__eyebrow">Configuración personal</p>
+            <h1>Mi perfil</h1>
+            <p>Administra tu foto, correo electrónico y contraseña de acceso.</p>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="alert alert-success profile-alert" role="alert">@successMessage</div>
+    }
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <article class="profile-card profile-summary-card">
+                <img class="profile-summary-photo" src="@Url.Action("Photo", "Profile")" alt="Foto de perfil de @Model.FullName" />
+                <div>
+                    <h2>@Model.FullName</h2>
+                    <span class="profile-role-badge">@Model.RoleName</span>
+                </div>
+                <dl class="profile-details">
+                    <div>
+                        <dt>Usuario</dt>
+                        <dd>@Model.Username</dd>
+                    </div>
+                    <div>
+                        <dt>Correo actual</dt>
+                        <dd>@Model.Email</dd>
+                    </div>
+                </dl>
+            </article>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="profile-settings-grid">
+                <article class="profile-card">
+                    <div class="profile-card__heading">
+                        <span class="profile-card__icon"><i class="bi bi-person-circle"></i></span>
+                        <div>
+                            <h2>Foto de perfil</h2>
+                            <p>Usa una imagen clara para identificarte en la intranet.</p>
+                        </div>
+                    </div>
+                    <form asp-action="ChangePhoto" method="post" enctype="multipart/form-data" class="profile-form">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                        <label asp-for="PhotoChange.Photo" class="form-label"></label>
+                        <input asp-for="PhotoChange.Photo" class="form-control" accept="image/jpeg,image/png,image/webp" />
+                        <span asp-validation-for="PhotoChange.Photo" class="text-danger"></span>
+                        <p class="form-text">JPG, PNG o WEBP. Máximo 5 MB. Se convierte automáticamente a una imagen optimizada de hasta 320 px.</p>
+                        <button type="submit" class="btn btn-primary">Actualizar foto</button>
+                    </form>
+                </article>
+
+                <article class="profile-card">
+                    <div class="profile-card__heading">
+                        <span class="profile-card__icon"><i class="bi bi-envelope"></i></span>
+                        <div>
+                            <h2>Correo electrónico</h2>
+                            <p>Confirma tu contraseña actual para realizar este cambio.</p>
+                        </div>
+                    </div>
+                    <form asp-action="ChangeEmail" method="post" class="profile-form">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="EmailChange.NewEmail" class="form-label"></label>
+                                <input asp-for="EmailChange.NewEmail" class="form-control" autocomplete="email" />
+                                <span asp-validation-for="EmailChange.NewEmail" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="EmailChange.CurrentPassword" class="form-label"></label>
+                                <input asp-for="EmailChange.CurrentPassword" class="form-control" autocomplete="current-password" />
+                                <span asp-validation-for="EmailChange.CurrentPassword" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Guardar correo</button>
+                    </form>
+                </article>
+
+                <article class="profile-card">
+                    <div class="profile-card__heading">
+                        <span class="profile-card__icon"><i class="bi bi-shield-lock"></i></span>
+                        <div>
+                            <h2>Contraseña</h2>
+                            <p>Elige una contraseña nueva de al menos 8 caracteres.</p>
+                        </div>
+                    </div>
+                    <form asp-action="ChangePassword" method="post" class="profile-form">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label asp-for="PasswordChange.CurrentPassword" class="form-label"></label>
+                                <input asp-for="PasswordChange.CurrentPassword" class="form-control" autocomplete="current-password" />
+                                <span asp-validation-for="PasswordChange.CurrentPassword" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="PasswordChange.NewPassword" class="form-label"></label>
+                                <input asp-for="PasswordChange.NewPassword" class="form-control" autocomplete="new-password" />
+                                <span asp-validation-for="PasswordChange.NewPassword" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="PasswordChange.ConfirmPassword" class="form-label"></label>
+                                <input asp-for="PasswordChange.ConfirmPassword" class="form-control" autocomplete="new-password" />
+                                <span asp-validation-for="PasswordChange.ConfirmPassword" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Cambiar contraseña</button>
+                    </form>
+                </article>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}

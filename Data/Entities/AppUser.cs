@@ -57,6 +57,8 @@ public class AppUser
 
     public DateTime? LastLoginAtUtc { get; set; }
 
+    public byte[]? ProfilePhoto { get; set; }
+
     public ICollection<AppUserRole> UserRoles { get; set; } = new List<AppUserRole>();
 
     public ICollection<AppUserPermission> UserPermissions { get; set; } = new List<AppUserPermission>();
