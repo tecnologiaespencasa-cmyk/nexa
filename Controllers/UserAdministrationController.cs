@@ -1,14 +1,14 @@
 using System.Globalization;
 using System.Security.Claims;
 using System.Text;
-using IntranetPrueba.Models.Security;
-using IntranetPrueba.Models.ViewModels;
-using IntranetPrueba.Services.Interfaces;
-using IntranetPrueba.Services.Models;
+using Nexa.Models.Security;
+using Nexa.Models.ViewModels;
+using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace IntranetPrueba.Controllers;
+namespace Nexa.Controllers;
 
 [Authorize(Policy = SystemPermissions.UserAdministration)]
 public class UserAdministrationController : Controller

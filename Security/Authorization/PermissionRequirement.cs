@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 
-namespace IntranetPrueba.Security.Authorization;
+namespace Nexa.Security.Authorization;
 
 public class PermissionRequirement : IAuthorizationRequirement
 {

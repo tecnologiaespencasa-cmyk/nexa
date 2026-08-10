@@ -1,13 +1,13 @@
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Helpers;
-using IntranetPrueba.Models.EspacioCorporativo;
-using IntranetPrueba.Models.Security;
-using IntranetPrueba.Models.ViewModels;
+using Nexa.Data.Entities;
+using Nexa.Helpers;
+using Nexa.Models.EspacioCorporativo;
+using Nexa.Models.Security;
+using Nexa.Models.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Controllers;
+namespace Nexa.Controllers;
 
 /// <summary>
 /// Actas de entrega y devolución de activos con firma digital.

@@ -1,9 +1,9 @@
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Models.Security;
+using Nexa.Data.Entities;
+using Nexa.Models.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace IntranetPrueba.Data;
+namespace Nexa.Data;
 
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
 {

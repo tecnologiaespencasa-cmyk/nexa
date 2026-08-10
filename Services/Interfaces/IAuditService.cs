@@ -1,4 +1,4 @@
-namespace IntranetPrueba.Services.Interfaces;
+namespace Nexa.Services.Interfaces;
 
 public interface IAuditService
 {

@@ -1,6 +1,6 @@
-using IntranetPrueba.Services.Models;
+using Nexa.Services.Models;
 
-namespace IntranetPrueba.Services.Interfaces;
+namespace Nexa.Services.Interfaces;
 
 public interface IProfileService
 {
@@ -24,6 +24,7 @@ public interface IProfileService
         Guid userId,
         Stream photoStream,
         long photoLength,
+        int verticalPosition,
         string? ipAddress,
         CancellationToken cancellationToken = default);
 

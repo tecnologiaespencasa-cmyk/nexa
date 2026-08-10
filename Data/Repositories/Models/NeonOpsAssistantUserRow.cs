@@ -1,4 +1,4 @@
-namespace IntranetPrueba.Data.Repositories.Models;
+namespace Nexa.Data.Repositories.Models;
 
 public class NeonOpsAssistantUserRow
 {

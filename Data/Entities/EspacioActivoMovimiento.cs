@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace IntranetPrueba.Data.Entities;
+namespace Nexa.Data.Entities;
 
 /// <summary>
 /// Trazabilidad de cambios de un activo (creacion, asignacion, estado, novedades).

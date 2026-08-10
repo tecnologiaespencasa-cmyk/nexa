@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace IntranetPrueba.Data.Entities;
+namespace Nexa.Data.Entities;
 
 /// <summary>
 /// Novedad reportada por un colaborador sobre un activo asignado.

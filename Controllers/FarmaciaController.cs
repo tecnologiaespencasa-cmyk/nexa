@@ -2,17 +2,17 @@ using System.Globalization;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
-using IntranetPrueba.Data;
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Helpers;
-using IntranetPrueba.Models.Security;
-using IntranetPrueba.Models.ViewModels;
-using IntranetPrueba.Services.Interfaces;
+using Nexa.Data;
+using Nexa.Data.Entities;
+using Nexa.Helpers;
+using Nexa.Models.Security;
+using Nexa.Models.ViewModels;
+using Nexa.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Controllers;
+namespace Nexa.Controllers;
 
 [Authorize(Policy = SystemPermissions.Farmacia)]
 public class FarmaciaController : Controller

@@ -1,6 +1,6 @@
-using IntranetPrueba.Helpers;
+using Nexa.Helpers;
 
-namespace IntranetPrueba.Services.Models;
+namespace Nexa.Services.Models;
 
 public static class AuditRetentionPolicy
 {

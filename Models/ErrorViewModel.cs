@@ -1,4 +1,4 @@
-namespace IntranetPrueba.Models;
+namespace Nexa.Models;
 
 public class ErrorViewModel
 {

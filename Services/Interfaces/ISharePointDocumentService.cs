@@ -1,7 +1,7 @@
-using IntranetPrueba.Services.Models;
+using Nexa.Services.Models;
 using Microsoft.AspNetCore.Http;
 
-namespace IntranetPrueba.Services.Interfaces;
+namespace Nexa.Services.Interfaces;
 
 public interface ISharePointDocumentService
 {

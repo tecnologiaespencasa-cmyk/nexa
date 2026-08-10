@@ -1,12 +1,12 @@
 using System.Security.Claims;
-using IntranetPrueba.Models.ViewModels;
-using IntranetPrueba.Services.Interfaces;
+using Nexa.Models.ViewModels;
+using Nexa.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace IntranetPrueba.Controllers;
+namespace Nexa.Controllers;
 
 [Authorize]
 public class ProfileController : Controller
@@ -104,6 +104,7 @@ public class ProfileController : Controller
             GetCurrentUserId(),
             photoStream,
             photoChange.Photo.Length,
+            photoChange.VerticalPosition,
             GetClientIpAddress(),
             cancellationToken);
 

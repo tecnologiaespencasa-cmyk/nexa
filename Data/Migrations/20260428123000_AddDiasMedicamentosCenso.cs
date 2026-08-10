@@ -1,10 +1,10 @@
-using IntranetPrueba.Data;
+using Nexa.Data;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace IntranetPrueba.Data.Migrations
+namespace Nexa.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
     [Migration("20260428123000_AddDiasMedicamentosCenso")]

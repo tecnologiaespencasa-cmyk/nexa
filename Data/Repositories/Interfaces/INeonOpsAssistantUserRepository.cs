@@ -1,6 +1,6 @@
-using IntranetPrueba.Data.Repositories.Models;
+using Nexa.Data.Repositories.Models;
 
-namespace IntranetPrueba.Data.Repositories.Interfaces;
+namespace Nexa.Data.Repositories.Interfaces;
 
 public interface INeonOpsAssistantUserRepository
 {

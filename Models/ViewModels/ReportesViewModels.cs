@@ -1,7 +1,7 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
-namespace IntranetPrueba.Models.ViewModels;
+namespace Nexa.Models.ViewModels;
 
 public class ReportesDashboardViewModel
 {

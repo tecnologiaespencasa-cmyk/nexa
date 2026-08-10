@@ -1,9 +1,9 @@
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Data.Repositories.Interfaces;
-using IntranetPrueba.Services.Interfaces;
+using Nexa.Data.Entities;
+using Nexa.Data.Repositories.Interfaces;
+using Nexa.Services.Interfaces;
 using Microsoft.Extensions.Logging;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class AuthService : IAuthService
 {

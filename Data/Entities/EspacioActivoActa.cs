@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace IntranetPrueba.Data.Entities;
+namespace Nexa.Data.Entities;
 
 /// <summary>
 /// Acta firmada de entrega o devolucion de un activo. Deja constancia de quien entrega,

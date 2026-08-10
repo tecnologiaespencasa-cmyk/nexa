@@ -1,8 +1,8 @@
-using IntranetPrueba.Data;
-using IntranetPrueba.Services.Models;
+using Nexa.Data;
+using Nexa.Services.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class AuditRetentionHostedService : BackgroundService
 {

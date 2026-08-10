@@ -1,10 +1,10 @@
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Data.Repositories.Interfaces;
-using IntranetPrueba.Models.Security;
-using IntranetPrueba.Services.Interfaces;
-using IntranetPrueba.Services.Models;
+using Nexa.Data.Entities;
+using Nexa.Data.Repositories.Interfaces;
+using Nexa.Models.Security;
+using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class UserAdministrationService : IUserAdministrationService
 {

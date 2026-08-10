@@ -1,7 +1,7 @@
-using IntranetPrueba.Services.Interfaces;
+using Nexa.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 
-namespace IntranetPrueba.Security.Authorization;
+namespace Nexa.Security.Authorization;
 
 public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>
 {

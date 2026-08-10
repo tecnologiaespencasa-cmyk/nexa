@@ -1,12 +1,12 @@
-using IntranetPrueba.Data.Repositories.Interfaces;
-using IntranetPrueba.Services.Interfaces;
-using IntranetPrueba.Services.Models;
+using Nexa.Data.Repositories.Interfaces;
+using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class ProfileService : IProfileService
 {
@@ -138,12 +138,18 @@ public class ProfileService : IProfileService
         Guid userId,
         Stream photoStream,
         long photoLength,
+        int verticalPosition,
         string? ipAddress,
         CancellationToken cancellationToken = default)
     {
         if (photoLength is <= 0 or > MaximumPhotoInputBytes)
         {
             return ServiceResult.Failure("La foto debe pesar como máximo 5 MB.");
+        }
+
+        if (verticalPosition is < 0 or > 100)
+        {
+            return ServiceResult.Failure("El encuadre vertical no es válido.");
         }
 
         var user = await _repository.GetUserByIdAsync(userId, cancellationToken);
@@ -172,11 +178,25 @@ public class ProfileService : IProfileService
             input.Position = 0;
 
             using var image = await Image.LoadAsync<Rgba32>(input, cancellationToken);
-            image.Mutate(context => context.AutoOrient().Resize(new ResizeOptions
-            {
-                Size = new Size(PhotoMaximumDimension, PhotoMaximumDimension),
-                Mode = ResizeMode.Max
-            }));
+            image.Mutate(context => context.AutoOrient());
+
+            var scale = Math.Max(
+                (double)PhotoMaximumDimension / image.Width,
+                (double)PhotoMaximumDimension / image.Height);
+            var resizedWidth = Math.Max(PhotoMaximumDimension, (int)Math.Ceiling(image.Width * scale));
+            var resizedHeight = Math.Max(PhotoMaximumDimension, (int)Math.Ceiling(image.Height * scale));
+
+            image.Mutate(context => context.Resize(resizedWidth, resizedHeight));
+
+            var cropX = (image.Width - PhotoMaximumDimension) / 2;
+            var cropY = (int)Math.Round(
+                (image.Height - PhotoMaximumDimension) * (verticalPosition / 100d),
+                MidpointRounding.AwayFromZero);
+            image.Mutate(context => context.Crop(new Rectangle(
+                cropX,
+                cropY,
+                PhotoMaximumDimension,
+                PhotoMaximumDimension)));
 
             await using var output = new MemoryStream();
             await image.SaveAsJpegAsync(output, new JpegEncoder { Quality = 70 }, cancellationToken);

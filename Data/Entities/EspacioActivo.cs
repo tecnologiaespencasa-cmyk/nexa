@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace IntranetPrueba.Data.Entities;
+namespace Nexa.Data.Entities;
 
 /// <summary>
 /// Activo de TI administrado desde "Mi espacio corporativo".

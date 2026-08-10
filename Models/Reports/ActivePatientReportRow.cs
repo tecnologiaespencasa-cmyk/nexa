@@ -1,4 +1,4 @@
-namespace IntranetPrueba.Models.Reports;
+namespace Nexa.Models.Reports;
 
 public class ActivePatientReportRow
 {

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace IntranetPrueba.Data.Entities;
+namespace Nexa.Data.Entities;
 
 /// <summary>
 /// Acta emitida a partir de una plantilla (entrega de accesos, etc.) y firmada por ambas partes.

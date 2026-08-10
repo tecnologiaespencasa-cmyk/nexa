@@ -4,11 +4,11 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using IntranetPrueba.Services.Interfaces;
-using IntranetPrueba.Services.Models;
+using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 using Microsoft.AspNetCore.Http;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class SharePointDocumentService : ISharePointDocumentService
 {

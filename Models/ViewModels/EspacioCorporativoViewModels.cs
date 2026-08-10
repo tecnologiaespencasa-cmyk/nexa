@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Http;
 
-namespace IntranetPrueba.Models.ViewModels;
+namespace Nexa.Models.ViewModels;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pantalla principal: Mi espacio corporativo

@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
-using IntranetPrueba.Data.Entities;
+using Nexa.Data.Entities;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
-namespace IntranetPrueba.Models.ViewModels;
+namespace Nexa.Models.ViewModels;
 
 public class CensoClinicaHeridasViewModel
 {

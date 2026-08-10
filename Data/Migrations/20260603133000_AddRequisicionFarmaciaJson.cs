@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace IntranetPrueba.Data.Migrations
+namespace Nexa.Data.Migrations
 {
     public partial class AddRequisicionFarmaciaJson : Migration
     {

@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
-using IntranetPrueba.Services.Interfaces;
+using Nexa.Services.Interfaces;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class PasswordService : IPasswordService
 {

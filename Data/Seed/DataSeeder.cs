@@ -1,12 +1,12 @@
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Models.Security;
-using IntranetPrueba.Services.Interfaces;
+using Nexa.Data.Entities;
+using Nexa.Models.Security;
+using Nexa.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
-namespace IntranetPrueba.Data.Seed;
+namespace Nexa.Data.Seed;
 
 public static class DataSeeder
 {

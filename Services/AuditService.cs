@@ -1,8 +1,8 @@
-using IntranetPrueba.Data;
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Services.Interfaces;
+using Nexa.Data;
+using Nexa.Data.Entities;
+using Nexa.Services.Interfaces;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class AuditService : IAuditService
 {

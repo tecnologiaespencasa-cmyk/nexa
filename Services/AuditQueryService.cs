@@ -1,9 +1,9 @@
-using IntranetPrueba.Data.Repositories.Interfaces;
-using IntranetPrueba.Helpers;
-using IntranetPrueba.Services.Interfaces;
-using IntranetPrueba.Services.Models;
+using Nexa.Data.Repositories.Interfaces;
+using Nexa.Helpers;
+using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class AuditQueryService : IAuditQueryService
 {

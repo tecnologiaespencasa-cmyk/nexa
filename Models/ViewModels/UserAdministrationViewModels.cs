@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace IntranetPrueba.Models.ViewModels;
+namespace Nexa.Models.ViewModels;
 
 public class UserListItemViewModel
 {

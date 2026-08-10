@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace IntranetPrueba.Data.Migrations
+namespace Nexa.Data.Migrations
 {
     /// <inheritdoc />
     public partial class AddCensoReaperturaMarcas : Migration

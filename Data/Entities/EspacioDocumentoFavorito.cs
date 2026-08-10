@@ -1,4 +1,4 @@
-namespace IntranetPrueba.Data.Entities;
+namespace Nexa.Data.Entities;
 
 /// <summary>
 /// Marca de favorito de un documento por usuario.

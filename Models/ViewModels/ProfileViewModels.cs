@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Http;
 
-namespace IntranetPrueba.Models.ViewModels;
+namespace Nexa.Models.ViewModels;
 
 public class ProfileIndexViewModel
 {
@@ -54,4 +54,8 @@ public class ChangeProfilePhotoViewModel
     [Required(ErrorMessage = "Selecciona una foto de perfil.")]
     [Display(Name = "Foto de perfil")]
     public IFormFile? Photo { get; set; }
+
+    [Range(0, 100)]
+    [Display(Name = "Encuadre vertical")]
+    public int VerticalPosition { get; set; } = 50;
 }

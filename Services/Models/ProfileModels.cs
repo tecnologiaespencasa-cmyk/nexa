@@ -1,4 +1,4 @@
-namespace IntranetPrueba.Services.Models;
+namespace Nexa.Services.Models;
 
 public class PersonalProfileDto
 {

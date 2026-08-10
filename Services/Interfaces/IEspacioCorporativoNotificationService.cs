@@ -1,7 +1,7 @@
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Services.Models;
+using Nexa.Data.Entities;
+using Nexa.Services.Models;
 
-namespace IntranetPrueba.Services.Interfaces;
+namespace Nexa.Services.Interfaces;
 
 public interface IEspacioCorporativoNotificationService
 {

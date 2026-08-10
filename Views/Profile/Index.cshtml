@@ -50,10 +50,26 @@
                     </div>
                     <form asp-action="ChangePhoto" method="post" enctype="multipart/form-data" class="profile-form">
                         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                        <label asp-for="PhotoChange.Photo" class="form-label"></label>
-                        <input asp-for="PhotoChange.Photo" class="form-control" accept="image/jpeg,image/png,image/webp" />
-                        <span asp-validation-for="PhotoChange.Photo" class="text-danger"></span>
-                        <p class="form-text">JPG, PNG o WEBP. Máximo 5 MB. Se convierte automáticamente a una imagen optimizada de hasta 320 px.</p>
+                        <div class="profile-photo-editor">
+                            <div class="profile-photo-editor__preview" aria-label="Vista previa del encuadre">
+                                <img src="@Url.Action("Photo", "Profile")" alt="Vista previa de la foto de perfil" data-profile-photo-preview />
+                            </div>
+                            <div class="profile-photo-editor__controls">
+                                <label asp-for="PhotoChange.Photo" class="form-label"></label>
+                                <input asp-for="PhotoChange.Photo" class="form-control" accept="image/jpeg,image/png,image/webp" data-profile-photo-input />
+                                <span asp-validation-for="PhotoChange.Photo" class="text-danger"></span>
+
+                                <label asp-for="PhotoChange.VerticalPosition" class="form-label mt-3"></label>
+                                <input asp-for="PhotoChange.VerticalPosition" type="range" class="form-range" min="0" max="100" step="1" data-profile-photo-position />
+                                <div class="profile-photo-editor__range-labels" aria-hidden="true">
+                                    <span>Mostrar más arriba</span>
+                                    <span>Mostrar más abajo</span>
+                                </div>
+                                <span asp-validation-for="PhotoChange.VerticalPosition" class="text-danger"></span>
+                                <p class="form-text">Ajusta el encuadre vertical para centrar tu rostro. La vista previa muestra exactamente la zona que se guardará.</p>
+                            </div>
+                        </div>
+                        <p class="form-text mb-0">JPG, PNG o WEBP. Máximo 5 MB. Se guarda una imagen cuadrada optimizada de 320 × 320 px.</p>
                         <button type="submit" class="btn btn-primary">Actualizar foto</button>
                     </form>
                 </article>
@@ -122,4 +138,5 @@
 @section Scripts
 {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/profile.js" asp-append-version="true"></script>
 }

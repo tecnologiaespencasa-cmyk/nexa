@@ -1,6 +1,6 @@
-using IntranetPrueba.Data.Entities;
+using Nexa.Data.Entities;
 
-namespace IntranetPrueba.Services.Interfaces;
+namespace Nexa.Services.Interfaces;
 
 public interface IAuthService
 {

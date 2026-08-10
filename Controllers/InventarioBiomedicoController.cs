@@ -1,8 +1,8 @@
-using IntranetPrueba.Models.Security;
+using Nexa.Models.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace IntranetPrueba.Controllers;
+namespace Nexa.Controllers;
 
 [Authorize(Policy = SystemPermissions.InventarioBiomedico)]
 public class InventarioBiomedicoController : Controller

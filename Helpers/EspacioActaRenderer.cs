@@ -2,9 +2,9 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
-using IntranetPrueba.Models.EspacioCorporativo;
+using Nexa.Models.EspacioCorporativo;
 
-namespace IntranetPrueba.Helpers;
+namespace Nexa.Helpers;
 
 /// <summary>
 /// Sustituye los marcadores {{clave}} de una plantilla por los valores capturados.

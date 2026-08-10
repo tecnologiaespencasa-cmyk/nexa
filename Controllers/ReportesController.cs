@@ -1,18 +1,18 @@
 using System.Globalization;
 using System.Text;
-using IntranetPrueba.Data;
-using IntranetPrueba.Data.Repositories.Interfaces;
-using IntranetPrueba.Data.Repositories.Models;
-using IntranetPrueba.Helpers;
-using IntranetPrueba.Models.Reports;
-using IntranetPrueba.Models.Security;
-using IntranetPrueba.Models.ViewModels;
+using Nexa.Data;
+using Nexa.Data.Repositories.Interfaces;
+using Nexa.Data.Repositories.Models;
+using Nexa.Helpers;
+using Nexa.Models.Reports;
+using Nexa.Models.Security;
+using Nexa.Models.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Controllers;
+namespace Nexa.Controllers;
 
 [Authorize(Policy = SystemPermissions.Reportes)]
 public class ReportesController : Controller

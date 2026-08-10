@@ -1,8 +1,8 @@
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Data.Repositories.Interfaces;
+using Nexa.Data.Entities;
+using Nexa.Data.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Data.Repositories;
+namespace Nexa.Data.Repositories;
 
 public class UserRepository : IUserRepository
 {

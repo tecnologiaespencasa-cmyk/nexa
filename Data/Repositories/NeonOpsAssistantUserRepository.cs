@@ -1,9 +1,9 @@
-using IntranetPrueba.Data.Repositories.Interfaces;
-using IntranetPrueba.Data.Repositories.Models;
+using Nexa.Data.Repositories.Interfaces;
+using Nexa.Data.Repositories.Models;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 
-namespace IntranetPrueba.Data.Repositories;
+namespace Nexa.Data.Repositories;
 
 public class NeonOpsAssistantUserRepository : INeonOpsAssistantUserRepository
 {

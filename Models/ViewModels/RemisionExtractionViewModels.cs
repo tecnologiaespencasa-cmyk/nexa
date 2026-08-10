@@ -1,4 +1,4 @@
-namespace IntranetPrueba.Models.ViewModels;
+namespace Nexa.Models.ViewModels;
 
 public sealed class RemisionTextExtractionRequest
 {

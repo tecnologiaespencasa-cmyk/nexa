@@ -1,6 +1,6 @@
-using IntranetPrueba.Data.Entities;
+using Nexa.Data.Entities;
 
-namespace IntranetPrueba.Data.Repositories.Interfaces;
+namespace Nexa.Data.Repositories.Interfaces;
 
 public interface IUserAdministrationRepository
 {

@@ -3,12 +3,12 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using IntranetPrueba.Services.Interfaces;
-using IntranetPrueba.Services.Models;
+using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class RemisionExtractionService : IRemisionExtractionService
 {

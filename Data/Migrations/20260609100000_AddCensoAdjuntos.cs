@@ -1,11 +1,11 @@
-using IntranetPrueba.Data;
+using Nexa.Data;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace IntranetPrueba.Data.Migrations
+namespace Nexa.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
     [Migration("20260609100000_AddCensoAdjuntos")]

@@ -1,9 +1,9 @@
-using IntranetPrueba.Data.Repositories.Interfaces;
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Data.Repositories.Models;
+using Nexa.Data.Repositories.Interfaces;
+using Nexa.Data.Entities;
+using Nexa.Data.Repositories.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Data.Repositories;
+namespace Nexa.Data.Repositories;
 
 public class AuditLogRepository : IAuditLogRepository
 {

@@ -1,7 +1,7 @@
 using System.Web;
 using Npgsql;
 
-namespace IntranetPrueba.Data.Repositories;
+namespace Nexa.Data.Repositories;
 
 internal static class NeonConnectionString
 {

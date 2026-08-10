@@ -2,14 +2,14 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using IntranetPrueba.Data;
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Models.ViewModels;
-using IntranetPrueba.Services.Interfaces;
-using IntranetPrueba.Services.Models;
+using Nexa.Data;
+using Nexa.Data.Entities;
+using Nexa.Models.ViewModels;
+using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotificationService
 {

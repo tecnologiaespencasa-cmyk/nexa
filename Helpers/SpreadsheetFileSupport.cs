@@ -1,4 +1,4 @@
-namespace IntranetPrueba.Helpers;
+namespace Nexa.Helpers;
 
 public static class SpreadsheetFileSupport
 {

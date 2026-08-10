@@ -1,4 +1,4 @@
-namespace IntranetPrueba.Models.EspacioCorporativo;
+namespace Nexa.Models.EspacioCorporativo;
 
 public enum EspacioActaTipoCampo
 {

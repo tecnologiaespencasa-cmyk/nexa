@@ -1,16 +1,16 @@
 using System.Security.Claims;
-using IntranetPrueba.Data;
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Helpers;
-using IntranetPrueba.Models.EspacioCorporativo;
-using IntranetPrueba.Models.Security;
-using IntranetPrueba.Models.ViewModels;
-using IntranetPrueba.Services.Interfaces;
+using Nexa.Data;
+using Nexa.Data.Entities;
+using Nexa.Helpers;
+using Nexa.Models.EspacioCorporativo;
+using Nexa.Models.Security;
+using Nexa.Models.ViewModels;
+using Nexa.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Controllers;
+namespace Nexa.Controllers;
 
 [Authorize(Policy = SystemPermissions.EspacioCorporativoAccess)]
 public partial class EspacioCorporativoController : Controller

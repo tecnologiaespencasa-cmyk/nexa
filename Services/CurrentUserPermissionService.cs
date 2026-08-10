@@ -1,9 +1,9 @@
 using System.Security.Claims;
-using IntranetPrueba.Data;
-using IntranetPrueba.Services.Interfaces;
+using Nexa.Data;
+using Nexa.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class CurrentUserPermissionService : ICurrentUserPermissionService
 {

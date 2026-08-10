@@ -1,4 +1,4 @@
-﻿namespace IntranetPrueba.Models.Security;
+﻿namespace Nexa.Models.Security;
 
 public static class SystemRoles
 {

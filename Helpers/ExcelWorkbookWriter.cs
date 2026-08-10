@@ -3,9 +3,9 @@ using System.IO.Compression;
 using System.Security;
 using System.Text;
 using System.Xml;
-using IntranetPrueba.Models.Reports;
+using Nexa.Models.Reports;
 
-namespace IntranetPrueba.Helpers;
+namespace Nexa.Helpers;
 
 public static class ExcelWorkbookWriter
 {

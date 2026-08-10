@@ -2,15 +2,15 @@ using System.Globalization;
 using System.Net;
 using System.Security.Claims;
 using System.Text;
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Helpers;
-using IntranetPrueba.Models.ViewModels;
-using IntranetPrueba.Services.Models;
+using Nexa.Data.Entities;
+using Nexa.Helpers;
+using Nexa.Models.ViewModels;
+using Nexa.Services.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Controllers;
+namespace Nexa.Controllers;
 
 public partial class CensoController
 {

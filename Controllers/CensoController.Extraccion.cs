@@ -1,13 +1,13 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
-using IntranetPrueba.Helpers;
-using IntranetPrueba.Models.ViewModels;
+using Nexa.Helpers;
+using Nexa.Models.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 
-namespace IntranetPrueba.Controllers;
+namespace Nexa.Controllers;
 
 public partial class CensoController
 {

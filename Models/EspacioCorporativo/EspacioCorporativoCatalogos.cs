@@ -1,4 +1,4 @@
-namespace IntranetPrueba.Models.EspacioCorporativo;
+namespace Nexa.Models.EspacioCorporativo;
 
 /// <summary>
 /// Catálogos fijos del módulo "Mi espacio corporativo".

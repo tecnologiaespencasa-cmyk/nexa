@@ -1,6 +1,6 @@
-using IntranetPrueba.Services.Models;
+using Nexa.Services.Models;
 
-namespace IntranetPrueba.Services.Interfaces;
+namespace Nexa.Services.Interfaces;
 
 public interface IRemisionExtractionService
 {

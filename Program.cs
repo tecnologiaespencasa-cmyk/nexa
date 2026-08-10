@@ -1,11 +1,11 @@
-﻿using IntranetPrueba.Data;
-using IntranetPrueba.Data.Repositories;
-using IntranetPrueba.Data.Repositories.Interfaces;
-using IntranetPrueba.Data.Seed;
-using IntranetPrueba.Models.Security;
-using IntranetPrueba.Security.Authorization;
-using IntranetPrueba.Services;
-using IntranetPrueba.Services.Interfaces;
+﻿using Nexa.Data;
+using Nexa.Data.Repositories;
+using Nexa.Data.Repositories.Interfaces;
+using Nexa.Data.Seed;
+using Nexa.Models.Security;
+using Nexa.Security.Authorization;
+using Nexa.Services;
+using Nexa.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -60,7 +60,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.Cookie.Name = "IntranetPrueba.Auth";
+        options.Cookie.Name = "Nexa.Auth";
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.SameSite = SameSiteMode.Lax;

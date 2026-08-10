@@ -1,11 +1,11 @@
 using System.Net;
 using System.Text;
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Helpers;
-using IntranetPrueba.Services.Interfaces;
-using IntranetPrueba.Services.Models;
+using Nexa.Data.Entities;
+using Nexa.Helpers;
+using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class EspacioCorporativoNotificationService : IEspacioCorporativoNotificationService
 {

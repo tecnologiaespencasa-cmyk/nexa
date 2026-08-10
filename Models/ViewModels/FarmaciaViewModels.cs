@@ -1,6 +1,6 @@
-using IntranetPrueba.Helpers;
+using Nexa.Helpers;
 
-namespace IntranetPrueba.Models.ViewModels;
+namespace Nexa.Models.ViewModels;
 
 public static class FarmaciaEstados
 {

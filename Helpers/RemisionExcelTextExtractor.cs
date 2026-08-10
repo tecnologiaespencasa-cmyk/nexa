@@ -5,7 +5,7 @@ using System.Xml;
 using System.Xml.Linq;
 using ExcelDataReader;
 
-namespace IntranetPrueba.Helpers;
+namespace Nexa.Helpers;
 
 public static class RemisionExcelTextExtractor
 {

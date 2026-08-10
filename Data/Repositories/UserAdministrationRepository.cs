@@ -1,9 +1,9 @@
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Data.Repositories.Interfaces;
-using IntranetPrueba.Models.Security;
+using Nexa.Data.Entities;
+using Nexa.Data.Repositories.Interfaces;
+using Nexa.Models.Security;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Data.Repositories;
+namespace Nexa.Data.Repositories;
 
 public class UserAdministrationRepository : IUserAdministrationRepository
 {

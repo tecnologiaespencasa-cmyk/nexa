@@ -2,13 +2,13 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
-using IntranetPrueba.Services.Interfaces;
-using IntranetPrueba.Services.Models;
+using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class GoogleAddressValidationService : IAddressValidationService
 {

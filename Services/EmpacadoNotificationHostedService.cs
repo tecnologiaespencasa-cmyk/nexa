@@ -1,10 +1,10 @@
-using IntranetPrueba.Data;
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Models.ViewModels;
-using IntranetPrueba.Services.Interfaces;
+using Nexa.Data;
+using Nexa.Data.Entities;
+using Nexa.Models.ViewModels;
+using Nexa.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace IntranetPrueba.Services;
+namespace Nexa.Services;
 
 public class EmpacadoNotificationHostedService : BackgroundService
 {

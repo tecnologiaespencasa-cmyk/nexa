@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>IntranetPrueba-Local-Secrets</UserSecretsId>
+    <UserSecretsId>Nexa-Local-Secrets</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

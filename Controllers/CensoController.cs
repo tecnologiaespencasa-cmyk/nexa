@@ -6,14 +6,14 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using IntranetPrueba.Data;
-using IntranetPrueba.Data.Entities;
-using IntranetPrueba.Helpers;
-using IntranetPrueba.Models.Reports;
-using IntranetPrueba.Models.Security;
-using IntranetPrueba.Models.ViewModels;
-using IntranetPrueba.Services.Interfaces;
-using IntranetPrueba.Services.Models;
+using Nexa.Data;
+using Nexa.Data.Entities;
+using Nexa.Helpers;
+using Nexa.Models.Reports;
+using Nexa.Models.Security;
+using Nexa.Models.ViewModels;
+using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +21,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
-namespace IntranetPrueba.Controllers;
+namespace Nexa.Controllers;
 
 [Authorize(Policy = SystemPermissions.Censo)]
 public partial class CensoController : Controller
@@ -719,6 +719,7 @@ public partial class CensoController : Controller
         NormalizeHistoryFilters(model);
         await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: true, selectedRecordId: recordId);
         await PopulateDropdownsAsync(model, cancellationToken);
+        PreserveInactiveNursingAssistantSelections(model);
         return View("Index", model);
     }
 
@@ -1048,8 +1049,6 @@ public partial class CensoController : Controller
             ModelState.Remove(nameof(model.NombreQuienGestionaAlta));
         }
 
-        await PopulateDropdownsAsync(model, cancellationToken);
-
         // Al aprobarse el kardex, la sección 3 queda bloqueada salvo los campos
         // administrativos de cierre. Los medicamentos históricos no se pueden
         // modificar ni se persisten desde este formulario, por lo que no deben
@@ -1061,6 +1060,9 @@ public partial class CensoController : Controller
                 .AsNoTracking()
                 .FirstOrDefaultAsync(record => record.Id == model.EditingRecordId.Value, cancellationToken);
         }
+
+        await PopulateDropdownsAsync(model, cancellationToken);
+        PreserveInactiveNursingAssistantSelections(model, existingAddressRecord);
 
         var omitirValidacionMedicamentosHistoricos = existingAddressRecord?.KardexCerradoAtUtc.HasValue == true;
 
@@ -1594,6 +1596,14 @@ public partial class CensoController : Controller
         if (record is null)
         {
             return NotFound(new { message = "No se encontro el registro de censo para enviar a farmacia." });
+        }
+
+        if (string.IsNullOrWhiteSpace(record.NombreRealizaKardex))
+        {
+            return BadRequest(new
+            {
+                message = "No puedes enviar el kardex a farmacia sin guardar en la sección 1 el nombre de quien realiza kardex."
+            });
         }
 
         var nowUtc = DateTime.UtcNow;
@@ -3553,6 +3563,50 @@ public partial class CensoController : Controller
         }
 
         model.BarrioOptions = barrioOptions;
+    }
+
+    private static void PreserveInactiveNursingAssistantSelections(
+        CensoReceptionViewModel model,
+        CensoRecord? persistedRecord = null)
+    {
+        var selections = persistedRecord is null
+            ? new[]
+            {
+                model.NombreRecepcionaCaso,
+                model.NombreRealizaKardex,
+                model.ResponsableLlamadaBienvenida
+            }
+            : new[]
+            {
+                MatchesPersistedValue(model.NombreRecepcionaCaso, persistedRecord.NombreRecepcionaCaso),
+                MatchesPersistedValue(model.NombreRealizaKardex, persistedRecord.NombreRealizaKardex),
+                MatchesPersistedValue(model.ResponsableLlamadaBienvenida, persistedRecord.ResponsableLlamadaBienvenida)
+            };
+
+        foreach (var selection in selections.Where(value => !string.IsNullOrWhiteSpace(value)))
+        {
+            if (model.NursingAssistantOptions.Any(option =>
+                    string.Equals(option.Value, selection, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            model.NursingAssistantOptions = model.NursingAssistantOptions
+                .Append(new SelectListItem
+                {
+                    Value = selection,
+                    Text = $"{selection} (usuario desactivado)"
+                })
+                .ToList();
+        }
+    }
+
+    private static string? MatchesPersistedValue(string? submittedValue, string? persistedValue)
+    {
+        return !string.IsNullOrWhiteSpace(submittedValue)
+            && string.Equals(submittedValue.Trim(), persistedValue?.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? persistedValue
+            : null;
     }
 
     private static IReadOnlyList<SelectListItem> BuildOptions(IEnumerable<string> values)

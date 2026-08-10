@@ -1,4 +1,4 @@
-namespace IntranetPrueba.Helpers;
+namespace Nexa.Helpers;
 
 /// <summary>
 /// Mapeos de "Mi espacio corporativo" entre valores de catálogo y su representación visual.
