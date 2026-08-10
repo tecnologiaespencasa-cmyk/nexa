@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Nexa.Models.ViewModels;
 using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -94,19 +95,32 @@ public class ProfileController : Controller
         [Bind(Prefix = "PhotoChange")] ChangeProfilePhotoViewModel photoChange,
         CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid || photoChange.Photo is null)
+        if (!ModelState.IsValid)
         {
             return View("Index", await BuildIndexViewModelAsync(cancellationToken, photoChange: photoChange));
         }
 
-        await using var photoStream = photoChange.Photo.OpenReadStream();
-        var result = await _profileService.ChangePhotoAsync(
-            GetCurrentUserId(),
-            photoStream,
-            photoChange.Photo.Length,
-            photoChange.VerticalPosition,
-            GetClientIpAddress(),
-            cancellationToken);
+        Stream? photoStream = photoChange.Photo?.OpenReadStream();
+        ServiceResult result;
+        try
+        {
+            result = await _profileService.ChangePhotoAsync(
+                GetCurrentUserId(),
+                photoStream,
+                photoChange.Photo?.Length ?? 0,
+                photoChange.HorizontalPosition,
+                photoChange.VerticalPosition,
+                photoChange.Zoom,
+                GetClientIpAddress(),
+                cancellationToken);
+        }
+        finally
+        {
+            if (photoStream is not null)
+            {
+                await photoStream.DisposeAsync();
+            }
+        }
 
         if (!result.Succeeded)
         {
@@ -114,7 +128,7 @@ public class ProfileController : Controller
             return View("Index", await BuildIndexViewModelAsync(cancellationToken, photoChange: photoChange));
         }
 
-        TempData["SuccessMessage"] = "Tu foto de perfil fue actualizada y optimizada correctamente.";
+        TempData["SuccessMessage"] = "Tu foto de perfil fue actualizada correctamente.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -123,6 +137,16 @@ public class ProfileController : Controller
     public async Task<IActionResult> Photo(CancellationToken cancellationToken)
     {
         var photo = await _profileService.GetPhotoAsync(GetCurrentUserId(), cancellationToken);
+        return photo is { Length: > 0 }
+            ? File(photo, "image/jpeg")
+            : Content(DefaultProfileSvg, "image/svg+xml");
+    }
+
+    [HttpGet]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> PhotoSource(CancellationToken cancellationToken)
+    {
+        var photo = await _profileService.GetPhotoSourceAsync(GetCurrentUserId(), cancellationToken);
         return photo is { Length: > 0 }
             ? File(photo, "image/jpeg")
             : Content(DefaultProfileSvg, "image/svg+xml");
@@ -151,6 +175,11 @@ public class ProfileController : Controller
             EmailChange = emailChange ?? new(),
             PasswordChange = passwordChange ?? new(),
             PhotoChange = photoChange ?? new()
+            {
+                HorizontalPosition = profile.Value.ProfilePhotoHorizontalPosition,
+                VerticalPosition = profile.Value.ProfilePhotoVerticalPosition,
+                Zoom = profile.Value.ProfilePhotoZoom
+            }
         };
     }
 

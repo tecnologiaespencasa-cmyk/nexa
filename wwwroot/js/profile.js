@@ -1,16 +1,37 @@
 (() => {
   const input = document.querySelector('[data-profile-photo-input]');
   const preview = document.querySelector('[data-profile-photo-preview]');
-  const position = document.querySelector('[data-profile-photo-position]');
+  const horizontal = document.querySelector('[data-profile-photo-horizontal]');
+  const vertical = document.querySelector('[data-profile-photo-vertical]');
+  const zoom = document.querySelector('[data-profile-photo-zoom]');
+  const horizontalValue = document.querySelector('[data-profile-photo-horizontal-value]');
+  const verticalValue = document.querySelector('[data-profile-photo-vertical-value]');
+  const zoomValue = document.querySelector('[data-profile-photo-zoom-value]');
 
-  if (!input || !preview || !position) {
+  if (!input || !preview || !horizontal || !vertical || !zoom) {
     return;
   }
 
   let objectUrl;
 
-  const updatePreviewPosition = () => {
-    preview.style.objectPosition = `50% ${position.value}%`;
+  const updatePreview = () => {
+    const h = Number(horizontal.value);
+    const v = Number(vertical.value);
+    const z = Number(zoom.value);
+
+    preview.style.objectPosition = `${h}% ${v}%`;
+    preview.style.transformOrigin = `${h}% ${v}%`;
+    preview.style.transform = `scale(${z})`;
+
+    if (horizontalValue) {
+      horizontalValue.textContent = `${h}%`;
+    }
+    if (verticalValue) {
+      verticalValue.textContent = `${v}%`;
+    }
+    if (zoomValue) {
+      zoomValue.textContent = `${z.toFixed(2)}x`;
+    }
   };
 
   input.addEventListener('change', () => {
@@ -25,15 +46,18 @@
 
     objectUrl = URL.createObjectURL(file);
     preview.src = objectUrl;
-    updatePreviewPosition();
+    updatePreview();
   });
 
-  position.addEventListener('input', updatePreviewPosition);
+  horizontal.addEventListener('input', updatePreview);
+  vertical.addEventListener('input', updatePreview);
+  zoom.addEventListener('input', updatePreview);
+
   window.addEventListener('beforeunload', () => {
     if (objectUrl) {
       URL.revokeObjectURL(objectUrl);
     }
   });
 
-  updatePreviewPosition();
+  updatePreview();
 })();

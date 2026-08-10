@@ -1,4 +1,5 @@
-﻿using Nexa.Data;
+﻿using System.Globalization;
+using Nexa.Data;
 using Nexa.Data.Repositories;
 using Nexa.Data.Repositories.Interfaces;
 using Nexa.Data.Seed;
@@ -8,6 +9,7 @@ using Nexa.Services;
 using Nexa.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -104,6 +106,14 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+
+var invariantCulture = new RequestCulture(CultureInfo.InvariantCulture, CultureInfo.InvariantCulture);
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = invariantCulture,
+    SupportedCultures = [CultureInfo.InvariantCulture],
+    SupportedUICultures = [CultureInfo.InvariantCulture]
+});
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();

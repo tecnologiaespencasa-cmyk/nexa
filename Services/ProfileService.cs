@@ -43,7 +43,10 @@ public class ProfileService : IProfileService
             FullName = user.FullName,
             Username = user.Username,
             Email = user.Email,
-            HasProfilePhoto = user.ProfilePhoto is { Length: > 0 }
+            HasProfilePhoto = user.ProfilePhoto is { Length: > 0 },
+            ProfilePhotoHorizontalPosition = user.ProfilePhotoHorizontalPosition,
+            ProfilePhotoVerticalPosition = user.ProfilePhotoVerticalPosition,
+            ProfilePhotoZoom = user.ProfilePhotoZoom
         });
     }
 
@@ -136,20 +139,22 @@ public class ProfileService : IProfileService
 
     public async Task<ServiceResult> ChangePhotoAsync(
         Guid userId,
-        Stream photoStream,
+        Stream? photoStream,
         long photoLength,
+        int horizontalPosition,
         int verticalPosition,
+        decimal zoom,
         string? ipAddress,
         CancellationToken cancellationToken = default)
     {
-        if (photoLength is <= 0 or > MaximumPhotoInputBytes)
+        if (horizontalPosition is < 0 or > 100 || verticalPosition is < 0 or > 100)
         {
-            return ServiceResult.Failure("La foto debe pesar como máximo 5 MB.");
+            return ServiceResult.Failure("El encuadre no es válido.");
         }
 
-        if (verticalPosition is < 0 or > 100)
+        if (zoom is < 1m or > 3m)
         {
-            return ServiceResult.Failure("El encuadre vertical no es válido.");
+            return ServiceResult.Failure("El zoom no es válido.");
         }
 
         var user = await _repository.GetUserByIdAsync(userId, cancellationToken);
@@ -158,66 +163,64 @@ public class ProfileService : IProfileService
             return ServiceResult.Failure("El usuario no existe.");
         }
 
-        byte[] optimizedPhoto;
-        try
+        if (photoStream is not null)
         {
-            await using var input = new MemoryStream();
-            await photoStream.CopyToAsync(input, cancellationToken);
-            input.Position = 0;
-
-            var imageInfo = await Image.IdentifyAsync(input, cancellationToken);
-            if (imageInfo is null
-                || imageInfo.Width <= 0
-                || imageInfo.Height <= 0
-                || (long)imageInfo.Width * imageInfo.Height > MaximumPhotoPixels
-                || imageInfo.Metadata.DecodedImageFormat?.Name is not ("JPEG" or "PNG" or "WEBP"))
+            if (photoLength is <= 0 or > MaximumPhotoInputBytes)
             {
-                return ServiceResult.Failure("Selecciona una imagen JPG, PNG o WEBP válida de hasta 4.000 x 4.000 px.");
+                return ServiceResult.Failure("La foto debe pesar como máximo 5 MB.");
             }
 
-            input.Position = 0;
+            byte[] sourcePhoto;
+            try
+            {
+                await using var input = new MemoryStream();
+                await photoStream.CopyToAsync(input, cancellationToken);
+                input.Position = 0;
 
-            using var image = await Image.LoadAsync<Rgba32>(input, cancellationToken);
-            image.Mutate(context => context.AutoOrient());
+                var imageInfo = await Image.IdentifyAsync(input, cancellationToken);
+                if (imageInfo is null
+                    || imageInfo.Width <= 0
+                    || imageInfo.Height <= 0
+                    || (long)imageInfo.Width * imageInfo.Height > MaximumPhotoPixels
+                    || imageInfo.Metadata.DecodedImageFormat?.Name is not ("JPEG" or "PNG" or "WEBP"))
+                {
+                    return ServiceResult.Failure("Selecciona una imagen JPG, PNG o WEBP válida de hasta 4.000 x 4.000 px.");
+                }
 
-            var scale = Math.Max(
-                (double)PhotoMaximumDimension / image.Width,
-                (double)PhotoMaximumDimension / image.Height);
-            var resizedWidth = Math.Max(PhotoMaximumDimension, (int)Math.Ceiling(image.Width * scale));
-            var resizedHeight = Math.Max(PhotoMaximumDimension, (int)Math.Ceiling(image.Height * scale));
+                input.Position = 0;
 
-            image.Mutate(context => context.Resize(resizedWidth, resizedHeight));
+                using var image = await Image.LoadAsync<Rgba32>(input, cancellationToken);
+                image.Mutate(context => context.AutoOrient());
 
-            var cropX = (image.Width - PhotoMaximumDimension) / 2;
-            var cropY = (int)Math.Round(
-                (image.Height - PhotoMaximumDimension) * (verticalPosition / 100d),
-                MidpointRounding.AwayFromZero);
-            image.Mutate(context => context.Crop(new Rectangle(
-                cropX,
-                cropY,
-                PhotoMaximumDimension,
-                PhotoMaximumDimension)));
+                await using var output = new MemoryStream();
+                await image.SaveAsJpegAsync(output, new JpegEncoder { Quality = 85 }, cancellationToken);
+                sourcePhoto = output.ToArray();
+            }
+            catch (UnknownImageFormatException)
+            {
+                return ServiceResult.Failure("Selecciona una imagen JPG, PNG o WEBP válida.");
+            }
+            catch (InvalidImageContentException)
+            {
+                return ServiceResult.Failure("La imagen está dañada o no puede procesarse.");
+            }
 
-            await using var output = new MemoryStream();
-            await image.SaveAsJpegAsync(output, new JpegEncoder { Quality = 70 }, cancellationToken);
-            optimizedPhoto = output.ToArray();
+            user.ProfilePhoto = sourcePhoto;
         }
-        catch (UnknownImageFormatException)
+        else if (user.ProfilePhoto is not { Length: > 0 })
         {
-            return ServiceResult.Failure("Selecciona una imagen JPG, PNG o WEBP válida.");
-        }
-        catch (InvalidImageContentException)
-        {
-            return ServiceResult.Failure("La imagen está dañada o no puede procesarse.");
+            return ServiceResult.Failure("Selecciona una foto de perfil.");
         }
 
-        user.ProfilePhoto = optimizedPhoto;
+        user.ProfilePhotoHorizontalPosition = horizontalPosition;
+        user.ProfilePhotoVerticalPosition = verticalPosition;
+        user.ProfilePhotoZoom = zoom;
         await _repository.SaveChangesAsync(cancellationToken);
 
         await _auditService.LogAsync(
             action: "PROFILE_PHOTO_CHANGED",
             entity: "User",
-            details: $"El usuario actualizó su foto de perfil ({optimizedPhoto.Length / 1024} KB optimizada).",
+            details: "El usuario actualizó su foto de perfil.",
             performedByUserId: user.Id,
             ipAddress: ipAddress,
             cancellationToken: cancellationToken);
@@ -228,7 +231,52 @@ public class ProfileService : IProfileService
     public async Task<byte[]?> GetPhotoAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var user = await _repository.GetUserByIdAsync(userId, cancellationToken);
+        if (user?.ProfilePhoto is not { Length: > 0 } source)
+        {
+            return null;
+        }
+
+        return RenderCroppedPhoto(
+            source,
+            user.ProfilePhotoHorizontalPosition,
+            user.ProfilePhotoVerticalPosition,
+            user.ProfilePhotoZoom);
+    }
+
+    public async Task<byte[]?> GetPhotoSourceAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _repository.GetUserByIdAsync(userId, cancellationToken);
         return user?.ProfilePhoto;
+    }
+
+    private static byte[] RenderCroppedPhoto(byte[] source, int horizontalPosition, int verticalPosition, decimal zoom)
+    {
+        using var input = new MemoryStream(source);
+        using var image = Image.Load<Rgba32>(input);
+
+        var baseScale = Math.Max(
+            (double)PhotoMaximumDimension / image.Width,
+            (double)PhotoMaximumDimension / image.Height);
+        var scale = baseScale * (double)Math.Clamp(zoom, 1m, 3m);
+        var resizedWidth = Math.Max(PhotoMaximumDimension, (int)Math.Ceiling(image.Width * scale));
+        var resizedHeight = Math.Max(PhotoMaximumDimension, (int)Math.Ceiling(image.Height * scale));
+
+        image.Mutate(context => context.Resize(resizedWidth, resizedHeight));
+
+        var cropX = Math.Clamp(
+            (int)Math.Round((resizedWidth - PhotoMaximumDimension) * (horizontalPosition / 100d), MidpointRounding.AwayFromZero),
+            0,
+            Math.Max(0, resizedWidth - PhotoMaximumDimension));
+        var cropY = Math.Clamp(
+            (int)Math.Round((resizedHeight - PhotoMaximumDimension) * (verticalPosition / 100d), MidpointRounding.AwayFromZero),
+            0,
+            Math.Max(0, resizedHeight - PhotoMaximumDimension));
+
+        image.Mutate(context => context.Crop(new Rectangle(cropX, cropY, PhotoMaximumDimension, PhotoMaximumDimension)));
+
+        using var output = new MemoryStream();
+        image.SaveAsJpeg(output, new JpegEncoder { Quality = 70 });
+        return output.ToArray();
     }
 
     private static bool IsValidEmail(string email)

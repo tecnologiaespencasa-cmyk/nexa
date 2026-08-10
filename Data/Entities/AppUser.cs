@@ -59,6 +59,12 @@ public class AppUser
 
     public byte[]? ProfilePhoto { get; set; }
 
+    public int ProfilePhotoHorizontalPosition { get; set; } = 50;
+
+    public int ProfilePhotoVerticalPosition { get; set; } = 50;
+
+    public decimal ProfilePhotoZoom { get; set; } = 1m;
+
     public ICollection<AppUserRole> UserRoles { get; set; } = new List<AppUserRole>();
 
     public ICollection<AppUserPermission> UserPermissions { get; set; } = new List<AppUserPermission>();

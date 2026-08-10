@@ -1437,12 +1437,29 @@ body {
   height: 100%;
   object-fit: cover;
   object-position: 50% 50%;
+  transform-origin: 50% 50%;
   width: 100%;
 }
 
 .profile-photo-editor__controls {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.profile-photo-editor__range-row {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+}
+
+.profile-photo-editor__range-row .form-label {
+  margin-bottom: 0;
+}
+
+.profile-photo-editor__value {
+  color: #006be6;
+  font-size: 0.8rem;
+  font-weight: 800;
 }
 
 .profile-photo-editor__range-labels {

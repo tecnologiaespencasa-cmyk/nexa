@@ -22,11 +22,15 @@ public interface IProfileService
 
     Task<ServiceResult> ChangePhotoAsync(
         Guid userId,
-        Stream photoStream,
+        Stream? photoStream,
         long photoLength,
+        int horizontalPosition,
         int verticalPosition,
+        decimal zoom,
         string? ipAddress,
         CancellationToken cancellationToken = default);
 
     Task<byte[]?> GetPhotoAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<byte[]?> GetPhotoSourceAsync(Guid userId, CancellationToken cancellationToken = default);
 }

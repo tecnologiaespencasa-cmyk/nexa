@@ -2938,9 +2938,15 @@ public partial class CensoController : Controller
         return query;
     }
 
-    private static System.Linq.Expressions.Expression<Func<CensoRecord, bool>> IsEditableCensoRecordExpression()
+    // Un registro con FarmaciaProrrogaDeId/FarmaciaProrrogaVersionId es normalmente una copia interna
+    // de despacho a farmacia y se oculta porque el registro base sigue visible en su lugar. Pero si ese
+    // registro base fue borrado (quedó huérfana la copia), ocultarla también dejaría al paciente sin
+    // ningún registro visible en el censo. Por eso solo se oculta cuando el padre referenciado todavía existe.
+    private System.Linq.Expressions.Expression<Func<CensoRecord, bool>> IsEditableCensoRecordExpression()
     {
-        return x => x.FarmaciaProrrogaDeId == null && x.FarmaciaProrrogaVersionId == null;
+        return x =>
+            (x.FarmaciaProrrogaDeId == null || !_context.Censos.Any(p => p.Id == x.FarmaciaProrrogaDeId))
+            && (x.FarmaciaProrrogaVersionId == null || !_context.CensoProrrogas.Any(p => p.Id == x.FarmaciaProrrogaVersionId));
     }
 
     private static string BuildFilteredExcelFileName(DateTime? fechaIngresoDesde, DateTime? fechaIngresoHasta)

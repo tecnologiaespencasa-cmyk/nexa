@@ -61,6 +61,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.LastLoginAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.ProfilePhoto).HasColumnType("bytea");
+            entity.Property(x => x.ProfilePhotoHorizontalPosition).HasDefaultValue(50);
+            entity.Property(x => x.ProfilePhotoVerticalPosition).HasDefaultValue(50);
+            entity.Property(x => x.ProfilePhotoZoom).HasPrecision(3, 2).HasDefaultValue(1m);
             entity.HasIndex(x => x.NormalizedEmail);
             entity.HasIndex(x => x.NormalizedUsername).IsUnique();
             entity.HasIndex(x => x.NormalizedNationalId).IsUnique();

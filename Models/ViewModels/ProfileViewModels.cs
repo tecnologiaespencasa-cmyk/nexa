@@ -51,11 +51,18 @@ public class ChangeProfilePasswordViewModel
 
 public class ChangeProfilePhotoViewModel
 {
-    [Required(ErrorMessage = "Selecciona una foto de perfil.")]
     [Display(Name = "Foto de perfil")]
     public IFormFile? Photo { get; set; }
 
     [Range(0, 100)]
+    [Display(Name = "Encuadre horizontal")]
+    public int HorizontalPosition { get; set; } = 50;
+
+    [Range(0, 100)]
     [Display(Name = "Encuadre vertical")]
     public int VerticalPosition { get; set; } = 50;
+
+    [Range(typeof(decimal), "1", "3")]
+    [Display(Name = "Zoom")]
+    public decimal Zoom { get; set; } = 1m;
 }
