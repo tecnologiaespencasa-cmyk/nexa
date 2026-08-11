@@ -13,6 +13,14 @@
             display: contents;
         }
 
+        /* Reserva la misma altura para todas las etiquetas del bloque "Fórmula y Mipres":
+           algunas (p. ej. "Tiempo de prescripción (en meses)") ocupan dos líneas en columnas
+           angostas y sin esto sus campos quedaban más abajo que los de sus vecinas. */
+        .censo-mipres-grid .form-label {
+            display: block;
+            min-height: 2.5em;
+        }
+
         /* Observación que aparece bajo la fecha de cada seguimiento cuando se diligencia.
            Queda contenida en su propia columna para no descuadrar la grilla. */
         .hosp-seguimiento-obs {
@@ -635,7 +643,6 @@
                                         <div class="col-lg-3">
                                             <label asp-for="DisneaMmrc" class="form-label"></label>
                                             <select asp-for="DisneaMmrc" asp-items="Model.DisneaMmrcOptions" class="form-select">
-                                                <option value=""></option>
                                             </select>
                                         </div>
                                         <div class="col-lg-3">
@@ -646,15 +653,21 @@
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="Braden" class="form-label"></label>
-                                            <input asp-for="Braden" class="form-control" maxlength="50" autocomplete="off" />
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="RiesgoCaida" class="form-label"></label>
-                                            <input asp-for="RiesgoCaida" class="form-control" maxlength="50" autocomplete="off" />
+                                            <input asp-for="Braden" type="number" class="form-control" id="bradenInput" autocomplete="off" />
+                                            <span asp-validation-for="Braden" class="text-danger"></span>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="RiesgoLesionPiel" class="form-label"></label>
-                                            <input asp-for="RiesgoLesionPiel" class="form-control" maxlength="50" autocomplete="off" />
+                                            <input asp-for="RiesgoLesionPiel" class="form-control" id="riesgoLesionPielInput" readonly />
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="EscalaMorse" class="form-label"></label>
+                                            <input asp-for="EscalaMorse" type="number" class="form-control" id="escalaMorseInput" autocomplete="off" />
+                                            <span asp-validation-for="EscalaMorse" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="RiesgoCaida" class="form-label"></label>
+                                            <input asp-for="RiesgoCaida" class="form-control" id="riesgoCaidaInput" readonly />
                                         </div>
                                     </div>
                                 </section>
@@ -795,7 +808,9 @@
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="CalibreSondaNasogastrica" class="form-label"></label>
-                                            <input asp-for="CalibreSondaNasogastrica" class="form-control" maxlength="50" autocomplete="off" />
+                                            <select asp-for="CalibreSondaNasogastrica" asp-items="Model.CalibreSondaNasogastricaOptions" class="form-select">
+                                                <option value=""></option>
+                                            </select>
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="FrecuenciaCambioSondaNasogastrica" class="form-label"></label>
@@ -870,7 +885,7 @@
                                         </span>
                                         <h3>Fórmula y Mipres</h3>
                                     </div>
-                                    <div class="row g-3 censo-field-section__grid">
+                                    <div class="row g-3 censo-field-section__grid censo-mipres-grid">
                                         <div class="col-lg-3">
                                             <label asp-for="FormulaControl" class="form-label"></label>
                                             <select asp-for="FormulaControl" asp-items="Model.SiNoOptions" class="form-select">
@@ -1717,6 +1732,10 @@
             const grupoPatologiaInput = document.getElementById("grupoPatologiaInput");
             const diagnosticoComplementarioInput = document.getElementById("diagnosticoComplementarioInput");
             const grupoPatologiaComplementarioInput = document.getElementById("grupoPatologiaComplementarioInput");
+            const bradenInput = document.getElementById("bradenInput");
+            const riesgoLesionPielInput = document.getElementById("riesgoLesionPielInput");
+            const escalaMorseInput = document.getElementById("escalaMorseInput");
+            const riesgoCaidaInput = document.getElementById("riesgoCaidaInput");
             const clinicaHeridasSelect = document.getElementById("clinicaHeridasSelect");
             const estadoClinicaHeridasSelect = document.getElementById("estadoClinicaHeridasSelect");
             const auxiliarNutricionInput = document.getElementById("auxiliarNutricionInput");
@@ -2074,6 +2093,38 @@
                 if (grupoPatologiaComplementarioInput) grupoPatologiaComplementarioInput.value = "";
             });
             diagnosticoComplementarioInput?.addEventListener("blur", () => lookupCie10(diagnosticoComplementarioInput, grupoPatologiaComplementarioInput));
+
+            const limitDigits = (input, maxDigits) => {
+                if (!input) return;
+                const digits = input.value.replace(/\D/g, "").slice(0, maxDigits);
+                if (digits !== input.value) input.value = digits;
+            };
+
+            const calcularRiesgoLesionPiel = () => {
+                limitDigits(bradenInput, 2);
+                if (!riesgoLesionPielInput) return;
+                const valor = Number.parseInt(String(bradenInput?.value || "").trim(), 10);
+                if (!Number.isFinite(valor)) { riesgoLesionPielInput.value = ""; return; }
+                if (valor <= 9) riesgoLesionPielInput.value = "Riesgo muy alto";
+                else if (valor <= 12) riesgoLesionPielInput.value = "Riesgo alto";
+                else if (valor <= 14) riesgoLesionPielInput.value = "Riesgo moderado";
+                else if (valor <= 18) riesgoLesionPielInput.value = "Riesgo leve";
+                else riesgoLesionPielInput.value = "Sin riesgo";
+            };
+            bradenInput?.addEventListener("input", calcularRiesgoLesionPiel);
+            calcularRiesgoLesionPiel();
+
+            const calcularRiesgoCaida = () => {
+                limitDigits(escalaMorseInput, 3);
+                if (!riesgoCaidaInput) return;
+                const valor = Number.parseInt(String(escalaMorseInput?.value || "").trim(), 10);
+                if (!Number.isFinite(valor)) { riesgoCaidaInput.value = ""; return; }
+                if (valor <= 24) riesgoCaidaInput.value = "Riesgo bajo";
+                else if (valor <= 50) riesgoCaidaInput.value = "Riesgo moderado";
+                else riesgoCaidaInput.value = "Riesgo alto";
+            };
+            escalaMorseInput?.addEventListener("input", calcularRiesgoCaida);
+            calcularRiesgoCaida();
 
             const syncEstadoClinicaHeridas = () => {
                 if (!clinicaHeridasSelect || !estadoClinicaHeridasSelect) return;

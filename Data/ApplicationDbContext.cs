@@ -496,9 +496,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.Rankin).HasMaxLength(50);
             entity.Property(x => x.DisneaMmrc).HasMaxLength(50);
             entity.Property(x => x.Nyha).HasMaxLength(50);
-            entity.Property(x => x.Braden).HasMaxLength(50);
-            entity.Property(x => x.RiesgoCaida).HasMaxLength(50);
             entity.Property(x => x.RiesgoLesionPiel).HasMaxLength(50);
+            entity.Property(x => x.RiesgoCaida).HasMaxLength(50);
             entity.Property(x => x.ClinicaHeridas).HasMaxLength(2);
             entity.Property(x => x.EstadoClinicaHeridas).HasMaxLength(20);
             entity.Property(x => x.ProgramaNutricion).HasMaxLength(2);

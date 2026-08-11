@@ -104,14 +104,15 @@ public class CensoCronicoRecord
     [StringLength(50)]
     public string? Nyha { get; set; }
 
-    [StringLength(50)]
-    public string? Braden { get; set; }
-
-    [StringLength(50)]
-    public string? RiesgoCaida { get; set; }
+    public int? Braden { get; set; }
 
     [StringLength(50)]
     public string? RiesgoLesionPiel { get; set; }
+
+    public int? EscalaMorse { get; set; }
+
+    [StringLength(50)]
+    public string? RiesgoCaida { get; set; }
 
     // ----- Sección 3: Validaciones -----
     [StringLength(2)]

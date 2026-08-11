@@ -130,17 +130,21 @@ public class CensoCronicoViewModel
     [Display(Name = "Nyha (falla cardíaca)")]
     public string? Nyha { get; set; }
 
-    [StringLength(50)]
-    [Display(Name = "Braden")]
-    public string? Braden { get; set; }
-
-    [StringLength(50)]
-    [Display(Name = "Riesgo de caída")]
-    public string? RiesgoCaida { get; set; }
+    [Range(6, 23, ErrorMessage = "La escala Braden debe estar entre 6 y 23.")]
+    [Display(Name = "Escala Braden")]
+    public int? Braden { get; set; }
 
     [StringLength(50)]
     [Display(Name = "Riesgo de lesión de piel")]
     public string? RiesgoLesionPiel { get; set; }
+
+    [Range(0, 125, ErrorMessage = "La escala Morse debe estar entre 0 y 125.")]
+    [Display(Name = "Escala Morse")]
+    public int? EscalaMorse { get; set; }
+
+    [StringLength(50)]
+    [Display(Name = "Riesgo de caída")]
+    public string? RiesgoCaida { get; set; }
 
     // ----- Sección 3: Validaciones -----
     [Display(Name = "Clínica de heridas")]
@@ -314,6 +318,7 @@ public class CensoCronicoViewModel
     public IReadOnlyList<SelectListItem> SiNoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoClinicaHeridasOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> CalibreSondaVesicalOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> CalibreSondaNasogastricaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AuxiliarEnfermeriaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> TallaPanalesOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoMipresOptions { get; set; } = [];

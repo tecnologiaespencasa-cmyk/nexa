@@ -297,6 +297,8 @@
                                 </div>
                             }
 
+                            <div class="alert alert-info d-none" id="prefillPacienteAlert" role="status"></div>
+
                             <section class="censo-field-section">
                                 <div class="censo-field-section__header">
                                     <span class="censo-field-section__icon" aria-hidden="true">
@@ -1156,6 +1158,7 @@
             const buscarBarriosUrl = "@Url.Action("BuscarBarrios", "Censo")";
             const defaultsMunicipioUrl = "@Url.Action("ObtenerDefaultsMunicipio", "Censo")";
             const buscarDiagnosticoCie10Url = "@Url.Action("BuscarDiagnosticoCie10", "Censo")";
+            const buscarPacienteOtrosCensosUrl = "@Url.Action("BuscarPacienteOtrosCensos", "Censo")";
             const form = document.getElementById("clinicaHeridasForm");
             const csrfTokenInput = form?.querySelector("input[name='__RequestVerificationToken']");
             const direccionInput = document.getElementById("direccionInput");
@@ -1767,6 +1770,207 @@
             fechaNacimientoInput?.addEventListener("change", updateEdad);
             fechaNacimientoInput?.addEventListener("input", updateEdad);
             updateEdad();
+
+            // Precarga de datos básicos desde los censos de agudos y crónicos. Solo se tocan los campos
+            // vacíos y los que precargó una búsqueda anterior, para no pisar lo que el usuario escribió
+            // y para poder reemplazarlos si corrige el documento por el de otro paciente.
+            const editingRecordIdInput = document.getElementById("EditingRecordId");
+            const prefillAlert = document.getElementById("prefillPacienteAlert");
+            const aseguradorSelect = document.getElementById("Asegurador");
+            const generoSelect = document.getElementById("Genero");
+            const detalleDireccionInput = document.getElementById("DetalleDireccion");
+            const telefonoPrincipalInput = document.getElementById("TelefonoPrincipal");
+            const telefonoAdicional1Input = document.getElementById("TelefonoAdicional1");
+            const llamadaBienvenidaSelect = document.getElementById("LlamadaBienvenida");
+            const telefonoContactoInput = document.getElementById("TelefonoContacto");
+
+            const prefilledKeys = new Set();
+            let lastPrefillDocument = "";
+
+            // La fecha de nacimiento arranca en la fecha de hoy (valor por defecto del formulario),
+            // así que para la precarga ese valor cuenta como campo vacío.
+            const getTodayIsoDate = () => {
+                const today = new Date();
+                return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+            };
+
+            const prefillFields = [
+                { key: "asegurador", control: aseguradorSelect, kind: "select" },
+                { key: "tipoIdentificacion", control: tipoIdentificacionSelect, kind: "select" },
+                { key: "nombrePaciente", control: nombrePacienteInput, kind: "text" },
+                {
+                    key: "fechaNacimiento",
+                    control: fechaNacimientoInput,
+                    kind: "text",
+                    isEmpty: (control) => {
+                        const value = String(control.value || "").trim();
+                        return !value || value === getTodayIsoDate();
+                    }
+                },
+                { key: "genero", control: generoSelect, kind: "select" },
+                { key: "direccion", control: direccionInput, kind: "text" },
+                { key: "detalleDireccion", control: detalleDireccionInput, kind: "text" },
+                { key: "clasificacionZonaSura", control: clasificacionSelect, kind: "select" },
+                { key: "municipioResidencia", control: municipioSelect, kind: "select" },
+                { key: "barrio", control: barrioSelect, kind: "select" },
+                { key: "zonaDireccionSegunMunicipio", control: zonaSelect, kind: "select" },
+                { key: "telefonoPrincipal", control: telefonoPrincipalInput, kind: "phone" },
+                { key: "telefonoAdicional1", control: telefonoAdicional1Input, kind: "phone" },
+                { key: "telefonoAdicional2", control: telefonoAdicional2Input, kind: "phone" },
+                { key: "llamadaBienvenida", control: llamadaBienvenidaSelect, kind: "select" },
+                { key: "telefonoContacto", control: telefonoContactoInput, kind: "phone" }
+            ];
+
+            const setPrefillControlValue = (field, value) => {
+                if (field.kind === "select") {
+                    setSelectValue(field.control, value);
+                    return;
+                }
+
+                field.control.value = field.kind === "phone"
+                    ? String(value || "").replace(/\D/g, "").slice(0, 10)
+                    : value;
+            };
+
+            const isPrefillControlEmpty = (field) => field.isEmpty
+                ? field.isEmpty(field.control)
+                : !String(field.control.value || "").trim();
+
+            const applyPrefillField = (field, value) => {
+                if (!field?.control) return false;
+
+                const yaPrecargado = prefilledKeys.has(field.key);
+                if (!yaPrecargado && !isPrefillControlEmpty(field)) {
+                    return false;
+                }
+
+                const normalized = String(value ?? "").trim();
+                if (!normalized) {
+                    if (yaPrecargado) {
+                        setPrefillControlValue(field, "");
+                        prefilledKeys.delete(field.key);
+                    }
+                    return false;
+                }
+
+                setPrefillControlValue(field, normalized);
+                prefilledKeys.add(field.key);
+                return true;
+            };
+
+            const clearPrefilledFields = () => {
+                if (prefilledKeys.size === 0) return;
+
+                const teniaTelefonoAdicional2 = prefilledKeys.has("telefonoAdicional2");
+                prefillFields.forEach((field) => {
+                    if (!field.control || !prefilledKeys.has(field.key)) return;
+                    setPrefillControlValue(field, "");
+                });
+                prefilledKeys.clear();
+
+                if (asumirDireccionCheck?.checked) {
+                    asumirDireccionCheck.checked = false;
+                }
+                setDireccionValidada(false);
+                updateEdad();
+
+                if (teniaTelefonoAdicional2 && telefonoAdicional2Toggle && !telefonoAdicional2Input?.value) {
+                    telefonoAdicional2Toggle.checked = false;
+                }
+                syncTelefonoAdicional2Visibility();
+            };
+
+            const hidePrefillAlert = () => {
+                if (!prefillAlert) return;
+                prefillAlert.textContent = "";
+                prefillAlert.classList.add("d-none");
+            };
+
+            const showPrefillAlert = (message) => {
+                if (!prefillAlert) return;
+                prefillAlert.textContent = message;
+                prefillAlert.classList.remove("d-none");
+            };
+
+            const applyPrefillData = async (data) => {
+                const municipioAplicado = applyPrefillField(
+                    prefillFields.find((field) => field.key === "municipioResidencia"),
+                    data.municipioResidencia);
+
+                const camposAplicados = prefillFields
+                    .filter((field) => field.key !== "municipioResidencia")
+                    .map((field) => applyPrefillField(field, data[field.key]))
+                    .filter(Boolean).length + (municipioAplicado ? 1 : 0);
+
+                if (municipioAplicado) {
+                    const barrio = barrioSelect && prefilledKeys.has("barrio") ? barrioSelect.value : "";
+                    lastValidationDistrict = "";
+                    await loadBarriosByMunicipio(municipioSelect.value, barrio || "a", barrio, false);
+                }
+
+                if (prefilledKeys.has("direccion")) {
+                    if (asumirDireccionCheck) asumirDireccionCheck.checked = data.asumirDireccionErrada === true;
+                    setDireccionValidada(data.direccionValidada === true);
+                    clearDireccionMessage();
+                    clearServerDireccionMessage();
+                }
+
+                if (telefonoAdicional2Toggle && telefonoAdicional2Input?.value) {
+                    telefonoAdicional2Toggle.checked = true;
+                }
+                syncTelefonoAdicional2Visibility();
+                updateEdad();
+                uppercaseAllHeridasTextFields();
+
+                return camposAplicados;
+            };
+
+            const buscarPacienteEnOtrosCensos = async () => {
+                if (!numeroIdentificacionInput) return;
+                if (editingRecordIdInput && String(editingRecordIdInput.value || "").trim()) return;
+
+                const documento = normalizeDocumentValue(numeroIdentificacionInput.value);
+                if (documento === lastPrefillDocument) return;
+                lastPrefillDocument = documento;
+
+                if (documento.length < 4) {
+                    clearPrefilledFields();
+                    hidePrefillAlert();
+                    return;
+                }
+
+                let data = null;
+                try {
+                    const response = await fetch(`${buscarPacienteOtrosCensosUrl}?numeroDocumento=${encodeURIComponent(documento)}`);
+                    if (!response.ok) {
+                        lastPrefillDocument = "";
+                        return;
+                    }
+                    data = await response.json();
+                } catch {
+                    lastPrefillDocument = "";
+                    return;
+                }
+
+                if (documento !== normalizeDocumentValue(numeroIdentificacionInput.value)) return;
+
+                if (!data || data.found !== true) {
+                    clearPrefilledFields();
+                    hidePrefillAlert();
+                    return;
+                }
+
+                const camposAplicados = await applyPrefillData(data.datos || {});
+                if (camposAplicados === 0) {
+                    hidePrefillAlert();
+                    return;
+                }
+
+                showPrefillAlert(`Datos básicos precargados desde ${data.origen}. Verifica la información antes de guardar.`);
+            };
+
+            numeroIdentificacionInput?.addEventListener("change", buscarPacienteEnOtrosCensos);
+            numeroIdentificacionInput?.addEventListener("blur", buscarPacienteEnOtrosCensos);
 
             form?.addEventListener("submit", (event) => {
                 const submitAction = event.submitter?.getAttribute("formaction") || "";

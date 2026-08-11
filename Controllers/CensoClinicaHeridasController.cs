@@ -124,6 +124,231 @@ public partial class CensoController
         return View("ClinicaHeridas", model);
     }
 
+    // Precarga de datos básicos: si el paciente ya existe en el censo de agudos o en el de crónicos
+    // se reutiliza su información demográfica, de residencia y de contacto para no volver a digitarla.
+    // Se combinan las dos fuentes (agudos aporta asegurador y teléfonos, crónicos aporta género) dando
+    // prioridad a la del ingreso más reciente. Los valores se traducen a los catálogos de clínica de
+    // heridas y los que no existen allí se devuelven vacíos para no romper la validación al guardar.
+    [HttpGet]
+    public async Task<IActionResult> BuscarPacienteOtrosCensos(string? numeroDocumento, CancellationToken cancellationToken)
+    {
+        var documento = NormalizeCedulaFilter(numeroDocumento);
+        if (documento.Length < 4)
+        {
+            return Json(new { found = false });
+        }
+
+        var agudo = await _context.Censos
+            .AsNoTracking()
+            .Where(IsEditableCensoRecordExpression())
+            .Where(x => x.NumeroIdentificacion == documento)
+            .OrderByDescending(x => x.FechaIngreso)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var cronico = await _context.CensoCronicos
+            .AsNoTracking()
+            .Where(x => x.NumeroIdentificacion == documento)
+            .OrderByDescending(x => x.FechaIngreso)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (agudo is null && cronico is null)
+        {
+            return Json(new { found = false });
+        }
+
+        var datosAgudo = agudo is null ? null : BuildClinicaHeridasPrefill(agudo);
+        var datosCronico = cronico is null ? null : BuildClinicaHeridasPrefill(cronico);
+
+        var cronicoEsMasReciente = agudo is null
+            || (cronico is not null && cronico.FechaIngreso.Date >= agudo.FechaIngreso.Date);
+
+        var datos = MergeClinicaHeridasPrefill(
+            cronicoEsMasReciente ? datosCronico! : datosAgudo!,
+            cronicoEsMasReciente ? datosAgudo : datosCronico);
+
+        var origen = agudo is not null && cronico is not null
+            ? "los censos de programa agudos y programa crónicos"
+            : agudo is not null
+                ? "el censo de programa agudos"
+                : "el censo de programa crónicos";
+
+        return Json(new
+        {
+            found = true,
+            documento,
+            origen,
+            datos
+        });
+    }
+
+    private sealed class ClinicaHeridasPrefillData
+    {
+        public string Asegurador { get; set; } = string.Empty;
+
+        public string TipoIdentificacion { get; set; } = string.Empty;
+
+        public string NombrePaciente { get; set; } = string.Empty;
+
+        public string FechaNacimiento { get; set; } = string.Empty;
+
+        public int Edad { get; set; }
+
+        public string Genero { get; set; } = string.Empty;
+
+        public string Direccion { get; set; } = string.Empty;
+
+        public bool DireccionValidada { get; set; }
+
+        public bool AsumirDireccionErrada { get; set; }
+
+        public string DetalleDireccion { get; set; } = string.Empty;
+
+        public string ClasificacionZonaSura { get; set; } = string.Empty;
+
+        public string MunicipioResidencia { get; set; } = string.Empty;
+
+        public string Barrio { get; set; } = string.Empty;
+
+        public string ZonaDireccionSegunMunicipio { get; set; } = string.Empty;
+
+        public string TelefonoPrincipal { get; set; } = string.Empty;
+
+        public string TelefonoAdicional1 { get; set; } = string.Empty;
+
+        public string TelefonoAdicional2 { get; set; } = string.Empty;
+
+        public string LlamadaBienvenida { get; set; } = string.Empty;
+
+        public string TelefonoContacto { get; set; } = string.Empty;
+    }
+
+    private ClinicaHeridasPrefillData BuildClinicaHeridasPrefill(CensoRecord record) => new()
+    {
+        Asegurador = MapToClinicaHeridasCatalogValue(record.Asegurador, ClinicaHeridasAseguradorValues),
+        TipoIdentificacion = MapToClinicaHeridasCatalogValue(record.TipoIdentificacion, TiposIdentificacion),
+        NombrePaciente = record.NombrePaciente?.Trim() ?? string.Empty,
+        FechaNacimiento = FormatClinicaHeridasPrefillDate(record.FechaNacimiento),
+        Edad = record.Edad,
+        Direccion = record.Direccion?.Trim() ?? string.Empty,
+        DireccionValidada = record.DireccionValidada,
+        AsumirDireccionErrada = record.AsumirDireccionErrada,
+        DetalleDireccion = record.DetalleDireccion?.Trim() ?? string.Empty,
+        ClasificacionZonaSura = MapToClinicaHeridasCatalogValue(record.ClasificacionZonaSura, ClasificacionZonaSuraValues),
+        MunicipioResidencia = MapToClinicaHeridasCatalogValue(ToCanonicalMunicipality(record.MunicipioResidencia), MunicipiosResidenciaValues),
+        Barrio = record.Barrio?.Trim() ?? string.Empty,
+        ZonaDireccionSegunMunicipio = MapToClinicaHeridasCatalogValue(record.ZonaDireccionSegunMunicipio, ZonaDireccionValues),
+        TelefonoPrincipal = NormalizePhone(record.Telefono1),
+        TelefonoAdicional1 = NormalizePhone(record.Telefono2),
+        TelefonoAdicional2 = NormalizePhone(record.Telefono3),
+        LlamadaBienvenida = MapToClinicaHeridasCatalogValue(record.EstadoLlamadaBienvenida, ClinicaHeridasLlamadaBienvenidaValues),
+        TelefonoContacto = NormalizePhone(record.NumeroTelefonoLlamadaBienvenida)
+    };
+
+    private ClinicaHeridasPrefillData BuildClinicaHeridasPrefill(CensoCronicoRecord record) => new()
+    {
+        TipoIdentificacion = MapToClinicaHeridasCatalogValue(record.TipoIdentificacion, TiposIdentificacion),
+        NombrePaciente = record.NombrePaciente?.Trim() ?? string.Empty,
+        FechaNacimiento = FormatClinicaHeridasPrefillDate(record.FechaNacimiento),
+        Edad = record.Edad,
+        Genero = MapToClinicaHeridasCatalogValue(record.Genero, ClinicaHeridasGeneroValues),
+        Direccion = record.Direccion?.Trim() ?? string.Empty,
+        DireccionValidada = record.DireccionValidada,
+        AsumirDireccionErrada = record.AsumirDireccionErrada,
+        DetalleDireccion = record.DetalleDireccion?.Trim() ?? string.Empty,
+        ClasificacionZonaSura = MapToClinicaHeridasCatalogValue(record.ClasificacionZonaSura, ClasificacionZonaSuraValues),
+        MunicipioResidencia = MapToClinicaHeridasCatalogValue(ToCanonicalMunicipality(record.MunicipioResidencia), MunicipiosResidenciaValues),
+        Barrio = record.Barrio?.Trim() ?? string.Empty,
+        ZonaDireccionSegunMunicipio = MapToClinicaHeridasCatalogValue(record.ZonaDireccionSegunMunicipio, ZonaDireccionValues)
+    };
+
+    private static ClinicaHeridasPrefillData MergeClinicaHeridasPrefill(
+        ClinicaHeridasPrefillData principal,
+        ClinicaHeridasPrefillData? secundario)
+    {
+        if (secundario is null)
+        {
+            return principal;
+        }
+
+        static string Coalesce(string principalValue, string secundarioValue) =>
+            string.IsNullOrWhiteSpace(principalValue) ? secundarioValue : principalValue;
+
+        // La dirección y sus banderas de validación se toman como un bloque: mezclarlas dejaría una
+        // dirección marcada como validada con los datos de validación de la otra fuente.
+        var fuenteDireccion = string.IsNullOrWhiteSpace(principal.Direccion) ? secundario : principal;
+
+        return new ClinicaHeridasPrefillData
+        {
+            Asegurador = Coalesce(principal.Asegurador, secundario.Asegurador),
+            TipoIdentificacion = Coalesce(principal.TipoIdentificacion, secundario.TipoIdentificacion),
+            NombrePaciente = Coalesce(principal.NombrePaciente, secundario.NombrePaciente),
+            FechaNacimiento = Coalesce(principal.FechaNacimiento, secundario.FechaNacimiento),
+            Edad = principal.Edad > 0 ? principal.Edad : secundario.Edad,
+            Genero = Coalesce(principal.Genero, secundario.Genero),
+            Direccion = fuenteDireccion.Direccion,
+            DireccionValidada = fuenteDireccion.DireccionValidada,
+            AsumirDireccionErrada = fuenteDireccion.AsumirDireccionErrada,
+            DetalleDireccion = Coalesce(principal.DetalleDireccion, secundario.DetalleDireccion),
+            ClasificacionZonaSura = Coalesce(principal.ClasificacionZonaSura, secundario.ClasificacionZonaSura),
+            MunicipioResidencia = Coalesce(principal.MunicipioResidencia, secundario.MunicipioResidencia),
+            Barrio = Coalesce(principal.Barrio, secundario.Barrio),
+            ZonaDireccionSegunMunicipio = Coalesce(principal.ZonaDireccionSegunMunicipio, secundario.ZonaDireccionSegunMunicipio),
+            TelefonoPrincipal = Coalesce(principal.TelefonoPrincipal, secundario.TelefonoPrincipal),
+            TelefonoAdicional1 = Coalesce(principal.TelefonoAdicional1, secundario.TelefonoAdicional1),
+            TelefonoAdicional2 = Coalesce(principal.TelefonoAdicional2, secundario.TelefonoAdicional2),
+            LlamadaBienvenida = Coalesce(principal.LlamadaBienvenida, secundario.LlamadaBienvenida),
+            TelefonoContacto = Coalesce(principal.TelefonoContacto, secundario.TelefonoContacto)
+        };
+    }
+
+    private static string FormatClinicaHeridasPrefillDate(DateTime value)
+    {
+        if (value.Date <= DateTime.MinValue.Date || value.Date >= DateTime.Today)
+        {
+            return string.Empty;
+        }
+
+        return value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    // Los censos comparten la mayoría de catálogos, pero no todos usan la misma redacción
+    // ("PAN-AMERICAN LIFE DE COLOMBIA" vs "PANAMERICAN LIFE") ni las mismas opciones
+    // ("Indeterminado" solo existe en crónicos). Se devuelve el valor canónico de clínica de
+    // heridas o vacío cuando la opción no existe en este censo.
+    private static string MapToClinicaHeridasCatalogValue(string? value, IReadOnlyList<string> catalogo)
+    {
+        var trimmed = value?.Trim() ?? string.Empty;
+        if (trimmed.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var exacto = catalogo.FirstOrDefault(x => string.Equals(x, trimmed, StringComparison.OrdinalIgnoreCase));
+        if (exacto is not null)
+        {
+            return exacto;
+        }
+
+        var clave = NormalizeClinicaHeridasCatalogKey(trimmed);
+        if (clave.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        return catalogo.FirstOrDefault(x =>
+        {
+            var claveCatalogo = NormalizeClinicaHeridasCatalogKey(x);
+            return claveCatalogo.Length > 0
+                && (claveCatalogo.StartsWith(clave, StringComparison.Ordinal)
+                    || clave.StartsWith(claveCatalogo, StringComparison.Ordinal));
+        }) ?? string.Empty;
+    }
+
+    private static string NormalizeClinicaHeridasCatalogKey(string value) =>
+        new string(value.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+
     [HttpPost]
     public async Task<IActionResult> ClinicaHeridas(CensoClinicaHeridasViewModel model, CancellationToken cancellationToken)
     {

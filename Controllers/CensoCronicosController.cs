@@ -30,11 +30,12 @@ public partial class CensoController
         Enumerable.Range(0, 11).Select(i => $"{i * 10}").ToArray();
     private static readonly string[] CronicoFastValues = ["1", "2", "3", "4", "5", "6", "7"];
     private static readonly string[] CronicoRankinValues = ["1", "2", "3", "4", "5", "6"];
-    private static readonly string[] CronicoDisneaMmrcValues = ["1", "2", "3", "4"];
+    private static readonly string[] CronicoDisneaMmrcValues = ["0", "1", "2", "3", "4"];
     private static readonly string[] CronicoNyhaValues = ["I", "II", "III", "IV"];
     private static readonly string[] CronicoSiNoValues = ["Si", "No"];
     private static readonly string[] CronicoEstadoClinicaHeridasValues = ["Activo", "Inactivo"];
     private static readonly string[] CronicoCalibreSondaVesicalValues = ["12FR", "14FR", "16FR", "18FR", "20FR", "22FR"];
+    private static readonly string[] CronicoCalibreSondaNasogastricaValues = ["6FR", "8FR", "10FR", "12FR", "14FR", "16FR", "18FR"];
     private static readonly string[] CronicoTallaValues = ["S", "M", "L", "XL"];
     private static readonly string[] CronicoEstadoMipresValues = ["APROBADO", "NO APROBADO", "NO GESTIONADO", "NO APLICA"];
     private static readonly string[] CronicoMotivoEgresoValues =
@@ -637,16 +638,17 @@ public partial class CensoController
             ("Rankin", r => r.Rankin ?? string.Empty),
             ("Disnea Mmrc", r => r.DisneaMmrc ?? string.Empty),
             ("Nyha", r => r.Nyha ?? string.Empty),
-            ("Braden", r => r.Braden ?? string.Empty),
-            ("Riesgo de caída", r => r.RiesgoCaida ?? string.Empty),
+            ("Escala Braden", r => r.Braden.HasValue ? r.Braden.Value.ToString(CultureInfo.InvariantCulture) : string.Empty),
             ("Riesgo de lesión de piel", r => r.RiesgoLesionPiel ?? string.Empty),
+            ("Escala Morse", r => r.EscalaMorse.HasValue ? r.EscalaMorse.Value.ToString(CultureInfo.InvariantCulture) : string.Empty),
+            ("Riesgo de caída", r => r.RiesgoCaida ?? string.Empty),
             ("Clínica de heridas", r => r.ClinicaHeridas ?? string.Empty),
             ("Estado en clínica de heridas", r => r.EstadoClinicaHeridas ?? string.Empty),
             ("Programa de nutrición (NE/NPT)", r => r.ProgramaNutricion ?? string.Empty),
             ("Fecha de inicio nutrición", r => F(r.FechaInicioNutricion)),
             ("Auxiliar asignado nutrición", r => r.AuxiliarAsignadoNutricion ?? string.Empty),
             ("Fecha fin nutrición", r => F(r.FechaFinNutricion)),
-            ("Educación y plan de cuidados / enfermería", r => r.EducacionPlanCuidados ?? string.Empty),
+            ("Educación y plan de cuidados", r => r.EducacionPlanCuidados ?? string.Empty),
             ("Terapia física", r => r.TerapiaFisica ?? string.Empty),
             ("Terapia respiratoria", r => r.TerapiaRespiratoria ?? string.Empty),
             ("Terapia ocupacional", r => r.TerapiaOcupacional ?? string.Empty),
@@ -656,7 +658,7 @@ public partial class CensoController
             ("Traqueostomía", r => r.Traqueostomia ?? string.Empty),
             ("Sonda nasogástrica", r => r.SondaNasogastrica ?? string.Empty),
             ("Calibre de la sonda nasogástrica", r => r.CalibreSondaNasogastrica ?? string.Empty),
-            ("Frecuencia de cambio de sonda nasogástrica", r => r.FrecuenciaCambioSondaNasogastrica ?? string.Empty),
+            ("Frecuencia de cambio de SNG", r => r.FrecuenciaCambioSondaNasogastrica ?? string.Empty),
             ("Fecha de último cambio (sonda nasogástrica)", r => F(r.FechaUltimoCambioSondaNasogastrica)),
             ("Sonda gastrostomía", r => r.SondaGastrostomia ?? string.Empty),
             ("Colostomía", r => r.Colostomia ?? string.Empty),
@@ -760,6 +762,7 @@ public partial class CensoController
         model.SiNoOptions = BuildOptions(CronicoSiNoValues);
         model.EstadoClinicaHeridasOptions = BuildOptions(CronicoEstadoClinicaHeridasValues);
         model.CalibreSondaVesicalOptions = BuildOptions(CronicoCalibreSondaVesicalValues);
+        model.CalibreSondaNasogastricaOptions = BuildOptions(CronicoCalibreSondaNasogastricaValues);
 
         // El estado del paciente es derivado (no editable): se muestra según el egreso.
         model.EstadoPaciente = string.Equals(model.EgresaProgramaCronico, "Si", StringComparison.OrdinalIgnoreCase)
@@ -942,11 +945,34 @@ public partial class CensoController
         model.Rankin = NormalizeOptionalCronicoText(model.Rankin);
         model.DisneaMmrc = NormalizeOptionalCronicoText(model.DisneaMmrc);
         model.Nyha = NormalizeOptionalCronicoText(model.Nyha);
-        model.Braden = NormalizeOptionalCronicoText(model.Braden);
-        model.RiesgoCaida = NormalizeOptionalCronicoText(model.RiesgoCaida);
-        model.RiesgoLesionPiel = NormalizeOptionalCronicoText(model.RiesgoLesionPiel);
+        model.RiesgoLesionPiel = CalcularRiesgoLesionPiel(model.Braden);
+        model.RiesgoCaida = CalcularRiesgoCaida(model.EscalaMorse);
         model.BarthelAuditado = NormalizeOptionalSelect(model.BarthelAuditado);
         ResolveCronicoCatalogFields(model);
+    }
+
+    private static string? CalcularRiesgoLesionPiel(int? braden)
+    {
+        if (!braden.HasValue) return null;
+        return braden.Value switch
+        {
+            <= 9 => "Riesgo muy alto",
+            <= 12 => "Riesgo alto",
+            <= 14 => "Riesgo moderado",
+            <= 18 => "Riesgo leve",
+            _ => "Sin riesgo",
+        };
+    }
+
+    private static string? CalcularRiesgoCaida(int? morse)
+    {
+        if (!morse.HasValue) return null;
+        return morse.Value switch
+        {
+            <= 24 => "Riesgo bajo",
+            <= 50 => "Riesgo moderado",
+            _ => "Riesgo alto",
+        };
     }
 
     private void NormalizeCronicoHospitalizacionFields(CensoCronicoViewModel model)
@@ -1200,6 +1226,12 @@ public partial class CensoController
             ModelState.AddModelError(nameof(model.CalibreSondaVesical), "Selecciona un calibre de sonda válido.");
         }
 
+        if (!string.IsNullOrWhiteSpace(model.CalibreSondaNasogastrica)
+            && !CronicoCalibreSondaNasogastricaValues.Contains(model.CalibreSondaNasogastrica, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.CalibreSondaNasogastrica), "Selecciona un calibre de sonda nasogástrica válido.");
+        }
+
         if (!string.IsNullOrWhiteSpace(model.TallaPanales)
             && !CronicoTallaValues.Contains(model.TallaPanales, StringComparer.OrdinalIgnoreCase))
         {
@@ -1413,8 +1445,9 @@ public partial class CensoController
         record.DisneaMmrc = model.DisneaMmrc;
         record.Nyha = model.Nyha;
         record.Braden = model.Braden;
-        record.RiesgoCaida = model.RiesgoCaida;
         record.RiesgoLesionPiel = model.RiesgoLesionPiel;
+        record.EscalaMorse = model.EscalaMorse;
+        record.RiesgoCaida = model.RiesgoCaida;
     }
 
     private static void ApplyHospitalizacionToRecord(CensoCronicoRecord record, CensoCronicoViewModel model)
@@ -1512,8 +1545,9 @@ public partial class CensoController
         model.DisneaMmrc = record.DisneaMmrc;
         model.Nyha = record.Nyha;
         model.Braden = record.Braden;
-        model.RiesgoCaida = record.RiesgoCaida;
         model.RiesgoLesionPiel = record.RiesgoLesionPiel;
+        model.EscalaMorse = record.EscalaMorse;
+        model.RiesgoCaida = record.RiesgoCaida;
 
         model.ClinicaHeridas = SiNoOrNo(record.ClinicaHeridas);
         model.EstadoClinicaHeridas = record.EstadoClinicaHeridas;

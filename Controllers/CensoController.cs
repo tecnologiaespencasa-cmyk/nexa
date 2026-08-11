@@ -1127,7 +1127,7 @@ public partial class CensoController : Controller
 
         if (model.EditingRecordId is long editingRecordId)
         {
-            var existingRecord = await _context.Censos.FirstOrDefaultAsync(x => x.Id == editingRecordId, cancellationToken);
+            var existingRecord = await ResolveBaseCensoRecordAsync(editingRecordId, cancellationToken);
             if (existingRecord is null)
             {
                 ModelState.AddModelError(string.Empty, "No se encontró la última atención para actualizar. Vuelve a buscar por cédula.");
@@ -1161,7 +1161,7 @@ public partial class CensoController : Controller
                 await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: false);
                 return View("Index", model);
             }
-            savedRecordId = editingRecordId;
+            savedRecordId = existingRecord.Id;
             TempData["SuccessMessage"] = "Registro de censo actualizado correctamente.";
             await _auditService.LogAsync("CENSO_ACTUALIZADO", "Censo",
                 $"Paciente: {existingRecord.NombrePaciente}, Doc: {existingRecord.NumeroIdentificacion}",
@@ -1489,8 +1489,9 @@ public partial class CensoController : Controller
     public async Task<IActionResult> GuardarProrroga(long id, string? prorrogaJson, long? prorrogaVersionId, bool adicionalProrroga = false, CancellationToken cancellationToken = default)
     {
         if (id <= 0) return BadRequest(new { message = "ID de registro inválido." });
-        var record = await _context.Censos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var record = await ResolveBaseCensoRecordAsync(id, cancellationToken);
         if (record is null) return NotFound(new { message = "Registro no encontrado." });
+        id = record.Id;
         if (string.IsNullOrWhiteSpace(prorrogaJson)) return BadRequest(new { message = "Ingresa los datos de la prórroga." });
         var prorrogaMedicamentosError = await ValidateProrrogaMedicationCatalogAsync(prorrogaJson.Trim(), cancellationToken);
         if (!string.IsNullOrWhiteSpace(prorrogaMedicamentosError))
@@ -1592,11 +1593,13 @@ public partial class CensoController : Controller
             return BadRequest(new { message = "Guarda el censo antes de enviarlo a farmacia." });
         }
 
-        var record = await _context.Censos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var record = await ResolveBaseCensoRecordAsync(id, cancellationToken);
         if (record is null)
         {
             return NotFound(new { message = "No se encontro el registro de censo para enviar a farmacia." });
         }
+
+        id = record.Id;
 
         if (string.IsNullOrWhiteSpace(record.NombreRealizaKardex))
         {
@@ -2479,8 +2482,13 @@ public partial class CensoController : Controller
     public async Task<IActionResult> ExportarPacientesActivos(CancellationToken cancellationToken)
     {
         var currentDate = ColombiaTime.Convert(DateTime.UtcNow).Date;
+        // Mismo criterio de visibilidad que la tabla del censo en pantalla: si una fila no se puede ver ni
+        // abrir en el censo, tampoco puede reportarse aquí como paciente activo. Sin este filtro una copia
+        // interna de despacho a farmacia con Estado contaminado hace que el paciente salga en el exportable
+        // pero no aparezca al filtrar su cédula en el censo.
         var censoCandidates = await _context.Censos
             .AsNoTracking()
+            .Where(IsEditableCensoRecordExpression())
             .Where(x => x.Estado != null
                 && (EF.Functions.ILike(x.Estado, "Aceptado activo")
                     || EF.Functions.ILike(x.Estado, "Aceptado cronico")
@@ -2938,15 +2946,44 @@ public partial class CensoController : Controller
         return query;
     }
 
-    // Un registro con FarmaciaProrrogaDeId/FarmaciaProrrogaVersionId es normalmente una copia interna
-    // de despacho a farmacia y se oculta porque el registro base sigue visible en su lugar. Pero si ese
-    // registro base fue borrado (quedó huérfana la copia), ocultarla también dejaría al paciente sin
-    // ningún registro visible en el censo. Por eso solo se oculta cuando el padre referenciado todavía existe.
+    // Las copias internas de despacho a farmacia no deben recibir datos clínicos (Estado, prórrogas,
+    // kardex): el registro real del paciente es el registro base y es el único que la pantalla del censo
+    // muestra. Si por un enlace viejo o un formulario en caché llega el id de una copia, se sube hasta el
+    // registro base para que el dato no termine escrito en una fila invisible (que fue justo lo que dejó
+    // pacientes visibles en el exportable de activos pero no en el buscador del censo).
+    private async Task<CensoRecord?> ResolveBaseCensoRecordAsync(long id, CancellationToken cancellationToken)
+    {
+        var record = await _context.Censos.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+        // Tope de saltos por seguridad ante un encadenamiento corrupto de punteros.
+        for (var hops = 0; record is not null && hops < 10; hops++)
+        {
+            CensoRecord? parent = null;
+            if (record.FarmaciaProrrogaDeId is long parentId)
+            {
+                parent = await _context.Censos.FirstOrDefaultAsync(x => x.Id == parentId, cancellationToken);
+            }
+            else if (record.FarmaciaProrrogaVersionId is long versionId)
+            {
+                parent = await _context.Censos.FirstOrDefaultAsync(
+                    x => x.Prorrogas.Any(p => p.Id == versionId), cancellationToken);
+            }
+
+            // Sin padre (o con el padre borrado) la copia es el único registro que le queda al paciente.
+            if (parent is null)
+            {
+                return record;
+            }
+
+            record = parent;
+        }
+
+        return record;
+    }
+
     private System.Linq.Expressions.Expression<Func<CensoRecord, bool>> IsEditableCensoRecordExpression()
     {
-        return x =>
-            (x.FarmaciaProrrogaDeId == null || !_context.Censos.Any(p => p.Id == x.FarmaciaProrrogaDeId))
-            && (x.FarmaciaProrrogaVersionId == null || !_context.CensoProrrogas.Any(p => p.Id == x.FarmaciaProrrogaVersionId));
+        return CensoVisibility.EditableRecord(_context);
     }
 
     private static string BuildFilteredExcelFileName(DateTime? fechaIngresoDesde, DateTime? fechaIngresoHasta)

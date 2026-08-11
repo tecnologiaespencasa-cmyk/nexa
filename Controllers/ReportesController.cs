@@ -69,7 +69,7 @@ public class ReportesController : Controller
     {
         var normalizedFilters = NormalizeFilters(filters);
         var censoRows = ShouldIncludeAgudos(normalizedFilters.Programa)
-            ? await ApplyBaseFilters(_context.Censos.AsNoTracking(), normalizedFilters)
+            ? await ApplyBaseFilters(_context.Censos.AsNoTracking(), normalizedFilters, _context)
                 .Select(x => new ReportesCensoRow
                 {
                     Id = x.Id,
@@ -192,8 +192,13 @@ public class ReportesController : Controller
     public async Task<IActionResult> ExportarPacientesActivos(CancellationToken cancellationToken)
     {
         var currentDate = ColombiaTime.Convert(DateTime.UtcNow).Date;
+        // Mismo criterio de visibilidad que la tabla del censo en pantalla: si una fila no se puede ver ni
+        // abrir en el censo, tampoco puede reportarse aquí como paciente activo. Sin este filtro una copia
+        // interna de despacho a farmacia con Estado contaminado hace que el paciente salga en el exportable
+        // pero no aparezca al filtrar su cédula en el censo.
         var censoCandidates = await _context.Censos
             .AsNoTracking()
+            .Where(CensoVisibility.EditableRecord(_context))
             .Where(x => x.Estado != null
                 && (EF.Functions.ILike(x.Estado, "Aceptado activo")
                     || EF.Functions.ILike(x.Estado, "Aceptado cronico")
@@ -289,8 +294,12 @@ public class ReportesController : Controller
 
     private static IQueryable<Data.Entities.CensoRecord> ApplyBaseFilters(
         IQueryable<Data.Entities.CensoRecord> query,
-        ReportesFilterViewModel filters)
+        ReportesFilterViewModel filters,
+        ApplicationDbContext context)
     {
+        // Mismo criterio de visibilidad que la pantalla del censo y sus exportables: las copias internas de
+        // despacho a farmacia no son atenciones reales y contarlas infla todos los indicadores del tablero.
+        query = query.Where(CensoVisibility.EditableRecord(context));
         query = ExcludeCancelledAndRejected(query);
 
         if (filters.Desde.HasValue)
@@ -356,8 +365,11 @@ public class ReportesController : Controller
         ReportesFilterViewModel filters,
         CancellationToken cancellationToken)
     {
+        // Las opciones de filtro se calculan sobre el mismo universo que los indicadores para no ofrecer
+        // valores que solo existen en copias internas de despacho a farmacia (filtrarlos daría cero).
         var municipiosCenso = await _context.Censos
             .AsNoTracking()
+            .Where(CensoVisibility.EditableRecord(_context))
             .Where(x => x.MunicipioResidencia != string.Empty)
             .Select(x => x.MunicipioResidencia)
             .Distinct()
@@ -378,7 +390,8 @@ public class ReportesController : Controller
             .OrderBy(x => x)
             .ToList();
 
-        var estadosCenso = await ExcludeCancelledAndRejected(_context.Censos.AsNoTracking())
+        var estadosCenso = await ExcludeCancelledAndRejected(
+                _context.Censos.AsNoTracking().Where(CensoVisibility.EditableRecord(_context)))
             .Where(x => x.Estado != null && x.Estado != string.Empty)
             .Select(x => x.Estado!)
             .Distinct()
