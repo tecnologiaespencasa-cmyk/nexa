@@ -256,15 +256,14 @@
   --panel-icon-color: var(--ec-red-dark);
   --panel-icon-ring: var(--ec-red-line);
 
-  align-items: center;
   background: var(--panel-icon-tint);
   border: 1px solid var(--panel-icon-ring);
   border-radius: 13px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
-  display: flex;
+  display: grid;
   flex: none;
   height: 44px;
-  justify-content: center;
+  place-items: center;
   position: relative;
   width: 44px;
 }
@@ -358,11 +357,10 @@
   border: 1px solid var(--ec-red-line);
   border-radius: 14px;
   color: var(--ec-red);
-  display: flex;
+  display: grid;
   flex-shrink: 0;
   height: 48px;
-  align-items: center;
-  justify-content: center;
+  place-items: center;
   width: 48px;
 }
 
@@ -707,11 +705,10 @@
 
 .espacio-doc-card__icon {
   border-radius: 14px;
-  display: flex;
+  display: grid;
   flex-shrink: 0;
   height: 48px;
-  align-items: center;
-  justify-content: center;
+  place-items: center;
   position: relative;
   width: 48px;
 }
@@ -889,10 +886,9 @@
   border-radius: 10px;
   color: #55606f;
   cursor: pointer;
-  display: flex;
+  display: grid;
   height: 34px;
-  align-items: center;
-  justify-content: center;
+  place-items: center;
   transition: background 0.16s ease, color 0.16s ease;
   width: 34px;
 }
@@ -1447,14 +1443,13 @@
 }
 
 .espacio-plantilla-card__icon {
-  align-items: center;
   background: linear-gradient(135deg, var(--ec-red), var(--ec-red-dark));
   border-radius: 13px;
   color: #fff;
-  display: flex;
+  display: grid;
   flex: none;
   height: 44px;
-  justify-content: center;
+  place-items: center;
   width: 44px;
 }
 
@@ -1671,3 +1666,53 @@
   .espacio-modal { padding: 0.5rem; }
   .espacio-modal__card { max-height: 96vh; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Refinamiento — variante exclusiva de la pantalla principal
+   (Views/EspacioCorporativo/Index.cshtml, clase .espacio--pro).
+   No afecta Activos / Documentación / Actas: esas vistas siguen usando
+   .espacio a secas, sin el modificador. A propósito NO redefine
+   --ec-red/--ec-ink/--ec-surface ni ninguna otra variable base: el fondo
+   claro y el rojo institucional quedan exactamente como en el resto del
+   sitio, y la tipografía es la misma Nunito de site.css/censo.css — nada
+   de fuentes nuevas. Solo agrega detalle (acentos, numerales tabulares,
+   centrado de iconos), no reinventa la paleta.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.espacio.espacio--pro {
+  font-family: "Nunito", "Segoe UI", sans-serif;
+}
+
+/* ── Hero: misma tarjeta roja de siempre, con una retícula muy sutil ──── */
+
+.espacio--pro .espacio-hero { overflow: hidden; }
+
+.espacio--pro .espacio-hero::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 34px 34px;
+  content: "";
+  inset: -1px;
+  mask-image: radial-gradient(circle at 85% 0%, rgba(0, 0, 0, 0.5), transparent 70%);
+  pointer-events: none;
+  position: absolute;
+}
+
+.espacio--pro .espacio-hero__grid,
+.espacio--pro .espacio-hero__stats {
+  position: relative;
+  z-index: 1;
+}
+
+.espacio--pro .espacio-stat strong { font-variant-numeric: tabular-nums; }
+
+/* ── Mis activos: acento de color + numerales tabulares en los datos ──── */
+
+.espacio--pro .espacio-activo-card { border-left: 3px solid var(--ec-red); }
+
+.espacio--pro .espacio-field strong { font-variant-numeric: tabular-nums; }
+
+/* El centrado de iconos en placas (panel, activo, documento, plantilla,
+   icon-btn) ahora vive en las reglas base — aplica a todo el módulo, no
+   solo a esta pantalla. Ver más arriba en el archivo. */

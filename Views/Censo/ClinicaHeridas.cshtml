@@ -320,6 +320,13 @@
                                         <span asp-validation-for="Asegurador" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
+                                        <label asp-for="FuenteIngreso" class="form-label"></label>
+                                        <select asp-for="FuenteIngreso" asp-items="Model.FuenteIngresoOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="FuenteIngreso" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
                                         <label asp-for="FechaIngresoPrograma" class="form-label"></label>@RequiredMark()
                                         <input asp-for="FechaIngresoPrograma" type="date" class="form-control" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
                                         <span asp-validation-for="FechaIngresoPrograma" class="text-danger"></span>
@@ -851,7 +858,13 @@
                                         </div>
                                         <div class="col-lg-2">
                                             <label asp-for="IpsIntramural" class="form-label"></label>
-                                            <input asp-for="IpsIntramural" class="form-control" maxlength="200" autocomplete="off" />
+                                            <input asp-for="IpsIntramural" class="form-control" maxlength="200" id="ipsIntramuralInput" list="ipsIntramuralOptions" autocomplete="off" placeholder="Buscar IPS intramural" />
+                                            <datalist id="ipsIntramuralOptions">
+                                                @foreach (var ipsIntramuralOption in Model.IpsIntramuralOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                                {
+                                                    <option value="@ipsIntramuralOption.Value">@ipsIntramuralOption.Text</option>
+                                                }
+                                            </datalist>
                                             <span asp-validation-for="IpsIntramural" class="text-danger"></span>
                                         </div>
                                     </div>
@@ -1189,6 +1202,13 @@
             const auxiliarEnfermeriaOptions = Array.from(document.querySelectorAll("#auxiliarEnfermeriaOptions option"))
                 .map((option) => option.value || "")
                 .filter((value) => value.trim());
+            const ipsIntramuralInput = document.getElementById("ipsIntramuralInput");
+            const ipsIntramuralOptions = Array.from(document.querySelectorAll("#ipsIntramuralOptions option"))
+                .map((option) => ({
+                    value: String(option.value || "").trim(),
+                    text: String(option.textContent || "").trim()
+                }))
+                .filter((option) => option.value.length > 0);
             let direccionValidada = @Model.DireccionEsValida.ToString().ToLowerInvariant();
             let latestAddressCandidates = [];
             let barriosLoaded = barrioSelect
@@ -1314,6 +1334,43 @@
                     messageElement.textContent = auxiliarEnfermeriaOptions.length === 0
                         ? "No hay auxiliares OPS activos para asignar."
                         : "Selecciona un auxiliar OPS válido.";
+                }
+
+                return false;
+            };
+
+            const getIpsIntramuralValidationMessage = () =>
+                document.querySelector("[data-valmsg-for='IpsIntramural']");
+
+            const getCanonicalIpsIntramuralValue = (value) => {
+                const normalized = String(value || "").trim().toLocaleUpperCase("es-CO");
+                if (!normalized) return "";
+                const option = ipsIntramuralOptions.find((item) =>
+                    item.value.toLocaleUpperCase("es-CO") === normalized
+                    || item.text.toLocaleUpperCase("es-CO") === normalized);
+                return option ? option.value : "";
+            };
+
+            const syncIpsIntramuralValidation = (showInvalidMessage = false) => {
+                if (!ipsIntramuralInput) return true;
+
+                const value = String(ipsIntramuralInput.value || "").trim();
+                const canonicalValue = getCanonicalIpsIntramuralValue(value);
+                const messageElement = getIpsIntramuralValidationMessage();
+
+                if (canonicalValue) {
+                    ipsIntramuralInput.value = canonicalValue;
+                    if (messageElement) messageElement.textContent = "";
+                    return true;
+                }
+
+                if (!value) {
+                    if (messageElement) messageElement.textContent = "";
+                    return true;
+                }
+
+                if (showInvalidMessage && messageElement) {
+                    messageElement.textContent = "Selecciona una IPS intramural válida.";
                 }
 
                 return false;
@@ -1697,6 +1754,9 @@
             auxiliarEnfermeriaInput?.addEventListener("input", () => syncAuxiliarValidation(false));
             auxiliarEnfermeriaInput?.addEventListener("change", () => syncAuxiliarValidation(true));
             auxiliarEnfermeriaInput?.addEventListener("blur", () => syncAuxiliarValidation(true));
+            ipsIntramuralInput?.addEventListener("input", () => syncIpsIntramuralValidation(false));
+            ipsIntramuralInput?.addEventListener("change", () => syncIpsIntramuralValidation(true));
+            ipsIntramuralInput?.addEventListener("blur", () => syncIpsIntramuralValidation(true));
 
             numeroIdentificacionInput?.addEventListener("input", syncNumeroIdentificacionMode);
             tipoIdentificacionSelect?.addEventListener("change", syncNumeroIdentificacionMode);
@@ -1974,9 +2034,17 @@
 
             form?.addEventListener("submit", (event) => {
                 const submitAction = event.submitter?.getAttribute("formaction") || "";
+
+                if (submitAction.includes("GuardarClinicaHeridasSeguimientoHospitalizado")) {
+                    if (!syncIpsIntramuralValidation(true)) {
+                        event.preventDefault();
+                        ipsIntramuralInput?.focus();
+                    }
+                    return;
+                }
+
                 if (submitAction.includes("GuardarClinicaHeridasManejoHerida")
                     || submitAction.includes("GuardarClinicaHeridasActivoFijo")
-                    || submitAction.includes("GuardarClinicaHeridasSeguimientoHospitalizado")
                     || submitAction.includes("GuardarClinicaHeridasDevolucionProductos")
                     || submitAction.includes("GuardarClinicaHeridasAltaPrograma")
                     || submitAction.includes("SubirClinicaHeridasAdjuntos")) {

@@ -7,11 +7,13 @@ using Nexa.Models.Security;
 using Nexa.Security.Authorization;
 using Nexa.Services;
 using Nexa.Services.Interfaces;
+using Nexa.Services.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,6 +58,16 @@ builder.Services.AddHttpClient<IAddressValidationService, GoogleAddressValidatio
 builder.Services.AddHttpClient<IEmailService, GraphEmailService>();
 builder.Services.AddHttpClient<ISharePointDocumentService, SharePointDocumentService>();
 builder.Services.AddHttpClient<IRemisionExtractionService, RemisionExtractionService>();
+
+// Puente hacia Supabase: un unico HttpClient reutilizado para todos los lotes.
+builder.Services.Configure<SupabaseBridgeOptions>(
+    builder.Configuration.GetSection(SupabaseBridgeOptions.SectionName));
+builder.Services.AddHttpClient<IClinicaHeridasBridgeSyncService, ClinicaHeridasBridgeSyncService>((sp, client) =>
+{
+    var bridgeOptions = sp.GetRequiredService<IOptions<SupabaseBridgeOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(bridgeOptions.TimeoutSeconds, 5, 120));
+});
+
 builder.Services.AddSingleton<IPasswordService, PasswordService>();
 builder.Services.AddHttpContextAccessor();
 

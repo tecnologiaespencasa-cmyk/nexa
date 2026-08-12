@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "intranet-web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run"],
+      "port": 5086,
+      "url": "http://localhost:5086"
+    }
+  ]
+}

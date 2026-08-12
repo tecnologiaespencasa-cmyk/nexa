@@ -19,5 +19,8 @@ out/
 .env
 appsettings.Development.json
 
+# Config local de Claude Code (puede contener API keys)
+.claude/settings.local.json
+
 # Logs locales
 *.log

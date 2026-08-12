@@ -55,7 +55,14 @@ public partial class CensoController
     [
         "Dolor",
         "No mejoria clinica",
-        "Fallas en la atención domiciliaria"
+        "Fallas en la atención domiciliaria",
+        "Infección",
+        "Hospitalización programada"
+    ];
+    private static readonly string[] ClinicaHeridasFuenteIngresoValues =
+    [
+        "Asegurador",
+        "Ordenamiento interno"
     ];
     private static readonly string[] ClinicaHeridasRemitidoPorValues =
     [
@@ -593,6 +600,12 @@ public partial class CensoController
             ModelState.AddModelError(nameof(model.RemitidoPorHospitalizacion), "Selecciona un valor válido para remitido por.");
         }
 
+        if (!string.IsNullOrWhiteSpace(model.IpsIntramural)
+            && !IpsQueRemiteValues.Contains(model.IpsIntramural, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.IpsIntramural), "Selecciona una IPS intramural válida.");
+        }
+
         var posted = (model.FechaHospitalizacion, model.MotivoHospitalizacion, model.RemitidoPorHospitalizacion, model.IpsIntramural,
             model.FechaPrimerSeguimiento24Horas, model.FechaSegundoSeguimiento48Horas, model.FechaTercerSeguimiento72Horas,
             model.FechaCuartoSeguimientoSemana1, model.FechaQuintoSeguimientoSemana2, model.FechaSextoSeguimientoSemana3,
@@ -890,6 +903,7 @@ public partial class CensoController
     private async Task PopulateClinicaHeridasDropdownsAsync(CensoClinicaHeridasViewModel model, CancellationToken cancellationToken)
     {
         model.AseguradorOptions = BuildOptions(ClinicaHeridasAseguradorValues);
+        model.FuenteIngresoOptions = BuildOptions(ClinicaHeridasFuenteIngresoValues);
         model.TipoIdentificacionOptions = BuildOptions(TiposIdentificacion);
         model.GeneroOptions = BuildOptions(ClinicaHeridasGeneroValues);
         model.ClasificacionZonaSuraOptions = BuildOptions(ClasificacionZonaSuraValues);
@@ -903,6 +917,7 @@ public partial class CensoController
         model.FrecuenciaVisitasOptions = BuildOptions(ClinicaHeridasFrecuenciaVisitasValues);
         model.MotivoHospitalizacionOptions = BuildOptions(ClinicaHeridasMotivoHospitalizacionValues);
         model.RemitidoPorHospitalizacionOptions = BuildOptions(ClinicaHeridasRemitidoPorValues);
+        model.IpsIntramuralOptions = BuildOptions(IpsQueRemiteValues);
         model.MotivoNovedadDevolucionOptions = BuildOptions(MotivoNovedadDevolucionProductosValues);
         model.EstadoDevolucionOptions = BuildOptions(EstadoDevolucionServicioFarmaceuticoValues);
         model.MotivoEgresoOptions = BuildOptions(ClinicaHeridasMotivoEgresoValues);
@@ -980,6 +995,7 @@ public partial class CensoController
     {
         model.CedulaFiltro = NormalizeCedulaFilter(model.CedulaFiltro);
         model.Asegurador = model.Asegurador?.Trim() ?? string.Empty;
+        model.FuenteIngreso = string.IsNullOrWhiteSpace(model.FuenteIngreso) ? null : model.FuenteIngreso.Trim();
         model.TipoIdentificacion = NormalizeClinicaHeridasText(model.TipoIdentificacion);
         model.NumeroIdentificacion = NormalizeIdentificationNumber(model.TipoIdentificacion, model.NumeroIdentificacion);
         model.NombrePaciente = NormalizeClinicaHeridasText(model.NombrePaciente);
@@ -1046,6 +1062,12 @@ public partial class CensoController
         if (!ClinicaHeridasAseguradorValues.Contains(model.Asegurador, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.Asegurador), "Selecciona un asegurador válido.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(model.FuenteIngreso)
+            && !ClinicaHeridasFuenteIngresoValues.Contains(model.FuenteIngreso, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.FuenteIngreso), "Selecciona una fuente de ingreso válida.");
         }
 
         if (!TiposIdentificacion.Contains(model.TipoIdentificacion, StringComparer.OrdinalIgnoreCase))
@@ -1172,6 +1194,12 @@ public partial class CensoController
             && !ClinicaHeridasRemitidoPorValues.Contains(model.RemitidoPorHospitalizacion, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.RemitidoPorHospitalizacion), "Selecciona un valor válido para remitido por.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(model.IpsIntramural)
+            && !IpsQueRemiteValues.Contains(model.IpsIntramural, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.IpsIntramural), "Selecciona una IPS intramural válida.");
         }
 
         if (!string.IsNullOrWhiteSpace(model.MotivoNovedadDevolucionProductos)
@@ -1337,6 +1365,7 @@ public partial class CensoController
         bool preserveCreatedAt)
     {
         record.Asegurador = model.Asegurador;
+        record.FuenteIngreso = string.IsNullOrWhiteSpace(model.FuenteIngreso) ? null : model.FuenteIngreso;
         record.FechaIngresoPrograma = model.FechaIngresoPrograma.Date;
         record.TipoIdentificacion = model.TipoIdentificacion;
         record.NumeroIdentificacion = model.NumeroIdentificacion;
@@ -1410,6 +1439,7 @@ public partial class CensoController
     {
         model.EditingRecordId = record.Id;
         model.Asegurador = record.Asegurador;
+        model.FuenteIngreso = record.FuenteIngreso;
         model.FechaIngresoPrograma = record.FechaIngresoPrograma.Date;
         model.TipoIdentificacion = record.TipoIdentificacion;
         model.NumeroIdentificacion = record.NumeroIdentificacion;

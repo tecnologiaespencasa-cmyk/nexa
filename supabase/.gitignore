@@ -1,0 +1,5 @@
+# Artefactos locales del CLI de Supabase
+.branches/
+.temp/
+.env
+.env.*

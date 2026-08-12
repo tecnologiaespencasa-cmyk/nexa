@@ -20,6 +20,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Scripts sueltos (dotnet run tools\archivo.cs) y artefactos de Supabase:
+         no forman parte de la compilacion de la aplicacion web. -->
+    <Compile Remove="tools\**" />
+    <Content Remove="tools\**" />
+    <None Include="tools\**" />
+    <Compile Remove="supabase\**" />
+    <Content Remove="supabase\**" />
+    <None Include="supabase\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Update="Data\\Seed\\neighborhood_catalog.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

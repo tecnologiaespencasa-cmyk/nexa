@@ -11,6 +11,9 @@ public class CensoClinicaHeridasRecord
     [StringLength(120)]
     public string Asegurador { get; set; } = string.Empty;
 
+    [StringLength(60)]
+    public string? FuenteIngreso { get; set; }
+
     public DateTime FechaIngresoPrograma { get; set; }
 
     [Required]

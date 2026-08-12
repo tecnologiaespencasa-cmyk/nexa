@@ -15,6 +15,9 @@ public class CensoClinicaHeridasViewModel
     [Display(Name = "Asegurador")]
     public string Asegurador { get; set; } = string.Empty;
 
+    [Display(Name = "Fuente de ingreso")]
+    public string? FuenteIngreso { get; set; }
+
     [Required(ErrorMessage = "La fecha de ingreso al programa es obligatoria.")]
     [DataType(DataType.Date)]
     [Display(Name = "Fecha de ingreso al programa")]
@@ -165,6 +168,7 @@ public class CensoClinicaHeridasViewModel
     [StringLength(200, ErrorMessage = "La IPS intramural no puede superar 200 caracteres.")]
     [Display(Name = "IPS Intramural")]
     public string? IpsIntramural { get; set; }
+    public IReadOnlyList<SelectListItem> IpsIntramuralOptions { get; set; } = [];
 
     [DataType(DataType.Date)]
     [Display(Name = "Fecha de 1er seguimiento (24 horas)")]
@@ -230,6 +234,7 @@ public class CensoClinicaHeridasViewModel
     public bool DireccionEsValida { get; set; }
 
     public IReadOnlyList<SelectListItem> AseguradorOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> FuenteIngresoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> TipoIdentificacionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> GeneroOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> ClasificacionZonaSuraOptions { get; set; } = [];

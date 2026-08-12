@@ -1,0 +1,9 @@
+# Configuracion del proyecto Supabase que actua como base de datos puente.
+# El project-ref real se pasa en cada comando con --project-ref, no se versiona aqui.
+project_id = "nexa-bridge"
+
+[functions.sync-pacientes-heridas]
+# La intranet se autentica con BRIDGE_API_SECRET + firma HMAC propia, no con un
+# JWT de Supabase. Por eso se desactiva la verificacion de JWT de la plataforma.
+verify_jwt = false
+entrypoint = "./functions/sync-pacientes-heridas/index.ts"

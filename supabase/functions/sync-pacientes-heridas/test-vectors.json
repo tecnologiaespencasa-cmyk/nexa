@@ -1,0 +1,58 @@
+{
+  "_comentario": "Vectores canonicos del puente. Los verifican tanto la Edge Function (normalize.test.ts) como la intranet (tools/bridge-selftest.cs). Si ambos lados coinciden aqui, generan el mismo HMAC para el mismo paciente. El secreto es de PRUEBA, no es el BRIDGE_HMAC_SECRET real.",
+  "secret": "TEST_ONLY_bridge_hmac_secret",
+  "documents": [
+    {
+      "input": " 1.234.567-8 ",
+      "normalized": "12345678",
+      "hmac": "0ff4fb1f9739d5b47b411b8c63e8593287004e08357d258f7f2b1c748dfc0055"
+    },
+    {
+      "input": "cc 71-234.567",
+      "normalized": "CC71234567",
+      "hmac": "ced4628f44acd05b805ce92def9f3745bffca5ec3d6e2e984dce7e86b020692d"
+    },
+    {
+      "input": "1234 5678",
+      "normalized": "12345678",
+      "hmac": "0ff4fb1f9739d5b47b411b8c63e8593287004e08357d258f7f2b1c748dfc0055"
+    },
+    {
+      "input": "AB-123.456",
+      "normalized": "AB123456",
+      "hmac": "b7c3833e6e9b3c637d989900242438dbadcad80ea3645a1c5da5688cdf7244d9"
+    },
+    {
+      "input": "Ñ12345",
+      "normalized": "N12345",
+      "hmac": "74da7369b20f69087aa76801092654455903e2233bd94137916ea2885074d9e1"
+    }
+  ],
+  "names": [
+    {
+      "input": "  josé   pérez  ",
+      "normalized": "JOSE PEREZ",
+      "hmac": "157c20c9ee4dfcf4f69db693703d8e2bce627861fa8c9a662bd837dfeb58c49b"
+    },
+    {
+      "input": "MARIA-JOSE  NUÑEZ",
+      "normalized": "MARIA JOSE NUNEZ",
+      "hmac": "33073bf5d248f81ebb08ee5016c0a925da7c4cdf123fd7bd035cd54fbae9af2a"
+    },
+    {
+      "input": "juan perez",
+      "normalized": "JUAN PEREZ",
+      "hmac": "4a6c7f9c55447db780577b4abc4c88e94af943be58eb68d8fc65fd8e0215cee9"
+    },
+    {
+      "input": "JUAN  PEREZ",
+      "normalized": "JUAN PEREZ",
+      "hmac": "4a6c7f9c55447db780577b4abc4c88e94af943be58eb68d8fc65fd8e0215cee9"
+    },
+    {
+      "input": "Ángela María Gómez",
+      "normalized": "ANGELA MARIA GOMEZ",
+      "hmac": "c2157480c2bd6aa4ca4072da18281dcee5d9eb165221550aa5939a99e0532897"
+    }
+  ]
+}
