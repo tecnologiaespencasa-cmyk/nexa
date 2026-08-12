@@ -188,8 +188,10 @@ dotnet user-secrets set "SupabaseBridge:ApiSecret" "<BRIDGE_API_SECRET>"
 **Azure App Service** → Configuración → Variables de entorno (doble guion bajo):
 
 ```
-SupabaseBridge__ProjectUrl = https://<ref>.supabase.co
-SupabaseBridge__ApiSecret  = <BRIDGE_API_SECRET>
+SupabaseBridge__ProjectUrl        = https://qlmglhygiyykyhyzjczr.supabase.co
+SupabaseBridge__ApiSecret         = <BRIDGE_API_SECRET>
+SupabaseBridge__Enabled           = true
+SupabaseBridge__MaxPatientsPerRun = 0
 ```
 
 Si más adelante se adopta Azure Key Vault, basta con montar estas dos claves como
@@ -204,7 +206,7 @@ secretos del vault: la aplicación las lee por configuración, no por código.
 1. Genera el nuevo valor: `openssl rand -base64 48`.
 2. Actualízalo en Supabase: `npx supabase secrets set BRIDGE_API_SECRET=<nuevo> --project-ref <ref>`.
 3. Actualízalo en la intranet (User Secrets o variable de entorno) y reinicia la app.
-4. Verifica con el **Paso 1** de la pantalla *Puente*.
+4. Verifica: pon `SupabaseBridge__MaxPatientsPerRun = 1`, reinicia y revisa el log.
 
 Entre los pasos 2 y 3 la sincronización responde 401; como es idempotente, basta con
 volver a ejecutarla.
@@ -248,23 +250,39 @@ ficticio):
 BRIDGE_API_SECRET=... SUPABASE_PROJECT_URL=https://qlmglhygiyykyhyzjczr.supabase.co node supabase/functions/sync-pacientes-heridas/smoke-test.mjs
 ```
 
-Lo que se prueba desde la pantalla *Puente* (no automatizable sin iniciar sesión):
-Supabase no disponible, timeout y error 500 se reflejan como lote fallido con
-reintentos controlados; los pacientes de otros censos no aparecen porque la consulta
-solo lee `censo_clinica_heridas`.
+Escenarios que no se automatizan (Supabase no disponible, timeout, error 500): el
+servicio los trata como lote fallido con reintentos controlados (5xx, 408, 429 y fallos
+de red se reintentan con espera exponencial; 400/401/403 no se reintentan nunca) y los
+registra en el log y en la auditoría. Los pacientes de otros censos no pueden aparecer
+porque la consulta solo lee `censo_clinica_heridas`.
 
 ---
 
-## 8. Primera sincronización
+## 8. Ejecución: todo en backend
 
-Entra como administrador a **Puente** en el menú superior y sigue los tres pasos:
+No hay pantalla ni endpoint. `Services/BridgeSyncHostedService.cs` es un
+`BackgroundService` que sincroniza periódicamente, igual que los otros procesos en
+segundo plano del proyecto. Se gobierna solo por configuración:
 
-1. **Enviar 1 paciente** → comprueba en Supabase que la fila tiene solo dos valores hex.
-2. **Enviar 5 pacientes** → confirma que no se duplican.
-3. **Enviar todos** → sincroniza el censo completo en lotes de 100.
+| Clave | Por defecto | Para qué |
+|---|---|---|
+| `SupabaseBridge:Enabled` | `false` | Mientras siga en `false` no se envía nada |
+| `SupabaseBridge:MaxPatientsPerRun` | `0` | `0` = todos. Sirve para arrancar escalonado: 1, luego 5, luego 0 |
+| `SupabaseBridge:DryRun` | `false` | `true` cuenta y arma los lotes sin llamar a Supabase |
+| `SupabaseBridge:IntervalHours` | `24` | Horas entre sincronizaciones |
+| `SupabaseBridge:InitialDelaySeconds` | `60` | Espera tras arrancar la aplicación |
 
-Cada paso tiene además *Simular sin enviar*, que cuenta y arma los lotes sin llamar a
-Supabase.
+Puesta en marcha escalonada: se cambia `MaxPatientsPerRun` y se reinicia la aplicación
+(en Azure, guardar una variable de entorno ya reinicia el App Service).
+
+1. `DryRun=true`, `MaxPatientsPerRun=1` → confirma cuántos pacientes ve, sin enviar.
+2. `DryRun=false`, `MaxPatientsPerRun=1` → comprueba en Supabase que la fila tiene solo dos valores hex.
+3. `MaxPatientsPerRun=5` → confirma que no se duplican.
+4. `MaxPatientsPerRun=0` → censo completo, en lotes de 100.
+
+Cada ejecución deja un registro en la auditoría de la intranet
+(`BRIDGE_SUPABASE_SYNC_EJECUTADA` / `_SIMULADA` / `_FALLIDA`) y una línea técnica en el
+log de la aplicación.
 
 Verificación en el SQL Editor de Supabase:
 

@@ -67,6 +67,7 @@ builder.Services.AddHttpClient<IClinicaHeridasBridgeSyncService, ClinicaHeridasB
     var bridgeOptions = sp.GetRequiredService<IOptions<SupabaseBridgeOptions>>().Value;
     client.Timeout = TimeSpan.FromSeconds(Math.Clamp(bridgeOptions.TimeoutSeconds, 5, 120));
 });
+builder.Services.AddHostedService<BridgeSyncHostedService>();
 
 builder.Services.AddSingleton<IPasswordService, PasswordService>();
 builder.Services.AddHttpContextAccessor();

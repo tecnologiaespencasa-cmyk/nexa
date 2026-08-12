@@ -71,7 +71,6 @@
                                 var canInventario = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.InventarioBiomedico)).Succeeded;
                                 var canFarmacia = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Farmacia)).Succeeded;
                                 var canEspacioCorporativo = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.EspacioCorporativoAccess)).Succeeded;
-                                var canBridgeSync = (await AuthorizationService.AuthorizeAsync(User, "AdminOnly")).Succeeded;
                             }
 
                             <li class="nav-item">
@@ -109,20 +108,6 @@
                                             <i class="bi bi-shield-check" aria-hidden="true"></i>
                                         </span>
                                         <span>Auditor&iacute;a</span>
-                                    </a>
-                                </li>
-                            }
-
-                            @if (canBridgeSync)
-                            {
-                                <li class="nav-item">
-                                    <a class="nav-link intranet-nav-link @(string.Equals(controllerName, "BridgeSync", System.StringComparison.OrdinalIgnoreCase) ? "active" : null)"
-                                       asp-controller="BridgeSync"
-                                       asp-action="Index">
-                                        <span class="intranet-nav-link__icon" aria-hidden="true">
-                                            <i class="bi bi-hdd-network-fill" aria-hidden="true"></i>
-                                        </span>
-                                        <span>Puente</span>
                                     </a>
                                 </li>
                             }

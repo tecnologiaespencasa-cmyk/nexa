@@ -41,6 +41,32 @@ public sealed class SupabaseBridgeOptions
     /// <summary>Reintentos adicionales por lote ante fallos transitorios (5xx / red).</summary>
     public int MaxRetries { get; set; } = 3;
 
+    // --- Ejecucion automatica en segundo plano ------------------------------
+
+    /// <summary>
+    /// Habilita el proceso en segundo plano que sincroniza periodicamente.
+    /// Mientras sea false no se envia nada a Supabase.
+    /// </summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>
+    /// Maximo de pacientes por ejecucion; 0 o menos significa todos. Sirve para
+    /// la puesta en marcha escalonada: 1, luego 5, luego 0.
+    /// </summary>
+    public int MaxPatientsPerRun { get; set; }
+
+    /// <summary>Horas entre sincronizaciones automaticas.</summary>
+    public double IntervalHours { get; set; } = 24;
+
+    /// <summary>Espera antes de la primera sincronizacion tras arrancar la aplicacion.</summary>
+    public int InitialDelaySeconds { get; set; } = 60;
+
+    /// <summary>
+    /// true simula: cuenta los pacientes y arma los lotes, pero no llama a
+    /// Supabase. Util para validar la seleccion antes de enviar de verdad.
+    /// </summary>
+    public bool DryRun { get; set; }
+
     [JsonIgnore]
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(ProjectUrl)
