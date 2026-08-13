@@ -390,6 +390,14 @@
                             </article>
                         }
                     </div>
+                    @if (Model.PorDesempacar.TotalPages > 1)
+                    {
+                        <nav class="farmacia-pagination" aria-label="Paginacion Por desempacar">
+                            <a class="btn btn-outline-secondary @(Model.PorDesempacar.CurrentPage <= 1 ? "disabled" : null)" href="@BuildPageUrl("porDesempacar", Model.PorDesempacar.CurrentPage - 1)">Anterior</a>
+                            <span>Pagina @Model.PorDesempacar.CurrentPage de @Model.PorDesempacar.TotalPages</span>
+                            <a class="btn btn-outline-secondary @(Model.PorDesempacar.CurrentPage >= Model.PorDesempacar.TotalPages ? "disabled" : null)" href="@BuildPageUrl("porDesempacar", Model.PorDesempacar.CurrentPage + 1)">Siguiente</a>
+                        </nav>
+                    }
                 </section>
             }
 

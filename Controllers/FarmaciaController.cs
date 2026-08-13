@@ -21,6 +21,7 @@ public class FarmaciaController : Controller
     private const string DocumentoRequisicion = "requisicion";
     private const string ValorNoAplicaMedicamentoAdicional = "No";
     private const int PageSize = 25;
+    private const int PorDesempacarPageSize = 20;
     private static readonly TimeSpan TiempoLimiteEmpacado = TimeSpan.FromHours(72);
     private readonly ApplicationDbContext _context;
     private readonly IFarmaciaDispatchNotificationService _notificationService;
@@ -79,7 +80,7 @@ public class FarmaciaController : Controller
             Recepcionados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Recepcionado, recepcionadosPagina, cancellationToken),
             Facturados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Facturado, facturadosPagina, cancellationToken),
             Empacados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Empacado, empacadosPagina, cancellationToken),
-            PorDesempacar = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.PorDesempacar, porDesempacarPagina, cancellationToken),
+            PorDesempacar = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.PorDesempacar, porDesempacarPagina, cancellationToken, PorDesempacarPageSize),
             Despachados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Despachado, despachadosPagina, cancellationToken),
         };
 
@@ -941,16 +942,17 @@ public class FarmaciaController : Controller
         IQueryable<CensoCronicoAgudizacion> cronicosQuery,
         string estado,
         int requestedPage,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int pageSize = PageSize)
     {
         var censoEstado = censoQuery.Where(x => x.FarmaciaEstado == estado);
         var cronicosEstado = cronicosQuery.Where(x => x.FarmaciaEstado == estado);
 
         var totalItems = await censoEstado.CountAsync(cancellationToken)
             + await cronicosEstado.CountAsync(cancellationToken);
-        var totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)PageSize));
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)pageSize));
         var currentPage = Math.Clamp(requestedPage, 1, totalPages);
-        var take = currentPage * PageSize;
+        var take = currentPage * pageSize;
 
         var censoItems = await censoEstado
             .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
@@ -970,8 +972,8 @@ public class FarmaciaController : Controller
             .Concat(cronicoItems.Select(MapCronicoPedido))
             .OrderByDescending(x => x.FechaEnvioUtc)
             .ThenByDescending(x => x.Id)
-            .Skip((currentPage - 1) * PageSize)
-            .Take(PageSize)
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
             .ToList();
 
         return new FarmaciaSectionPageViewModel
