@@ -16,6 +16,7 @@ import {
   normalizeName,
   timingSafeEqual,
 } from "./normalize.ts";
+import { encryptName, importEncryptionKey } from "./crypto.ts";
 
 export interface UpsertResult {
   replay: boolean;
@@ -25,15 +26,24 @@ export interface UpsertResult {
   actualizados: number;
 }
 
+/** Fila que se persiste: HMAC del documento, HMAC del nombre y nombre cifrado. */
+export interface FilaPuente {
+  d: string;
+  n: string;
+  e: string;
+}
+
 export interface HandlerDependencies {
   /** Secreto compartido intranet <-> Edge Function (autenticacion y firma). */
   apiSecret: string;
   /** Secreto exclusivo para derivar los HMAC de documento y nombre. */
   hmacSecret: string;
+  /** Clave AES-256 para cifrar el nombre (BRIDGE_ENCRYPTION_KEY). */
+  encryptionKey: string;
   /** Ejecuta el upsert en PostgreSQL (RPC public.bridge_sync_pacientes_heridas). */
   upsert(
     requestId: string,
-    filas: Array<{ d: string; n: string }>,
+    filas: FilaPuente[],
   ): Promise<UpsertResult>;
   /** Escribe una linea de log tecnica (sin datos personales). */
   log?(entry: Record<string, unknown>): void;
@@ -48,7 +58,6 @@ const DEFAULT_MAX_RECORDS = 500;
 const DEFAULT_MAX_BODY_BYTES = 1_048_576; // 1 MiB
 const DEFAULT_TIMESTAMP_TOLERANCE_SECONDS = 300; // +/- 5 minutos
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9-]{8,64}$/;
-const HEX_64_PATTERN = /^[0-9a-f]{64}$/;
 
 function jsonResponse(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
@@ -67,8 +76,6 @@ function fail(status: number, error: string, message: string): Response {
 interface PayloadPaciente {
   document?: unknown;
   name?: unknown;
-  documentHmac?: unknown;
-  nameHmac?: unknown;
 }
 
 export async function handleRequest(
@@ -171,9 +178,15 @@ export async function handleRequest(
     return fail(413, "batch_too_large", `patients admite maximo ${maxRecords} registros por peticion.`);
   }
 
-  // 8. Normalizacion + HMAC ----------------------------------------------
+  // 8. Normalizacion + HMAC + cifrado del nombre --------------------------
+  //
+  // La intranet envia documento y nombre reales por HTTPS. Aqui, y solo en
+  // memoria durante esta peticion, se derivan los tres valores que si se
+  // persisten: los dos HMAC (no reversibles, sirven para buscar) y el nombre
+  // cifrado con AES-256-GCM (reversible solo con BRIDGE_ENCRYPTION_KEY).
   const hmacKey = await importHmacKey(deps.hmacSecret);
-  const filas: Array<{ d: string; n: string }> = [];
+  const encryptionKey = await importEncryptionKey(deps.encryptionKey);
+  const filas: FilaPuente[] = [];
 
   for (let i = 0; i < payload.patients.length; i++) {
     const item = payload.patients[i] as PayloadPaciente;
@@ -181,41 +194,25 @@ export async function handleRequest(
       return fail(422, "invalid_record", `El registro en la posicion ${i} no es un objeto.`);
     }
 
-    // Modalidad A (por defecto): la intranet envia documento y nombre reales
-    // por HTTPS y aqui se normalizan y se convierten en HMAC. Los valores en
-    // claro solo viven en memoria durante esta peticion.
-    // Modalidad B: la intranet ya envia los HMAC calculados; aqui solo se
-    // validan. Util si se prefiere que el dato real nunca salga de la intranet.
-    let documentoHmac: string;
-    let nombreHmac: string;
+    const nombreOriginal = typeof item.name === "string" ? item.name.trim() : "";
+    const documento = normalizeDocument(
+      typeof item.document === "string" ? item.document : "",
+    );
+    const nombre = normalizeName(nombreOriginal);
 
-    if (item.documentHmac !== undefined || item.nameHmac !== undefined) {
-      const d = typeof item.documentHmac === "string" ? item.documentHmac.toLowerCase() : "";
-      const n = typeof item.nameHmac === "string" ? item.nameHmac.toLowerCase() : "";
-      if (!HEX_64_PATTERN.test(d)) {
-        return fail(422, "invalid_document_hmac", `documentHmac invalido en la posicion ${i}.`);
-      }
-      if (!HEX_64_PATTERN.test(n)) {
-        return fail(422, "invalid_name_hmac", `nameHmac invalido en la posicion ${i}.`);
-      }
-      documentoHmac = d;
-      nombreHmac = n;
-    } else {
-      const documento = normalizeDocument(
-        typeof item.document === "string" ? item.document : "",
-      );
-      const nombre = normalizeName(typeof item.name === "string" ? item.name : "");
-      if (documento.length === 0) {
-        return fail(422, "empty_document", `El documento esta vacio en la posicion ${i}.`);
-      }
-      if (nombre.length === 0) {
-        return fail(422, "empty_name", `El nombre esta vacio en la posicion ${i}.`);
-      }
-      documentoHmac = await hmacHex(hmacKey, documento);
-      nombreHmac = await hmacHex(hmacKey, nombre);
+    if (documento.length === 0) {
+      return fail(422, "empty_document", `El documento esta vacio en la posicion ${i}.`);
+    }
+    if (nombre.length === 0) {
+      return fail(422, "empty_name", `El nombre esta vacio en la posicion ${i}.`);
     }
 
-    filas.push({ d: documentoHmac, n: nombreHmac });
+    const documentoHmac = await hmacHex(hmacKey, documento);
+    const nombreHmac = await hmacHex(hmacKey, nombre);
+    // El AAD ata el ciphertext a su fila: no se puede mover a otro paciente.
+    const nombreEncrypted = await encryptName(encryptionKey, nombreOriginal, documentoHmac);
+
+    filas.push({ d: documentoHmac, n: nombreHmac, e: nombreEncrypted });
   }
 
   // 9. Escritura ----------------------------------------------------------
@@ -248,3 +245,4 @@ export async function handleRequest(
 
 /** Reexportado para las pruebas y para index.ts. */
 export { hmacHex, importHmacKey, normalizeDocument, normalizeName };
+export { decryptName, encryptName, importEncryptionKey } from "./crypto.ts";

@@ -20,20 +20,6 @@ public sealed class SupabaseBridgeOptions
     /// <summary>Secreto de autenticacion y firma de la peticion (BRIDGE_API_SECRET).</summary>
     public string ApiSecret { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Secreto de derivacion de los HMAC (BRIDGE_HMAC_SECRET). Solo es
-    /// obligatorio cuando <see cref="HashInIntranet"/> es true.
-    /// </summary>
-    public string HmacSecret { get; set; } = string.Empty;
-
-    /// <summary>
-    /// false (por defecto): se envian documento y nombre reales por HTTPS y la
-    /// Edge Function los normaliza y convierte en HMAC.
-    /// true: la intranet calcula los HMAC y el dato real nunca sale de aqui.
-    /// En ambos casos Supabase solo almacena los HMAC.
-    /// </summary>
-    public bool HashInIntranet { get; set; }
-
     public int BatchSize { get; set; } = 100;
 
     public int TimeoutSeconds { get; set; } = 30;
@@ -78,8 +64,7 @@ public sealed class SupabaseBridgeOptions
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(ProjectUrl)
         && !string.IsNullOrWhiteSpace(FunctionName)
-        && !string.IsNullOrWhiteSpace(ApiSecret)
-        && (!HashInIntranet || !string.IsNullOrWhiteSpace(HmacSecret));
+        && !string.IsNullOrWhiteSpace(ApiSecret);
 }
 
 /// <summary>Un paciente listo para enviar. Solo se usa en memoria.</summary>
@@ -126,23 +111,18 @@ internal sealed class BridgeSyncRequestPayload
     public IReadOnlyList<BridgeSyncRequestPatient> Patients { get; init; } = [];
 }
 
+/// <summary>
+/// Documento y nombre reales. Viajan por HTTPS y solo existen en memoria: la
+/// Edge Function los convierte en documento_hmac, nombre_hmac y nombre_encrypted
+/// y nunca los persiste.
+/// </summary>
 internal sealed class BridgeSyncRequestPatient
 {
     [JsonPropertyName("document")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Document { get; init; }
+    public string Document { get; init; } = string.Empty;
 
     [JsonPropertyName("name")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Name { get; init; }
-
-    [JsonPropertyName("documentHmac")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? DocumentHmac { get; init; }
-
-    [JsonPropertyName("nameHmac")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? NameHmac { get; init; }
+    public string Name { get; init; } = string.Empty;
 }
 
 /// <summary>Respuesta tecnica de la Edge Function.</summary>

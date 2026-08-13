@@ -9,13 +9,18 @@ Estado: esquema aplicado, secretos cargados y Edge Function desplegada (v1, `ver
 ```
 INTRANET NEXA (Azure PostgreSQL)
         │  HTTPS + Bearer + firma HMAC + timestamp + requestId
+        │  payload: { document, name }   ← reales, solo en tránsito
         ▼
 SUPABASE EDGE FUNCTION  sync-pacientes-heridas   (única puerta de escritura)
+        ├── HMAC-SHA256(documento normalizado) → documento_hmac
+        ├── HMAC-SHA256(nombre normalizado)    → nombre_hmac
+        └── AES-256-GCM(nombre real)           → nombre_encrypted
         │  RPC public.bridge_sync_pacientes_heridas (SECURITY DEFINER, service_role)
         ▼
 SUPABASE POSTGRESQL  bridge.pacientes_heridas
-        documento_hmac TEXT PRIMARY KEY
-        nombre_hmac    TEXT NOT NULL
+        documento_hmac   TEXT PRIMARY KEY
+        nombre_hmac      TEXT NOT NULL
+        nombre_encrypted TEXT NOT NULL
 ```
 
 La intranet **nunca** se conecta al PostgreSQL de Supabase, no usa la `service_role`
@@ -83,6 +88,31 @@ nombre_hmac    = HMAC-SHA256(BRIDGE_HMAC_SECRET, nombre_normalizado)
 - Mismo secreto para ambos campos.
 - No es SHA-256 simple: sin la clave el digest no se puede reproducir.
 
+### Cifrado del nombre (`nombre_encrypted`)
+
+El HMAC no es reversible, así que no sirve para devolverle el nombre al portal
+administrativo. Por eso la Edge Function guarda además el nombre cifrado con
+**AES-256-GCM** (`supabase/functions/sync-pacientes-heridas/crypto.ts`).
+
+```
+nombre_encrypted = v1.<nonce>.<ciphertext+tag>
+```
+
+- `v1`: versión del sobre; permite rotar clave o algoritmo más adelante.
+- `nonce`: 12 bytes aleatorios **distintos en cada cifrado**, base64url sin relleno (16 caracteres).
+- `ciphertext+tag`: texto cifrado seguido del tag de 16 bytes, base64url sin relleno.
+- **AAD = `documento_hmac`**: el ciphertext solo descifra en su propia fila, así que
+  nadie con acceso de escritura puede intercambiar nombres entre pacientes.
+- Se cifra el nombre **tal como lo envía la intranet**, con sus tildes y mayúsculas; no
+  la versión normalizada (esa pierde tildes y solo sirve para el HMAC).
+- La clave es `BRIDGE_ENCRYPTION_KEY`, 32 bytes, y vive **solo** como secreto de la Edge
+  Function. La intranet no la conoce. El sobre lleva todo lo necesario para descifrar
+  excepto la clave.
+
+Para la fase 2, el portal no debe descifrar por su cuenta: la clave no sale de Supabase.
+Necesitará una Edge Function de consulta que reciba el documento, calcule
+`documento_hmac`, lea la fila y devuelva el nombre descifrado.
+
 Los vectores de referencia están en
 `supabase/functions/sync-pacientes-heridas/test-vectors.json` y los verifican las dos
 implementaciones. **El portal Next.js debe pasar esos mismos vectores** antes de
@@ -126,14 +156,16 @@ cuerpo (≤1 MiB) → firma → estructura del payload → coincidencia de `requ
 `timestamp` entre cuerpo y cabecera → máximo 500 registros → documento y nombre no
 vacíos. El `requestId` se guarda como nonce: repetirlo devuelve **409**.
 
-### Modalidad alternativa
+### Por qué el documento y el nombre viajan en claro (dentro de HTTPS)
 
-Por defecto la intranet envía documento y nombre reales por HTTPS y la Edge Function
-los normaliza y convierte en HMAC (los valores en claro solo viven en memoria durante
-la petición). Si prefieres que el dato real **nunca salga de la intranet**, activa
-`SupabaseBridge:HashInIntranet = true` y define `SupabaseBridge:HmacSecret`: entonces
-se envían `documentHmac`/`nameHmac` ya calculados y la función solo valida el formato.
-En ambos casos Supabase almacena exactamente lo mismo.
+La Edge Function necesita el nombre real para poder cifrarlo, y la clave de cifrado no
+sale de Supabase. Por eso la intranet envía `document` y `name` reales por HTTPS; ahí
+solo viven en memoria durante la petición y jamás se persisten ni se registran.
+
+Hubo una modalidad opcional en la que la intranet calculaba los HMAC y enviaba solo
+digest (`HashInIntranet`). Se retiró: con ella la función nunca vería el nombre y no
+podría producir `nombre_encrypted`, así que la columna quedaría vacía sin que nadie se
+diera cuenta. La intranet ya no conoce `BRIDGE_HMAC_SECRET`.
 
 ---
 
@@ -170,10 +202,12 @@ En ambos casos Supabase almacena exactamente lo mismo.
 | Secreto | Para qué | Dónde vive |
 |---|---|---|
 | `BRIDGE_API_SECRET` | Autenticar y firmar la petición | Intranet (`SupabaseBridge:ApiSecret`) **y** secreto de la Edge Function |
-| `BRIDGE_HMAC_SECRET` | Derivar `documento_hmac` y `nombre_hmac` | Secreto de la Edge Function (y en la intranet solo si `HashInIntranet = true`) |
+| `BRIDGE_HMAC_SECRET` | Derivar `documento_hmac` y `nombre_hmac` | Solo secreto de la Edge Function |
+| `BRIDGE_ENCRYPTION_KEY` | Cifrar `nombre_encrypted` (AES-256, 32 bytes) | Solo secreto de la Edge Function |
 
-Son secretos **distintos**. Ninguno se guarda en la tabla, en el repositorio ni en los
-logs, y `appsettings.json` los versiona vacíos.
+Son tres secretos **distintos**. Ninguno se guarda en la tabla, en el repositorio ni en
+los logs. La intranet solo conoce `BRIDGE_API_SECRET`: no puede derivar los HMAC ni
+descifrar nombres.
 
 **Local (User Secrets):**
 
@@ -223,20 +257,29 @@ truncate table bridge.pacientes_heridas;
 
 Hazlo solo en una ventana controlada y coordinado con la fase 2.
 
+`BRIDGE_ENCRYPTION_KEY`: **cambiarla deja ilegibles los nombres ya cifrados** (el
+descifrado falla por el tag de autenticación; no devuelve basura). El mismo remedio:
+vaciar y resincronizar, que vuelve a cifrar todo con la clave nueva. Si algún día hace
+falta rotarla sin downtime, para eso está el prefijo `v1` del sobre: se añade `v2` y se
+descifra con la clave que corresponda a cada versión.
+
 ---
 
 ## 7. Pruebas
 
-**Edge Function** (29 pruebas, sin Docker ni Deno):
+**Edge Function** (41 pruebas, sin Docker ni Deno):
 
 ```bash
-node --test supabase/functions/sync-pacientes-heridas/normalize.test.ts supabase/functions/sync-pacientes-heridas/handler.test.ts
+node --test supabase/functions/sync-pacientes-heridas/normalize.test.ts supabase/functions/sync-pacientes-heridas/crypto.test.ts supabase/functions/sync-pacientes-heridas/handler.test.ts
 ```
 
 Cubren: paciente nuevo, paciente existente, mismo paciente dos veces, nombre
 modificado, documento vacío, nombre vacío, payload inválido, firma inválida, secret
 incorrecto, timestamp expirado, requestId repetido, error de base de datos, ausencia de
-datos reales en la base y ausencia de datos reales en los logs.
+datos reales en la base y en los logs, y sobre el cifrado: nonce único por operación,
+descifrado correcto conservando tildes, fallo con otra clave, fallo al mover el
+ciphertext a otra fila, fallo al alterar el ciphertext y rechazo de claves que no midan
+32 bytes.
 
 **Intranet** — 35 comprobaciones que confirman que C# genera exactamente los mismos
 HMAC que la Edge Function (carga por reflexión el `Nexa.dll` ya compilado):
@@ -306,7 +349,9 @@ select * from bridge.pacientes_heridas limit 5;
 select count(*) from bridge.pacientes_heridas where documento_hmac = '1234567890';
 ```
 
-La última consulta siempre devuelve 0: el documento real no está almacenado.
+La última consulta siempre devuelve 0: el documento real no está almacenado. En la
+segunda, `nombre_encrypted` debe empezar por `v1.` y no contener ninguna letra del
+nombre: el `CHECK` de la columna rechaza cualquier cosa que no tenga forma de sobre.
 
 ---
 
@@ -323,10 +368,13 @@ intranet guarda el mismo resumen técnico bajo las acciones
 
 ## 10. Riesgos y decisiones pendientes
 
-- **PII en tránsito hacia Supabase.** En la modalidad por defecto, documento y nombre
-  reales viajan por HTTPS y se procesan en memoria en la Edge Function (nunca se
-  persisten ni se registran). Si el criterio de privacidad exige que el dato real no
-  salga de la intranet, activa `HashInIntranet = true`.
+- **PII en tránsito hacia Supabase.** Documento y nombre reales viajan por HTTPS y se
+  procesan en memoria en la Edge Function. Es inevitable ahora: el nombre tiene que
+  llegar allí para poder cifrarse, porque la clave no sale de Supabase.
+- **El nombre sí es recuperable, por diseño.** `nombre_encrypted` es reversible con
+  `BRIDGE_ENCRYPTION_KEY`. Quien tenga a la vez la fila y esa clave lee el nombre. La
+  protección real es que la clave solo existe como secreto de la Edge Function: no está
+  en la tabla, ni en la intranet, ni en el repositorio.
 - **Se sincronizan todos los pacientes del censo**, activos e inactivos, porque no se
   pidió ningún filtro de estado y añadirlo sería inventar reglas de negocio. Si el
   portal solo debe conocer a los activos, hay que definir ese criterio.

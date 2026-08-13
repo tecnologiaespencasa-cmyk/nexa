@@ -314,28 +314,16 @@ public class ClinicaHeridasBridgeSyncService : IClinicaHeridasBridgeSyncService
     /// </summary>
     private string BuildRawBody(string requestId, long timestamp, IReadOnlyList<BridgePatient> batch)
     {
-        var patients = new List<BridgeSyncRequestPatient>(batch.Count);
-        foreach (var patient in batch)
-        {
-            if (_options.HashInIntranet)
+        // Se envian documento y nombre reales por HTTPS: la Edge Function
+        // necesita el nombre en claro para poder cifrarlo (nombre_encrypted),
+        // ademas de derivar los dos HMAC. La clave de cifrado vive solo alli.
+        var patients = batch
+            .Select(patient => new BridgeSyncRequestPatient
             {
-                patients.Add(new BridgeSyncRequestPatient
-                {
-                    DocumentHmac = BridgeIdentityNormalizer.ComputeHmacHex(
-                        _options.HmacSecret, BridgeIdentityNormalizer.NormalizeDocument(patient.Document)),
-                    NameHmac = BridgeIdentityNormalizer.ComputeHmacHex(
-                        _options.HmacSecret, BridgeIdentityNormalizer.NormalizeName(patient.Name))
-                });
-            }
-            else
-            {
-                patients.Add(new BridgeSyncRequestPatient
-                {
-                    Document = patient.Document,
-                    Name = patient.Name
-                });
-            }
-        }
+                Document = patient.Document,
+                Name = patient.Name
+            })
+            .ToList();
 
         return JsonSerializer.Serialize(
             new BridgeSyncRequestPayload

@@ -8,20 +8,23 @@ está en [`docs/puente-supabase.md`](../docs/puente-supabase.md).
 supabase/
 ├── config.toml                                  verify_jwt = false para la función
 ├── migrations/
-│   └── 20260812180000_bridge_pacientes_heridas.sql
+│   ├── 20260812180000_bridge_pacientes_heridas.sql
+│   └── 20260812210000_bridge_nombre_encrypted.sql
 └── functions/sync-pacientes-heridas/
     ├── index.ts            arranque (Deno.serve, secretos, RPC a PostgREST)
-    ├── handler.ts          validaciones, normalización, HMAC  (lógica pura)
+    ├── handler.ts          validaciones, normalización, HMAC y cifrado (lógica pura)
     ├── normalize.ts        reglas canónicas de normalización y HMAC
+    ├── crypto.ts           cifrado autenticado AES-256-GCM del nombre
     ├── test-vectors.json   vectores compartidos con la intranet
     ├── handler.test.ts     pruebas del contrato HTTP
+    ├── crypto.test.ts      pruebas del cifrado
     └── normalize.test.ts   pruebas de normalización y HMAC
 ```
 
 ## Pruebas (no necesitan Docker ni Deno)
 
 ```bash
-node --test supabase/functions/sync-pacientes-heridas/normalize.test.ts supabase/functions/sync-pacientes-heridas/handler.test.ts
+node --test supabase/functions/sync-pacientes-heridas/normalize.test.ts supabase/functions/sync-pacientes-heridas/crypto.test.ts supabase/functions/sync-pacientes-heridas/handler.test.ts
 ```
 
 Contra la función ya desplegada (inserta un paciente ficticio que después borras):
@@ -46,8 +49,12 @@ ejecución y debe revocarse al terminar.
 2. Cargar los secretos de la función:
 
    ```bash
-   npx supabase secrets set BRIDGE_API_SECRET=<valor> BRIDGE_HMAC_SECRET=<valor> --project-ref <ref>
+   npx supabase secrets set BRIDGE_API_SECRET=<valor> BRIDGE_HMAC_SECRET=<valor> BRIDGE_ENCRYPTION_KEY=<valor> --project-ref <ref>
    ```
+
+   `BRIDGE_ENCRYPTION_KEY` deben ser 32 bytes (AES-256), en base64 o en 64 caracteres
+   hexadecimales. Se genera con `openssl rand -base64 32`. La función se niega a
+   arrancar si la clave no mide exactamente 32 bytes.
 
 3. Desplegar la función:
 

@@ -7,23 +7,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { handleRequest, type HandlerDependencies, type UpsertResult } from "./handler.ts";
+import { type FilaPuente, handleRequest, type HandlerDependencies, type UpsertResult } from "./handler.ts";
 import { computeRequestSignature, importHmacKey } from "./normalize.ts";
+import { decryptName, ENVELOPE_PATTERN, importEncryptionKey } from "./crypto.ts";
 
 const API_SECRET = "TEST_ONLY_api_secret_0123456789";
 const HMAC_SECRET = "TEST_ONLY_bridge_hmac_secret";
+// 32 bytes en hexadecimal: clave de PRUEBA, no es la BRIDGE_ENCRYPTION_KEY real.
+const ENCRYPTION_KEY = "0123456789abcdef".repeat(4);
 const AHORA = 1_760_000_000;
+
+/** Fila almacenada: nombre_hmac y nombre_encrypted. */
+interface FilaAlmacenada {
+  n: string;
+  e: string;
+}
 
 /** Reproduce en memoria la semantica de public.bridge_sync_pacientes_heridas. */
 function crearBaseFalsa() {
-  const tabla = new Map<string, string>();
+  const tabla = new Map<string, FilaAlmacenada>();
   const nonces = new Set<string>();
-  const recibidoEnCrudo: Array<Array<{ d: string; n: string }>> = [];
+  const recibidoEnCrudo: FilaPuente[][] = [];
   let fallarCon: Error | null = null;
 
   const upsert = async (
     requestId: string,
-    filas: Array<{ d: string; n: string }>,
+    filas: FilaPuente[],
   ): Promise<UpsertResult> => {
     if (fallarCon) throw fallarCon;
     recibidoEnCrudo.push(filas);
@@ -33,17 +42,20 @@ function crearBaseFalsa() {
     }
     nonces.add(requestId);
 
-    const deduplicado = new Map<string, string>();
-    for (const fila of filas) deduplicado.set(fila.d, fila.n); // gana el ultimo
+    const deduplicado = new Map<string, FilaAlmacenada>();
+    for (const fila of filas) deduplicado.set(fila.d, { n: fila.n, e: fila.e }); // gana el ultimo
 
     let insertados = 0;
     let actualizados = 0;
-    for (const [d, n] of deduplicado) {
-      if (!tabla.has(d)) {
-        tabla.set(d, n);
+    for (const [d, fila] of deduplicado) {
+      const actual = tabla.get(d);
+      if (!actual) {
+        tabla.set(d, fila);
         insertados++;
-      } else if (tabla.get(d) !== n) {
-        tabla.set(d, n);
+      } else if (actual.n !== fila.n) {
+        // Igual que en SQL: solo se reescribe cuando cambia nombre_hmac, que es
+        // determinista; el ciphertext cambia siempre por el nonce aleatorio.
+        tabla.set(d, fila);
         actualizados++;
       }
     }
@@ -71,6 +83,7 @@ function crearDeps(base: ReturnType<typeof crearBaseFalsa>, logs: Record<string,
   return {
     apiSecret: API_SECRET,
     hmacSecret: HMAC_SECRET,
+    encryptionKey: ENCRYPTION_KEY,
     upsert: base.upsert,
     log: (entry) => logs.push(entry),
     now: () => AHORA,
@@ -180,7 +193,8 @@ test("4. si cambia el nombre se actualiza nombre_hmac sin duplicar documento", a
   const logs: Record<string, unknown>[] = [];
 
   await ejecutar({ patients: [{ document: "999", name: "ANA GOMEZ" }] }, { base, logs });
-  const hmacInicial = base.tabla.get([...base.tabla.keys()][0]);
+  const clave = [...base.tabla.keys()][0];
+  const inicial = { ...base.tabla.get(clave)! };
 
   const segunda = await ejecutar(
     { patients: [{ document: "999", name: "ANA GOMEZ RUIZ" }] },
@@ -189,7 +203,12 @@ test("4. si cambia el nombre se actualiza nombre_hmac sin duplicar documento", a
 
   assert.equal(segunda.cuerpo.updated, 1);
   assert.equal(base.tabla.size, 1);
-  assert.notEqual(base.tabla.get([...base.tabla.keys()][0]), hmacInicial);
+  assert.notEqual(base.tabla.get(clave)!.n, inicial.n, "cambia nombre_hmac");
+  assert.notEqual(base.tabla.get(clave)!.e, inicial.e, "cambia nombre_encrypted");
+
+  // El nombre nuevo es el que queda cifrado.
+  const key = await importEncryptionKey(ENCRYPTION_KEY);
+  assert.equal(await decryptName(key, base.tabla.get(clave)!.e, clave), "ANA GOMEZ RUIZ");
 });
 
 test("4b. una variacion solo de espacios o tildes NO genera actualizacion", async () => {
@@ -411,10 +430,12 @@ test("16. a la base solo llegan digest hex de 64 caracteres, nunca el dato real"
   assert.ok(!enviado.includes("71234567"), "el documento real no debe viajar a la base");
   assert.ok(!enviado.includes("CARLOS"), "el nombre real no debe viajar a la base");
   assert.ok(!enviado.includes("52998111"));
+  assert.ok(!enviado.includes("Luz Marina"), "el nombre tampoco viaja dentro del ciphertext");
 
-  for (const [documentoHmac, nombreHmac] of base.tabla) {
+  for (const [documentoHmac, fila] of base.tabla) {
     assert.match(documentoHmac, /^[0-9a-f]{64}$/);
-    assert.match(nombreHmac, /^[0-9a-f]{64}$/);
+    assert.match(fila.n, /^[0-9a-f]{64}$/);
+    assert.match(fila.e, ENVELOPE_PATTERN);
   }
 });
 
@@ -432,30 +453,68 @@ test("17. los logs no contienen documento, nombre, HMAC, payload ni secretos", a
   assert.ok(!texto.includes("CARLOS"));
   assert.ok(!texto.includes(API_SECRET));
   assert.ok(!texto.includes(HMAC_SECRET));
+  assert.ok(!texto.includes(ENCRYPTION_KEY), "la clave de cifrado no se registra");
   assert.ok(!texto.includes("secreto-malo"));
-  for (const [, hmac] of base.tabla) {
-    assert.ok(!texto.includes(hmac), "los HMAC tampoco se registran");
+  for (const [, fila] of base.tabla) {
+    assert.ok(!texto.includes(fila.n), "los HMAC tampoco se registran");
+    assert.ok(!texto.includes(fila.e), "ni el nombre cifrado");
   }
 });
 
 // ---------------------------------------------------------------------------
-// Modalidad B: la intranet envia los HMAC ya calculados
+// nombre_encrypted (AES-256-GCM)
 // ---------------------------------------------------------------------------
-test("modalidad B: acepta documentHmac/nameHmac precalculados y valida su formato", async () => {
+test("nombre_encrypted se genera con el formato del sobre y descifra al nombre real", async () => {
+  const { base } = await ejecutar({
+    patients: [{ document: "71234567", name: "José Pérez Gómez" }],
+  });
+
+  const [documentoHmac, fila] = [...base.tabla.entries()][0];
+  assert.match(fila.e, ENVELOPE_PATTERN);
+
+  const key = await importEncryptionKey(ENCRYPTION_KEY);
+  assert.equal(
+    await decryptName(key, fila.e, documentoHmac),
+    "José Pérez Gómez",
+    "conserva tildes y mayusculas del nombre original",
+  );
+});
+
+test("sin la clave no se recupera el nombre desde nombre_encrypted", async () => {
+  const { base } = await ejecutar({
+    patients: [{ document: "71234567", name: "CARLOS ANDRES MEJIA" }],
+  });
+
+  const [documentoHmac, fila] = [...base.tabla.entries()][0];
+  const otraClave = await importEncryptionKey("f".repeat(64));
+  await assert.rejects(() => decryptName(otraClave, fila.e, documentoHmac));
+  assert.ok(!fila.e.includes("CARLOS"));
+});
+
+test("el mismo nombre en dos pacientes produce ciphertext distinto", async () => {
+  const { base } = await ejecutar({
+    patients: [
+      { document: "111", name: "JUAN PEREZ" },
+      { document: "222", name: "JUAN PEREZ" },
+    ],
+  });
+
+  const cifrados = [...base.tabla.values()].map((fila) => fila.e);
+  assert.equal(cifrados.length, 2);
+  assert.notEqual(cifrados[0], cifrados[1]);
+  // Y el nombre_hmac si coincide: sigue sirviendo para comparar.
+  const hmacs = [...base.tabla.values()].map((fila) => fila.n);
+  assert.equal(hmacs[0], hmacs[1]);
+});
+
+test("una clave de cifrado que no mide 32 bytes hace fallar la peticion", async () => {
   const base = crearBaseFalsa();
-  const logs: Record<string, unknown>[] = [];
-
-  const valido = await ejecutar({
-    patients: [{ documentHmac: "a".repeat(64), nameHmac: "b".repeat(64) }],
-  }, { base, logs });
-  assert.equal(valido.respuesta.status, 200);
-  assert.equal(valido.cuerpo.inserted, 1);
-
-  const invalido = await ejecutar({
-    patients: [{ documentHmac: "no-es-hex", nameHmac: "b".repeat(64) }],
-  }, { base, logs });
-  assert.equal(invalido.respuesta.status, 422);
-  assert.equal(invalido.cuerpo.error, "invalid_document_hmac");
+  const peticion = await construirPeticion({ patients: [{ document: "1", name: "A" }] });
+  await assert.rejects(
+    () => handleRequest(peticion, { ...crearDeps(base, []), encryptionKey: "clave-corta" }),
+    /encryption_key_invalid_length/,
+  );
+  assert.equal(base.tabla.size, 0);
 });
 
 // ---------------------------------------------------------------------------
