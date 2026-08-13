@@ -410,6 +410,10 @@ public partial class CensoController
 
         await _context.SaveChangesAsync(cancellationToken);
 
+        // Envio inmediato al puente de Supabase. Solo encola: el guardado no
+        // espera a Supabase ni falla si el puente no responde.
+        _bridgeSyncQueue.Enqueue(new BridgePatient(record.NumeroIdentificacion, record.NombrePaciente));
+
         var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
         var auditIp = HttpContext.Connection.RemoteIpAddress?.ToString();
         await _auditService.LogAsync(auditAction, "CensoClinicaHeridas",

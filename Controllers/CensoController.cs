@@ -623,6 +623,7 @@ public partial class CensoController : Controller
     private readonly IAuditService _auditService;
     private readonly ICurrentUserPermissionService _currentUserPermissionService;
     private readonly IRemisionExtractionService _remisionExtractionService;
+    private readonly IBridgeSyncQueue _bridgeSyncQueue;
     private readonly ILogger<CensoController> _logger;
     private readonly IReadOnlyList<string> _medicamentoFallbackValues;
     private readonly IReadOnlyDictionary<string, string> _cie10Catalog;
@@ -638,6 +639,7 @@ public partial class CensoController : Controller
         IAuditService auditService,
         ICurrentUserPermissionService currentUserPermissionService,
         IRemisionExtractionService remisionExtractionService,
+        IBridgeSyncQueue bridgeSyncQueue,
         ILogger<CensoController> logger,
         IWebHostEnvironment webHostEnvironment)
     {
@@ -650,6 +652,7 @@ public partial class CensoController : Controller
         _auditService = auditService;
         _currentUserPermissionService = currentUserPermissionService;
         _remisionExtractionService = remisionExtractionService;
+        _bridgeSyncQueue = bridgeSyncQueue;
         _logger = logger;
         _medicamentoFallbackValues = LoadMedicamentoPrincipalValues(webHostEnvironment.ContentRootPath);
         _cie10Catalog = LoadCie10Catalog(webHostEnvironment.ContentRootPath);

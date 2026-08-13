@@ -71,14 +71,39 @@ public class ClinicaHeridasBridgeSyncService : IClinicaHeridasBridgeSyncService
             return ServiceResult<BridgeSyncSummary>.Failure("El limite de pacientes debe ser mayor que cero.");
         }
 
-        var stopwatch = Stopwatch.StartNew();
-        var summary = new BridgeSyncSummary { DryRun = dryRun };
-
         var patients = await LoadPatientsAsync(cancellationToken);
-        summary.PatientsFound = patients.Count;
-
         var toSend = limit.HasValue ? patients.Take(limit.Value).ToList() : patients;
-        summary.PatientsSent = toSend.Count;
+
+        return await SendAsync(toSend, patients.Count, dryRun, cancellationToken);
+    }
+
+    public async Task<ServiceResult<BridgeSyncSummary>> PushPatientsAsync(
+        IReadOnlyList<BridgePatient> patients,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured)
+        {
+            return ServiceResult<BridgeSyncSummary>.Failure(
+                "El puente de Supabase no esta configurado. Define SupabaseBridge:ProjectUrl y SupabaseBridge:ApiSecret en User Secrets o variables de entorno.");
+        }
+
+        var validos = Deduplicate(patients);
+        return await SendAsync(validos, validos.Count, dryRun: false, cancellationToken);
+    }
+
+    private async Task<ServiceResult<BridgeSyncSummary>> SendAsync(
+        List<BridgePatient> toSend,
+        int patientsFound,
+        bool dryRun,
+        CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var summary = new BridgeSyncSummary
+        {
+            DryRun = dryRun,
+            PatientsFound = patientsFound,
+            PatientsSent = toSend.Count
+        };
 
         var batchSize = Math.Clamp(_options.BatchSize, 1, 500);
         var totalBatches = (int)Math.Ceiling(toSend.Count / (double)batchSize);
@@ -142,19 +167,28 @@ public class ClinicaHeridasBridgeSyncService : IClinicaHeridasBridgeSyncService
             .AsNoTracking()
             .OrderByDescending(x => x.CreatedAtUtc)
             .ThenByDescending(x => x.Id)
-            .Select(x => new { x.NumeroIdentificacion, x.NombrePaciente })
+            .Select(x => new BridgePatient(x.NumeroIdentificacion, x.NombrePaciente))
             .ToListAsync(cancellationToken);
 
-        var patients = new List<BridgePatient>(records.Count);
+        return Deduplicate(records);
+    }
+
+    /// <summary>
+    /// Deja un solo registro por documento normalizado (gana el primero de la
+    /// lista, que viene ordenada del mas reciente al mas antiguo) y descarta los
+    /// que no tienen documento o nombre utilizable: la Edge Function los
+    /// rechazaria y tumbaria el lote completo.
+    /// </summary>
+    private static List<BridgePatient> Deduplicate(IReadOnlyList<BridgePatient> patients)
+    {
+        var result = new List<BridgePatient>(patients.Count);
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var record in records)
+        foreach (var patient in patients)
         {
-            var normalizedDocument = BridgeIdentityNormalizer.NormalizeDocument(record.NumeroIdentificacion);
-            var normalizedName = BridgeIdentityNormalizer.NormalizeName(record.NombrePaciente);
+            var normalizedDocument = BridgeIdentityNormalizer.NormalizeDocument(patient.Document);
+            var normalizedName = BridgeIdentityNormalizer.NormalizeName(patient.Name);
 
-            // Registros sin documento o sin nombre utilizable no se envian:
-            // la Edge Function los rechazaria y romperia el lote completo.
             if (normalizedDocument.Length == 0 || normalizedName.Length == 0)
             {
                 continue;
@@ -162,11 +196,11 @@ public class ClinicaHeridasBridgeSyncService : IClinicaHeridasBridgeSyncService
 
             if (seen.Add(normalizedDocument))
             {
-                patients.Add(new BridgePatient(record.NumeroIdentificacion, record.NombrePaciente));
+                result.Add(patient);
             }
         }
 
-        return patients;
+        return result;
     }
 
     private async Task<ServiceResult<BridgeSyncResponsePayload>> SendBatchWithRetriesAsync(

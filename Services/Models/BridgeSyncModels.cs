@@ -44,8 +44,15 @@ public sealed class SupabaseBridgeOptions
     // --- Ejecucion automatica en segundo plano ------------------------------
 
     /// <summary>
-    /// Habilita el proceso en segundo plano que sincroniza periodicamente.
-    /// Mientras sea false no se envia nada a Supabase.
+    /// Envia el paciente al puente en cuanto se guarda su registro en el censo
+    /// de clinica de heridas. Es la via principal de sincronizacion.
+    /// </summary>
+    public bool PushOnSave { get; set; } = true;
+
+    /// <summary>
+    /// Habilita ademas una reconciliacion periodica del censo completo, util
+    /// para recuperar envios que fallaron con Supabase caido. Apagada por
+    /// defecto: con PushOnSave basta para el dia a dia.
     /// </summary>
     public bool Enabled { get; set; }
 

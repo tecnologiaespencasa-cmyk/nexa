@@ -23,4 +23,13 @@ public interface IClinicaHeridasBridgeSyncService
         int? limit,
         bool dryRun,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Envia unos pacientes concretos, sin leer el censo. Lo usa el envio
+    /// inmediato al guardar un registro. Es idempotente: reenviar al mismo
+    /// paciente no crea duplicados.
+    /// </summary>
+    Task<ServiceResult<BridgeSyncSummary>> PushPatientsAsync(
+        IReadOnlyList<BridgePatient> patients,
+        CancellationToken cancellationToken = default);
 }

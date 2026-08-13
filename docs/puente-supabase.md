@@ -188,11 +188,13 @@ dotnet user-secrets set "SupabaseBridge:ApiSecret" "<BRIDGE_API_SECRET>"
 **Azure App Service** → Configuración → Variables de entorno (doble guion bajo):
 
 ```
-SupabaseBridge__ProjectUrl        = https://qlmglhygiyykyhyzjczr.supabase.co
-SupabaseBridge__ApiSecret         = <BRIDGE_API_SECRET>
-SupabaseBridge__Enabled           = true
-SupabaseBridge__MaxPatientsPerRun = 0
+SupabaseBridge__ProjectUrl = https://qlmglhygiyykyhyzjczr.supabase.co
+SupabaseBridge__ApiSecret  = <BRIDGE_API_SECRET>
 ```
+
+Con eso basta: `PushOnSave` ya viene en `true`, así que cada paciente guardado viaja al
+puente enseguida. Añade `SupabaseBridge__Enabled = true` solo si además quieres la
+reconciliación periódica.
 
 Si más adelante se adopta Azure Key Vault, basta con montar estas dos claves como
 secretos del vault: la aplicación las lee por configuración, no por código.
@@ -260,29 +262,41 @@ porque la consulta solo lee `censo_clinica_heridas`.
 
 ## 8. Ejecución: todo en backend
 
-No hay pantalla ni endpoint. `Services/BridgeSyncHostedService.cs` es un
-`BackgroundService` que sincroniza periódicamente, igual que los otros procesos en
-segundo plano del proyecto. Se gobierna solo por configuración:
+No hay pantalla ni endpoint. Hay dos caminos, y el principal es el inmediato.
+
+### Vía principal: al guardar el registro
+
+Cuando se guardan los datos básicos de un paciente en el censo de clínica de heridas
+(`CensoController.ClinicaHeridas` POST), el registro se encola en `BridgeSyncQueue` y
+`BridgeSyncPushHostedService` lo empuja al puente en un par de segundos.
+
+El guardado **no espera a Supabase**: solo encola. Si Supabase no responde, el registro
+del censo se guarda igual y el error queda en el log y en la auditoría
+(`BRIDGE_SUPABASE_PUSH_FALLIDO`). Las demás secciones del formulario (manejo de la
+herida, activo fijo, seguimiento…) no encolan nada porque no cambian documento ni nombre.
+
+La cola es acotada (500) y descarta lo más antiguo si el consumidor se atasca. Perder un
+encolado no pierde al paciente: sigue en el censo y lo recuperan el próximo guardado o la
+reconciliación.
+
+### Vía secundaria: reconciliación periódica
+
+`BridgeSyncHostedService` recorre el censo completo cada `IntervalHours`. Está **apagada
+por defecto**; sirve para recuperar envíos que fallaron con Supabase caído y para la
+carga inicial de un censo que ya tenía pacientes.
 
 | Clave | Por defecto | Para qué |
 |---|---|---|
-| `SupabaseBridge:Enabled` | `false` | Mientras siga en `false` no se envía nada |
-| `SupabaseBridge:MaxPatientsPerRun` | `0` | `0` = todos. Sirve para arrancar escalonado: 1, luego 5, luego 0 |
+| `SupabaseBridge:PushOnSave` | `true` | Envío inmediato al guardar. Es la vía principal |
+| `SupabaseBridge:Enabled` | `false` | Reconciliación periódica del censo completo |
+| `SupabaseBridge:MaxPatientsPerRun` | `0` | `0` = todos. Permite una carga inicial escalonada: 1, luego 5, luego 0 |
 | `SupabaseBridge:DryRun` | `false` | `true` cuenta y arma los lotes sin llamar a Supabase |
-| `SupabaseBridge:IntervalHours` | `24` | Horas entre sincronizaciones |
+| `SupabaseBridge:IntervalHours` | `24` | Horas entre reconciliaciones |
 | `SupabaseBridge:InitialDelaySeconds` | `60` | Espera tras arrancar la aplicación |
 
-Puesta en marcha escalonada: se cambia `MaxPatientsPerRun` y se reinicia la aplicación
-(en Azure, guardar una variable de entorno ya reinicia el App Service).
-
-1. `DryRun=true`, `MaxPatientsPerRun=1` → confirma cuántos pacientes ve, sin enviar.
-2. `DryRun=false`, `MaxPatientsPerRun=1` → comprueba en Supabase que la fila tiene solo dos valores hex.
-3. `MaxPatientsPerRun=5` → confirma que no se duplican.
-4. `MaxPatientsPerRun=0` → censo completo, en lotes de 100.
-
-Cada ejecución deja un registro en la auditoría de la intranet
-(`BRIDGE_SUPABASE_SYNC_EJECUTADA` / `_SIMULADA` / `_FALLIDA`) y una línea técnica en el
-log de la aplicación.
+Ambas vías dejan traza en la auditoría de la intranet (`BRIDGE_SUPABASE_PUSH_EJECUTADO` /
+`_PUSH_FALLIDO` para el envío inmediato; `BRIDGE_SUPABASE_SYNC_EJECUTADA` / `_SIMULADA` /
+`_FALLIDA` para la reconciliación) y una línea técnica en el log.
 
 Verificación en el SQL Editor de Supabase:
 
@@ -319,6 +333,9 @@ intranet guarda el mismo resumen técnico bajo las acciones
 - **La tabla puente no tiene borrado.** Si un paciente sale del programa, su HMAC
   permanece. Definir si hace falta un mecanismo de baja.
 - **`BRIDGE_HMAC_SECRET` no se puede rotar sin resincronizar** (ver §6).
-- **La sincronización es manual.** No se programó ninguna tarea automática; si se
-  necesita, el servicio ya es idempotente y se puede invocar desde un
-  `IHostedService` como los que ya existen en el proyecto.
+- **Si Supabase está caído cuando se guarda un paciente, ese envío se pierde** hasta que
+  alguien vuelva a guardar ese registro. Queda registrado como
+  `BRIDGE_SUPABASE_PUSH_FALLIDO`. Para cubrirlo, activa la reconciliación periódica
+  (`SupabaseBridge__Enabled = true`).
+- **La cola vive en memoria del proceso.** Si la aplicación se reinicia con envíos
+  pendientes, esos envíos se pierden; aplica el mismo remedio.
