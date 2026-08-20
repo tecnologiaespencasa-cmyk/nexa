@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Nexa.Data;
 using Nexa.Data.Entities;
+using Nexa.Data.Repositories.Interfaces;
 using Nexa.Helpers;
 using Nexa.Models.Reports;
 using Nexa.Models.Security;
@@ -624,6 +625,7 @@ public partial class CensoController : Controller
     private readonly ICurrentUserPermissionService _currentUserPermissionService;
     private readonly IRemisionExtractionService _remisionExtractionService;
     private readonly IBridgeSyncQueue _bridgeSyncQueue;
+    private readonly INeonClinicaHeridasRepository _neonClinicaHeridasRepository;
     private readonly ILogger<CensoController> _logger;
     private readonly IReadOnlyList<string> _medicamentoFallbackValues;
     private readonly IReadOnlyDictionary<string, string> _cie10Catalog;
@@ -640,6 +642,7 @@ public partial class CensoController : Controller
         ICurrentUserPermissionService currentUserPermissionService,
         IRemisionExtractionService remisionExtractionService,
         IBridgeSyncQueue bridgeSyncQueue,
+        INeonClinicaHeridasRepository neonClinicaHeridasRepository,
         ILogger<CensoController> logger,
         IWebHostEnvironment webHostEnvironment)
     {
@@ -653,6 +656,7 @@ public partial class CensoController : Controller
         _currentUserPermissionService = currentUserPermissionService;
         _remisionExtractionService = remisionExtractionService;
         _bridgeSyncQueue = bridgeSyncQueue;
+        _neonClinicaHeridasRepository = neonClinicaHeridasRepository;
         _logger = logger;
         _medicamentoFallbackValues = LoadMedicamentoPrincipalValues(webHostEnvironment.ContentRootPath);
         _cie10Catalog = LoadCie10Catalog(webHostEnvironment.ContentRootPath);

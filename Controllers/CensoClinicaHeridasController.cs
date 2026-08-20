@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Nexa.Data.Entities;
+using Nexa.Data.Repositories.Models;
 using Nexa.Models.ViewModels;
 using Nexa.Services.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -35,22 +36,17 @@ public partial class CensoController
         "NPT"
     ];
     private static readonly string[] ClinicaHeridasSiNoValues = ["Si", "No"];
-    private static readonly string[] ClinicaHeridasUbicacionHeridaValues =
-    [
-        "CABEZA CUELLO",
-        "PECHO",
-        "TRONCO",
-        "ABDOMEN",
-        "MIEMBRO SUPERIOR",
-        "MIEMBRO INFERIOR",
-        "MANOS",
-        "PIES",
-        "GLUTEO",
-        "CADERA",
-        "SACRA"
-    ];
-    private static readonly string[] ClinicaHeridasFrecuenciaVisitasValues = ["1", "2", "3", "4", "5", "6", "7"];
     private static readonly Regex ClinicaHeridasNombrePattern = new(@"^[\p{L}\s]+$", RegexOptions.Compiled);
+
+    // Etiquetas de las cuatro fotos que la aplicación de clínica de heridas exige por seguimiento.
+    // Las claves son los valores del enum TipoFotoHerida en la base de datos del portal.
+    private static readonly IReadOnlyList<KeyValuePair<string, string>> ClinicaHeridasTiposFoto =
+    [
+        new("PLANO_GENERAL", "Plano general"),
+        new("MEDIDA_VERTICAL", "Medida vertical"),
+        new("MEDIDA_HORIZONTAL", "Medida horizontal"),
+        new("LATERAL", "Lateral")
+    ];
     private static readonly string[] ClinicaHeridasMotivoHospitalizacionValues =
     [
         "Dolor",
@@ -426,64 +422,51 @@ public partial class CensoController
         return RedirectToAction(nameof(ClinicaHeridas), new { cedulaPaciente = record.NumeroIdentificacion });
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> GuardarClinicaHeridasManejoHerida(CensoClinicaHeridasViewModel model, CancellationToken cancellationToken)
+    // Proxy de las fotos de la herida. El navegador del usuario no tiene acceso a SharePoint, así
+    // que la intranet descarga el archivo con sus credenciales de aplicación y lo reenvía. Solo
+    // sirve archivos registrados como foto de seguimiento en Neon: cualquier otro identificador
+    // devuelve 404 aunque exista en la biblioteca.
+    [HttpGet]
+    public async Task<IActionResult> FotoSeguimientoClinicaHeridas(
+        string? driveItemId,
+        bool miniatura,
+        CancellationToken cancellationToken)
     {
-        model.CedulaFiltro = NormalizeCedulaFilter(model.CedulaFiltro);
-        model.DescripcionHerida = NormalizeOptionalClinicaHeridasText(model.DescripcionHerida);
-        model.UbicacionHerida = model.UbicacionHerida?.Trim();
-        ValidateClinicaHeridasManejoHeridaModel(model);
-
-        var postedDescripcionHerida = model.DescripcionHerida;
-        var postedUbicacionHerida = model.UbicacionHerida;
-        var postedFrecuenciaVisitas = model.FrecuenciaVisitasSemana;
-
-        CensoClinicaHeridasRecord? record = null;
-        if (model.EditingRecordId.HasValue)
+        if (string.IsNullOrWhiteSpace(driveItemId))
         {
-            record = await _context.CensoClinicaHeridas
-                .FirstOrDefaultAsync(x => x.Id == model.EditingRecordId.Value, cancellationToken);
+            return NotFound();
         }
 
-        if (record is null)
+        ClinicaHeridasFotoRow? foto;
+        try
         {
-            ModelState.AddModelError(string.Empty, "Primero guarda los datos básicos del paciente para registrar el manejo de la herida.");
+            foto = await _neonClinicaHeridasRepository.GetFotoPorDriveItemIdAsync(driveItemId, cancellationToken);
         }
-        else
+        catch (Exception ex)
         {
-            ApplyClinicaHeridasRecordToModel(model, record);
-            model.CedulaFiltro = string.IsNullOrWhiteSpace(model.CedulaFiltro)
-                ? record.NumeroIdentificacion
-                : model.CedulaFiltro;
-        }
-
-        await PopulateClinicaHeridasDropdownsAsync(model, cancellationToken);
-        model.DescripcionHerida = postedDescripcionHerida;
-        model.UbicacionHerida = postedUbicacionHerida;
-        model.FrecuenciaVisitasSemana = postedFrecuenciaVisitas;
-
-        if (!ModelState.IsValid)
-        {
-            return View("ClinicaHeridas", model);
+            _logger.LogError(ex, "No fue posible validar la foto de clínica de heridas en Neon.");
+            return StatusCode(StatusCodes.Status502BadGateway);
         }
 
-        var heridasRecord = record!;
-        heridasRecord.DescripcionHerida = model.DescripcionHerida;
-        heridasRecord.UbicacionHerida = model.UbicacionHerida;
-        heridasRecord.FrecuenciaVisitasSemana = model.FrecuenciaVisitasSemana;
-        heridasRecord.UpdatedAtUtc = DateTime.UtcNow;
+        if (foto is null)
+        {
+            return NotFound();
+        }
 
-        await _context.SaveChangesAsync(cancellationToken);
+        var result = await _sharePointDocumentService.GetClinicaHeridasPhotoAsync(
+            driveItemId,
+            miniatura,
+            cancellationToken);
 
-        var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
-        var auditIp = HttpContext.Connection.RemoteIpAddress?.ToString();
-        await _auditService.LogAsync("CENSO_CLINICA_HERIDAS_MANEJO_HERIDA_ACTUALIZADO", "CensoClinicaHeridas",
-            $"Paciente: {heridasRecord.NombrePaciente}, Doc: {heridasRecord.NumeroIdentificacion}",
-            auditUserId, auditIp, cancellationToken);
+        if (!result.Succeeded || result.Value is null)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway);
+        }
 
-        TempData["SuccessMessage"] = "Manejo de la herida guardado correctamente.";
-        return RedirectToAction(nameof(ClinicaHeridas), new { recordId = heridasRecord.Id, cedulaPaciente = heridasRecord.NumeroIdentificacion });
+        // El contenido es inmutable: cada foto vive en su propio driveItemId y el portal nunca la
+        // reemplaza, así que se puede cachear en el navegador.
+        Response.Headers.CacheControl = "private, max-age=3600";
+        return File(result.Value.Content, result.Value.ContentType);
     }
 
     [HttpPost]
@@ -786,73 +769,21 @@ public partial class CensoController
         return RedirectToAction(nameof(ClinicaHeridas), new { recordId = heridasRecord.Id, cedulaPaciente = heridasRecord.NumeroIdentificacion });
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SubirClinicaHeridasAdjuntos(
+    // Sección 2 "Manejo de la herida": historial de solo lectura.
+    //
+    // El documento del paciente no existe en la base de datos del portal: allí cada paciente se
+    // identifica con un seudónimo aleatorio (pacienteRef) que la intranet no puede calcular. El
+    // enlace disponible es la carpeta de SharePoint que el portal crea por paciente y nombra
+    // "NOMBRE - DOCUMENTO": se busca por documento, y con su driveItemId se leen en Neon el
+    // paciente, sus seguimientos y las fotos de cada uno.
+    private async Task PopulateClinicaHeridasHistorialAsync(
         CensoClinicaHeridasViewModel model,
-        List<IFormFile> heridaAdjuntos,
         CancellationToken cancellationToken)
     {
-        CensoClinicaHeridasRecord? record = null;
-        if (model.EditingRecordId.HasValue)
-        {
-            record = await _context.CensoClinicaHeridas
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == model.EditingRecordId.Value, cancellationToken);
-        }
+        model.Historial = new CensoClinicaHeridasHistorialViewModel();
 
-        if (record is null)
-        {
-            ModelState.AddModelError(string.Empty, "Primero guarda los datos básicos del paciente para adjuntar fotos de la herida.");
-            await PopulateClinicaHeridasDropdownsAsync(model, cancellationToken);
-            return View("ClinicaHeridas", model);
-        }
-
-        var result = await _sharePointDocumentService.UploadClinicaHeridasDocumentsAsync(
-            record.NombrePaciente,
-            record.TipoIdentificacion,
-            record.NumeroIdentificacion,
-            heridaAdjuntos,
-            cancellationToken);
-
-        if (result.Succeeded)
-        {
-            TempData["SuccessMessage"] = "Fotos de la herida guardadas en SharePoint correctamente.";
-        }
-        else
-        {
-            TempData["ErrorMessage"] = result.ErrorMessage ?? "No fue posible guardar las fotos en SharePoint.";
-        }
-
-        return RedirectToAction(nameof(ClinicaHeridas), new { recordId = record.Id, cedulaPaciente = record.NumeroIdentificacion });
-    }
-
-    private void ValidateClinicaHeridasManejoHeridaModel(CensoClinicaHeridasViewModel model)
-    {
-        if (string.IsNullOrWhiteSpace(model.DescripcionHerida))
-        {
-            ModelState.AddModelError(nameof(model.DescripcionHerida), "Ingresa la descripción de la herida.");
-        }
-
-        if (!ClinicaHeridasUbicacionHeridaValues.Contains(model.UbicacionHerida ?? string.Empty, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.UbicacionHerida), "Selecciona una ubicación de la herida válida.");
-        }
-
-        if (!model.FrecuenciaVisitasSemana.HasValue
-            || model.FrecuenciaVisitasSemana.Value < 1
-            || model.FrecuenciaVisitasSemana.Value > 7)
-        {
-            ModelState.AddModelError(nameof(model.FrecuenciaVisitasSemana), "Selecciona la frecuencia de visitas a la semana (1 a 7).");
-        }
-    }
-
-    private async Task PopulateClinicaHeridasAdjuntosAsync(CensoClinicaHeridasViewModel model, CancellationToken cancellationToken)
-    {
         if (!model.EditingRecordId.HasValue)
         {
-            model.AdjuntosHerida = [];
-            model.AdjuntosHeridaError = null;
             return;
         }
 
@@ -860,36 +791,115 @@ public partial class CensoController
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == model.EditingRecordId.Value, cancellationToken);
 
-        if (record is null)
+        if (record is null || string.IsNullOrWhiteSpace(record.NumeroIdentificacion))
         {
-            model.AdjuntosHerida = [];
-            model.AdjuntosHeridaError = null;
             return;
         }
 
-        var result = await _sharePointDocumentService.ListClinicaHeridasDocumentsAsync(
-            record.NombrePaciente,
-            record.TipoIdentificacion,
+        var carpeta = await _sharePointDocumentService.FindClinicaHeridasPatientFolderAsync(
             record.NumeroIdentificacion,
             cancellationToken);
 
-        if (!result.Succeeded)
+        if (!carpeta.Succeeded)
         {
-            model.AdjuntosHerida = [];
-            model.AdjuntosHeridaError = result.ErrorMessage;
+            model.Historial.Error = carpeta.ErrorMessage;
             return;
         }
 
-        model.AdjuntosHerida = result.Value?
-            .Select(item => new CensoClinicaHeridasAdjuntoViewModel
+        if (carpeta.Value is null || string.IsNullOrWhiteSpace(carpeta.Value.Id))
+        {
+            return;
+        }
+
+        model.Historial.CarpetaWebUrl = carpeta.Value.WebUrl;
+        model.Historial.CarpetaNombre = carpeta.Value.Name;
+
+        IReadOnlyList<ClinicaHeridasSeguimientoRow> seguimientos;
+        try
+        {
+            seguimientos = await _neonClinicaHeridasRepository.GetSeguimientosPorCarpetaAsync(
+                carpeta.Value.Id,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No fue posible leer los seguimientos de clínica de heridas desde Neon.");
+            model.Historial.Error = "No fue posible consultar los seguimientos registrados en la aplicación de clínica de heridas.";
+            return;
+        }
+
+        model.Historial.Seguimientos = BuildClinicaHeridasSeguimientos(seguimientos);
+    }
+
+    private static IReadOnlyList<CensoClinicaHeridasSeguimientoViewModel> BuildClinicaHeridasSeguimientos(
+        IReadOnlyList<ClinicaHeridasSeguimientoRow> filas)
+    {
+        var seguimientos = filas
+            .Select(fila => new CensoClinicaHeridasSeguimientoViewModel
             {
-                Name = item.Name,
-                WebUrl = item.WebUrl,
-                Size = item.Size,
-                LastModifiedAt = item.LastModifiedAt
+                Id = fila.Id,
+                Numero = fila.Numero,
+                RegistradoEn = ToColombiaTime(fila.CreatedAtUtc),
+                Origen = fila.Origen,
+                Ubicacion = fila.Ubicacion,
+                DiametroVerticalCm = fila.DiametroVerticalCm,
+                DiametroHorizontalCm = fila.DiametroHorizontalCm,
+                ProfundidadCm = fila.ProfundidadCm,
+                Fondo = fila.Fondo,
+                Lecho = fila.Lecho,
+                Tejido = fila.Tejido,
+                ExudadoCantidad = fila.ExudadoCantidad,
+                ExudadoCaracteristicas = fila.ExudadoCaracteristicas,
+                AuxiliarNombre = fila.AuxiliarNombre,
+                AuxiliarProfesion = fila.AuxiliarProfesion,
+                AuxiliarCedula = fila.AuxiliarCedula,
+                AuxiliarEmail = fila.AuxiliarEmail,
+                Fotos = BuildClinicaHeridasFotos(fila.Fotos)
             })
-            .ToList() ?? [];
-        model.AdjuntosHeridaError = null;
+            .ToList();
+
+        // Las filas llegan del más reciente al más antiguo, así que el anterior de cada seguimiento
+        // es el siguiente de la lista.
+        for (var index = 0; index < seguimientos.Count - 1; index++)
+        {
+            var anterior = seguimientos[index + 1];
+            if (anterior.AreaCm2 > 0)
+            {
+                seguimientos[index].VariacionAreaPorcentaje =
+                    (seguimientos[index].AreaCm2 - anterior.AreaCm2) / anterior.AreaCm2 * 100d;
+            }
+        }
+
+        return seguimientos;
+    }
+
+    // Siempre se muestran las cuatro posiciones de foto, aunque alguna falte, para que se note
+    // cuando un seguimiento quedó incompleto.
+    private static IReadOnlyList<CensoClinicaHeridasFotoViewModel> BuildClinicaHeridasFotos(
+        IReadOnlyList<ClinicaHeridasFotoRow> fotos)
+    {
+        return ClinicaHeridasTiposFoto
+            .Select(tipo =>
+            {
+                var foto = fotos.FirstOrDefault(x =>
+                    string.Equals(x.Tipo, tipo.Key, StringComparison.OrdinalIgnoreCase));
+
+                return new CensoClinicaHeridasFotoViewModel
+                {
+                    Tipo = tipo.Key,
+                    TipoDescripcion = tipo.Value,
+                    DriveItemId = foto?.DriveItemId ?? string.Empty,
+                    Nombre = foto?.Nombre ?? string.Empty
+                };
+            })
+            .ToList();
+    }
+
+    private static DateTime ToColombiaTime(DateTime utcValue)
+    {
+        return TimeZoneInfo.ConvertTimeFromUtc(
+            DateTime.SpecifyKind(utcValue, DateTimeKind.Utc),
+            ColombiaTimeZone);
     }
 
     private CensoClinicaHeridasViewModel BuildDefaultClinicaHeridasModel()
@@ -917,8 +927,6 @@ public partial class CensoController
         model.ProgramaPerteneceOptions = BuildOptions(ClinicaHeridasProgramaValues);
         model.AuxiliarEnfermeriaOptions = await GetOpsAssistantOptionsAsync(cancellationToken);
         model.SiNoOptions = BuildOptions(ClinicaHeridasSiNoValues);
-        model.UbicacionHeridaOptions = BuildOptions(ClinicaHeridasUbicacionHeridaValues);
-        model.FrecuenciaVisitasOptions = BuildOptions(ClinicaHeridasFrecuenciaVisitasValues);
         model.MotivoHospitalizacionOptions = BuildOptions(ClinicaHeridasMotivoHospitalizacionValues);
         model.RemitidoPorHospitalizacionOptions = BuildOptions(ClinicaHeridasRemitidoPorValues);
         model.IpsIntramuralOptions = BuildOptions(IpsQueRemiteValues);
@@ -975,7 +983,7 @@ public partial class CensoController
 
         model.BarrioOptions = barrioOptions;
         await PopulateClinicaHeridasLatestRecordsAsync(model, cancellationToken);
-        await PopulateClinicaHeridasAdjuntosAsync(model, cancellationToken);
+        await PopulateClinicaHeridasHistorialAsync(model, cancellationToken);
     }
 
     private async Task PopulateClinicaHeridasLatestRecordsAsync(CensoClinicaHeridasViewModel model, CancellationToken cancellationToken)
@@ -1022,8 +1030,6 @@ public partial class CensoController
         model.AuxiliarEnfermeriaAsignado = NormalizeOptionalClinicaHeridasText(model.AuxiliarEnfermeriaAsignado);
         model.Picc = model.Picc?.Trim() ?? string.Empty;
         model.Vac = model.Vac?.Trim() ?? string.Empty;
-        model.DescripcionHerida = NormalizeOptionalClinicaHeridasText(model.DescripcionHerida);
-        model.UbicacionHerida = string.IsNullOrWhiteSpace(model.UbicacionHerida) ? null : model.UbicacionHerida.Trim();
         model.EquipoComodato = string.IsNullOrWhiteSpace(model.EquipoComodato) ? null : model.EquipoComodato.Trim();
         model.NumeroPlacaEquipos = NormalizeOptionalClinicaHeridasText(model.NumeroPlacaEquipos);
         model.MotivoHospitalizacion = string.IsNullOrWhiteSpace(model.MotivoHospitalizacion) ? null : model.MotivoHospitalizacion.Trim();
@@ -1167,12 +1173,6 @@ public partial class CensoController
                     model.AuxiliarEnfermeriaAsignado = canonicalAuxiliar;
                 }
             }
-        }
-
-        if (!string.IsNullOrWhiteSpace(model.UbicacionHerida)
-            && !ClinicaHeridasUbicacionHeridaValues.Contains(model.UbicacionHerida, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.UbicacionHerida), "Selecciona una ubicación de la herida válida.");
         }
 
         if (!string.IsNullOrWhiteSpace(model.EquipoComodato)
@@ -1398,9 +1398,6 @@ public partial class CensoController
         record.AuxiliarEnfermeriaAsignado = model.AuxiliarEnfermeriaAsignado;
         record.Picc = model.Picc;
         record.Vac = model.Vac;
-        record.DescripcionHerida = model.DescripcionHerida;
-        record.UbicacionHerida = model.UbicacionHerida;
-        record.FrecuenciaVisitasSemana = model.FrecuenciaVisitasSemana;
         record.EquipoComodato = model.EquipoComodato;
         record.NumeroPlacaEquipos = model.NumeroPlacaEquipos;
         record.FechaEntregaEquipo = model.FechaEntregaEquipo?.Date;
@@ -1472,9 +1469,6 @@ public partial class CensoController
         model.AuxiliarEnfermeriaAsignado = record.AuxiliarEnfermeriaAsignado;
         model.Picc = record.Picc;
         model.Vac = record.Vac;
-        model.DescripcionHerida = record.DescripcionHerida;
-        model.UbicacionHerida = record.UbicacionHerida;
-        model.FrecuenciaVisitasSemana = record.FrecuenciaVisitasSemana;
         model.EquipoComodato = record.EquipoComodato;
         model.NumeroPlacaEquipos = record.NumeroPlacaEquipos;
         model.FechaEntregaEquipo = record.FechaEntregaEquipo?.Date;

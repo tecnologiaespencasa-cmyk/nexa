@@ -1,4 +1,5 @@
 @model CensoClinicaHeridasViewModel
+@using System.Globalization
 @using Nexa.Data.Entities
 
 @section Styles
@@ -14,11 +15,19 @@
     var showCurrentPatientBar = Model.EditingRecordId.HasValue
         && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
     var vacActivo = string.Equals(Model.Vac, "Si", StringComparison.OrdinalIgnoreCase);
+    var historial = Model.Historial;
 }
 
 @functions {
     private static Microsoft.AspNetCore.Html.IHtmlContent RequiredMark() =>
         new Microsoft.AspNetCore.Html.HtmlString("<span class=\"text-danger ms-1\" aria-hidden=\"true\">*</span><span class=\"visually-hidden\">obligatorio</span>");
+
+    // Las medidas llegan como double: se muestran sin decimales cuando son enteras (2 cm, no 2,0 cm).
+    private static string FormatCm(double value) =>
+        value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string Valor(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value;
 }
 
 <div class="censo-page @(showCurrentPatientBar ? "censo-page--with-current-patient" : null)">
@@ -68,7 +77,7 @@
                         <span class="censo-nav__content">
                             <span class="censo-nav__eyebrow">Sección 2</span>
                             <span class="censo-nav__title">Manejo de la herida</span>
-                            <span class="censo-nav__description">Descripción, ubicación, fotos y frecuencia de visitas.</span>
+                            <span class="censo-nav__description">Seguimientos, medidas y fotos registrados en campo.</span>
                         </span>
                     </button>
 
@@ -604,134 +613,223 @@
                                 <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
                                 <h2 class="h5 mb-0">Manejo de la herida</h2>
                             </div>
+                            @if (historial.TotalSeguimientos > 0)
+                            {
+                                <span class="herida-header-count">
+                                    @historial.TotalSeguimientos @(historial.TotalSeguimientos == 1 ? "seguimiento" : "seguimientos")
+                                </span>
+                            }
                         </div>
                         <div class="card-body">
                             @if (!Model.EditingRecordId.HasValue)
                             {
                                 <div class="alert alert-warning mb-0">
-                                    Guarda primero los datos básicos del paciente para registrar el manejo de la herida y adjuntar fotos.
+                                    Guarda primero los datos básicos del paciente para consultar sus seguimientos de herida.
+                                </div>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(historial.Error))
+                            {
+                                <div class="alert alert-warning mb-0">@historial.Error</div>
+                            }
+                            else if (historial.TotalSeguimientos == 0)
+                            {
+                                <div class="herida-empty">
+                                    <span class="herida-empty__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                            <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            <path d="M9 13h6"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Sin seguimientos registrados</h3>
+                                    <p>
+                                        Este paciente todavía no tiene curaciones cargadas en la aplicación de clínica de heridas.
+                                        Aparecerán aquí en cuanto el auxiliar registre la primera, con sus medidas y sus cuatro fotos.
+                                    </p>
                                 </div>
                             }
                             else
                             {
-                                <section class="censo-field-section">
-                                    <div class="censo-field-section__header">
-                                        <span class="censo-field-section__icon" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" focusable="false">
-                                                <path d="M4 19V5"></path>
-                                                <path d="M4 19h16"></path>
-                                                <path d="M8 15l3-3 3 2 5-7"></path>
-                                            </svg>
-                                        </span>
-                                        <h3>Datos de la herida</h3>
+                                var ultimo = historial.Ultimo!;
+                                var escala = historial.MedidaMaximaCm > 0 ? historial.MedidaMaximaCm : 1d;
+
+                                <div class="herida-resumen">
+                                    <div class="herida-resumen__dato">
+                                        <span class="herida-resumen__etiqueta">Última curación</span>
+                                        <strong>@ultimo.RegistradoEn.ToString("dd/MM/yyyy")</strong>
+                                        <small>@ultimo.RegistradoEn.ToString("HH:mm") · Seguimiento @ultimo.Numero</small>
                                     </div>
-                                    <div class="row g-3 censo-field-section__grid">
-                                        <div class="col-12">
-                                            <label asp-for="DescripcionHerida" class="form-label"></label>@RequiredMark()
-                                            <textarea asp-for="DescripcionHerida" class="form-control" rows="4" maxlength="2000" placeholder="Describe la herida del paciente"></textarea>
-                                            <span asp-validation-for="DescripcionHerida" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-4">
-                                            <label asp-for="UbicacionHerida" class="form-label"></label>@RequiredMark()
-                                            <select asp-for="UbicacionHerida" asp-items="Model.UbicacionHeridaOptions" class="form-select">
-                                                <option value="" disabled hidden>Selecciona...</option>
-                                            </select>
-                                            <span asp-validation-for="UbicacionHerida" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-4">
-                                            <label asp-for="FrecuenciaVisitasSemana" class="form-label"></label>@RequiredMark()
-                                            <select asp-for="FrecuenciaVisitasSemana" asp-items="Model.FrecuenciaVisitasOptions" class="form-select">
-                                                <option value="" disabled hidden>Selecciona...</option>
-                                            </select>
-                                            <span asp-validation-for="FrecuenciaVisitasSemana" class="text-danger"></span>
-                                        </div>
+                                    <div class="herida-resumen__dato">
+                                        <span class="herida-resumen__etiqueta">Medida actual</span>
+                                        <strong>@FormatCm(ultimo.DiametroVerticalCm) × @FormatCm(ultimo.DiametroHorizontalCm) cm</strong>
+                                        <small>@FormatCm(ultimo.ProfundidadCm) cm de profundidad</small>
                                     </div>
-                                    <div class="censo-form-actions censo-form-actions--inline">
-                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasManejoHerida", "Censo")" formmethod="post" formnovalidate>
-                                            <span>Guardar manejo de la herida</span>
+                                    <div class="herida-resumen__dato">
+                                        <span class="herida-resumen__etiqueta">Registró</span>
+                                        <strong>@(string.IsNullOrWhiteSpace(ultimo.AuxiliarNombre) ? "Sin auxiliar asociado" : ultimo.AuxiliarNombre)</strong>
+                                        <small>@(string.IsNullOrWhiteSpace(ultimo.AuxiliarProfesion) ? "—" : ultimo.AuxiliarProfesion)</small>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(historial.CarpetaWebUrl))
+                                    {
+                                        <a class="herida-resumen__enlace" href="@historial.CarpetaWebUrl" target="_blank" rel="noopener">
+                                            <span>Abrir carpeta en SharePoint</span>
                                             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                                <path d="M5 12h14"></path>
-                                                <path d="m13 6 6 6-6 6"></path>
+                                                <path d="M14 4h6v6"></path>
+                                                <path d="M20 4 10 14"></path>
+                                                <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>
                                             </svg>
-                                        </button>
-                                    </div>
-                                </section>
-
-                                <section class="censo-field-section censo-sharepoint-documents">
-                                    <div class="censo-field-section__header">
-                                        <span class="censo-field-section__icon" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" focusable="false">
-                                                <rect x="3" y="6" width="18" height="14" rx="2"></rect>
-                                                <circle cx="12" cy="13" r="4"></circle>
-                                                <path d="M9 6l1.5-2h3L15 6"></path>
-                                            </svg>
-                                        </span>
-                                        <h3>Foto de la herida</h3>
-                                    </div>
-
-                                    <div class="censo-sharepoint-documents__upload">
-                                        <div>
-                                            <label for="heridaAdjuntosInput" class="form-label">Adjuntar fotos</label>
-                                            <input class="form-control"
-                                                   type="file"
-                                                   id="heridaAdjuntosInput"
-                                                   name="heridaAdjuntos"
-                                                   multiple
-                                                   accept=".jpg,.jpeg,.png,.heic,.webp,.pdf,image/*,application/pdf" />
-                                            <div class="form-text">Las fotos se guardarán en SharePoint, en la carpeta ClinicaDeHeridas dentro de la carpeta del paciente.</div>
-                                        </div>
-                                        <button type="submit"
-                                                class="btn btn-outline-primary censo-sharepoint-documents__button"
-                                                formaction="@Url.Action("SubirClinicaHeridasAdjuntos", "Censo")"
-                                                formmethod="post"
-                                                formenctype="multipart/form-data"
-                                                formnovalidate>
-                                            <span>Subir fotos</span>
-                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                                <path d="M12 3v12"></path>
-                                                <path d="m7 8 5-5 5 5"></path>
-                                                <path d="M5 21h14"></path>
-                                            </svg>
-                                        </button>
-                                    </div>
-
-                                    @if (!string.IsNullOrWhiteSpace(Model.AdjuntosHeridaError))
-                                    {
-                                        <div class="alert alert-warning mt-3 mb-0">@Model.AdjuntosHeridaError</div>
+                                        </a>
                                     }
-                                    else if (!Model.AdjuntosHerida.Any())
-                                    {
-                                        <div class="censo-sharepoint-documents__empty">
-                                            No hay fotos adjuntas para este paciente.
+                                </div>
+
+                                @if (historial.TotalSeguimientos > 1)
+                                {
+                                    <section class="herida-evolucion" aria-label="Evolución de la medida de la herida">
+                                        <div class="herida-evolucion__titulo">
+                                            <h3>Evolución de la medida</h3>
+                                            <p>Cada silueta es la herida a escala, del primer seguimiento al último.</p>
                                         </div>
-                                    }
-                                    else
-                                    {
-                                        <div class="censo-sharepoint-documents__list">
-                                            @foreach (var adjunto in Model.AdjuntosHerida)
+                                        <ol class="herida-evolucion__pista">
+                                            @foreach (var seguimiento in historial.Seguimientos.Reverse())
                                             {
-                                                <a class="censo-sharepoint-documents__item" href="@adjunto.WebUrl" target="_blank" rel="noopener">
-                                                    <span class="censo-sharepoint-documents__file-icon" aria-hidden="true">
-                                                        <svg viewBox="0 0 24 24" focusable="false">
-                                                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
-                                                            <path d="M14 3v5h5"></path>
-                                                        </svg>
+                                                var alto = Math.Max(6, Math.Round(seguimiento.DiametroVerticalCm / escala * 72, 1));
+                                                var ancho = Math.Max(6, Math.Round(seguimiento.DiametroHorizontalCm / escala * 72, 1));
+                                                <li class="herida-evolucion__paso">
+                                                    <span class="herida-evolucion__caja">
+                                                        <span class="herida-evolucion__silueta"
+                                                              style="height:@(alto.ToString(CultureInfo.InvariantCulture))px;width:@(ancho.ToString(CultureInfo.InvariantCulture))px"
+                                                              title="@FormatCm(seguimiento.DiametroVerticalCm) × @FormatCm(seguimiento.DiametroHorizontalCm) cm"></span>
                                                     </span>
-                                                    <span class="censo-sharepoint-documents__file-copy">
-                                                        <strong>@adjunto.Name</strong>
-                                                        <small>
-                                                            @($"{Math.Max(1, (int)Math.Ceiling(adjunto.Size / 1024d))} KB")
-                                                            @if (adjunto.LastModifiedAt.HasValue)
-                                                            {
-                                                                <span> · @adjunto.LastModifiedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
-                                                            }
-                                                        </small>
-                                                    </span>
-                                                </a>
+                                                    <span class="herida-evolucion__numero">@seguimiento.Numero</span>
+                                                    <span class="herida-evolucion__medida">@FormatCm(seguimiento.AreaCm2) cm²</span>
+                                                </li>
                                             }
-                                        </div>
+                                        </ol>
+                                    </section>
+                                }
+
+                                <ol class="herida-lista">
+                                    @foreach (var seguimiento in historial.Seguimientos)
+                                    {
+                                        <li class="herida-seguimiento">
+                                            <div class="herida-seguimiento__cabecera">
+                                                <span class="herida-seguimiento__numero">
+                                                    <small>Seguimiento</small>
+                                                    <strong>@seguimiento.Numero</strong>
+                                                </span>
+                                                <div class="herida-seguimiento__meta">
+                                                    <span class="herida-seguimiento__fecha">@seguimiento.RegistradoEn.ToString("dd/MM/yyyy · HH:mm")</span>
+                                                    <span class="herida-seguimiento__auxiliar">
+                                                        @(string.IsNullOrWhiteSpace(seguimiento.AuxiliarNombre) ? "Sin auxiliar asociado" : seguimiento.AuxiliarNombre)
+                                                        @if (!string.IsNullOrWhiteSpace(seguimiento.AuxiliarProfesion))
+                                                        {
+                                                            <em>@seguimiento.AuxiliarProfesion</em>
+                                                        }
+                                                    </span>
+                                                </div>
+                                                @if (seguimiento.VariacionAreaPorcentaje.HasValue)
+                                                {
+                                                    var variacion = seguimiento.VariacionAreaPorcentaje.Value;
+                                                    var tono = Math.Abs(variacion) < 0.5 ? "igual" : variacion < 0 ? "baja" : "sube";
+                                                    var textoVariacion = Math.Abs(variacion) < 0.5
+                                                        ? "Sin cambio de área"
+                                                        : $"{(variacion < 0 ? "−" : "+")}{Math.Abs(variacion).ToString("0.#", CultureInfo.InvariantCulture)}% de área";
+                                                    <span class="herida-delta herida-delta--@tono">@textoVariacion</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="herida-delta herida-delta--inicial">Medida inicial</span>
+                                                }
+                                            </div>
+
+                                            <div class="herida-seguimiento__cuerpo">
+                                                <div class="herida-medidas">
+                                                    <div class="herida-medidas__item">
+                                                        <span>Diámetro vertical</span>
+                                                        <strong>@FormatCm(seguimiento.DiametroVerticalCm)<em>cm</em></strong>
+                                                    </div>
+                                                    <div class="herida-medidas__item">
+                                                        <span>Diámetro horizontal</span>
+                                                        <strong>@FormatCm(seguimiento.DiametroHorizontalCm)<em>cm</em></strong>
+                                                    </div>
+                                                    <div class="herida-medidas__item">
+                                                        <span>Profundidad</span>
+                                                        <strong>@FormatCm(seguimiento.ProfundidadCm)<em>cm</em></strong>
+                                                    </div>
+                                                </div>
+
+                                                <dl class="herida-datos">
+                                                    <div>
+                                                        <dt>Origen</dt>
+                                                        <dd>@Valor(seguimiento.Origen)</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt>Ubicación</dt>
+                                                        <dd>@Valor(seguimiento.Ubicacion)</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt>Fondo</dt>
+                                                        <dd>@Valor(seguimiento.Fondo)</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt>Lecho</dt>
+                                                        <dd>@Valor(seguimiento.Lecho)</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt>Tejido</dt>
+                                                        <dd>@Valor(seguimiento.Tejido)</dd>
+                                                    </div>
+                                                </dl>
+
+                                                <div class="herida-exudado">
+                                                    <h4>Exudado</h4>
+                                                    <dl class="herida-datos herida-datos--exudado">
+                                                        <div>
+                                                            <dt>Cantidad</dt>
+                                                            <dd>@Valor(seguimiento.ExudadoCantidad)</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt>Características</dt>
+                                                            <dd>@Valor(seguimiento.ExudadoCaracteristicas)</dd>
+                                                        </div>
+                                                    </dl>
+                                                </div>
+
+                                                <div class="herida-fotos">
+                                                    @foreach (var foto in seguimiento.Fotos)
+                                                    {
+                                                        <figure class="herida-fotos__item">
+                                                            @if (foto.Disponible)
+                                                            {
+                                                                <button type="button"
+                                                                        class="herida-fotos__marco"
+                                                                        data-herida-foto="@Url.Action("FotoSeguimientoClinicaHeridas", "Censo", new { driveItemId = foto.DriveItemId })"
+                                                                        data-herida-foto-titulo="@foto.TipoDescripcion — Seguimiento @seguimiento.Numero">
+                                                                    <img src="@Url.Action("FotoSeguimientoClinicaHeridas", "Censo", new { driveItemId = foto.DriveItemId, miniatura = true })"
+                                                                         alt="@foto.TipoDescripcion del seguimiento @seguimiento.Numero"
+                                                                         loading="lazy" />
+                                                                </button>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="herida-fotos__marco herida-fotos__marco--vacio">
+                                                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                                        <rect x="3" y="6" width="18" height="14" rx="2"></rect>
+                                                                        <circle cx="12" cy="13" r="3.2"></circle>
+                                                                        <path d="M9 6l1.5-2h3L15 6"></path>
+                                                                        <path d="m4 20 16-14"></path>
+                                                                    </svg>
+                                                                    <span>Sin foto</span>
+                                                                </span>
+                                                            }
+                                                            <figcaption>@foto.TipoDescripcion</figcaption>
+                                                        </figure>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </li>
                                     }
-                                </section>
+                                </ol>
                             }
                         </div>
                     </div>
@@ -1161,6 +1259,20 @@
         </div>
     }
 </section>
+
+<div class="modal fade herida-visor" id="heridaFotoVisor" tabindex="-1" aria-hidden="true" aria-labelledby="heridaFotoVisorTitulo">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title h6 mb-0" id="heridaFotoVisorTitulo" data-herida-visor-titulo>Foto de la herida</h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <img data-herida-visor-imagen alt="Foto de la herida" />
+            </div>
+        </div>
+    </div>
+</div>
 
 @section Scripts
 {
@@ -2032,6 +2144,27 @@
             numeroIdentificacionInput?.addEventListener("change", buscarPacienteEnOtrosCensos);
             numeroIdentificacionInput?.addEventListener("blur", buscarPacienteEnOtrosCensos);
 
+            // Visor de fotos de los seguimientos: la miniatura de la tarjeta abre el original.
+            const visor = document.getElementById("heridaFotoVisor");
+            if (visor) {
+                const visorImagen = visor.querySelector("[data-herida-visor-imagen]");
+                const visorTitulo = visor.querySelector("[data-herida-visor-titulo]");
+                const modalVisor = new bootstrap.Modal(visor);
+
+                document.querySelectorAll("[data-herida-foto]").forEach((boton) => {
+                    boton.addEventListener("click", () => {
+                        visorImagen.src = boton.dataset.heridaFoto;
+                        visorImagen.alt = boton.dataset.heridaFotoTitulo || "Foto de la herida";
+                        visorTitulo.textContent = boton.dataset.heridaFotoTitulo || "Foto de la herida";
+                        modalVisor.show();
+                    });
+                });
+
+                visor.addEventListener("hidden.bs.modal", () => {
+                    visorImagen.removeAttribute("src");
+                });
+            }
+
             form?.addEventListener("submit", (event) => {
                 const submitAction = event.submitter?.getAttribute("formaction") || "";
 
@@ -2043,11 +2176,9 @@
                     return;
                 }
 
-                if (submitAction.includes("GuardarClinicaHeridasManejoHerida")
-                    || submitAction.includes("GuardarClinicaHeridasActivoFijo")
+                if (submitAction.includes("GuardarClinicaHeridasActivoFijo")
                     || submitAction.includes("GuardarClinicaHeridasDevolucionProductos")
-                    || submitAction.includes("GuardarClinicaHeridasAltaPrograma")
-                    || submitAction.includes("SubirClinicaHeridasAdjuntos")) {
+                    || submitAction.includes("GuardarClinicaHeridasAltaPrograma")) {
                     return;
                 }
 

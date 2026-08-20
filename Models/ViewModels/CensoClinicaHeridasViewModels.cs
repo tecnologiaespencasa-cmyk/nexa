@@ -129,17 +129,6 @@ public class CensoClinicaHeridasViewModel
     [Display(Name = "VAC")]
     public string Vac { get; set; } = string.Empty;
 
-    [StringLength(2000, ErrorMessage = "La descripción de la herida no puede superar 2000 caracteres.")]
-    [Display(Name = "Descripción de la herida")]
-    public string? DescripcionHerida { get; set; }
-
-    [Display(Name = "Ubicación de la herida")]
-    public string? UbicacionHerida { get; set; }
-
-    [Range(1, 7, ErrorMessage = "La frecuencia de visitas debe estar entre 1 y 7.")]
-    [Display(Name = "Frecuencia de visitas a la semana")]
-    public int? FrecuenciaVisitasSemana { get; set; }
-
     [Display(Name = "Equipo en comodato")]
     public string? EquipoComodato { get; set; }
 
@@ -244,8 +233,6 @@ public class CensoClinicaHeridasViewModel
     public IReadOnlyList<SelectListItem> ProgramaPerteneceOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AuxiliarEnfermeriaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> SiNoOptions { get; set; } = [];
-    public IReadOnlyList<SelectListItem> UbicacionHeridaOptions { get; set; } = [];
-    public IReadOnlyList<SelectListItem> FrecuenciaVisitasOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> MotivoHospitalizacionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> RemitidoPorHospitalizacionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> MotivoNovedadDevolucionOptions { get; set; } = [];
@@ -254,17 +241,96 @@ public class CensoClinicaHeridasViewModel
     public IReadOnlyList<SelectListItem> EstadoProgramaOptions { get; set; } = [];
     public IReadOnlyList<string> BarrioOptions { get; set; } = [];
     public IReadOnlyList<CensoClinicaHeridasRecord> UltimosRegistros { get; set; } = [];
-    public IReadOnlyList<CensoClinicaHeridasAdjuntoViewModel> AdjuntosHerida { get; set; } = [];
-    public string? AdjuntosHeridaError { get; set; }
+
+    /// <summary>Historial de seguimientos leído de la aplicación de clínica de heridas.</summary>
+    public CensoClinicaHeridasHistorialViewModel Historial { get; set; } = new();
 }
 
-public class CensoClinicaHeridasAdjuntoViewModel
+/// <summary>
+/// Sección 2 "Manejo de la herida": historial de solo lectura que la aplicación del Portal
+/// Administrativo captura en campo. La intranet no crea ni edita estos seguimientos.
+/// </summary>
+public class CensoClinicaHeridasHistorialViewModel
 {
-    public string Name { get; set; } = string.Empty;
+    public IReadOnlyList<CensoClinicaHeridasSeguimientoViewModel> Seguimientos { get; set; } = [];
 
-    public string WebUrl { get; set; } = string.Empty;
+    /// <summary>Mensaje a mostrar cuando la consulta a Neon o a SharePoint no se pudo completar.</summary>
+    public string? Error { get; set; }
 
-    public long Size { get; set; }
+    /// <summary>Carpeta del paciente en SharePoint, para abrir las fotos originales.</summary>
+    public string? CarpetaWebUrl { get; set; }
 
-    public DateTimeOffset? LastModifiedAt { get; set; }
+    public string? CarpetaNombre { get; set; }
+
+    public int TotalSeguimientos => Seguimientos.Count;
+
+    public CensoClinicaHeridasSeguimientoViewModel? Ultimo => Seguimientos.FirstOrDefault();
+
+    /// <summary>
+    /// Mayor área (vertical × horizontal) del historial. Sirve de escala común para dibujar cada
+    /// medida a proporción y ver cómo cambia la herida entre seguimientos.
+    /// </summary>
+    public double MedidaMaximaCm => Seguimientos.Count == 0
+        ? 0
+        : Seguimientos.Max(x => Math.Max(x.DiametroVerticalCm, x.DiametroHorizontalCm));
+}
+
+public class CensoClinicaHeridasSeguimientoViewModel
+{
+    public string Id { get; set; } = string.Empty;
+
+    public int Numero { get; set; }
+
+    /// <summary>Fecha y hora del registro, ya convertidas a la hora de Colombia.</summary>
+    public DateTime RegistradoEn { get; set; }
+
+    public string Origen { get; set; } = string.Empty;
+
+    public string Ubicacion { get; set; } = string.Empty;
+
+    public double DiametroVerticalCm { get; set; }
+
+    public double DiametroHorizontalCm { get; set; }
+
+    public double ProfundidadCm { get; set; }
+
+    public string Fondo { get; set; } = string.Empty;
+
+    public string Lecho { get; set; } = string.Empty;
+
+    public string Tejido { get; set; } = string.Empty;
+
+    public string ExudadoCantidad { get; set; } = string.Empty;
+
+    public string ExudadoCaracteristicas { get; set; } = string.Empty;
+
+    public string AuxiliarNombre { get; set; } = string.Empty;
+
+    public string AuxiliarProfesion { get; set; } = string.Empty;
+
+    public string AuxiliarCedula { get; set; } = string.Empty;
+
+    public string AuxiliarEmail { get; set; } = string.Empty;
+
+    public IReadOnlyList<CensoClinicaHeridasFotoViewModel> Fotos { get; set; } = [];
+
+    public double AreaCm2 => DiametroVerticalCm * DiametroHorizontalCm;
+
+    /// <summary>Cambio de área frente al seguimiento anterior, en porcentaje. Null en el primero.</summary>
+    public double? VariacionAreaPorcentaje { get; set; }
+}
+
+public class CensoClinicaHeridasFotoViewModel
+{
+    /// <summary>Código del tipo de foto en Neon (PLANO_GENERAL, MEDIDA_VERTICAL…).</summary>
+    public string Tipo { get; set; } = string.Empty;
+
+    /// <summary>Etiqueta legible del tipo de foto.</summary>
+    public string TipoDescripcion { get; set; } = string.Empty;
+
+    public string DriveItemId { get; set; } = string.Empty;
+
+    public string Nombre { get; set; } = string.Empty;
+
+    public bool Disponible => !string.IsNullOrWhiteSpace(DriveItemId);
 }

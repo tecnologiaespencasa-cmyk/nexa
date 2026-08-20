@@ -4608,3 +4608,540 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
     animation: none;
   }
 }
+
+/* ============================================================================
+   Seccion 2 - Manejo de la herida
+   Historial de solo lectura de los seguimientos que registra en campo la
+   aplicacion de clinica de heridas. El elemento propio de esta seccion es la
+   pista de evolucion: cada seguimiento dibuja la herida a escala compartida,
+   asi que el cierre (o el crecimiento) se ve sin tener que leer numeros.
+   ========================================================================= */
+
+.herida-header-count {
+  background: var(--censo-blue-soft, #eef5ff);
+  border-radius: 999px;
+  color: var(--censo-blue, #006be6);
+  font-size: 0.78rem;
+  font-weight: 800;
+  margin-left: auto;
+  padding: 0.3rem 0.75rem;
+  white-space: nowrap;
+}
+
+.censo-page .card-header:has(.herida-header-count) {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* -- Resumen del ultimo seguimiento -- */
+.herida-resumen {
+  align-items: stretch;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  border: 1px solid #e3ebf6;
+  border-radius: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 2.2rem;
+  margin-bottom: 1.35rem;
+  padding: 1rem 1.2rem;
+}
+
+.herida-resumen__dato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 10rem;
+}
+
+.herida-resumen__etiqueta {
+  color: #7b879c;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.herida-resumen__dato strong {
+  color: #1d2740;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.herida-resumen__dato small {
+  color: #697386;
+  font-size: 0.79rem;
+}
+
+.herida-resumen__enlace {
+  align-items: center;
+  align-self: center;
+  color: var(--censo-blue, #006be6);
+  display: inline-flex;
+  font-size: 0.83rem;
+  font-weight: 800;
+  gap: 0.4rem;
+  margin-left: auto;
+  text-decoration: none;
+}
+
+.herida-resumen__enlace:hover,
+.herida-resumen__enlace:focus-visible {
+  text-decoration: underline;
+}
+
+.herida-resumen__enlace svg {
+  fill: none;
+  height: 0.95rem;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
+  width: 0.95rem;
+}
+
+/* -- Pista de evolucion: el elemento distintivo de la seccion -- */
+.herida-evolucion {
+  border: 1px solid #e3ebf6;
+  border-radius: 16px;
+  margin-bottom: 1.35rem;
+  padding: 1rem 1.2rem 0.85rem;
+}
+
+.herida-evolucion__titulo h3 {
+  color: #1d2740;
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.herida-evolucion__titulo p {
+  color: #697386;
+  font-size: 0.8rem;
+  margin: 0.1rem 0 0.9rem;
+}
+
+.herida-evolucion__pista {
+  align-items: flex-end;
+  display: flex;
+  gap: 1.5rem;
+  list-style: none;
+  margin: 0;
+  overflow-x: auto;
+  padding: 0 0 0.35rem;
+}
+
+.herida-evolucion__paso {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.3rem;
+  position: relative;
+}
+
+.herida-evolucion__paso + .herida-evolucion__paso::before {
+  background: #dbe4f0;
+  content: "";
+  height: 1px;
+  left: -1.5rem;
+  position: absolute;
+  top: 36px;
+  width: 1.5rem;
+}
+
+.herida-evolucion__caja {
+  align-items: center;
+  border-bottom: 1px solid #dbe4f0;
+  display: flex;
+  height: 76px;
+  justify-content: center;
+  min-width: 76px;
+  padding-bottom: 2px;
+}
+
+.herida-evolucion__silueta {
+  background: rgba(0, 107, 230, 0.14);
+  border: 1.5px solid var(--censo-blue, #006be6);
+  border-radius: 5px;
+  display: block;
+}
+
+.herida-evolucion__numero {
+  align-items: center;
+  background: #eef3fa;
+  border-radius: 999px;
+  color: #4a5872;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 800;
+  height: 1.35rem;
+  justify-content: center;
+  min-width: 1.35rem;
+  padding: 0 0.4rem;
+}
+
+.herida-evolucion__paso:last-child .herida-evolucion__numero {
+  background: var(--censo-blue, #006be6);
+  color: #ffffff;
+}
+
+.herida-evolucion__medida {
+  color: #697386;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -- Tarjetas de seguimiento -- */
+.herida-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.herida-seguimiento {
+  border: 1px solid #e3ebf6;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.herida-seguimiento__cabecera {
+  align-items: center;
+  background: #f8fafd;
+  border-bottom: 1px solid #e7edf5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1.1rem;
+}
+
+.herida-seguimiento__numero {
+  align-items: baseline;
+  color: var(--censo-blue, #006be6);
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.herida-seguimiento__numero small {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.herida-seguimiento__numero strong {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.herida-seguimiento__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  line-height: 1.35;
+}
+
+.herida-seguimiento__fecha {
+  color: #1d2740;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.herida-seguimiento__auxiliar {
+  color: #697386;
+  font-size: 0.79rem;
+}
+
+.herida-seguimiento__auxiliar em {
+  font-style: normal;
+}
+
+.herida-seguimiento__auxiliar em::before {
+  content: " · ";
+}
+
+.herida-delta {
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  margin-left: auto;
+  padding: 0.28rem 0.7rem;
+  white-space: nowrap;
+}
+
+.herida-delta--baja {
+  background: rgba(19, 179, 155, 0.12);
+  color: #0d7c6b;
+}
+
+.herida-delta--sube {
+  background: rgba(224, 56, 79, 0.1);
+  color: #c2263b;
+}
+
+.herida-delta--igual,
+.herida-delta--inicial {
+  background: #eef3fa;
+  color: #5a6885;
+}
+
+.herida-seguimiento__cuerpo {
+  display: grid;
+  gap: 1.1rem;
+  padding: 1.05rem 1.1rem 1.15rem;
+}
+
+/* -- Medidas -- */
+.herida-medidas {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.herida-medidas__item {
+  background: #f8fafd;
+  border: 1px solid #e7edf5;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 0.8rem;
+}
+
+.herida-medidas__item span {
+  color: #7b879c;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.herida-medidas__item strong {
+  align-items: baseline;
+  color: #1d2740;
+  display: flex;
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  gap: 0.22rem;
+  line-height: 1.1;
+}
+
+.herida-medidas__item strong em {
+  color: #7b879c;
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* -- Datos clinicos -- */
+.herida-datos {
+  display: grid;
+  gap: 0.7rem 1.4rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  margin: 0;
+}
+
+.herida-datos > div {
+  min-width: 0;
+}
+
+.herida-datos dt {
+  color: #7b879c;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.herida-datos dd {
+  color: #1d2740;
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin: 0.1rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.herida-exudado {
+  background: #f8fafd;
+  border: 1px solid #e7edf5;
+  border-left: 3px solid var(--censo-teal, #13b39b);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem 0.8rem;
+}
+
+.herida-exudado h4 {
+  color: #0d7c6b;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+}
+
+.herida-datos--exudado {
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+/* -- Fotos -- */
+.herida-fotos {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.herida-fotos__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.herida-fotos__marco {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background: #f1f5fa;
+  border: 1px solid #e0e8f3;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+}
+
+button.herida-fotos__marco {
+  cursor: zoom-in;
+}
+
+button.herida-fotos__marco:hover,
+button.herida-fotos__marco:focus-visible {
+  border-color: var(--censo-blue, #006be6);
+  box-shadow: 0 0 0 3px rgba(0, 107, 230, 0.16);
+  outline: none;
+}
+
+.herida-fotos__marco img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.herida-fotos__marco--vacio {
+  color: #97a2b6;
+  flex-direction: column;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 0.3rem;
+}
+
+.herida-fotos__marco--vacio svg {
+  fill: none;
+  height: 1.35rem;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  width: 1.35rem;
+}
+
+.herida-fotos__item figcaption {
+  color: #5a6885;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* -- Estado vacio -- */
+.herida-empty {
+  border: 1px dashed #d5e0ee;
+  border-radius: 16px;
+  margin: 0;
+  padding: 2.4rem 1.5rem;
+  text-align: center;
+}
+
+.herida-empty__icon {
+  color: #9db2ce;
+  display: inline-flex;
+}
+
+.herida-empty__icon svg {
+  fill: none;
+  height: 2.1rem;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+  width: 2.1rem;
+}
+
+.herida-empty h3 {
+  color: #1d2740;
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0.6rem 0 0.3rem;
+}
+
+.herida-empty p {
+  color: #697386;
+  font-size: 0.88rem;
+  margin: 0 auto;
+  max-width: 34rem;
+}
+
+/* -- Visor de fotos -- */
+.herida-visor .modal-content {
+  border: 0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.herida-visor .modal-body {
+  background: #0f1626;
+  display: flex;
+  justify-content: center;
+  padding: 0;
+}
+
+.herida-visor .modal-body img {
+  max-height: 72vh;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+@media (max-width: 991.98px) {
+  .herida-medidas {
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+
+  .herida-fotos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .herida-resumen {
+    gap: 0.8rem;
+  }
+
+  .herida-resumen__enlace,
+  .herida-delta {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .herida-fotos__marco {
+    transition: none;
+  }
+}

@@ -18,6 +18,14 @@ public class SharePointDocumentService : ISharePointDocumentService
     private static readonly Regex InvalidNameCharacters = new("[\"*:<>?/\\\\|#%~\\x00-\\x1F]", RegexOptions.Compiled);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    // El token de aplicación dura una hora y no depende del usuario, así que se reutiliza entre
+    // peticiones: una pantalla de seguimientos pide una decena de fotos y cada una necesitaba su
+    // propio viaje a login.microsoftonline.com.
+    private static readonly SemaphoreSlim TokenLock = new(1, 1);
+    private static string? _cachedToken;
+    private static string? _cachedTokenKey;
+    private static DateTimeOffset _cachedTokenExpiresAt;
+
     private readonly IConfiguration _configuration;
     private readonly HttpClient _httpClient;
     private readonly ILogger<SharePointDocumentService> _logger;
@@ -159,130 +167,142 @@ public class SharePointDocumentService : ISharePointDocumentService
         }
     }
 
-    public async Task<ServiceResult> UploadClinicaHeridasDocumentsAsync(
-        string patientName,
-        string documentType,
+    public async Task<ServiceResult<SharePointFolderRef?>> FindClinicaHeridasPatientFolderAsync(
         string documentNumber,
-        IReadOnlyList<IFormFile> files,
         CancellationToken cancellationToken = default)
     {
-        var validFiles = files
-            .Where(file => file.Length > 0)
-            .ToList();
-
-        if (validFiles.Count == 0)
+        var documentKey = NormalizeDocumentKey(documentNumber);
+        if (documentKey.Length == 0)
         {
-            return ServiceResult.Failure("Selecciona al menos una foto para adjuntar.");
-        }
-
-        if (validFiles.Any(file => file.Length > MaxFileBytes))
-        {
-            return ServiceResult.Failure("Cada foto adjunta debe pesar máximo 50 MB.");
+            return ServiceResult<SharePointFolderRef?>.Success(null);
         }
 
         var config = GetConfig();
         if (!config.IsComplete)
         {
-            return ServiceResult.Failure("SharePoint no esta configurado. Define SHAREPOINT_LIBRARY, SHAREPOINT_LIBRARY_ID, SHAREPOINT_SITE_ID y las credenciales Graph.");
-        }
-
-        try
-        {
-            var token = await GetAccessTokenAsync(config, cancellationToken);
-            var folderSegments = BuildClinicaHeridasFolderSegments(patientName, documentType, documentNumber);
-            var folderPath = string.Join("/", folderSegments);
-            var ensured = await EnsureFolderPathAsync(config.LibraryId!, folderSegments, token, cancellationToken);
-            if (!ensured.Succeeded)
-            {
-                return ensured;
-            }
-
-            foreach (var file in validFiles)
-            {
-                var fileName = SanitizeSharePointName(Path.GetFileName(file.FileName), "foto-herida");
-                var path = EscapeGraphPath($"{folderPath}/{fileName}");
-                using var uploadRequest = new HttpRequestMessage(
-                    HttpMethod.Put,
-                    $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(config.LibraryId!)}/root:/{path}:/content");
-                uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                uploadRequest.Content = new StreamContent(file.OpenReadStream());
-                uploadRequest.Content.Headers.ContentType = new MediaTypeHeaderValue(
-                    string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
-
-                using var uploadResponse = await _httpClient.SendAsync(uploadRequest, cancellationToken);
-                if (!uploadResponse.IsSuccessStatusCode)
-                {
-                    var body = await uploadResponse.Content.ReadAsStringAsync(cancellationToken);
-                    _logger.LogWarning("SharePoint ClinicaHeridas upload failed with status {StatusCode}: {Body}", uploadResponse.StatusCode, body);
-                    return ServiceResult.Failure($"No fue posible subir {fileName} a SharePoint. Estado: {(int)uploadResponse.StatusCode}.");
-                }
-            }
-
-            return ServiceResult.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "SharePoint ClinicaHeridas document upload failed.");
-            return ServiceResult.Failure("No fue posible subir las fotos a SharePoint.");
-        }
-    }
-
-    public async Task<ServiceResult<IReadOnlyList<SharePointDocumentItem>>> ListClinicaHeridasDocumentsAsync(
-        string patientName,
-        string documentType,
-        string documentNumber,
-        CancellationToken cancellationToken = default)
-    {
-        var config = GetConfig();
-        if (!config.IsComplete)
-        {
-            return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Failure(
+            return ServiceResult<SharePointFolderRef?>.Failure(
                 "SharePoint no esta configurado. Define SHAREPOINT_LIBRARY, SHAREPOINT_LIBRARY_ID, SHAREPOINT_SITE_ID y las credenciales Graph.");
         }
 
         try
         {
             var token = await GetAccessTokenAsync(config, cancellationToken);
-            var folderSegments = BuildClinicaHeridasFolderSegments(patientName, documentType, documentNumber);
-            var path = EscapeGraphPath(string.Join("/", folderSegments));
-            using var request = new HttpRequestMessage(
-                HttpMethod.Get,
-                $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(config.LibraryId!)}/root:/{path}:/children?$select=name,webUrl,size,lastModifiedDateTime,file&$orderby=name");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var rootSegments = BuildClinicaHeridasRootSegments();
+            var path = EscapeGraphPath(string.Join("/", rootSegments));
+            var nextUrl =
+                $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(config.LibraryId!)}/root:/{path}:/children"
+                + "?$select=id,name,webUrl,folder&$top=200";
 
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            if (response.StatusCode == HttpStatusCode.NotFound)
+            while (!string.IsNullOrWhiteSpace(nextUrl))
             {
-                return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Success([]);
-            }
+                using var request = new HttpRequestMessage(HttpMethod.Get, nextUrl);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("SharePoint ClinicaHeridas list failed with status {StatusCode}: {Body}", response.StatusCode, body);
-                return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Failure(
-                    $"No fue posible consultar los adjuntos en SharePoint. Estado: {(int)response.StatusCode}.");
-            }
-
-            var result = JsonSerializer.Deserialize<GraphChildrenResponse>(body, JsonOptions);
-            var items = result?.Value
-                .Where(item => item.File is not null)
-                .Select(item => new SharePointDocumentItem
+                using var response = await _httpClient.SendAsync(request, cancellationToken);
+                if (response.StatusCode == HttpStatusCode.NotFound)
                 {
-                    Name = item.Name ?? "Documento",
-                    WebUrl = item.WebUrl ?? string.Empty,
-                    Size = item.Size,
-                    LastModifiedAt = item.LastModifiedDateTime
-                })
-                .ToList() ?? [];
+                    // Todavía no existe la carpeta ClinicaDeHeridas: ningún paciente tiene seguimientos.
+                    return ServiceResult<SharePointFolderRef?>.Success(null);
+                }
 
-            return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Success(items);
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning(
+                        "SharePoint ClinicaHeridas folder search failed with status {StatusCode}: {Body}",
+                        response.StatusCode,
+                        body);
+                    return ServiceResult<SharePointFolderRef?>.Failure(
+                        $"No fue posible consultar las carpetas de clínica de heridas en SharePoint. Estado: {(int)response.StatusCode}.");
+                }
+
+                var page = JsonSerializer.Deserialize<GraphChildrenResponse>(body, JsonOptions);
+                var match = page?.Value.FirstOrDefault(item =>
+                    item.Folder is not null && FolderNameMatchesDocument(item.Name, documentKey));
+
+                if (match is not null)
+                {
+                    return ServiceResult<SharePointFolderRef?>.Success(new SharePointFolderRef
+                    {
+                        Id = match.Id ?? string.Empty,
+                        Name = match.Name ?? string.Empty,
+                        WebUrl = match.WebUrl ?? string.Empty
+                    });
+                }
+
+                nextUrl = page?.NextLink;
+            }
+
+            return ServiceResult<SharePointFolderRef?>.Success(null);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "SharePoint ClinicaHeridas document list failed.");
-            return ServiceResult<IReadOnlyList<SharePointDocumentItem>>.Failure(
-                "No fue posible consultar los adjuntos en SharePoint.");
+            _logger.LogError(ex, "SharePoint ClinicaHeridas folder search failed.");
+            return ServiceResult<SharePointFolderRef?>.Failure(
+                "No fue posible consultar las carpetas de clínica de heridas en SharePoint.");
+        }
+    }
+
+    public async Task<ServiceResult<SharePointFileContent>> GetClinicaHeridasPhotoAsync(
+        string driveItemId,
+        bool thumbnail,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(driveItemId))
+        {
+            return ServiceResult<SharePointFileContent>.Failure("La foto solicitada no existe.");
+        }
+
+        var config = GetConfig();
+        if (!config.IsComplete)
+        {
+            return ServiceResult<SharePointFileContent>.Failure(
+                "SharePoint no esta configurado. Define SHAREPOINT_LIBRARY, SHAREPOINT_LIBRARY_ID, SHAREPOINT_SITE_ID y las credenciales Graph.");
+        }
+
+        try
+        {
+            var token = await GetAccessTokenAsync(config, cancellationToken);
+            var itemUrl =
+                $"{GraphBaseUrl}/drives/{Uri.EscapeDataString(config.LibraryId!)}/items/{Uri.EscapeDataString(driveItemId)}";
+            var contentUrl = thumbnail
+                ? $"{itemUrl}/thumbnails/0/large/content"
+                : $"{itemUrl}/content";
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, contentUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                // Un archivo sin miniatura generada responde 404 solo en /thumbnails: se reintenta
+                // con el original antes de dar la foto por perdida.
+                if (thumbnail && response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    return await GetClinicaHeridasPhotoAsync(driveItemId, thumbnail: false, cancellationToken);
+                }
+
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning(
+                    "SharePoint ClinicaHeridas photo download failed with status {StatusCode}: {Body}",
+                    response.StatusCode,
+                    errorBody);
+                return ServiceResult<SharePointFileContent>.Failure(
+                    $"No fue posible descargar la foto desde SharePoint. Estado: {(int)response.StatusCode}.");
+            }
+
+            var content = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            return ServiceResult<SharePointFileContent>.Success(new SharePointFileContent
+            {
+                Content = content,
+                ContentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg",
+                Name = driveItemId
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SharePoint ClinicaHeridas photo download failed.");
+            return ServiceResult<SharePointFileContent>.Failure("No fue posible descargar la foto desde SharePoint.");
         }
     }
 
@@ -415,7 +435,7 @@ public class SharePointDocumentService : ISharePointDocumentService
         }
     }
 
-    private IReadOnlyList<string> BuildClinicaHeridasFolderSegments(string patientName, string documentType, string documentNumber)
+    private IReadOnlyList<string> BuildClinicaHeridasRootSegments()
     {
         var folderPath = GetConfigValue("SHAREPOINT_CLINICA_HERIDAS_FOLDER", "SharePoint:ClinicaHeridasFolder");
         if (string.IsNullOrWhiteSpace(folderPath))
@@ -434,9 +454,36 @@ public class SharePointDocumentService : ISharePointDocumentService
             segments.Add("ClinicaDeHeridas");
         }
 
-        var rawPatientFolder = $"{patientName} - {documentType} {documentNumber}".Trim();
-        segments.Add(SanitizeSharePointName(rawPatientFolder, "paciente"));
         return segments;
+    }
+
+    /// <summary>
+    /// La carpeta del paciente se llama "NOMBRE - DOCUMENTO" (aplicación del portal) o
+    /// "NOMBRE - TIPO DOCUMENTO" (carpetas históricas creadas desde la intranet). En ambos casos el
+    /// documento es el último bloque del nombre, así que se compara contra él.
+    /// </summary>
+    private static bool FolderNameMatchesDocument(string? folderName, string documentKey)
+    {
+        if (string.IsNullOrWhiteSpace(folderName))
+        {
+            return false;
+        }
+
+        var lastToken = folderName
+            .Split([' ', '\t', '-'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .LastOrDefault();
+
+        return NormalizeDocumentKey(lastToken) == documentKey;
+    }
+
+    private static string NormalizeDocumentKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        return new string(value.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
     }
 
     private IReadOnlyList<string> BuildPanAmericanFolderSegments()
@@ -519,24 +566,70 @@ public class SharePointDocumentService : ISharePointDocumentService
 
     private async Task<string> GetAccessTokenAsync(SharePointConfig config, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post,
-            $"https://login.microsoftonline.com/{Uri.EscapeDataString(config.TenantId!)}/oauth2/v2.0/token");
-        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        var tokenKey = $"{config.TenantId}|{config.ClientId}";
+        if (TryGetCachedToken(tokenKey, out var cached))
         {
-            ["client_id"] = config.ClientId!,
-            ["client_secret"] = config.ClientSecret!,
-            ["scope"] = GraphScope,
-            ["grant_type"] = "client_credentials"
-        });
+            return cached;
+        }
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await TokenLock.WaitAsync(cancellationToken);
+        try
+        {
+            // Otra petición pudo renovarlo mientras se esperaba el turno.
+            if (TryGetCachedToken(tokenKey, out cached))
+            {
+                return cached;
+            }
 
-        using var document = JsonDocument.Parse(body);
-        return document.RootElement.GetProperty("access_token").GetString()
-            ?? throw new InvalidOperationException("Graph no retorno access_token.");
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"https://login.microsoftonline.com/{Uri.EscapeDataString(config.TenantId!)}/oauth2/v2.0/token");
+            request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = config.ClientId!,
+                ["client_secret"] = config.ClientSecret!,
+                ["scope"] = GraphScope,
+                ["grant_type"] = "client_credentials"
+            });
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            using var document = JsonDocument.Parse(body);
+            var token = document.RootElement.GetProperty("access_token").GetString()
+                ?? throw new InvalidOperationException("Graph no retorno access_token.");
+
+            var expiresIn = document.RootElement.TryGetProperty("expires_in", out var expiresElement)
+                && expiresElement.TryGetInt32(out var seconds)
+                    ? seconds
+                    : 3600;
+
+            _cachedToken = token;
+            _cachedTokenKey = tokenKey;
+            // Se descuenta un minuto para no usar un token que caduque en pleno viaje.
+            _cachedTokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(Math.Max(60, expiresIn - 60));
+            return token;
+        }
+        finally
+        {
+            TokenLock.Release();
+        }
+    }
+
+    private static bool TryGetCachedToken(string tokenKey, out string token)
+    {
+        var cached = _cachedToken;
+        if (cached is not null
+            && string.Equals(_cachedTokenKey, tokenKey, StringComparison.Ordinal)
+            && _cachedTokenExpiresAt > DateTimeOffset.UtcNow)
+        {
+            token = cached;
+            return true;
+        }
+
+        token = string.Empty;
+        return false;
     }
 
     private SharePointConfig GetConfig()
@@ -623,12 +716,21 @@ public class SharePointDocumentService : ISharePointDocumentService
     {
         [JsonPropertyName("value")]
         public List<GraphDriveItem> Value { get; set; } = [];
+
+        [JsonPropertyName("@odata.nextLink")]
+        public string? NextLink { get; set; }
     }
 
     private sealed class GraphDriveItem
     {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
         [JsonPropertyName("name")]
         public string? Name { get; set; }
+
+        [JsonPropertyName("folder")]
+        public object? Folder { get; set; }
 
         [JsonPropertyName("webUrl")]
         public string? WebUrl { get; set; }

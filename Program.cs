@@ -41,6 +41,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserAdministrationRepository, UserAdministrationRepository>();
 builder.Services.AddScoped<INeonOpsAssistantUserRepository, NeonOpsAssistantUserRepository>();
+builder.Services.AddScoped<INeonClinicaHeridasRepository, NeonClinicaHeridasRepository>();
 builder.Services.AddScoped<IPortalNovedadRepository, PortalNovedadRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();

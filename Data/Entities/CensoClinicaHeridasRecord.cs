@@ -103,6 +103,10 @@ public class CensoClinicaHeridasRecord
     [StringLength(2)]
     public string Vac { get; set; } = string.Empty;
 
+    // Histórico. La sección 2 dejó de capturar estos tres campos cuando pasó a mostrar los
+    // seguimientos que registra la aplicación de clínica de heridas (origen, ubicación, medidas,
+    // exudado y fotos vienen de allí). Las columnas se conservan con los datos ya capturados; nada
+    // vuelve a escribirlas.
     [StringLength(2000)]
     public string? DescripcionHerida { get; set; }
 

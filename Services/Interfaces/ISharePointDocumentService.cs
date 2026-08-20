@@ -16,17 +16,22 @@ public interface ISharePointDocumentService
         string documentNumber,
         CancellationToken cancellationToken = default);
 
-    Task<ServiceResult> UploadClinicaHeridasDocumentsAsync(
-        string patientName,
-        string documentType,
+    /// <summary>
+    /// Busca dentro de ClinicaDeHeridas la carpeta del paciente cuyo nombre termina en el número de
+    /// documento. Es la carpeta que crea la aplicación del Portal Administrativo y el enlace entre
+    /// el documento del paciente y su historial en Neon.
+    /// </summary>
+    Task<ServiceResult<SharePointFolderRef?>> FindClinicaHeridasPatientFolderAsync(
         string documentNumber,
-        IReadOnlyList<IFormFile> files,
         CancellationToken cancellationToken = default);
 
-    Task<ServiceResult<IReadOnlyList<SharePointDocumentItem>>> ListClinicaHeridasDocumentsAsync(
-        string patientName,
-        string documentType,
-        string documentNumber,
+    /// <summary>
+    /// Descarga una foto de la herida. Con <paramref name="thumbnail"/> en true trae la miniatura
+    /// de SharePoint en vez del original, que puede pesar varios MB.
+    /// </summary>
+    Task<ServiceResult<SharePointFileContent>> GetClinicaHeridasPhotoAsync(
+        string driveItemId,
+        bool thumbnail,
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult> UploadPanAmericanDocumentsAsync(
