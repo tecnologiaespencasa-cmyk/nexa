@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -15,7 +15,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Nexa.Controllers;
 
 [Authorize(Policy = SystemPermissions.Farmacia)]
-public class FarmaciaController : Controller
+public partial class FarmaciaController : Controller
 {
     private const string DocumentoKardex = "kardex";
     private const string DocumentoRequisicion = "requisicion";
@@ -58,30 +58,41 @@ public class FarmaciaController : Controller
             .AsNoTracking()
             .Where(x => x.FarmaciaEnviadoAtUtc != null);
 
+        // Las requisiciones de clínica de heridas son la tercera fuente de la bandeja. Llegan
+        // etiquetadas con su tipo de atención y su ciclo termina en el OK de farmacia.
+        var heridasQuery = _context.CensoClinicaHeridasKardex
+            .AsNoTracking()
+            .Include(x => x.CensoClinicaHeridasRecord)
+            .Include(x => x.Plan)
+            .Where(x => x.FarmaciaEnviadoAtUtc != null);
+
         if (!string.IsNullOrWhiteSpace(filtro))
         {
             query = query.Where(x => x.NumeroIdentificacion.Contains(filtro));
             cronicosQuery = cronicosQuery.Where(x => x.CensoCronicoRecord.NumeroIdentificacion.Contains(filtro));
+            heridasQuery = heridasQuery.Where(x => x.CensoClinicaHeridasRecord.NumeroIdentificacion.Contains(filtro));
         }
 
         var totalPedidos = await query.CountAsync(cancellationToken)
-            + await cronicosQuery.CountAsync(cancellationToken);
+            + await cronicosQuery.CountAsync(cancellationToken)
+            + await heridasQuery.CountAsync(cancellationToken);
         var pedidosNuevos = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
-            + await cronicosQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
+            + await cronicosQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
+            + await heridasQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
 
         var model = new FarmaciaIndexViewModel
         {
             DocumentoFiltro = filtro,
             TotalPedidos = totalPedidos,
             PedidosNuevos = pedidosNuevos,
-            UltimoPedidoId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, cancellationToken),
+            UltimoPedidoId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, heridasQuery, cancellationToken),
             PageSize = PageSize,
-            Nuevos = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Nuevo, nuevosPagina, cancellationToken),
-            Recepcionados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Recepcionado, recepcionadosPagina, cancellationToken),
-            Facturados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Facturado, facturadosPagina, cancellationToken),
-            Empacados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Empacado, empacadosPagina, cancellationToken),
-            PorDesempacar = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.PorDesempacar, porDesempacarPagina, cancellationToken, PorDesempacarPageSize),
-            Despachados = await BuildMergedSectionPageAsync(query, cronicosQuery, FarmaciaEstados.Despachado, despachadosPagina, cancellationToken),
+            Nuevos = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Nuevo, nuevosPagina, cancellationToken),
+            Recepcionados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Recepcionado, recepcionadosPagina, cancellationToken),
+            Facturados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Facturado, facturadosPagina, cancellationToken),
+            Empacados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Empacado, empacadosPagina, cancellationToken),
+            PorDesempacar = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.PorDesempacar, porDesempacarPagina, cancellationToken, PorDesempacarPageSize),
+            Despachados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Despachado, despachadosPagina, cancellationToken),
         };
 
         return View(model);
@@ -94,11 +105,13 @@ public class FarmaciaController : Controller
     private static async Task<long?> GetUltimoEnvioMarkerAsync(
         IQueryable<CensoRecord> censoQuery,
         IQueryable<CensoCronicoAgudizacion> cronicosQuery,
+        IQueryable<CensoClinicaHeridasKardex> heridasQuery,
         CancellationToken cancellationToken)
     {
         var ultimoCenso = await censoQuery.MaxAsync(x => x.FarmaciaEnviadoAtUtc, cancellationToken);
         var ultimoCronico = await cronicosQuery.MaxAsync(x => x.FarmaciaEnviadoAtUtc, cancellationToken);
-        var ultimo = new[] { ultimoCenso, ultimoCronico }.Max();
+        var ultimoHeridas = await heridasQuery.MaxAsync(x => x.FarmaciaEnviadoAtUtc, cancellationToken);
+        var ultimo = new[] { ultimoCenso, ultimoCronico, ultimoHeridas }.Max();
         return ultimo.HasValue
             ? new DateTimeOffset(DateTime.SpecifyKind(ultimo.Value, DateTimeKind.Utc)).ToUnixTimeMilliseconds()
             : null;
@@ -488,9 +501,14 @@ public class FarmaciaController : Controller
             .AsNoTracking()
             .Where(x => x.FarmaciaEnviadoAtUtc != null);
 
+        var heridasQuery = _context.CensoClinicaHeridasKardex
+            .AsNoTracking()
+            .Where(x => x.FarmaciaEnviadoAtUtc != null);
+
         var newCount = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
-            + await cronicosQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
-        var lastId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, cancellationToken);
+            + await cronicosQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
+            + await heridasQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
+        var lastId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, heridasQuery, cancellationToken);
 
         return Json(new { newCount, lastId });
     }
@@ -808,7 +826,13 @@ public class FarmaciaController : Controller
                 && x.FarmaciaEmpacadoAtUtc < cutoff)
             .ToListAsync(cancellationToken);
 
-        if (vencidos.Count > 0 || cronicosVencidos.Count > 0)
+        var heridasVencidas = await _context.CensoClinicaHeridasKardex
+            .Where(x => x.FarmaciaEstado == FarmaciaEstados.Empacado
+                && x.FarmaciaEmpacadoAtUtc != null
+                && x.FarmaciaEmpacadoAtUtc < cutoff)
+            .ToListAsync(cancellationToken);
+
+        if (vencidos.Count > 0 || cronicosVencidos.Count > 0 || heridasVencidas.Count > 0)
         {
             foreach (var r in vencidos)
             {
@@ -818,6 +842,11 @@ public class FarmaciaController : Controller
             foreach (var a in cronicosVencidos)
             {
                 a.FarmaciaEstado = FarmaciaEstados.PorDesempacar;
+            }
+
+            foreach (var h in heridasVencidas)
+            {
+                h.FarmaciaEstado = FarmaciaEstados.PorDesempacar;
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -918,6 +947,40 @@ public class FarmaciaController : Controller
         };
     }
 
+    private static FarmaciaPedidoViewModel MapClinicaHeridasPedido(CensoClinicaHeridasKardex kardex, bool tieneAdjuntos)
+    {
+        var record = kardex.CensoClinicaHeridasRecord;
+        return new FarmaciaPedidoViewModel
+        {
+            Id = kardex.Id,
+            NombrePaciente = record.NombrePaciente,
+            TipoIdentificacion = record.TipoIdentificacion,
+            NumeroIdentificacion = record.NumeroIdentificacion,
+            FechaEnvioUtc = kardex.FarmaciaEnviadoAtUtc ?? kardex.CreatedAtUtc,
+            FechaIngreso = record.FechaIngresoPrograma,
+            EstadoCenso = record.Estado,
+            AuxiliarAsignado = record.AuxiliarEnfermeriaAsignado,
+            KardexVisto = kardex.FarmaciaKardexVistoAtUtc.HasValue,
+            // La requisición de clínica de heridas es un único documento: no hay hoja aparte.
+            RequisicionVisto = kardex.FarmaciaKardexVistoAtUtc.HasValue,
+            FirmaRegistrada = BuildClinicaHeridasSignatureModel(kardex).EstaCompleta,
+            NombreRecibe = kardex.FarmaciaNombreRecibe,
+            FechaHoraRecepcionUtc = kardex.FarmaciaFechaHoraRecepcionUtc,
+            FarmaciaEstado = kardex.FarmaciaEstado,
+            FarmaciaOkKardex = kardex.FarmaciaOkKardex,
+            FarmaciaEsEntregaParcial = kardex.FarmaciaEsEntregaParcial,
+            FarmaciaCantidadEntregas = kardex.FarmaciaCantidadEntregas,
+            FarmaciaEntregaActual = kardex.FarmaciaEntregaActual,
+            FarmaciaFacturado = kardex.FarmaciaFacturado,
+            FarmaciaEmpacadoAtUtc = kardex.FarmaciaEmpacadoAtUtc,
+            FarmaciaBolsaDesempacada = kardex.FarmaciaBolsaDesempacada,
+            TieneAdjuntos = tieneAdjuntos,
+            EsClinicaHeridas = true,
+            // Un mismo paciente puede tener varias requisiciones del mismo tipo en planes distintos.
+            TipoKardexClinicaHeridas = $"{ClinicaHeridasKardexTipos.Nombre(kardex.Tipo)} · Plan {kardex.Plan.Numero}"
+        };
+    }
+
     private static FarmaciaSignatureViewModel BuildCronicoSignatureModel(CensoCronicoAgudizacion agudizacion)
     {
         return new FarmaciaSignatureViewModel
@@ -940,6 +1003,7 @@ public class FarmaciaController : Controller
     private static async Task<FarmaciaSectionPageViewModel> BuildMergedSectionPageAsync(
         IQueryable<CensoRecord> censoQuery,
         IQueryable<CensoCronicoAgudizacion> cronicosQuery,
+        IQueryable<CensoClinicaHeridasKardex> heridasQuery,
         string estado,
         int requestedPage,
         CancellationToken cancellationToken,
@@ -947,9 +1011,11 @@ public class FarmaciaController : Controller
     {
         var censoEstado = censoQuery.Where(x => x.FarmaciaEstado == estado);
         var cronicosEstado = cronicosQuery.Where(x => x.FarmaciaEstado == estado);
+        var heridasEstado = heridasQuery.Where(x => x.FarmaciaEstado == estado);
 
         var totalItems = await censoEstado.CountAsync(cancellationToken)
-            + await cronicosEstado.CountAsync(cancellationToken);
+            + await cronicosEstado.CountAsync(cancellationToken)
+            + await heridasEstado.CountAsync(cancellationToken);
         var totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)pageSize));
         var currentPage = Math.Clamp(requestedPage, 1, totalPages);
         var take = currentPage * pageSize;
@@ -968,8 +1034,16 @@ public class FarmaciaController : Controller
             .Take(take)
             .ToListAsync(cancellationToken);
 
+        var heridasItems = await heridasEstado
+            .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
+            .ThenByDescending(x => x.Id)
+            .Take(take)
+            .Select(x => new { Kardex = x, TieneAdjuntos = x.Adjuntos.Any() })
+            .ToListAsync(cancellationToken);
+
         var merged = censoItems.Select(x => MapPedido(x.Record, x.TieneAdjuntos))
             .Concat(cronicoItems.Select(MapCronicoPedido))
+            .Concat(heridasItems.Select(x => MapClinicaHeridasPedido(x.Kardex, x.TieneAdjuntos)))
             .OrderByDescending(x => x.FechaEnvioUtc)
             .ThenByDescending(x => x.Id)
             .Skip((currentPage - 1) * pageSize)

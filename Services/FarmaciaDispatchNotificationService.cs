@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Nexa.Services;
 
-public class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotificationService
+public partial class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotificationService
 {
     private const string MedicosKardexEmail = "medicos@especialistasencasa.com";
     private const string GerenciaEmail = "gerencia@especialistasencasa.com";

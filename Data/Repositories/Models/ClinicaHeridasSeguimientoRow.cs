@@ -1,4 +1,4 @@
-namespace Nexa.Data.Repositories.Models;
+﻿namespace Nexa.Data.Repositories.Models;
 
 /// <summary>
 /// Un seguimiento de herida capturado en la aplicación del Portal Administrativo
@@ -29,6 +29,11 @@ public class ClinicaHeridasSeguimientoRow
     public string Lecho { get; set; } = string.Empty;
 
     public string Tejido { get; set; } = string.Empty;
+
+    // Columnas agregadas despues en el portal: los seguimientos anteriores las traen nulas.
+    public string CavitacionTunelizacion { get; set; } = string.Empty;
+
+    public string PielPerilesional { get; set; } = string.Empty;
 
     public string ExudadoCantidad { get; set; } = string.Empty;
 

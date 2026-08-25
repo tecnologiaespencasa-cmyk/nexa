@@ -1,4 +1,4 @@
-using Nexa.Data;
+﻿using Nexa.Data;
 using Nexa.Data.Entities;
 using Nexa.Models.ViewModels;
 using Nexa.Services.Interfaces;
@@ -60,6 +60,72 @@ public class EmpacadoNotificationHostedService : BackgroundService
         {
             await TryNotifyAuxiliarAsync(pedido, now, context, notificationService, cancellationToken);
             await TryNotifyGerenciaAsync(pedido, now, context, notificationService, cancellationToken);
+        }
+
+        // Las requisiciones de clínica de heridas siguen el mismo calendario de recordatorios.
+        var requisiciones = await context.CensoClinicaHeridasKardex
+            .Where(x => x.FarmaciaEstado == FarmaciaEstados.Empacado
+                && x.FarmaciaEmpacadoAtUtc != null
+                && x.FarmaciaEmpacadoAtUtc > cutoffEmpacado)
+            .ToListAsync(cancellationToken);
+
+        foreach (var requisicion in requisiciones)
+        {
+            await TryNotifyHeridasAsync(requisicion, now, context, notificationService, cancellationToken);
+        }
+    }
+
+    private async Task TryNotifyHeridasAsync(
+        CensoClinicaHeridasKardex requisicion,
+        DateTime now,
+        ApplicationDbContext context,
+        IFarmaciaDispatchNotificationService notificationService,
+        CancellationToken cancellationToken)
+    {
+        var empacadoAt = requisicion.FarmaciaEmpacadoAtUtc!.Value;
+        var guardar = false;
+
+        // Recordatorio al auxiliar cada 24 h desde que se empacó.
+        if ((now - empacadoAt) >= IntervaloRecordatorioAuxiliar)
+        {
+            var ultima = requisicion.FarmaciaNotifAuxiliarUltimaUtc;
+            if (ultima is null || (now - ultima.Value) >= IntervaloRecordatorioAuxiliar)
+            {
+                var avisos = await notificationService
+                    .NotifyClinicaHeridasEmpacadoPendienteAuxiliarAsync(requisicion, cancellationToken);
+
+                foreach (var aviso in avisos)
+                {
+                    _logger.LogWarning("Notificacion auxiliar requisicion heridas {Id}: {Warning}", requisicion.Id, aviso);
+                }
+
+                requisicion.FarmaciaNotifAuxiliarUltimaUtc = now;
+                guardar = true;
+            }
+        }
+
+        // Aviso único a gerencia cuando quedan 24 h para el desempaque.
+        if (requisicion.FarmaciaNotif24hRestanteUtc is null)
+        {
+            var horasRestantes = (VentanaEmpacado - (now - empacadoAt)).TotalHours;
+            if (horasRestantes <= UmbralAlertaVencimiento.TotalHours)
+            {
+                var avisos = await notificationService
+                    .NotifyClinicaHeridasEmpacadoPorVencerGerenciaAsync(requisicion, cancellationToken);
+
+                foreach (var aviso in avisos)
+                {
+                    _logger.LogWarning("Notificacion gerencia requisicion heridas {Id}: {Warning}", requisicion.Id, aviso);
+                }
+
+                requisicion.FarmaciaNotif24hRestanteUtc = now;
+                guardar = true;
+            }
+        }
+
+        if (guardar)
+        {
+            await context.SaveChangesAsync(cancellationToken);
         }
     }
 

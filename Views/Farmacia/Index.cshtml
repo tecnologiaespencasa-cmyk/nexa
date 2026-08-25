@@ -1,4 +1,4 @@
-@model FarmaciaIndexViewModel
+﻿@model FarmaciaIndexViewModel
 @using Nexa.Helpers
 @{
     ViewData["Title"] = "Farmacia";
@@ -76,7 +76,7 @@
                     <div class="farmacia-order-list">
                         @foreach (var item in Model.Nuevos.Items)
                         {
-                            <article class="farmacia-order is-new" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                            <article class="farmacia-order is-new" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
@@ -84,23 +84,24 @@
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
+                                        @if (item.EsClinicaHeridas) { <span class="farmacia-heridas-badge">Cl&iacute;nica de heridas &middot; @item.TipoKardexClinicaHeridas</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas ? Url.Action("DocumentoClinicaHeridas", new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
                                         <button type="button" class="farmacia-doc-button farmacia-doc-button--ok-kardex"
-                                                data-action-button="ok-kardex" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                                                data-action-button="ok-kardex" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                             <span>OK Kardex</span><small>Recepcion</small>
                                         </button>
                                     </div>
@@ -137,7 +138,7 @@
                         {
                             var esParcial = item.FarmaciaEsEntregaParcial == true;
                             var parcialKey = item.EsAgudizacionCronica ? $"c{item.Id}" : item.Id.ToString();
-                            <article class="farmacia-order" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                            <article class="farmacia-order" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
@@ -145,6 +146,7 @@
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
+                                        @if (item.EsClinicaHeridas) { <span class="farmacia-heridas-badge">Cl&iacute;nica de heridas &middot; @item.TipoKardexClinicaHeridas</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (esParcial && item.FarmaciaCantidadEntregas.HasValue)
                                         {
@@ -152,19 +154,19 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas ? Url.Action("DocumentoClinicaHeridas", new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
-                                        <div class="farmacia-entrega-parcial-panel" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                                        <div class="farmacia-entrega-parcial-panel" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                             <label class="farmacia-parcial-label">
                                                 <input type="checkbox" class="form-check-input" data-parcial-check="@parcialKey" @(esParcial ? "checked" : null) />
                                                 &iquest;Entrega parcial?
@@ -174,18 +176,18 @@
                                                        placeholder="N entregas" value="@(item.FarmaciaCantidadEntregas?.ToString() ?? "")"
                                                        data-parcial-cantidad="@parcialKey" />
                                                 <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                        data-action-button="guardar-parcial" data-parcial-key="@parcialKey" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">Guardar</button>
+                                                        data-action-button="guardar-parcial" data-parcial-key="@parcialKey" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">Guardar</button>
                                             </div>
                                             @if (esParcial && item.FarmaciaCantidadEntregas.HasValue && item.FarmaciaEntregaActual < item.FarmaciaCantidadEntregas.Value)
                                             {
                                                 <button type="button" class="btn btn-sm btn-outline-primary mt-1"
-                                                        data-action-button="avanzar-entrega" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                                                        data-action-button="avanzar-entrega" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                                     Avanzar entrega (@item.FarmaciaEntregaActual &rarr; @(item.FarmaciaEntregaActual + 1))
                                                 </button>
                                             }
                                         </div>
                                         <button type="button" class="farmacia-doc-button farmacia-doc-button--facturar"
-                                                data-action-button="facturar" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                                                data-action-button="facturar" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                             <span>Facturado</span><small>Marcar</small>
                                         </button>
                                     </div>
@@ -220,7 +222,7 @@
                     <div class="farmacia-order-list">
                         @foreach (var item in Model.Facturados.Items)
                         {
-                            <article class="farmacia-order" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                            <article class="farmacia-order" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
@@ -228,6 +230,7 @@
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
+                                        @if (item.EsClinicaHeridas) { <span class="farmacia-heridas-badge">Cl&iacute;nica de heridas &middot; @item.TipoKardexClinicaHeridas</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (item.FarmaciaEsEntregaParcial == true && item.FarmaciaCantidadEntregas.HasValue)
                                         {
@@ -235,20 +238,20 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas ? Url.Action("DocumentoClinicaHeridas", new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
                                         <button type="button" class="farmacia-doc-button farmacia-doc-button--empacar"
-                                                data-action-button="empacar" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                                                data-action-button="empacar" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                             <span>Listo para empacar</span><small>Mover a Empacado</small>
                                         </button>
                                     </div>
@@ -283,7 +286,7 @@
                     <div class="farmacia-order-list">
                         @foreach (var item in Model.Empacados.Items)
                         {
-                            <article class="farmacia-order" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                            <article class="farmacia-order" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
@@ -291,6 +294,7 @@
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
+                                        @if (item.EsClinicaHeridas) { <span class="farmacia-heridas-badge">Cl&iacute;nica de heridas &middot; @item.TipoKardexClinicaHeridas</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (item.FarmaciaEmpacadoAtUtc.HasValue)
                                         {
@@ -301,20 +305,20 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas ? Url.Action("DocumentoClinicaHeridas", new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
                                         <button type="button" class="farmacia-doc-button farmacia-doc-button--signature"
-                                                data-firma-button data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                                                data-firma-button data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                             <span>Firma</span>
                                             <small>@(item.FirmaRegistrada ? "Firmado" : "Pendiente")</small>
                                         </button>
@@ -346,7 +350,7 @@
                     <div class="farmacia-order-list">
                         @foreach (var item in Model.PorDesempacar.Items)
                         {
-                            <article class="farmacia-order @(item.FarmaciaBolsaDesempacada ? "farmacia-order--desempacada" : "farmacia-order--alert")" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                            <article class="farmacia-order @(item.FarmaciaBolsaDesempacada ? "farmacia-order--desempacada" : "farmacia-order--alert")" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
@@ -354,30 +358,31 @@
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
+                                        @if (item.EsClinicaHeridas) { <span class="farmacia-heridas-badge">Cl&iacute;nica de heridas &middot; @item.TipoKardexClinicaHeridas</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas ? Url.Action("DocumentoClinicaHeridas", new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
                                         @if (!item.FarmaciaBolsaDesempacada)
                                         {
                                             <button type="button" class="farmacia-doc-button farmacia-doc-button--signature"
-                                                    data-firma-button data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                                                    data-firma-button data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                                 <span>Firma</span>
                                                 <small>Pendiente</small>
                                             </button>
                                             <button type="button" class="farmacia-doc-button farmacia-doc-button--desempacar"
-                                                    data-action-button="bolsa-desempacada" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                                                    data-action-button="bolsa-desempacada" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                                 <span>Bolsa desempacada</span>
                                                 <small>Confirmar</small>
                                             </button>
@@ -418,7 +423,7 @@
                         {
                             var esParcialDesp = item.FarmaciaEsEntregaParcial == true && item.FarmaciaCantidadEntregas.HasValue;
                             var entregaCompleta = esParcialDesp && item.FarmaciaEntregaActual >= item.FarmaciaCantidadEntregas!.Value;
-                            <article class="farmacia-order @(esParcialDesp && !entregaCompleta ? "farmacia-order--alert" : null)" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                            <article class="farmacia-order @(esParcialDesp && !entregaCompleta ? "farmacia-order--alert" : null)" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                 <div class="farmacia-order__identity">
                                     <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
                                     <div>
@@ -426,6 +431,7 @@
                                         <h3>@item.NombrePaciente</h3>
                                         @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
                                         @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
+                                        @if (item.EsClinicaHeridas) { <span class="farmacia-heridas-badge">Cl&iacute;nica de heridas &middot; @item.TipoKardexClinicaHeridas</span> }
                                         <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
                                         @if (!string.IsNullOrWhiteSpace(item.NombreRecibe))
                                         {
@@ -440,22 +446,22 @@
                                         }
                                     </div>
                                     <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>Visto</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Kardex</span><small>Visto</small>
                                         </a>
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro })#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas ? Url.Action("DocumentoClinicaHeridas", new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
                                         @if (esParcialDesp && !entregaCompleta)
                                         {
                                             <button type="button" class="btn btn-sm btn-outline-primary farmacia-avanzar-btn"
-                                                    data-action-button="avanzar-entrega" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")">
+                                                    data-action-button="avanzar-entrega" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
                                                 Avanzar entrega (@item.FarmaciaEntregaActual &rarr; @(item.FarmaciaEntregaActual + 1))
                                             </button>
                                         }
@@ -572,6 +578,17 @@
                 "bolsa-desempacada": "@Url.Action("SetBolsaDesempacadaCronico", "Farmacia")",
                 "avanzar-entrega": "@Url.Action("AvanzarEntregaCronico", "Farmacia")"
             };
+            // Clinica de heridas recorre el mismo ciclo que agudos y cronicos, con sus endpoints.
+            const firmaHeridasUrl = "@Url.Action("FirmaClinicaHeridas", "Farmacia")";
+            const guardarFirmaHeridasUrl = "@Url.Action("GuardarFirmaClinicaHeridas", "Farmacia")";
+            const entregaParcialHeridasUrl = "@Url.Action("SetEntregaParcialClinicaHeridas", "Farmacia")";
+            const heridasActionUrls = {
+                "ok-kardex": "@Url.Action("SetOkKardexClinicaHeridas", "Farmacia")",
+                "facturar": "@Url.Action("SetFacturadoClinicaHeridas", "Farmacia")",
+                "empacar": "@Url.Action("SetEmpacadoClinicaHeridas", "Farmacia")",
+                "bolsa-desempacada": "@Url.Action("SetBolsaDesempacadaClinicaHeridas", "Farmacia")",
+                "avanzar-entrega": "@Url.Action("AvanzarEntregaClinicaHeridas", "Farmacia")"
+            };
             const agudosActionUrls = {
                 "ok-kardex": okKardexUrl,
                 "facturar": facturarUrl,
@@ -685,10 +702,13 @@
                 const id = Number(btn.dataset.pedidoId || "0");
                 if (!id) return;
                 const esCronico = btn.dataset.pedidoCronico === "true";
+                const esHeridas = btn.dataset.pedidoHeridas === "true";
                 btn.disabled = true;
                 try {
                     if (agudosActionUrls[action]) {
-                        const url = esCronico ? cronicoActionUrls[action] : agudosActionUrls[action];
+                        const url = esHeridas
+                            ? heridasActionUrls[action]
+                            : esCronico ? cronicoActionUrls[action] : agudosActionUrls[action];
                         const resp = await postForm(url, id);
                         const data = await resp.json();
                         if (resp.ok) { window.location.reload(); } else { showActionMsg(data.message || "Error."); }
@@ -702,7 +722,10 @@
                             showActionMsg("La cantidad de entregas debe ser al menos 2.");
                             return;
                         }
-                        const resp = await fetch(esCronico ? entregaParcialCronicoUrl : entregaParcialUrl, {
+                        const entregaParcialEndpoint = esHeridas
+                            ? entregaParcialHeridasUrl
+                            : esCronico ? entregaParcialCronicoUrl : entregaParcialUrl;
+                        const resp = await fetch(entregaParcialEndpoint, {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json",
@@ -847,11 +870,13 @@
             });
 
             let firmaEsCronicoActual = false;
+            let firmaEsHeridasActual = false;
 
             const openSignatureModal = async (button) => {
                 const pedidoId = Number(button.dataset.pedidoId || "0") || 0;
                 if (!pedidoId) return;
                 firmaEsCronicoActual = button.dataset.pedidoCronico === "true";
+                firmaEsHeridasActual = button.dataset.pedidoHeridas === "true";
                 setSignatureStatus("Cargando firmas...", "info");
                 firmaPedidoId.value = String(pedidoId);
                 firmaNombreRecibe.value = "";
@@ -862,7 +887,10 @@
                     window.bootstrap.Modal.getOrCreateInstance(signatureModalElement).show();
                 }
                 try {
-                    const url = new URL(firmaEsCronicoActual ? firmaCronicoUrl : firmaUrl, window.location.origin);
+                    const firmaEndpoint = firmaEsHeridasActual
+                        ? firmaHeridasUrl
+                        : firmaEsCronicoActual ? firmaCronicoUrl : firmaUrl;
+                    const url = new URL(firmaEndpoint, window.location.origin);
                     url.searchParams.set("id", String(pedidoId));
                     const response = await fetch(url.toString(), { headers: { "Accept": "application/json" } });
                     const data = await response.json();
@@ -910,7 +938,10 @@
                     try {
                         const formData = new FormData(signatureForm);
                         const token = signatureForm.querySelector("input[name='__RequestVerificationToken']")?.value || "";
-                        const response = await fetch(firmaEsCronicoActual ? guardarFirmaCronicoUrl : guardarFirmaUrl, {
+                        const guardarFirmaEndpoint = firmaEsHeridasActual
+                            ? guardarFirmaHeridasUrl
+                            : firmaEsCronicoActual ? guardarFirmaCronicoUrl : guardarFirmaUrl;
+                        const response = await fetch(guardarFirmaEndpoint, {
                             method: "POST",
                             body: formData,
                             headers: token ? { "RequestVerificationToken": token } : {}

@@ -1,4 +1,4 @@
-@model CensoClinicaHeridasViewModel
+﻿@model CensoClinicaHeridasViewModel
 @using System.Globalization
 @using Nexa.Data.Entities
 
@@ -16,6 +16,8 @@
         && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
     var vacActivo = string.Equals(Model.Vac, "Si", StringComparison.OrdinalIgnoreCase);
     var historial = Model.Historial;
+    var mostrarApositos = string.Equals(Model.Vac, "Si", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(Model.ManejoHerida, "Si", StringComparison.OrdinalIgnoreCase);
 }
 
 @functions {
@@ -59,12 +61,12 @@
                     </button>
 
                     <button class="list-group-item list-group-item-action censo-nav__item"
-                            id="tab-manejo-herida-link"
+                            id="tab-caracteristicas-herida-link"
                             data-bs-toggle="list"
-                            data-bs-target="#tab-manejo-herida"
+                            data-bs-target="#tab-caracteristicas-herida"
                             type="button"
                             role="tab"
-                            aria-controls="tab-manejo-herida"
+                            aria-controls="tab-caracteristicas-herida"
                             aria-selected="false">
                         <span class="censo-nav__icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" focusable="false">
@@ -76,8 +78,31 @@
                         </span>
                         <span class="censo-nav__content">
                             <span class="censo-nav__eyebrow">Sección 2</span>
-                            <span class="censo-nav__title">Manejo de la herida</span>
+                            <span class="censo-nav__title">Características de la herida</span>
                             <span class="censo-nav__description">Seguimientos, medidas y fotos registrados en campo.</span>
+                        </span>
+                    </button>
+
+                    <button class="list-group-item list-group-item-action censo-nav__item"
+                            id="tab-manejo-herida-link"
+                            data-bs-toggle="list"
+                            data-bs-target="#tab-manejo-herida"
+                            type="button"
+                            role="tab"
+                            aria-controls="tab-manejo-herida"
+                            aria-selected="false">
+                        <span class="censo-nav__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M10.5 4.5 4.5 10.5"></path>
+                                <rect x="2.5" y="9" width="19" height="6" rx="2" transform="rotate(-45 12 12)"></rect>
+                                <path d="M14 8.5 8.5 14"></path>
+                                <path d="M15.5 10 10 15.5"></path>
+                            </svg>
+                        </span>
+                        <span class="censo-nav__content">
+                            <span class="censo-nav__eyebrow">Sección 3</span>
+                            <span class="censo-nav__title">Manejo de la herida</span>
+                            <span class="censo-nav__description">PICC, VAC, apósitos y frecuencia de visita.</span>
                         </span>
                     </button>
 
@@ -97,7 +122,7 @@
                             </svg>
                         </span>
                         <span class="censo-nav__content">
-                            <span class="censo-nav__eyebrow">Sección 3</span>
+                            <span class="censo-nav__eyebrow">Sección 4</span>
                             <span class="censo-nav__title">Activo fijo</span>
                             <span class="censo-nav__description" id="activoFijoNavDescription">@(vacActivo ? "Equipos en comodato asignados al paciente." : "Se habilita cuando VAC está en Si.")</span>
                         </span>
@@ -117,7 +142,7 @@
                             </svg>
                         </span>
                         <span class="censo-nav__content">
-                            <span class="censo-nav__eyebrow">Sección 4</span>
+                            <span class="censo-nav__eyebrow">Sección 5</span>
                             <span class="censo-nav__title">Seguimiento hospitalizado</span>
                             <span class="censo-nav__description">Hospitalización y fechas de seguimiento.</span>
                         </span>
@@ -139,7 +164,7 @@
                             </svg>
                         </span>
                         <span class="censo-nav__content">
-                            <span class="censo-nav__eyebrow">Sección 5</span>
+                            <span class="censo-nav__eyebrow">Sección 6</span>
                             <span class="censo-nav__title">Devolución de productos</span>
                             <span class="censo-nav__description">Novedades y gestión del servicio farmacéutico.</span>
                         </span>
@@ -163,7 +188,7 @@
                             </svg>
                         </span>
                         <span class="censo-nav__content">
-                            <span class="censo-nav__eyebrow">Sección 6</span>
+                            <span class="censo-nav__eyebrow">Sección 7</span>
                             <span class="censo-nav__title">Alta del programa</span>
                             <span class="censo-nav__description">Motivo del egreso y estado del paciente.</span>
                         </span>
@@ -542,12 +567,19 @@
                                     <h3>Información clínica</h3>
                                 </div>
                                 <div class="row g-3 censo-field-section__grid">
-                                    <div class="col-lg-3">
+                                    <div class="col-lg-5">
                                         <label asp-for="CodigoCie10" class="form-label"></label>@RequiredMark()
-                                        <input asp-for="CodigoCie10" class="form-control" id="codigoCie10Input" maxlength="4" autocomplete="off" />
+                                        <select asp-for="CodigoCie10" class="form-select" id="codigoCie10Input">
+                                            <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.CodigoCie10))">Selecciona...</option>
+                                            @foreach (var cie in Model.Cie10Options)
+                                            {
+                                                <option value="@cie.Value" selected="@(string.Equals(cie.Value, Model.CodigoCie10, StringComparison.OrdinalIgnoreCase))">@cie.Text</option>
+                                            }
+                                        </select>
+                                        <div class="form-text">Listado de diagnósticos de clínica de heridas.</div>
                                         <span asp-validation-for="CodigoCie10" class="text-danger"></span>
                                     </div>
-                                    <div class="col-lg-6">
+                                    <div class="col-lg-4">
                                         <label asp-for="DiagnosticoDescriptivo" class="form-label"></label>@RequiredMark()
                                         <input asp-for="DiagnosticoDescriptivo" class="form-control" id="diagnosticoDescriptivoInput" readonly />
                                         <span asp-validation-for="DiagnosticoDescriptivo" class="text-danger"></span>
@@ -576,20 +608,6 @@
                                         <div class="form-text">Selecciona un auxiliar OPS activo. Si no aparece, debe registrarse primero en administración de usuarios.</div>
                                         <span asp-validation-for="AuxiliarEnfermeriaAsignado" class="text-danger"></span>
                                     </div>
-                                    <div class="col-lg-2">
-                                        <label asp-for="Picc" class="form-label"></label>@RequiredMark()
-                                        <select asp-for="Picc" asp-items="Model.SiNoOptions" class="form-select">
-                                            <option value="" disabled hidden>Selecciona...</option>
-                                        </select>
-                                        <span asp-validation-for="Picc" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-2">
-                                        <label asp-for="Vac" class="form-label"></label>@RequiredMark()
-                                        <select asp-for="Vac" asp-items="Model.SiNoOptions" class="form-select">
-                                            <option value="" disabled hidden>Selecciona...</option>
-                                        </select>
-                                        <span asp-validation-for="Vac" class="text-danger"></span>
-                                    </div>
                                 </div>
                             </section>
 
@@ -606,12 +624,12 @@
                     </div>
                 </div>
 
-                <div class="tab-pane fade" id="tab-manejo-herida" role="tabpanel" aria-labelledby="tab-manejo-herida-link">
+                <div class="tab-pane fade" id="tab-caracteristicas-herida" role="tabpanel" aria-labelledby="tab-caracteristicas-herida-link">
                     <div class="card">
                         <div class="card-header">
                             <div class="censo-card-heading">
                                 <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
-                                <h2 class="h5 mb-0">Manejo de la herida</h2>
+                                <h2 class="h5 mb-0">Características de la herida</h2>
                             </div>
                             @if (historial.TotalSeguimientos > 0)
                             {
@@ -779,6 +797,14 @@
                                                         <dt>Tejido</dt>
                                                         <dd>@Valor(seguimiento.Tejido)</dd>
                                                     </div>
+                                                    <div>
+                                                        <dt>Cavitación / tunelización</dt>
+                                                        <dd>@Valor(seguimiento.CavitacionTunelizacion)</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt>Piel perilesional</dt>
+                                                        <dd>@Valor(seguimiento.PielPerilesional)</dd>
+                                                    </div>
                                                 </dl>
 
                                                 <div class="herida-exudado">
@@ -830,6 +856,320 @@
                                         </li>
                                     }
                                 </ol>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-manejo-herida" role="tabpanel" aria-labelledby="tab-manejo-herida-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Manejo de la herida</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el manejo de la herida.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M12 3v18"></path>
+                                                <path d="M5 8h14"></path>
+                                                <path d="M7 16h10"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Dispositivos</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="Picc" class="form-label"></label>@RequiredMark()
+                                            <select asp-for="Picc" asp-items="Model.SiNoOptions" class="form-select">
+                                                <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.Picc))">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="Picc" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="Vac" class="form-label"></label>@RequiredMark()
+                                            <select asp-for="Vac" asp-items="Model.SiNoOptions" class="form-select" data-kardex-trigger>
+                                                <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.Vac))">Selecciona...</option>
+                                            </select>
+                                            <div class="form-text">Con VAC en Si se habilita la sección Activo fijo.</div>
+                                            <span asp-validation-for="Vac" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="Npt" class="form-label"></label>@RequiredMark()
+                                            <select asp-for="Npt" asp-items="Model.SiNoOptions" class="form-select" data-kardex-trigger>
+                                                <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.Npt))">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="Npt" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="ManejoHerida" class="form-label"></label>@RequiredMark()
+                                            <select asp-for="ManejoHerida" asp-items="Model.SiNoOptions" class="form-select" data-kardex-trigger>
+                                                <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.ManejoHerida))">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="ManejoHerida" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="3" y="7" width="18" height="13" rx="2"></rect>
+                                                <path d="M12 11v5"></path>
+                                                <path d="M9.5 13.5h5"></path>
+                                                <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Tratamiento</h3>
+                                    </div>
+
+                                    <div class="herida-apositos-bloque @(mostrarApositos ? null : "d-none")" id="apositosBloque">
+                                        <p class="herida-apositos__ayuda">
+                                            Los apósitos y medicamentos entran en las requisiciones de manejo de la herida y VAC.
+                                        </p>
+                                    <div class="herida-apositos" id="apositosContainer" data-max="4">
+                                        <datalist id="apositoMedicamentoOptions">
+                                            @foreach (var insumo in Model.ApositoMedicamentoOptions)
+                                            {
+                                                <option value="@insumo"></option>
+                                            }
+                                        </datalist>
+
+                                        @{
+                                            var apositos = new[]
+                                            {
+                                                Model.ApositoMedicamento1,
+                                                Model.ApositoMedicamento2,
+                                                Model.ApositoMedicamento3,
+                                                Model.ApositoMedicamento4
+                                            };
+                                        }
+
+                                        @for (var apositoIndex = 0; apositoIndex < apositos.Length; apositoIndex++)
+                                        {
+                                            var numero = apositoIndex + 1;
+                                            var campo = $"ApositoMedicamento{numero}";
+                                            var valor = apositos[apositoIndex];
+                                            // El primero siempre esta a la vista; los demas aparecen si traen dato
+                                            // guardado o cuando el usuario pulsa "Agregar".
+                                            var oculto = apositoIndex > 0 && string.IsNullOrWhiteSpace(valor);
+                                            <div class="herida-aposito @(oculto ? "d-none" : null)" data-aposito-slot="@apositoIndex">
+                                                <div class="herida-aposito__campo">
+                                                    <label class="form-label" for="@campo">Apósito/Medicamento @numero</label>
+                                                    <input class="form-control"
+                                                           id="@campo"
+                                                           name="@campo"
+                                                           value="@valor"
+                                                           maxlength="200"
+                                                           list="apositoMedicamentoOptions"
+                                                           autocomplete="off"
+                                                           data-aposito-input
+                                                           placeholder="Escribe para filtrar el listado" />
+                                                    @Html.ValidationMessage(campo, new { @class = "text-danger" })
+                                                </div>
+                                                @if (apositoIndex > 0)
+                                                {
+                                                    <button type="button" class="btn btn-link herida-aposito__quitar" data-aposito-quitar>
+                                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                            <path d="M6 6l12 12"></path>
+                                                            <path d="M18 6 6 18"></path>
+                                                        </svg>
+                                                        <span>Retirar</span>
+                                                    </button>
+                                                }
+                                            </div>
+                                        }
+
+                                        <button type="button" class="btn btn-outline-primary herida-aposito__agregar" id="apositoAgregar">
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M12 5v14"></path>
+                                                <path d="M5 12h14"></path>
+                                            </svg>
+                                            <span>Agregar apósito/medicamento</span>
+                                        </button>
+                                        <p class="herida-apositos__limite d-none" id="apositoLimite">Máximo 4 apósitos o medicamentos por paciente.</p>
+                                    </div>
+                                    </div>
+                                    <div class="herida-apositos-bloqueado @(mostrarApositos ? "d-none" : null)" id="apositosBloqueado">
+                                        Los apósitos y medicamentos se habilitan cuando manejo de la herida o VAC están en Sí.
+                                        NPT y PICC llevan lista fija de insumos.
+                                    </div>
+
+                                    @* Al consultar un plan cerrado se muestran sus apósitos congelados en lugar de los editables. *@
+                                    <div class="herida-apositos-historico d-none" id="apositosHistorico">
+                                        <div class="herida-apositos-historico__cabecera">
+                                            <span class="herida-apositos-historico__titulo">Apósitos y medicamentos</span>
+                                            <span class="herida-apositos-historico__plan" id="apositosHistoricoPlan"></span>
+                                        </div>
+                                        <ul class="herida-apositos-historico__lista" id="apositosHistoricoLista"></ul>
+                                        <p class="herida-apositos-historico__nota">
+                                            Este plan está cerrado: sus apósitos quedaron como estaban y no se pueden editar.
+                                        </p>
+                                    </div>
+
+                                    <div class="row g-3 censo-field-section__grid mt-1">
+                                        <div class="col-lg-3">
+                                            <label asp-for="DuracionTratamientoDias" class="form-label"></label>
+                                            <input asp-for="DuracionTratamientoDias"
+                                                   class="form-control"
+                                                   type="number"
+                                                   min="1"
+                                                   max="999"
+                                                   step="1"
+                                                   inputmode="numeric"
+                                                   placeholder="Días" />
+                                            <span asp-validation-for="DuracionTratamientoDias" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-9">
+                                            <span class="form-label d-block">Frecuencia de visita</span>
+                                            <div class="herida-frecuencia">
+                                                @for (var frecuenciaIndex = 0; frecuenciaIndex < Model.FrecuenciaVisitaOptions.Count; frecuenciaIndex++)
+                                                {
+                                                    var frecuencia = Model.FrecuenciaVisitaOptions[frecuenciaIndex];
+                                                    var frecuenciaId = $"frecuenciaVisita_{frecuenciaIndex}";
+                                                    <div class="form-check">
+                                                        <input class="form-check-input"
+                                                               type="radio"
+                                                               name="FrecuenciaVisita"
+                                                               value="@frecuencia"
+                                                               id="@frecuenciaId"
+                                                               data-frecuencia-visita
+                                                               @(string.Equals(Model.FrecuenciaVisita, frecuencia, StringComparison.OrdinalIgnoreCase) ? "checked" : null) />
+                                                        <label class="form-check-label" for="@frecuenciaId">@frecuencia</label>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <button type="button" class="btn btn-link herida-frecuencia__limpiar @(string.IsNullOrWhiteSpace(Model.FrecuenciaVisita) ? "d-none" : null)" id="frecuenciaVisitaLimpiar">
+                                                Quitar selección
+                                            </button>
+                                            <span asp-validation-for="FrecuenciaVisita" class="text-danger"></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasManejoHerida", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar manejo de la herida</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+
+                                <section class="censo-field-section herida-kardex">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                <path d="M14 3v5h5"></path>
+                                                <path d="M9 13h6"></path>
+                                                <path d="M9 17h4"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Requisiciones de insumos</h3>
+                                    </div>
+
+                                    <p class="herida-kardex__ayuda">
+                                        Se abre una requisición por cada atención marcada en Sí. Las cantidades salen de la
+                                        duración del tratamiento y la frecuencia de visita.
+                                    </p>
+
+                                    <div class="alert alert-info d-none" id="kardexDesactualizadoAviso" role="status">
+                                        Cambiaste las atenciones del paciente. Guarda el manejo de la herida para actualizar las requisiciones.
+                                    </div>
+
+                                    @if (Model.Planes.Any())
+                                    {
+                                        <div class="herida-planes" id="heridaPlanes">
+                                            <div class="herida-planes__barra">
+                                                <div class="herida-planes__lista" role="tablist" aria-label="Planes de requisiciones">
+                                                    @foreach (var plan in Model.Planes)
+                                                    {
+                                                        <button type="button"
+                                                                class="herida-plan-chip @(plan.Vigente ? "is-vigente is-activo" : null)"
+                                                                role="tab"
+                                                                aria-selected="@(plan.Vigente ? "true" : "false")"
+                                                                data-plan-id="@plan.Id"
+                                                                data-plan-numero="@plan.Numero"
+                                                                data-plan-vigente="@(plan.Vigente ? "true" : "false")">
+                                                            <span class="herida-plan-chip__numero">Plan @plan.Numero</span>
+                                                            <span class="herida-plan-chip__estado">@(plan.Vigente ? "Vigente" : "Cerrado")</span>
+                                                        </button>
+                                                    }
+                                                </div>
+                                                <button type="button" class="btn btn-outline-primary herida-planes__nuevo" id="heridaPlanNuevo">
+                                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                        <path d="M12 5v14"></path>
+                                                        <path d="M5 12h14"></path>
+                                                    </svg>
+                                                    <span>Abrir plan nuevo</span>
+                                                </button>
+                                            </div>
+                                            <p class="herida-planes__meta" id="heridaPlanMeta"></p>
+                                        </div>
+                                    }
+
+                                    @if (!Model.KardexDisponibles.Any())
+                                    {
+                                        <div class="herida-kardex__vacio">
+                                            Ninguna atención está en Sí todavía. Marca PICC, VAC, NPT o manejo de la herida y
+                                            guarda la sección para generar su requisición.
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="herida-kardex__grid" id="heridaKardexGrid">
+                                            @foreach (var kardex in Model.KardexDisponibles)
+                                            {
+                                                <article class="herida-kardex__card @(kardex.Cerrado ? "is-cerrado" : kardex.Enviado ? "is-enviado" : null)">
+                                                    <header>
+                                                        <span class="herida-kardex__tipo">@kardex.Nombre</span>
+                                                        @if (kardex.Cerrado)
+                                                        {
+                                                            <span class="herida-kardex__estado herida-kardex__estado--cerrado">Cerrado por farmacia</span>
+                                                        }
+                                                        else if (kardex.Enviado)
+                                                        {
+                                                            <span class="herida-kardex__estado herida-kardex__estado--enviado">En farmacia</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="herida-kardex__estado">Sin enviar</span>
+                                                        }
+                                                    </header>
+                                                    <dl class="herida-kardex__datos">
+                                                        <div><dt>Insumos</dt><dd>@kardex.Insumos</dd></div>
+                                                        <div><dt>Aplicaciones</dt><dd>@kardex.Aplicaciones</dd></div>
+                                                        <div><dt>Adjuntos</dt><dd>@kardex.Adjuntos</dd></div>
+                                                    </dl>
+                                                    <button type="button"
+                                                            class="btn btn-outline-primary herida-kardex__abrir"
+                                                            data-kardex-abrir="@kardex.Tipo"
+                                                            data-kardex-nombre="@kardex.Nombre">
+                                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                            <path d="M14 3v5h5"></path>
+                                                        </svg>
+                                                        <span>@(kardex.Cerrado ? "Ver requisición" : "Abrir requisición")</span>
+                                                    </button>
+                                                </article>
+                                            }
+                                        </div>
+                                    }
+                                </section>
                             }
                         </div>
                     </div>
@@ -1260,6 +1600,141 @@
     }
 </section>
 
+@* Diálogo propio para confirmaciones y avisos: reemplaza confirm() y alert() del navegador. *@
+<div class="modal fade herida-dialogo" id="heridaDialogo" tabindex="-1" aria-labelledby="heridaDialogoTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body">
+                <div class="herida-dialogo__icono" id="heridaDialogoIcono" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M12 9v4"></path>
+                        <path d="M12 17h.01"></path>
+                        <path d="M10.3 3.9 2.4 17.6A2 2 0 0 0 4.1 20.6h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path>
+                    </svg>
+                </div>
+                <h2 class="herida-dialogo__titulo" id="heridaDialogoTitulo"></h2>
+                <p class="herida-dialogo__mensaje" id="heridaDialogoMensaje"></p>
+                <ul class="herida-dialogo__detalles d-none" id="heridaDialogoDetalles"></ul>
+            </div>
+            <div class="modal-footer herida-dialogo__acciones">
+                <button type="button" class="btn btn-outline-secondary" id="heridaDialogoCancelar" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="heridaDialogoConfirmar"></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade herida-kardex-modal" id="heridaKardexModal" tabindex="-1" aria-labelledby="heridaKardexModalTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                    <h5 class="modal-title" id="heridaKardexModalTitulo">Requisición de insumos</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning d-none" id="kardexCerradoBanner" role="alert">
+                    <strong>Kardex cerrado.</strong> Farmacia ya aprobó esta requisición: queda solo para consulta.
+                </div>
+                <div class="alert alert-danger d-none" id="kardexErrorBanner" role="alert"></div>
+
+                <div class="herida-kardex-sheet" id="kardexSheet" aria-label="Requisición de insumos y dispositivos médicos">
+                    <div class="herida-kardex-sheet__head">
+                        <div class="herida-kardex-sheet__logo">
+                            <img src="~/images/logo.png" asp-append-version="true" alt="Especialistas En Casa" />
+                        </div>
+                        <div class="herida-kardex-sheet__title" id="kardexTitulo"></div>
+                        <div class="herida-kardex-sheet__meta">
+                            <label>Código:<input data-kardex-field="codigoFormato" /></label>
+                            <label>Versión:<input data-kardex-field="versionFormato" /></label>
+                            <label>Página:<input data-kardex-field="paginaFormato" /></label>
+                            <label>Fecha:<input data-kardex-field="fechaFormato" /></label>
+                        </div>
+                    </div>
+
+                    <div class="herida-kardex-sheet__subtitle" id="kardexSubtitulo"></div>
+
+                    <div class="herida-kardex-section-title">Datos del paciente</div>
+                    <div class="herida-kardex-patient">
+                        <label>Paciente:</label>
+                        <input data-kardex-field="paciente" />
+                        <label>Documento:</label>
+                        <input data-kardex-field="documento" />
+
+                        <label>Asegurador:</label>
+                        <input data-kardex-field="asegurador" />
+                        <label>Edad:</label>
+                        <input data-kardex-field="edad" />
+
+                        <label>Dirección:</label>
+                        <input data-kardex-field="direccion" />
+                        <label>Teléfonos:</label>
+                        <input data-kardex-field="telefonos" />
+
+                        <label>CIE10:</label>
+                        <input data-kardex-field="codigoCie10" />
+                        <label>Diagnóstico:</label>
+                        <input data-kardex-field="diagnostico" />
+                    </div>
+
+                    <div class="herida-kardex-section-title">Tratamiento</div>
+                    <div class="herida-kardex-patient">
+                        <label>Duración (días):</label>
+                        <input data-kardex-field="duracionDias" inputmode="numeric" />
+                        <label>Frecuencia:</label>
+                        <input data-kardex-field="frecuencia" />
+
+                        <label>Aplicaciones:</label>
+                        <input data-kardex-field="aplicaciones" inputmode="numeric" readonly />
+                        <label>Fecha de solicitud:</label>
+                        <input data-kardex-field="fechaSolicitud" type="date" />
+
+                        <label>Auxiliar asignado:</label>
+                        <input data-kardex-field="auxiliarAsignado" />
+                        <label>Elaborado por:</label>
+                        <input data-kardex-field="elaboradoPor" />
+                    </div>
+
+                    <div class="herida-kardex-section-title herida-kardex-section-title--center">Detalle de la requisición</div>
+                    <div class="herida-kardex-table-scroll">
+                        <table class="herida-kardex-table" id="kardexTabla">
+                            <thead>
+                                <tr id="kardexTablaCabecera"></tr>
+                            </thead>
+                            <tbody id="kardexTablaCuerpo"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-link herida-kardex__agregar-insumo" id="kardexAgregarInsumo">
+                        + Agregar insumo
+                    </button>
+
+                    <div class="herida-kardex-section-title">Observaciones</div>
+                    <textarea class="herida-kardex-observaciones" data-kardex-field="observaciones" rows="2"></textarea>
+                </div>
+
+                <div class="herida-kardex-adjuntos">
+                    <div class="herida-kardex-adjuntos__head">
+                        <strong>Adjuntos</strong>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="kardexSubirAdjuntoBtn">Subir archivo</button>
+                        <input type="file" id="kardexAdjuntoInput" class="d-none"
+                               accept=".pdf,.xls,.xlsx,.xlsm,.csv,.jpg,.jpeg,.png" aria-label="Seleccionar adjunto" />
+                        <span class="small text-muted" id="kardexAdjuntoEstado"></span>
+                    </div>
+                    <ul class="herida-kardex-adjuntos__list" id="kardexAdjuntosLista"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="me-auto small text-muted" id="kardexEstadoNota"></span>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-outline-success" id="kardexGuardarBtn">Guardar</button>
+                <button type="button" class="btn btn-primary" id="kardexEnviarBtn">Enviar a farmacia</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade herida-visor" id="heridaFotoVisor" tabindex="-1" aria-hidden="true" aria-labelledby="heridaFotoVisorTitulo">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
@@ -1279,6 +1754,12 @@
     <partial name="_ValidationScriptsPartial" />
     <script>
         (() => {
+            // Plan de requisiciones que se esta consultando: null cuando es el vigente. Lo comparten
+            // la barra de navegacion y el modal del kardex, que viven en bloques distintos.
+            let planClinicaHeridasActual = null;
+
+            // Id del registro abierto: sin el no hay requisiciones que pedir.
+            const recordIdActual = @(Model.EditingRecordId?.ToString() ?? "null");
             const validarDireccionUrl = "@Url.Action("ValidarDireccion", "Censo")";
             const buscarBarriosUrl = "@Url.Action("BuscarBarrios", "Censo")";
             const defaultsMunicipioUrl = "@Url.Action("ObtenerDefaultsMunicipio", "Censo")";
@@ -1824,22 +2305,17 @@
                 await applyMunicipalityDefaults(municipio, barrio, lastValidationDistrict);
             });
 
-            codigoCie10Input?.addEventListener("input", () => {
-                codigoCie10Input.value = normalizeCie10(codigoCie10Input.value);
-                if (diagnosticoInput) diagnosticoInput.value = "";
-            });
+            // El diagnóstico sale del propio listado: son 23 códigos fijos, no hace falta consultarlo.
+            const diagnosticoDeLaOpcion = (opcion) => {
+                const texto = opcion?.textContent?.trim() || "";
+                const separador = texto.indexOf(" - ");
+                return separador < 0 ? "" : texto.slice(separador + 3).trim();
+            };
 
-            codigoCie10Input?.addEventListener("blur", async () => {
-                const codigo = normalizeCie10(codigoCie10Input.value);
-                codigoCie10Input.value = codigo;
-                if (codigo.length !== 4 || !diagnosticoInput) return;
-                const response = await fetch(`${buscarDiagnosticoCie10Url}?codigo=${encodeURIComponent(codigo)}`);
-                if (!response.ok) {
-                    diagnosticoInput.value = "";
-                    return;
-                }
-                const data = await response.json();
-                diagnosticoInput.value = data.diagnostico || "";
+            codigoCie10Input?.addEventListener("change", () => {
+                if (!diagnosticoInput) { return; }
+                const opcion = codigoCie10Input.selectedOptions[0];
+                diagnosticoInput.value = opcion?.value ? diagnosticoDeLaOpcion(opcion) : "";
             });
 
             document.querySelectorAll(".heridas-phone-input").forEach((input) => {
@@ -2144,6 +2620,765 @@
             numeroIdentificacionInput?.addEventListener("change", buscarPacienteEnOtrosCensos);
             numeroIdentificacionInput?.addEventListener("blur", buscarPacienteEnOtrosCensos);
 
+            // ---------------------------------------------------------------- Requisiciones de insumos
+            // El documento se pide al servidor ya armado (insumos y columnas dependen del tipo de
+            // atencion, la duracion y la frecuencia). Aqui solo se pinta, se edita y se devuelve.
+            const kardexModalEl = document.getElementById("heridaKardexModal");
+            if (kardexModalEl && recordIdActual) {
+                const kardexModal = new bootstrap.Modal(kardexModalEl);
+                const kardexUrl = "@Url.Action("KardexClinicaHeridas", "Censo")";
+                const kardexGuardarUrl = "@Url.Action("GuardarKardexClinicaHeridas", "Censo")";
+                const kardexEnviarUrl = "@Url.Action("EnviarKardexClinicaHeridasAFarmacia", "Censo")";
+                const kardexAdjuntoUrl = "@Url.Action("SubirAdjuntoKardexClinicaHeridas", "Censo")";
+                const kardexAdjuntoEliminarUrl = "@Url.Action("EliminarAdjuntoKardexClinicaHeridas", "Censo")";
+                const kardexAdjuntoDescargaUrl = "@Url.Action("DescargarAdjuntoKardexClinicaHeridas", "Censo")";
+                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || "";
+
+                const cabecera = document.getElementById("kardexTablaCabecera");
+                const cuerpo = document.getElementById("kardexTablaCuerpo");
+                const cerradoBanner = document.getElementById("kardexCerradoBanner");
+                const errorBanner = document.getElementById("kardexErrorBanner");
+                const estadoNota = document.getElementById("kardexEstadoNota");
+                const guardarBtn = document.getElementById("kardexGuardarBtn");
+                const enviarBtn = document.getElementById("kardexEnviarBtn");
+                const agregarInsumoBtn = document.getElementById("kardexAgregarInsumo");
+                const adjuntosLista = document.getElementById("kardexAdjuntosLista");
+                const adjuntoInput = document.getElementById("kardexAdjuntoInput");
+                const adjuntoEstado = document.getElementById("kardexAdjuntoEstado");
+
+                let tipoActual = null;
+                let cerradoActual = false;
+
+                const campo = (nombre) => kardexModalEl.querySelector(`[data-kardex-field="${nombre}"]`);
+
+                const mostrarError = (mensaje) => {
+                    errorBanner.textContent = mensaje || "";
+                    errorBanner.classList.toggle("d-none", !mensaje);
+                };
+
+                const setSoloLectura = (cerrado) => {
+                    cerradoActual = cerrado;
+                    cerradoBanner.classList.toggle("d-none", !cerrado);
+                    kardexModalEl.querySelectorAll("#kardexSheet input, #kardexSheet textarea")
+                        .forEach((el) => { el.readOnly = cerrado; });
+                    guardarBtn.classList.toggle("d-none", cerrado);
+                    enviarBtn.classList.toggle("d-none", cerrado);
+                    agregarInsumoBtn.classList.toggle("d-none", cerrado);
+                    document.getElementById("kardexSubirAdjuntoBtn").classList.toggle("d-none", cerrado);
+                    kardexModalEl.querySelectorAll(".herida-kardex-table__quitar")
+                        .forEach((celda) => celda.classList.toggle("d-none", cerrado));
+                };
+
+                const filaInsumo = (insumo, aplicaciones) => {
+                    const tr = document.createElement("tr");
+                    tr.dataset.kardexInsumo = "";
+
+                    const tdItem = document.createElement("td");
+                    tdItem.className = "herida-kardex-table__item";
+                    tdItem.textContent = insumo.item ?? "";
+                    tr.appendChild(tdItem);
+
+                    const tdDesc = document.createElement("td");
+                    const desc = document.createElement("input");
+                    desc.dataset.kardexInsumoField = "descripcion";
+                    desc.value = insumo.descripcion || "";
+                    tdDesc.appendChild(desc);
+                    tr.appendChild(tdDesc);
+
+                    for (let i = 0; i < aplicaciones; i++) {
+                        const td = document.createElement("td");
+                        const input = document.createElement("input");
+                        input.dataset.kardexCantidad = String(i);
+                        input.className = "herida-kardex-table__cantidad";
+                        input.inputMode = "numeric";
+                        input.value = insumo.cantidades?.[i] ?? 0;
+                        input.addEventListener("input", recalcularTotales);
+                        td.appendChild(input);
+                        tr.appendChild(td);
+                    }
+
+                    const tdTotal = document.createElement("td");
+                    tdTotal.className = "herida-kardex-table__total";
+                    tdTotal.dataset.kardexTotal = "";
+                    tr.appendChild(tdTotal);
+
+                    const tdQuitar = document.createElement("td");
+                    tdQuitar.className = "herida-kardex-table__quitar";
+                    const quitar = document.createElement("button");
+                    quitar.type = "button";
+                    quitar.className = "btn btn-link p-0";
+                    quitar.textContent = "Quitar";
+                    quitar.addEventListener("click", () => {
+                        tr.remove();
+                        renumerarItems();
+                        recalcularTotales();
+                    });
+                    tdQuitar.appendChild(quitar);
+                    tr.appendChild(tdQuitar);
+
+                    return tr;
+                };
+
+                const renumerarItems = () => {
+                    [...cuerpo.querySelectorAll("[data-kardex-insumo]")].forEach((tr, indice) => {
+                        tr.querySelector(".herida-kardex-table__item").textContent = indice + 1;
+                    });
+                };
+
+                function recalcularTotales() {
+                    [...cuerpo.querySelectorAll("[data-kardex-insumo]")].forEach((tr) => {
+                        const total = [...tr.querySelectorAll("[data-kardex-cantidad]")]
+                            .reduce((suma, input) => suma + (parseInt(input.value, 10) || 0), 0);
+                        tr.querySelector("[data-kardex-total]").textContent = total;
+                    });
+                }
+
+                const pintarDocumento = (documento) => {
+                    document.getElementById("kardexTitulo").textContent = documento.titulo || "";
+                    document.getElementById("kardexSubtitulo").textContent = `Atención: ${documento.tipoNombre || ""}`;
+                    document.getElementById("heridaKardexModalTitulo").textContent =
+                        `Requisición · ${documento.tipoNombre || ""}`;
+
+                    ["codigoFormato", "versionFormato", "paginaFormato", "fechaFormato", "paciente", "documento",
+                     "asegurador", "edad", "direccion", "telefonos", "codigoCie10", "diagnostico", "duracionDias",
+                     "frecuencia", "aplicaciones", "fechaSolicitud", "auxiliarAsignado", "elaboradoPor",
+                     "observaciones"].forEach((nombre) => {
+                        const el = campo(nombre);
+                        if (el) { el.value = documento[nombre] ?? ""; }
+                    });
+
+                    const aplicaciones = Math.max(1, parseInt(documento.aplicaciones, 10) || 1);
+
+                    cabecera.innerHTML = "";
+                    const th = (texto, clase) => {
+                        const el = document.createElement("th");
+                        el.textContent = texto;
+                        if (clase) { el.className = clase; }
+                        cabecera.appendChild(el);
+                        return el;
+                    };
+                    th("Item");
+                    th("Descripción del insumo");
+
+                    // Los titulos de las columnas son editables: el usuario suele reemplazarlos por
+                    // la fecha real de cada visita.
+                    const encabezados = documento.encabezados || [];
+                    for (let i = 0; i < aplicaciones; i++) {
+                        const celda = th("", "herida-kardex-table__aplicacion");
+                        const input = document.createElement("input");
+                        input.dataset.kardexEncabezado = String(i);
+                        input.className = "herida-kardex-table__encabezado";
+                        input.value = encabezados[i] || `Aplicación ${i + 1}`;
+                        input.setAttribute("aria-label", `Título de la columna ${i + 1}`);
+                        celda.appendChild(input);
+                    }
+
+                    th("Total");
+                    th("");
+
+                    cuerpo.innerHTML = "";
+                    (documento.insumos || []).forEach((insumo) => {
+                        cuerpo.appendChild(filaInsumo(insumo, aplicaciones));
+                    });
+                    renumerarItems();
+                    recalcularTotales();
+                };
+
+                const pintarAdjuntos = (adjuntos) => {
+                    adjuntosLista.innerHTML = "";
+                    if (!adjuntos || adjuntos.length === 0) {
+                        const vacio = document.createElement("li");
+                        vacio.className = "herida-kardex-adjuntos__vacio";
+                        vacio.textContent = "Sin adjuntos.";
+                        adjuntosLista.appendChild(vacio);
+                        return;
+                    }
+
+                    adjuntos.forEach((adjunto) => {
+                        const li = document.createElement("li");
+                        const enlace = document.createElement("a");
+                        enlace.href = `${kardexAdjuntoDescargaUrl}?adjuntoId=${adjunto.id}`;
+                        enlace.textContent = adjunto.nombre;
+                        enlace.target = "_blank";
+                        enlace.rel = "noopener";
+                        li.appendChild(enlace);
+
+                        if (!cerradoActual) {
+                            const quitar = document.createElement("button");
+                            quitar.type = "button";
+                            quitar.className = "btn btn-link p-0 ms-2";
+                            quitar.textContent = "Eliminar";
+                            quitar.addEventListener("click", async () => {
+                                const cuerpoForm = new FormData();
+                                cuerpoForm.append("adjuntoId", adjunto.id);
+                                cuerpoForm.append("__RequestVerificationToken", token);
+                                const respuesta = await fetch(kardexAdjuntoEliminarUrl, { method: "POST", body: cuerpoForm });
+                                if (respuesta.ok) { await cargarKardex(tipoActual); }
+                            });
+                            li.appendChild(quitar);
+                        }
+
+                        adjuntosLista.appendChild(li);
+                    });
+                };
+
+                const serializarDocumento = () => {
+                    const documento = {};
+                    ["codigoFormato", "versionFormato", "paginaFormato", "fechaFormato", "paciente", "documento",
+                     "asegurador", "edad", "direccion", "telefonos", "codigoCie10", "diagnostico", "frecuencia",
+                     "fechaSolicitud", "auxiliarAsignado", "elaboradoPor", "observaciones"].forEach((nombre) => {
+                        documento[nombre] = campo(nombre)?.value ?? "";
+                    });
+                    documento.duracionDias = parseInt(campo("duracionDias")?.value, 10) || 0;
+                    documento.aplicaciones = parseInt(campo("aplicaciones")?.value, 10) || 1;
+                    documento.tipo = tipoActual;
+                    documento.encabezados = [...cabecera.querySelectorAll("[data-kardex-encabezado]")]
+                        .map((input) => input.value.trim());
+                    documento.insumos = [...cuerpo.querySelectorAll("[data-kardex-insumo]")].map((tr, indice) => ({
+                        item: indice + 1,
+                        descripcion: tr.querySelector('[data-kardex-insumo-field="descripcion"]').value,
+                        cantidades: [...tr.querySelectorAll("[data-kardex-cantidad]")]
+                            .map((input) => parseInt(input.value, 10) || 0)
+                    }));
+                    return documento;
+                };
+
+                async function cargarKardex(tipo) {
+                    mostrarError("");
+                    tipoActual = tipo;
+                    const planParam = planClinicaHeridasActual ? `&planId=${planClinicaHeridasActual}` : "";
+                    const respuesta = await fetch(`${kardexUrl}?recordId=${recordIdActual}&tipo=${encodeURIComponent(tipo)}${planParam}`);
+                    const datos = await respuesta.json();
+
+                    if (!respuesta.ok) {
+                        mostrarError(datos?.message || "No fue posible abrir la requisición.");
+                        return;
+                    }
+
+                    // El orden importa: la tabla se dibuja primero y despues se aplica el modo lectura,
+                    // porque sus inputs no existen hasta que se pinta el documento.
+                    pintarDocumento(datos.documento || {});
+                    setSoloLectura(!!datos.estado?.cerrado);
+                    pintarAdjuntos(datos.adjuntos || []);
+
+                    // El bloqueo tiene dos motivos posibles y conviene decir cual es.
+                    if (datos.estado?.planCerrado) {
+                        cerradoBanner.innerHTML =
+                            `<strong>Plan ${datos.plan?.numero} cerrado.</strong> Esta requisición pertenece a un plan anterior: queda solo para consulta.`;
+                    } else if (datos.estado?.cerradoPorFarmacia) {
+                        cerradoBanner.innerHTML =
+                            "<strong>Kardex cerrado.</strong> Farmacia ya aprobó esta requisición: queda solo para consulta.";
+                    }
+
+                    estadoNota.textContent = datos.estado?.planCerrado
+                        ? `Plan ${datos.plan?.numero} · cerrado.`
+                        : datos.estado?.cerradoPorFarmacia
+                            ? "Cerrado por farmacia."
+                            : datos.estado?.enviadoAtUtc
+                                ? "Enviado a farmacia. Puedes seguir editando hasta que le den OK."
+                                : "Sin enviar a farmacia.";
+                }
+
+                const enviarDocumento = async (url, mensajeExito) => {
+                    mostrarError("");
+                    const cuerpoForm = new FormData();
+                    cuerpoForm.append("recordId", recordIdActual);
+                    cuerpoForm.append("tipo", tipoActual);
+                    cuerpoForm.append("kardexJson", JSON.stringify(serializarDocumento()));
+                    cuerpoForm.append("__RequestVerificationToken", token);
+
+                    const respuesta = await fetch(url, { method: "POST", body: cuerpoForm });
+                    const datos = await respuesta.json().catch(() => null);
+                    if (!respuesta.ok) {
+                        mostrarError(datos?.message || "No fue posible completar la operación.");
+                        return false;
+                    }
+
+                    estadoNota.textContent = datos?.message || mensajeExito;
+                    return true;
+                };
+
+                // Las tarjetas se repintan al navegar entre planes, asi que la apertura se expone en
+                // vez de engancharse a los botones que existen al cargar la pagina.
+                window.abrirKardexClinicaHeridas = async (tipo) => {
+                    await cargarKardex(tipo);
+                    kardexModal.show();
+                };
+
+                document.querySelectorAll("[data-kardex-abrir]").forEach((boton) => {
+                    boton.addEventListener("click", () => window.abrirKardexClinicaHeridas(boton.dataset.kardexAbrir));
+                });
+
+                agregarInsumoBtn.addEventListener("click", () => {
+                    const aplicaciones = Math.max(1, parseInt(campo("aplicaciones")?.value, 10) || 1);
+                    cuerpo.appendChild(filaInsumo({ descripcion: "", cantidades: Array(aplicaciones).fill(1) }, aplicaciones));
+                    renumerarItems();
+                    recalcularTotales();
+                });
+
+                guardarBtn.addEventListener("click", () => enviarDocumento(kardexGuardarUrl, "Requisición guardada."));
+                enviarBtn.addEventListener("click", async () => {
+                    if (await enviarDocumento(kardexEnviarUrl, "Enviado a farmacia.")) {
+                        await cargarKardex(tipoActual);
+                    }
+                });
+
+                document.getElementById("kardexSubirAdjuntoBtn").addEventListener("click", () => adjuntoInput.click());
+                adjuntoInput.addEventListener("change", async () => {
+                    const archivo = adjuntoInput.files?.[0];
+                    if (!archivo) { return; }
+
+                    adjuntoEstado.textContent = "Subiendo...";
+                    const cuerpoForm = new FormData();
+                    cuerpoForm.append("recordId", recordIdActual);
+                    cuerpoForm.append("tipo", tipoActual);
+                    cuerpoForm.append("archivo", archivo);
+                    cuerpoForm.append("__RequestVerificationToken", token);
+
+                    const respuesta = await fetch(kardexAdjuntoUrl, { method: "POST", body: cuerpoForm });
+                    const datos = await respuesta.json().catch(() => null);
+                    adjuntoInput.value = "";
+                    if (!respuesta.ok) {
+                        adjuntoEstado.textContent = datos?.message || "No fue posible subir el archivo.";
+                        return;
+                    }
+
+                    adjuntoEstado.textContent = "Archivo subido.";
+                    await cargarKardex(tipoActual);
+                });
+            }
+
+            // ---------------------------------------------------------------- Diálogos
+            // Un solo modal sirve para confirmar y para avisar; devuelve una promesa con la decisión
+            // para poder usarlo donde antes iba confirm() o alert().
+            const dialogoEl = document.getElementById("heridaDialogo");
+            const dialogo = dialogoEl ? new bootstrap.Modal(dialogoEl) : null;
+
+            const abrirDialogo = ({
+                titulo,
+                mensaje,
+                detalles = [],
+                textoConfirmar = "Continuar",
+                tono = "aviso",
+                soloAviso = false
+            }) => new Promise((resolver) => {
+                if (!dialogo) {
+                    resolver(soloAviso ? true : window.confirm(mensaje));
+                    return;
+                }
+
+                const cancelarBtn = document.getElementById("heridaDialogoCancelar");
+                const confirmarBtn = document.getElementById("heridaDialogoConfirmar");
+                const listaDetalles = document.getElementById("heridaDialogoDetalles");
+
+                document.getElementById("heridaDialogoTitulo").textContent = titulo;
+                document.getElementById("heridaDialogoMensaje").textContent = mensaje;
+                dialogoEl.dataset.tono = tono;
+
+                listaDetalles.innerHTML = "";
+                listaDetalles.classList.toggle("d-none", detalles.length === 0);
+                detalles.forEach((texto) => {
+                    const li = document.createElement("li");
+                    li.textContent = texto;
+                    listaDetalles.appendChild(li);
+                });
+
+                cancelarBtn.classList.toggle("d-none", soloAviso);
+                confirmarBtn.textContent = soloAviso ? "Entendido" : textoConfirmar;
+                confirmarBtn.className = tono === "peligro"
+                    ? "btn btn-danger"
+                    : tono === "advertencia" ? "btn btn-warning" : "btn btn-primary";
+
+                // La promesa se resuelve cuando el modal termina de ocultarse, no al pulsar el botón:
+                // si se resolviera antes, quien encadene otro diálogo lo abriría a mitad de la
+                // animación de cierre y Bootstrap lo descartaría.
+                let confirmado = false;
+                let resuelto = false;
+
+                function alConfirmar() {
+                    confirmado = true;
+                    dialogo.hide();
+                }
+
+                function alOcultar() {
+                    if (resuelto) { return; }
+                    resuelto = true;
+                    confirmarBtn.removeEventListener("click", alConfirmar);
+                    dialogoEl.removeEventListener("hidden.bs.modal", alOcultar);
+                    resolver(confirmado);
+                }
+
+                confirmarBtn.addEventListener("click", alConfirmar);
+                dialogoEl.addEventListener("hidden.bs.modal", alOcultar);
+                dialogo.show();
+            });
+
+            const avisar = (titulo, mensaje) =>
+                abrirDialogo({ titulo, mensaje, soloAviso: true, tono: "peligro" });
+
+            // ---------------------------------------------------------------- Planes de requisiciones
+            // Un plan agrupa las requisiciones de todas las atenciones del paciente. Solo el mas
+            // reciente esta abierto; navegar a uno anterior deja todo en consulta, incluidos los
+            // apositos con los que se armo.
+            const planesContenedor = document.getElementById("heridaPlanes");
+            if (planesContenedor && recordIdActual) {
+                const planUrl = "@Url.Action("PlanClinicaHeridas", "Censo")";
+                const planNuevoUrl = "@Url.Action("AbrirPlanClinicaHeridas", "Censo")";
+                const tokenPlan = document.querySelector('input[name="__RequestVerificationToken"]')?.value || "";
+                const chips = [...planesContenedor.querySelectorAll("[data-plan-id]")];
+                const meta = document.getElementById("heridaPlanMeta");
+                const grid = document.getElementById("heridaKardexGrid");
+                const apositosBloqueEditable = document.getElementById("apositosBloque");
+                const apositosBloqueAviso = document.getElementById("apositosBloqueado");
+                const apositosHistorico = document.getElementById("apositosHistorico");
+                const apositosHistoricoPlan = document.getElementById("apositosHistoricoPlan");
+                const apositosHistoricoLista = document.getElementById("apositosHistoricoLista");
+                const planNuevoBtn = document.getElementById("heridaPlanNuevo");
+
+                const formatoFecha = (iso) => {
+                    if (!iso) { return ""; }
+                    const f = new Date(iso);
+                    return f.toLocaleDateString("es-CO") + " " + f.toLocaleTimeString("es-CO", {hour: "2-digit", minute: "2-digit"});
+                };
+
+                const pintarTarjetas = (plan, kardex) => {
+                    if (!grid) { return; }
+                    grid.innerHTML = "";
+
+                    if (!kardex || kardex.length === 0) {
+                        const vacio = document.createElement("div");
+                        vacio.className = "herida-kardex__vacio";
+                        vacio.textContent = plan.vigente
+                            ? "Ninguna atención está en Sí todavía."
+                            : `El plan ${plan.numero} no generó requisiciones.`;
+                        grid.appendChild(vacio);
+                        return;
+                    }
+
+                    kardex.forEach((item) => {
+                        const card = document.createElement("article");
+                        card.className = "herida-kardex__card"
+                            + (item.cerrado || !plan.vigente ? " is-cerrado" : item.enviado ? " is-enviado" : "");
+
+                        const estadoTexto = !plan.vigente
+                            ? `Plan ${plan.numero}`
+                            : item.cerrado ? "Cerrado por farmacia" : item.enviado ? "En farmacia" : "Sin enviar";
+                        const estadoClase = !plan.vigente || item.cerrado
+                            ? " herida-kardex__estado--cerrado"
+                            : item.enviado ? " herida-kardex__estado--enviado" : "";
+
+                        card.innerHTML = `
+                            <header>
+                                <span class="herida-kardex__tipo"></span>
+                                <span class="herida-kardex__estado${estadoClase}"></span>
+                            </header>
+                            <dl class="herida-kardex__datos">
+                                <div><dt>Insumos</dt><dd>${item.insumos}</dd></div>
+                                <div><dt>Aplicaciones</dt><dd>${item.aplicaciones}</dd></div>
+                                <div><dt>Adjuntos</dt><dd>${item.adjuntos}</dd></div>
+                            </dl>
+                            <button type="button" class="btn btn-outline-primary herida-kardex__abrir">
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                    <path d="M14 3v5h5"></path>
+                                </svg>
+                                <span>${plan.vigente && !item.cerrado ? "Abrir requisición" : "Ver requisición"}</span>
+                            </button>`;
+
+                        // Los nombres van por textContent para no inyectar marcado.
+                        card.querySelector(".herida-kardex__tipo").textContent = item.nombre;
+                        card.querySelector(".herida-kardex__estado").textContent = estadoTexto;
+                        card.querySelector("button").addEventListener("click", () => {
+                            window.abrirKardexClinicaHeridas?.(item.tipo);
+                        });
+
+                        grid.appendChild(card);
+                    });
+                };
+
+                const pintarApositos = (plan) => {
+                    if (plan.vigente) {
+                        apositosHistorico?.classList.add("d-none");
+                        // Se devuelve el control a los campos editables segun las atenciones actuales.
+                        window.syncApositosPorAtencion?.();
+                        return;
+                    }
+
+                    apositosBloqueEditable?.classList.add("d-none");
+                    apositosBloqueAviso?.classList.add("d-none");
+                    apositosHistorico?.classList.remove("d-none");
+                    apositosHistoricoPlan.textContent = `Plan ${plan.numero} · cerrado`;
+                    apositosHistoricoLista.innerHTML = "";
+
+                    const apositos = plan.apositos || [];
+                    if (apositos.length === 0) {
+                        const li = document.createElement("li");
+                        li.className = "herida-apositos-historico__vacio";
+                        li.textContent = "Este plan no llevó apósitos ni medicamentos.";
+                        apositosHistoricoLista.appendChild(li);
+                        return;
+                    }
+
+                    apositos.forEach((nombre) => {
+                        const li = document.createElement("li");
+                        li.textContent = nombre;
+                        apositosHistoricoLista.appendChild(li);
+                    });
+                };
+
+                const seleccionarPlan = async (planId) => {
+                    const respuesta = await fetch(`${planUrl}?recordId=${recordIdActual}&planId=${planId}`);
+                    const datos = await respuesta.json();
+                    if (!respuesta.ok) { return; }
+
+                    planClinicaHeridasActual = datos.plan.vigente ? null : datos.plan.id;
+
+                    chips.forEach((chip) => {
+                        const activo = chip.dataset.planId === String(planId);
+                        chip.classList.toggle("is-activo", activo);
+                        chip.setAttribute("aria-selected", activo ? "true" : "false");
+                    });
+
+                    const creado = `Abierto el ${formatoFecha(datos.plan.creadoAtUtc)} por ${datos.plan.creadoPor || "—"}`;
+                    meta.textContent = datos.plan.vigente
+                        ? `${creado} · plan vigente`
+                        : `${creado} · cerrado el ${formatoFecha(datos.plan.cerradoAtUtc)} por ${datos.plan.cerradoPor || "—"}`;
+
+                    pintarTarjetas(datos.plan, datos.kardex);
+                    pintarApositos(datos.plan);
+                };
+
+                chips.forEach((chip) => {
+                    chip.addEventListener("click", () => seleccionarPlan(chip.dataset.planId));
+                });
+
+                planNuevoBtn?.addEventListener("click", async () => {
+                    const vigente = chips.find((c) => c.dataset.planVigente === "true");
+                    const numero = vigente ? vigente.dataset.planNumero : null;
+
+                    const confirmado = await abrirDialogo(numero
+                        ? {
+                            titulo: `Abrir el plan ${Number(numero) + 1}`,
+                            mensaje: `El plan ${numero} se cerrará y quedará solo para consulta.`,
+                            detalles: [
+                                "Sus requisiciones y apósitos se conservan tal como están.",
+                                "Los apósitos y medicamentos quedan en blanco para capturar los del plan nuevo.",
+                                "Las requisiciones del plan nuevo se generan al abrirlas."
+                            ],
+                            textoConfirmar: "Cerrar y abrir plan nuevo",
+                            tono: "advertencia"
+                        }
+                        : {
+                            titulo: "Abrir el primer plan",
+                            mensaje: "Se abrirá el plan 1 de requisiciones para este paciente.",
+                            textoConfirmar: "Abrir plan"
+                        });
+
+                    if (!confirmado) { return; }
+
+                    planNuevoBtn.disabled = true;
+                    const cuerpo = new FormData();
+                    cuerpo.append("recordId", recordIdActual);
+                    cuerpo.append("__RequestVerificationToken", tokenPlan);
+                    const respuesta = await fetch(planNuevoUrl, { method: "POST", body: cuerpo });
+                    const datos = await respuesta.json().catch(() => null);
+                    planNuevoBtn.disabled = false;
+
+                    if (!respuesta.ok) {
+                        await avisar("No fue posible abrir el plan", datos?.message || "Intenta de nuevo.");
+                        return;
+                    }
+
+                    // Se recarga para que la sección vuelva con los apósitos en blanco y la barra al día.
+                    window.location.reload();
+                });
+
+                // Estado inicial: el plan vigente, o el más reciente si ya no hay ninguno abierto.
+                const inicial = chips.find((c) => c.dataset.planVigente === "true") || chips[0];
+                if (inicial) { seleccionarPlan(inicial.dataset.planId); }
+            }
+
+            // Los apositos solo aplican a manejo de la herida y VAC; y como las tarjetas de kardex se
+            // arman con lo ya guardado, se avisa cuando la seleccion en pantalla dejo de coincidir.
+            const kardexTriggers = [...document.querySelectorAll("[data-kardex-trigger]")];
+            if (kardexTriggers.length > 0) {
+                const apositosBloque = document.getElementById("apositosBloque");
+                const apositosBloqueado = document.getElementById("apositosBloqueado");
+                const desactualizadoAviso = document.getElementById("kardexDesactualizadoAviso");
+                const inicial = kardexTriggers.map((select) => select.value).join("|");
+
+                const syncKardexTriggers = () => {
+                    const manejo = document.getElementById("ManejoHerida")?.value === "Si";
+                    const vac = document.getElementById("Vac")?.value === "Si";
+                    const usaApositos = manejo || vac;
+                    apositosBloque?.classList.toggle("d-none", !usaApositos);
+                    apositosBloqueado?.classList.toggle("d-none", usaApositos);
+                    desactualizadoAviso?.classList.toggle(
+                        "d-none",
+                        kardexTriggers.map((select) => select.value).join("|") === inicial);
+                };
+
+                // La navegación de planes la usa para volver del histórico al plan vigente.
+                window.syncApositosPorAtencion = syncKardexTriggers;
+
+                kardexTriggers.forEach((select) => select.addEventListener("change", syncKardexTriggers));
+                syncKardexTriggers();
+            }
+
+            // La frecuencia de visita es de seleccion unica y opcional. Un radio ya marcado no se puede
+            // desmarcar por si solo, asi que se ofrece un boton para dejar el campo sin valor.
+            const frecuenciaRadios = [...document.querySelectorAll("[data-frecuencia-visita]")];
+            const frecuenciaLimpiar = document.getElementById("frecuenciaVisitaLimpiar");
+            if (frecuenciaRadios.length > 0 && frecuenciaLimpiar) {
+                const syncFrecuenciaLimpiar = () => {
+                    frecuenciaLimpiar.classList.toggle("d-none", !frecuenciaRadios.some((radio) => radio.checked));
+                };
+
+                frecuenciaRadios.forEach((radio) => radio.addEventListener("change", syncFrecuenciaLimpiar));
+                frecuenciaLimpiar.addEventListener("click", () => {
+                    frecuenciaRadios.forEach((radio) => { radio.checked = false; });
+                    syncFrecuenciaLimpiar();
+                });
+
+                syncFrecuenciaLimpiar();
+            }
+
+            // Seccion 3: lista de apositos/medicamentos. Hay cuatro ranuras fijas en el DOM; se
+            // muestran de forma progresiva y al retirar una las siguientes suben para que no queden
+            // huecos (el servidor tambien compacta, pero asi el formulario se ve consistente).
+            const apositosContainer = document.getElementById("apositosContainer");
+            if (apositosContainer) {
+                const apositoLimite = document.getElementById("apositoLimite");
+                const apositoAgregar = document.getElementById("apositoAgregar");
+                const apositoSlots = [...apositosContainer.querySelectorAll("[data-aposito-slot]")];
+                const maximoApositos = apositoSlots.length;
+                const apositoOptions = [...document.querySelectorAll("#apositoMedicamentoOptions option")]
+                    .map((option) => option.value);
+                const apositoNoListadoMessage = "Selecciona un apósito o medicamento del listado.";
+
+                const slotInput = (slot) => slot.querySelector("[data-aposito-input]");
+                const slotMensaje = (slot) => slot.querySelector("[data-valmsg-for]");
+                const slotVisible = (slot) => !slot.classList.contains("d-none");
+
+                const visibles = () => apositoSlots.filter(slotVisible).length;
+
+                const setApositoMensaje = (slot, texto) => {
+                    const mensaje = slotMensaje(slot);
+                    if (!mensaje) {
+                        return;
+                    }
+
+                    mensaje.textContent = texto;
+                    mensaje.classList.toggle("field-validation-error", !!texto);
+                    mensaje.classList.toggle("field-validation-valid", !texto);
+                };
+
+                const getCanonicalAposito = (value) => {
+                    const buscado = String(value || "").trim().toLocaleUpperCase("es-CO");
+                    if (!buscado) {
+                        return "";
+                    }
+
+                    return apositoOptions.find((option) => option.toLocaleUpperCase("es-CO") === buscado) || "";
+                };
+
+                const syncAgregarState = () => {
+                    const total = visibles();
+                    const lleno = total >= maximoApositos;
+                    apositoAgregar?.classList.toggle("d-none", lleno);
+                    apositoLimite?.classList.toggle("d-none", !lleno);
+                };
+
+                const validarAposito = (slot) => {
+                    const input = slotInput(slot);
+                    if (!input || !slotVisible(slot)) {
+                        setApositoMensaje(slot, "");
+                        return true;
+                    }
+
+                    const valor = String(input.value || "").trim();
+                    if (!valor) {
+                        setApositoMensaje(slot, "");
+                        return true;
+                    }
+
+                    const canonico = getCanonicalAposito(valor);
+                    if (!canonico) {
+                        setApositoMensaje(slot, apositoNoListadoMessage);
+                        return false;
+                    }
+
+                    input.value = canonico;
+                    setApositoMensaje(slot, "");
+                    return true;
+                };
+
+                // Al retirar una ranura, los valores de las siguientes se corren un puesto.
+                const compactar = () => {
+                    const valores = apositoSlots
+                        .filter(slotVisible)
+                        .map((slot) => String(slotInput(slot)?.value || "").trim())
+                        .filter((valor) => valor.length > 0);
+
+                    apositoSlots.forEach((slot, indice) => {
+                        const input = slotInput(slot);
+                        if (input) {
+                            input.value = valores[indice] || "";
+                        }
+
+                        setApositoMensaje(slot, "");
+                        // La primera ranura siempre queda a la vista, aunque este vacia.
+                        const debeVerse = indice === 0 || indice < valores.length;
+                        slot.classList.toggle("d-none", !debeVerse);
+                    });
+
+                    syncAgregarState();
+                };
+
+                apositoAgregar?.addEventListener("click", () => {
+                    const siguiente = apositoSlots.find((slot) => !slotVisible(slot));
+                    if (!siguiente) {
+                        return;
+                    }
+
+                    siguiente.classList.remove("d-none");
+                    syncAgregarState();
+                    slotInput(siguiente)?.focus();
+                });
+
+                apositoSlots.forEach((slot) => {
+                    const input = slotInput(slot);
+                    input?.addEventListener("change", () => validarAposito(slot));
+                    input?.addEventListener("blur", () => validarAposito(slot));
+                    input?.addEventListener("input", () => setApositoMensaje(slot, ""));
+
+                    slot.querySelector("[data-aposito-quitar]")?.addEventListener("click", () => {
+                        const input = slotInput(slot);
+                        if (input) {
+                            input.value = "";
+                        }
+
+                        slot.classList.add("d-none");
+                        compactar();
+                    });
+                });
+
+                syncAgregarState();
+
+                form?.addEventListener("submit", (event) => {
+                    const submitAction = event.submitter?.getAttribute("formaction") || "";
+                    if (!submitAction.includes("GuardarClinicaHeridasManejoHerida")) {
+                        return;
+                    }
+
+                    const invalido = apositoSlots.filter(slotVisible).find((slot) => !validarAposito(slot));
+                    if (invalido) {
+                        event.preventDefault();
+                        slotInput(invalido)?.focus();
+                    }
+                });
+            }
+
             // Visor de fotos de los seguimientos: la miniatura de la tarjeta abre el original.
             const visor = document.getElementById("heridaFotoVisor");
             if (visor) {
@@ -2176,7 +3411,8 @@
                     return;
                 }
 
-                if (submitAction.includes("GuardarClinicaHeridasActivoFijo")
+                if (submitAction.includes("GuardarClinicaHeridasManejoHerida")
+                    || submitAction.includes("GuardarClinicaHeridasActivoFijo")
                     || submitAction.includes("GuardarClinicaHeridasDevolucionProductos")
                     || submitAction.includes("GuardarClinicaHeridasAltaPrograma")) {
                     return;

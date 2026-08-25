@@ -1,4 +1,4 @@
-using Nexa.Data.Repositories.Interfaces;
+﻿using Nexa.Data.Repositories.Interfaces;
 using Nexa.Data.Repositories.Models;
 using Npgsql;
 
@@ -47,6 +47,8 @@ public class NeonClinicaHeridasRepository : INeonClinicaHeridasRepository
                     s.fondo,
                     s.lecho,
                     s.tejido,
+                    s."cavitacionTunelizacion",
+                    s."pielPerilesional",
                     s."exudadoCantidad",
                     s."exudadoCaracteristicas",
                     s."carpetaDriveItemId",
@@ -82,6 +84,8 @@ public class NeonClinicaHeridasRepository : INeonClinicaHeridasRepository
                     Fondo = GetString(reader, "fondo"),
                     Lecho = GetString(reader, "lecho"),
                     Tejido = GetString(reader, "tejido"),
+                    CavitacionTunelizacion = GetString(reader, "cavitacionTunelizacion"),
+                    PielPerilesional = GetString(reader, "pielPerilesional"),
                     ExudadoCantidad = GetString(reader, "exudadoCantidad"),
                     ExudadoCaracteristicas = GetString(reader, "exudadoCaracteristicas"),
                     CarpetaDriveItemId = GetNullableString(reader, "carpetaDriveItemId"),

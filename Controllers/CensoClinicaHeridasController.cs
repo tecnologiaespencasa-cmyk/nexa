@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Nexa.Data.Entities;
@@ -6,6 +6,7 @@ using Nexa.Data.Repositories.Models;
 using Nexa.Models.ViewModels;
 using Nexa.Services.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 namespace Nexa.Controllers;
@@ -36,6 +37,100 @@ public partial class CensoController
         "NPT"
     ];
     private static readonly string[] ClinicaHeridasSiNoValues = ["Si", "No"];
+
+    // Catalogo de insumos de clinica de heridas (seccion 3). Para agregar o retirar un aposito basta
+    // con editar esta lista: alimenta el autocompletado de los cuatro campos y su validacion.
+    private static readonly string[] ClinicaHeridasApositoMedicamentoValues =
+    [
+        "ACTICOAT FLEX3 10X10CM",
+        "ACTICOAT FLEX3 10X20CM",
+        "ALGISITE M 15X20CM",
+        "ALLEVYN ADH 10X10CM",
+        "ALLEVYN ADH 12.5X12.5",
+        "ALLEVYN CLASSIC AG 17.5X17.5CM",
+        "ALLEVYN SACRUM SMALL 17X17CM",
+        "APOSITO TRANSPARENTE TEGADERM 10 CM X 12 CM",
+        "APÓSITO DUODERM CGF",
+        "APÓSITO DUODERM EXTRA LARGO 15X15CMS",
+        "AQUACEL AG+EXTRA CON PLATA 10X10",
+        "AQUACEL AG+EXTRA CON PLATA 15X15",
+        "AQUACEL AG+EXTRA CON PLATA 20X30",
+        "BACTIGRAS 10X10CM",
+        "BACTIGRAS 15X20CM",
+        "BACTIGRAS 5X5CM",
+        "CANISTER 1100ML - GENADYNE",
+        "CANISTER 300ML - SMITH",
+        "CANISTER 600ML GENADYNE",
+        "CANISTER 800ML - SMITH",
+        "CLORURO DE SODIO 0.9% 1000ML",
+        "CLORURO DE SODIO 0.9% 100ML",
+        "CLORURO DE SODIO 0.9% 250ML",
+        "CLORURO DE SODIO 0.9% 500ML",
+        "CLORURO DE SODIO 0.9% 50ML",
+        "CONECTOR EN Y - GENADYNE",
+        "CONECTOR Y - SMITH",
+        "DURAFIBER 15X15CM",
+        "DURAFIBER AG10CMX10CM",
+        "ELECT HYDRO 20X20",
+        "ELECT HYDRO HYDROC 10X10",
+        "ELECT HYDRO HYDROC 15X15",
+        "FITOSTIMOLINE CREMA X 32 GR",
+        "FLEXIDRESS BOTA DE UNNA",
+        "GASA ADHESIVA (ELECTOFIX) 10X10",
+        "INTRASITE GEL AP25",
+        "IODOSORB DRESSING 5G X5",
+        "KIT APOSITO DE PLATA DE ESPUMA Y POLIURETANO TALLA L - SMITH",
+        "KIT APOSITO DE PLATA DE ESPUMA Y POLIURETANO TALLA M - SMITH",
+        "KIT APOSITO DE PLATA DE ESPUMA Y POLIURETANO TALLA S - SMITH",
+        "KIT APOSITO DE POLIURETANO VERDE L GENADYNE",
+        "KIT APOSITO DE POLIURETANO VERDE M GENADYNE",
+        "KIT APOSITO DE POLIURETANO VERDE S GENADYNE",
+        "OPSITE INCISE 30X28CM",
+        "PASTA STOMAHESIVE TUBO X 56 GR",
+        "PINZA COLOSTOMIA",
+        "POLVO STOMAHESIVE FCOX29GR",
+        "RENASYS SOFT PORTRENASYS"
+    ];
+
+    // Catalogo CIE10 propio del programa: clinica de heridas solo admite estos diagnosticos, no el
+    // catalogo general del censo de agudos. Para agregar o retirar uno basta con editar esta lista.
+    private static readonly IReadOnlyDictionary<string, string> ClinicaHeridasCie10Values =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["E105"] = "DIABETES MELLITUS, NO ESPECIFICADA CON COMPLICACIONES CIRCULATORIAS PERIFÉRICAS",
+        ["I771"] = "ESTRECHEZ ARTERIAL",
+        ["I830"] = "VENAS VARICOSAS DE LOS MIEMBROS INFERIORES CON ÚLCERA",
+        ["K604"] = "FÍSTULA RECTAL",
+        ["K632"] = "FÍSTULA DEL INTESTINO",
+        ["L020"] = "ABSCESO EN CARA",
+        ["L023"] = "ABSCESO DEL GLUTEO",
+        ["L024"] = "ABSCESO REGION AXILIAR",
+        ["L039"] = "DERMATITIS, NO ESPECIFICADA",
+        ["L89X"] = "ÚLCERA DE DECÚBITO",
+        ["L97X"] = "ÚLCERA DEL MIEMBRO INFERIOR NO CLASIFICADA EN OTRA PARTE",
+        ["L984"] = "ÚLCERA CRÓNICA DE LA PIEL NO CLASIFICADA EN OTRA PARTE",
+        ["M868"] = "OTRAS OSTEOMIELITIS",
+        ["N322"] = "FÍSTULA DE LA VEJIGA",
+        ["S311"] = "HERIDA DE LA PARED ABDOMINAL",
+        ["T141"] = "HERIDA DE REGIÓN NO ESPECIFICADA DEL CUERPO",
+        ["T813"] = "DESGARRO DE HERIDA OPERATORIA, NO CLASIFICADO EN OTRA PARTE",
+        ["T958"] = "SECUELAS DE OTRAS QUEMADURAS, CORROSIONES Y CONGELAMIENTOS ESPECIFICADOS",
+        ["Z430"] = "ATENCION DE TRAQUEOSTOMIA",
+        ["Z431"] = "ATENCION DE GASTROSTOMIA",
+        ["Z432"] = "ATENCION DE ILEOSTOMIA",
+        ["Z433"] = "ATENCION DE COLOSTOMIA",
+        ["Z452"] = "CONTACTO PARA AJUSTE Y MANTENIMIENTO DE DISPOSITIVO DE ACCESO VASCULAR"
+    };
+
+    private static readonly string[] ClinicaHeridasFrecuenciaVisitaValues =
+    [
+        "Cada 24 horas",
+        "Cada 48 horas",
+        "Cada 72 horas",
+        "Una vez a la semana"
+    ];
+
+    private const int ClinicaHeridasMaxApositos = 4;
     private static readonly Regex ClinicaHeridasNombrePattern = new(@"^[\p{L}\s]+$", RegexOptions.Compiled);
 
     // Etiquetas de las cuatro fotos que la aplicación de clínica de heridas exige por seguimiento.
@@ -469,6 +564,184 @@ public partial class CensoController
         return File(result.Value.Content, result.Value.ContentType);
     }
 
+    // Seccion 3 "Manejo de la herida": PICC, VAC, hasta cuatro apositos/medicamentos, la duracion del
+    // tratamiento y la frecuencia de visita. Se guarda con su propio boton, como las demas secciones.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public Task<IActionResult> GuardarClinicaHeridasManejoHerida(
+        CensoClinicaHeridasViewModel model,
+        CancellationToken cancellationToken)
+    {
+        NormalizeClinicaHeridasManejoHeridaModel(model);
+        ValidateClinicaHeridasManejoHeridaModel(model);
+
+        var posted = (model.Picc, model.Vac, model.Npt, model.ManejoHerida,
+            model.ApositoMedicamento1, model.ApositoMedicamento2,
+            model.ApositoMedicamento3, model.ApositoMedicamento4, model.DuracionTratamientoDias,
+            model.FrecuenciaVisita);
+
+        return GuardarClinicaHeridasSeccionAsync(
+            model,
+            restorePostedFields: m =>
+            {
+                (m.Picc, m.Vac, m.Npt, m.ManejoHerida,
+                    m.ApositoMedicamento1, m.ApositoMedicamento2,
+                    m.ApositoMedicamento3, m.ApositoMedicamento4, m.DuracionTratamientoDias,
+                    m.FrecuenciaVisita) = posted;
+            },
+            applySectionToRecord: (record, m) =>
+            {
+                record.Picc = m.Picc;
+                record.Vac = m.Vac;
+                record.Npt = m.Npt;
+                record.ManejoHerida = m.ManejoHerida;
+                record.ApositoMedicamento1 = m.ApositoMedicamento1;
+                record.ApositoMedicamento2 = m.ApositoMedicamento2;
+                record.ApositoMedicamento3 = m.ApositoMedicamento3;
+                record.ApositoMedicamento4 = m.ApositoMedicamento4;
+                record.DuracionTratamientoDias = m.DuracionTratamientoDias;
+                record.FrecuenciaVisita = m.FrecuenciaVisita;
+
+                // VAC manda sobre el activo fijo: al pasarlo a No esa seccion se bloquea y sus datos
+                // dejan de tener sentido, asi que se limpian aqui, que es donde vive el campo.
+                if (!string.Equals(m.Vac, "Si", StringComparison.OrdinalIgnoreCase))
+                {
+                    record.EquipoComodato = null;
+                    record.NumeroPlacaEquipos = null;
+                    record.FechaEntregaEquipo = null;
+                    record.FechaDevolucionEquipo = null;
+                }
+            },
+            missingRecordMessage: "Primero guarda los datos básicos del paciente para registrar el manejo de la herida.",
+            auditAction: "CENSO_CLINICA_HERIDAS_MANEJO_HERIDA_ACTUALIZADO",
+            successMessage: "Manejo de la herida guardado correctamente.",
+            cancellationToken,
+            // El plan abierto refleja siempre los apósitos y el tratamiento vigentes; al cerrarse,
+            // esa copia queda congelada.
+            afterSaveAsync: (recordId, ct) => SincronizarPlanVigenteAsync(recordId, ct));
+    }
+
+    private static void NormalizeClinicaHeridasManejoHeridaModel(CensoClinicaHeridasViewModel model)
+    {
+        model.Picc = string.IsNullOrWhiteSpace(model.Picc) ? null : model.Picc.Trim();
+        model.Vac = string.IsNullOrWhiteSpace(model.Vac) ? null : model.Vac.Trim();
+        model.Npt = string.IsNullOrWhiteSpace(model.Npt) ? null : model.Npt.Trim();
+        model.ManejoHerida = string.IsNullOrWhiteSpace(model.ManejoHerida) ? null : model.ManejoHerida.Trim();
+
+        // Los apositos solo aplican a manejo de la herida y VAC; si ninguno esta en Si, el campo ni
+        // siquiera se muestra y lo que hubiera quedado guardado se descarta.
+        if (!EsSi(model.ManejoHerida) && !EsSi(model.Vac))
+        {
+            model.ApositoMedicamento1 = null;
+            model.ApositoMedicamento2 = null;
+            model.ApositoMedicamento3 = null;
+            model.ApositoMedicamento4 = null;
+        }
+
+        // Los cuatro campos se compactan: si el usuario retira el segundo, el tercero pasa a ocupar
+        // su lugar y no quedan huecos guardados en la base.
+        var apositos = new[]
+            {
+                model.ApositoMedicamento1,
+                model.ApositoMedicamento2,
+                model.ApositoMedicamento3,
+                model.ApositoMedicamento4
+            }
+            .Select(NormalizeOptionalClinicaHeridasText)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => CanonicalClinicaHeridasAposito(value!))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(ClinicaHeridasMaxApositos)
+            .ToList();
+
+        model.ApositoMedicamento1 = apositos.ElementAtOrDefault(0);
+        model.ApositoMedicamento2 = apositos.ElementAtOrDefault(1);
+        model.ApositoMedicamento3 = apositos.ElementAtOrDefault(2);
+        model.ApositoMedicamento4 = apositos.ElementAtOrDefault(3);
+
+        model.FrecuenciaVisita = CanonicalClinicaHeridasFrecuenciaVisita(model.FrecuenciaVisita);
+    }
+
+    // Devuelve el valor tal como esta escrito en el catalogo para no guardar variantes con distinta
+    // capitalizacion. Si no existe alli se devuelve igual, y la validacion lo rechaza.
+    private static string CanonicalClinicaHeridasAposito(string value)
+    {
+        return ClinicaHeridasApositoMedicamentoValues
+            .FirstOrDefault(option => string.Equals(option, value, StringComparison.OrdinalIgnoreCase))
+            ?? value;
+    }
+
+    private void ValidateClinicaHeridasManejoHeridaModel(CensoClinicaHeridasViewModel model)
+    {
+        if (!ClinicaHeridasSiNoValues.Contains(model.Picc ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.Picc), "Selecciona una opción válida para PICC.");
+        }
+
+        if (!ClinicaHeridasSiNoValues.Contains(model.Vac ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.Vac), "Selecciona una opción válida para VAC.");
+        }
+
+        if (!ClinicaHeridasSiNoValues.Contains(model.Npt ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.Npt), "Selecciona una opción válida para NPT.");
+        }
+
+        if (!ClinicaHeridasSiNoValues.Contains(model.ManejoHerida ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.ManejoHerida), "Selecciona una opción válida para manejo de la herida.");
+        }
+
+        var apositos = new[]
+        {
+            (Nombre: nameof(model.ApositoMedicamento1), Valor: model.ApositoMedicamento1),
+            (Nombre: nameof(model.ApositoMedicamento2), Valor: model.ApositoMedicamento2),
+            (Nombre: nameof(model.ApositoMedicamento3), Valor: model.ApositoMedicamento3),
+            (Nombre: nameof(model.ApositoMedicamento4), Valor: model.ApositoMedicamento4)
+        };
+
+        foreach (var aposito in apositos)
+        {
+            if (!string.IsNullOrWhiteSpace(aposito.Valor)
+                && !ClinicaHeridasApositoMedicamentoValues.Contains(aposito.Valor, StringComparer.OrdinalIgnoreCase))
+            {
+                ModelState.AddModelError(aposito.Nombre, "Selecciona un apósito o medicamento del listado.");
+            }
+        }
+
+        if (model.DuracionTratamientoDias.HasValue
+            && (model.DuracionTratamientoDias.Value < 1 || model.DuracionTratamientoDias.Value > 999))
+        {
+            ModelState.AddModelError(
+                nameof(model.DuracionTratamientoDias),
+                "La duración del tratamiento debe estar entre 1 y 999 días.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(model.FrecuenciaVisita)
+            && !ClinicaHeridasFrecuenciaVisitaValues.Contains(model.FrecuenciaVisita, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(model.FrecuenciaVisita), "Selecciona una frecuencia de visita válida.");
+        }
+    }
+
+    // Devuelve la frecuencia tal como esta escrita en el catalogo. Los registros anteriores al cambio
+    // a seleccion unica pueden traer varias separadas por coma: se conserva la primera reconocible.
+    private static string? CanonicalClinicaHeridasFrecuenciaVisita(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(item => ClinicaHeridasFrecuenciaVisitaValues
+                .FirstOrDefault(option => string.Equals(option, item, StringComparison.OrdinalIgnoreCase))
+                ?? item)
+            .FirstOrDefault();
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> GuardarClinicaHeridasActivoFijo(CensoClinicaHeridasViewModel model, CancellationToken cancellationToken)
@@ -722,7 +995,8 @@ public partial class CensoController
         string missingRecordMessage,
         string auditAction,
         string successMessage,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<long, CancellationToken, Task>? afterSaveAsync = null)
     {
         model.CedulaFiltro = NormalizeCedulaFilter(model.CedulaFiltro);
 
@@ -759,6 +1033,11 @@ public partial class CensoController
 
         await _context.SaveChangesAsync(cancellationToken);
 
+        if (afterSaveAsync is not null)
+        {
+            await afterSaveAsync(heridasRecord.Id, cancellationToken);
+        }
+
         var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
         var auditIp = HttpContext.Connection.RemoteIpAddress?.ToString();
         await _auditService.LogAsync(auditAction, "CensoClinicaHeridas",
@@ -769,7 +1048,7 @@ public partial class CensoController
         return RedirectToAction(nameof(ClinicaHeridas), new { recordId = heridasRecord.Id, cedulaPaciente = heridasRecord.NumeroIdentificacion });
     }
 
-    // Sección 2 "Manejo de la herida": historial de solo lectura.
+    // Sección 2 "Características de la herida": historial de solo lectura.
     //
     // El documento del paciente no existe en la base de datos del portal: allí cada paciente se
     // identifica con un seudónimo aleatorio (pacienteRef) que la intranet no puede calcular. El
@@ -848,6 +1127,8 @@ public partial class CensoController
                 Fondo = fila.Fondo,
                 Lecho = fila.Lecho,
                 Tejido = fila.Tejido,
+                CavitacionTunelizacion = fila.CavitacionTunelizacion,
+                PielPerilesional = fila.PielPerilesional,
                 ExudadoCantidad = fila.ExudadoCantidad,
                 ExudadoCaracteristicas = fila.ExudadoCaracteristicas,
                 AuxiliarNombre = fila.AuxiliarNombre,
@@ -927,6 +1208,9 @@ public partial class CensoController
         model.ProgramaPerteneceOptions = BuildOptions(ClinicaHeridasProgramaValues);
         model.AuxiliarEnfermeriaOptions = await GetOpsAssistantOptionsAsync(cancellationToken);
         model.SiNoOptions = BuildOptions(ClinicaHeridasSiNoValues);
+        model.ApositoMedicamentoOptions = ClinicaHeridasApositoMedicamentoValues;
+        model.Cie10Options = BuildClinicaHeridasCie10Options(model.CodigoCie10);
+        model.FrecuenciaVisitaOptions = ClinicaHeridasFrecuenciaVisitaValues;
         model.MotivoHospitalizacionOptions = BuildOptions(ClinicaHeridasMotivoHospitalizacionValues);
         model.RemitidoPorHospitalizacionOptions = BuildOptions(ClinicaHeridasRemitidoPorValues);
         model.IpsIntramuralOptions = BuildOptions(IpsQueRemiteValues);
@@ -953,7 +1237,7 @@ public partial class CensoController
         {
             model.CodigoCie10 = NormalizeCie10(model.CodigoCie10);
             if (string.IsNullOrWhiteSpace(model.DiagnosticoDescriptivo)
-                && _cie10Catalog.TryGetValue(model.CodigoCie10, out var diagnostico))
+                && ClinicaHeridasCie10Values.TryGetValue(model.CodigoCie10, out var diagnostico))
             {
                 model.DiagnosticoDescriptivo = diagnostico;
             }
@@ -984,6 +1268,7 @@ public partial class CensoController
         model.BarrioOptions = barrioOptions;
         await PopulateClinicaHeridasLatestRecordsAsync(model, cancellationToken);
         await PopulateClinicaHeridasHistorialAsync(model, cancellationToken);
+        await PopulateClinicaHeridasKardexAsync(model, cancellationToken);
     }
 
     private async Task PopulateClinicaHeridasLatestRecordsAsync(CensoClinicaHeridasViewModel model, CancellationToken cancellationToken)
@@ -1028,8 +1313,7 @@ public partial class CensoController
         model.DiagnosticoDescriptivo = NormalizeOptionalClinicaHeridasText(model.DiagnosticoDescriptivo);
         model.ProgramaPertenece = model.ProgramaPertenece?.Trim() ?? string.Empty;
         model.AuxiliarEnfermeriaAsignado = NormalizeOptionalClinicaHeridasText(model.AuxiliarEnfermeriaAsignado);
-        model.Picc = model.Picc?.Trim() ?? string.Empty;
-        model.Vac = model.Vac?.Trim() ?? string.Empty;
+        NormalizeClinicaHeridasManejoHeridaModel(model);
         model.EquipoComodato = string.IsNullOrWhiteSpace(model.EquipoComodato) ? null : model.EquipoComodato.Trim();
         model.NumeroPlacaEquipos = NormalizeOptionalClinicaHeridasText(model.NumeroPlacaEquipos);
         model.MotivoHospitalizacion = string.IsNullOrWhiteSpace(model.MotivoHospitalizacion) ? null : model.MotivoHospitalizacion.Trim();
@@ -1041,16 +1325,49 @@ public partial class CensoController
         model.MotivoEgreso = string.IsNullOrWhiteSpace(model.MotivoEgreso) ? null : model.MotivoEgreso.Trim();
         model.Estado = string.IsNullOrWhiteSpace(model.Estado) ? null : model.Estado.Trim();
 
-        if (!string.Equals(model.Vac, "Si", StringComparison.OrdinalIgnoreCase))
-        {
-            model.EquipoComodato = null;
-            model.NumeroPlacaEquipos = null;
-            model.FechaEntregaEquipo = null;
-            model.FechaDevolucionEquipo = null;
-        }
-
         model.Edad = CalculateAge(model.FechaNacimiento.Date, GetColombiaNow().Date);
         ModelState.Remove(nameof(model.Edad));
+    }
+
+    /// <summary>
+    /// Opciones del desplegable. Si el registro trae un código que ya no está en el catálogo (por
+    /// ejemplo, uno anterior al recorte), se agrega al final para no perderlo de vista.
+    /// </summary>
+    private static IReadOnlyList<SelectListItem> BuildClinicaHeridasCie10Options(string? codigoActual)
+    {
+        var opciones = ClinicaHeridasCie10Values
+            .OrderBy(x => x.Key, StringComparer.Ordinal)
+            .Select(x => new SelectListItem($"{x.Key} - {x.Value}", x.Key))
+            .ToList();
+
+        var codigo = NormalizeCie10(codigoActual ?? string.Empty);
+        if (codigo.Length > 0 && !ClinicaHeridasCie10Values.ContainsKey(codigo))
+        {
+            opciones.Add(new SelectListItem($"{codigo} - (fuera del listado actual)", codigo));
+        }
+
+        return opciones;
+    }
+
+    /// <summary>
+    /// True cuando el código enviado es exactamente el que ya tenía el registro guardado. Permite
+    /// conservar diagnósticos históricos sin abrir la puerta a códigos nuevos fuera del catálogo.
+    /// </summary>
+    private bool EsCie10HeredadoDelRegistro(CensoClinicaHeridasViewModel model)
+    {
+        if (!model.EditingRecordId.HasValue || string.IsNullOrWhiteSpace(model.CodigoCie10))
+        {
+            return false;
+        }
+
+        var guardado = _context.CensoClinicaHeridas
+            .AsNoTracking()
+            .Where(x => x.Id == model.EditingRecordId.Value)
+            .Select(x => x.CodigoCie10)
+            .FirstOrDefault();
+
+        return !string.IsNullOrWhiteSpace(guardado)
+            && string.Equals(guardado, model.CodigoCie10, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeClinicaHeridasText(string? value)
@@ -1121,15 +1438,22 @@ public partial class CensoController
             ModelState.AddModelError(nameof(model.Genero), "Selecciona un género válido.");
         }
 
-        if (!Cie10Pattern.IsMatch(model.CodigoCie10)
-            || !_cie10Catalog.TryGetValue(model.CodigoCie10, out var diagnostico))
+        if (ClinicaHeridasCie10Values.TryGetValue(model.CodigoCie10 ?? string.Empty, out var diagnostico))
         {
-            model.DiagnosticoDescriptivo = string.Empty;
-            ModelState.AddModelError(nameof(model.CodigoCie10), "El código CIE10 ingresado no existe en el catálogo parametrizado.");
+            model.DiagnosticoDescriptivo = NormalizeClinicaHeridasText(diagnostico);
+        }
+        else if (EsCie10HeredadoDelRegistro(model))
+        {
+            // Un registro anterior al recorte del catálogo conserva su código: se puede seguir
+            // editando el resto de la ficha sin obligar a reclasificar el diagnóstico.
+            model.DiagnosticoDescriptivo = NormalizeClinicaHeridasText(model.DiagnosticoDescriptivo);
         }
         else
         {
-            model.DiagnosticoDescriptivo = NormalizeClinicaHeridasText(diagnostico);
+            model.DiagnosticoDescriptivo = string.Empty;
+            ModelState.AddModelError(
+                nameof(model.CodigoCie10),
+                "Selecciona un diagnóstico del listado de clínica de heridas.");
         }
 
         if (!ClinicaHeridasProgramaValues.Contains(model.ProgramaPertenece, StringComparer.OrdinalIgnoreCase))
@@ -1141,16 +1465,6 @@ public partial class CensoController
             && !ClinicaHeridasLlamadaBienvenidaValues.Contains(model.LlamadaBienvenida, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.LlamadaBienvenida), "Selecciona un estado de llamada de bienvenida válido.");
-        }
-
-        if (!ClinicaHeridasSiNoValues.Contains(model.Picc, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.Picc), "Selecciona una opción válida para PICC.");
-        }
-
-        if (!ClinicaHeridasSiNoValues.Contains(model.Vac, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.Vac), "Selecciona una opción válida para VAC.");
         }
 
         if (!string.IsNullOrWhiteSpace(model.AuxiliarEnfermeriaAsignado))
@@ -1396,8 +1710,6 @@ public partial class CensoController
         record.FechaValoracion = model.FechaValoracion.Date;
         record.ProgramaPertenece = model.ProgramaPertenece;
         record.AuxiliarEnfermeriaAsignado = model.AuxiliarEnfermeriaAsignado;
-        record.Picc = model.Picc;
-        record.Vac = model.Vac;
         record.EquipoComodato = model.EquipoComodato;
         record.NumeroPlacaEquipos = model.NumeroPlacaEquipos;
         record.FechaEntregaEquipo = model.FechaEntregaEquipo?.Date;
@@ -1469,6 +1781,14 @@ public partial class CensoController
         model.AuxiliarEnfermeriaAsignado = record.AuxiliarEnfermeriaAsignado;
         model.Picc = record.Picc;
         model.Vac = record.Vac;
+        model.Npt = record.Npt;
+        model.ManejoHerida = record.ManejoHerida;
+        model.ApositoMedicamento1 = record.ApositoMedicamento1;
+        model.ApositoMedicamento2 = record.ApositoMedicamento2;
+        model.ApositoMedicamento3 = record.ApositoMedicamento3;
+        model.ApositoMedicamento4 = record.ApositoMedicamento4;
+        model.DuracionTratamientoDias = record.DuracionTratamientoDias;
+        model.FrecuenciaVisita = CanonicalClinicaHeridasFrecuenciaVisita(record.FrecuenciaVisita);
         model.EquipoComodato = record.EquipoComodato;
         model.NumeroPlacaEquipos = record.NumeroPlacaEquipos;
         model.FechaEntregaEquipo = record.FechaEntregaEquipo?.Date;

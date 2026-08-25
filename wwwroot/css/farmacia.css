@@ -1106,3 +1106,43 @@
 .farmacia-adjuntos-list__icon { width: 1rem; height: 1rem; stroke: #e53e3e; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 .farmacia-adjuntos-list__link { font-size: 0.85rem; color: #006be6; text-decoration: none; }
 .farmacia-adjuntos-list__link:hover { text-decoration: underline; }
+
+/* Etiqueta de origen: requisiciones que llegan del censo de clinica de heridas. */
+.farmacia-heridas-badge {
+  background: rgba(0, 107, 230, 0.12);
+  border-radius: 999px;
+  color: #0b4ea2;
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 0.18rem 0.55rem;
+  white-space: nowrap;
+}
+
+.farmacia-heridas-badge--cerrado {
+  background: rgba(19, 179, 155, 0.16);
+  color: #0d7c6b;
+}
+
+.farmacia-document-page {
+  margin: 0 auto;
+  max-width: 78rem;
+  padding: 1.2rem;
+}
+
+.farmacia-document-page__bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.farmacia-document-page__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 1.2rem;
+}

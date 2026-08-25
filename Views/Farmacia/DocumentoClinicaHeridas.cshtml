@@ -1,0 +1,164 @@
+﻿@model FarmaciaClinicaHeridasDocumentViewModel
+@{
+    ViewData["Title"] = $"Requisición {Model.TipoNombre}";
+    var documentoFiltro = ViewData["DocumentoFiltro"] as string;
+    var doc = Model.Documento;
+}
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/censo.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/farmacia.css" asp-append-version="true" />
+}
+
+<div class="farmacia-document-page">
+    <div class="farmacia-document-page__bar">
+        <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-documento="@documentoFiltro">
+            &larr; Volver a la bandeja
+        </a>
+        <span class="farmacia-heridas-badge">Clínica de heridas &middot; @Model.TipoNombre</span>
+        @if (Model.Cerrado)
+        {
+            <span class="farmacia-heridas-badge farmacia-heridas-badge--cerrado">Kardex cerrado</span>
+        }
+    </div>
+
+    <div class="herida-kardex-sheet">
+        <div class="herida-kardex-sheet__head">
+            <div class="herida-kardex-sheet__logo">
+                <img src="~/images/logo.png" asp-append-version="true" alt="Especialistas En Casa" />
+            </div>
+            <div class="herida-kardex-sheet__title">@doc.Titulo</div>
+            <div class="herida-kardex-sheet__meta">
+                <label>Código:<input value="@doc.CodigoFormato" readonly /></label>
+                <label>Versión:<input value="@doc.VersionFormato" readonly /></label>
+                <label>Página:<input value="@doc.PaginaFormato" readonly /></label>
+                <label>Fecha:<input value="@doc.FechaFormato" readonly /></label>
+            </div>
+        </div>
+
+        <div class="herida-kardex-sheet__subtitle">Atención: @Model.TipoNombre</div>
+
+        <div class="herida-kardex-section-title">Datos del paciente</div>
+        <div class="herida-kardex-patient">
+            <label>Paciente:</label>
+            <input value="@doc.Paciente" readonly />
+            <label>Documento:</label>
+            <input value="@doc.Documento" readonly />
+
+            <label>Asegurador:</label>
+            <input value="@doc.Asegurador" readonly />
+            <label>Edad:</label>
+            <input value="@doc.Edad" readonly />
+
+            <label>Dirección:</label>
+            <input value="@doc.Direccion" readonly />
+            <label>Teléfonos:</label>
+            <input value="@doc.Telefonos" readonly />
+
+            <label>CIE10:</label>
+            <input value="@doc.CodigoCie10" readonly />
+            <label>Diagnóstico:</label>
+            <input value="@doc.Diagnostico" readonly />
+        </div>
+
+        <div class="herida-kardex-section-title">Tratamiento</div>
+        <div class="herida-kardex-patient">
+            <label>Duración (días):</label>
+            <input value="@doc.DuracionDias" readonly />
+            <label>Frecuencia:</label>
+            <input value="@doc.Frecuencia" readonly />
+
+            <label>Aplicaciones:</label>
+            <input value="@doc.Aplicaciones" readonly />
+            <label>Fecha de solicitud:</label>
+            <input value="@doc.FechaSolicitud" readonly />
+
+            <label>Auxiliar asignado:</label>
+            <input value="@doc.AuxiliarAsignado" readonly />
+            <label>Elaborado por:</label>
+            <input value="@doc.ElaboradoPor" readonly />
+        </div>
+
+        <div class="herida-kardex-section-title herida-kardex-section-title--center">Detalle de la requisición</div>
+        <div class="herida-kardex-table-scroll">
+            <table class="herida-kardex-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Descripción del insumo</th>
+                        @for (var aplicacion = 0; aplicacion < doc.Aplicaciones; aplicacion++)
+                        {
+                            <th class="herida-kardex-table__aplicacion">
+                                @(aplicacion < doc.Encabezados.Count ? doc.Encabezados[aplicacion] : $"Aplicación {aplicacion + 1}")
+                            </th>
+                        }
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var insumo in doc.Insumos)
+                    {
+                        <tr>
+                            <td class="herida-kardex-table__item">@insumo.Item</td>
+                            <td>@insumo.Descripcion</td>
+                            @for (var aplicacion = 0; aplicacion < doc.Aplicaciones; aplicacion++)
+                            {
+                                <td class="herida-kardex-table__cantidad">
+                                    @(aplicacion < insumo.Cantidades.Count ? insumo.Cantidades[aplicacion] : 0)
+                                </td>
+                            }
+                            <td class="herida-kardex-table__total">@insumo.Total</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(doc.Observaciones))
+        {
+            <div class="herida-kardex-section-title">Observaciones</div>
+            <div class="herida-kardex-observaciones">@doc.Observaciones</div>
+        }
+    </div>
+
+    <div class="herida-kardex-adjuntos">
+        <div class="herida-kardex-adjuntos__head">
+            <strong>Adjuntos</strong>
+        </div>
+        @if (!Model.Adjuntos.Any())
+        {
+            <p class="herida-kardex-adjuntos__vacio mb-0">Esta requisición llegó sin adjuntos.</p>
+        }
+        else
+        {
+            <ul class="herida-kardex-adjuntos__list">
+                @foreach (var adjunto in Model.Adjuntos)
+                {
+                    <li>
+                        <a asp-action="DescargarAdjuntoClinicaHeridas" asp-route-adjuntoId="@adjunto.Id" target="_blank" rel="noopener">
+                            @adjunto.Nombre
+                        </a>
+                        <span class="text-muted small ms-2">@adjunto.SubidoAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+
+    @if (!Model.Cerrado && Model.FarmaciaEstado == FarmaciaEstados.Nuevo)
+    {
+        <form method="post" asp-action="SetOkKardexClinicaHeridas" asp-route-id="@Model.Id" class="farmacia-document-page__actions">
+            <button type="submit" class="btn btn-success">
+                Dar OK y cerrar kardex
+            </button>
+            <span class="text-muted small">Al dar OK, el censo ya no podrá editar esta requisición.</span>
+        </form>
+    }
+    else if (Model.Cerrado)
+    {
+        <p class="text-muted small mt-3">
+            Kardex cerrado el @Model.CerradoAtUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm").
+        </p>
+    }
+</div>

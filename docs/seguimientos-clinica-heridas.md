@@ -1,4 +1,4 @@
-# Sección 2 "Manejo de la herida": seguimientos leídos del Portal Administrativo
+# Sección 2 "Características de la herida": seguimientos leídos del Portal Administrativo
 
 La sección 2 del censo de clínica de heridas es **de solo lectura**. Muestra las curaciones que
 los auxiliares registran en campo desde la aplicación del Portal Administrativo: sus medidas, el
@@ -52,7 +52,7 @@ carpeta es parte del contrato entre los dos sistemas.
 | Tabla | Para qué |
 |---|---|
 | `ClinicaHeridasPaciente` | `carpetaDriveItemId` → `pacienteRef` |
-| `ClinicaHeridas` | Un registro por seguimiento: `numero`, `origen`, `ubicacion`, `diametroVerticalCm`, `diametroHorizontalCm`, `profundidadCm`, `fondo`, `lecho`, `tejido`, `exudadoCantidad`, `exudadoCaracteristicas`, `createdAt` |
+| `ClinicaHeridas` | Un registro por seguimiento: `numero`, `origen`, `ubicacion`, `diametroVerticalCm`, `diametroHorizontalCm`, `profundidadCm`, `fondo`, `lecho`, `tejido`, `cavitacionTunelizacion`, `pielPerilesional`, `exudadoCantidad`, `exudadoCaracteristicas`, `createdAt` |
 | `User` | El auxiliar que registró el seguimiento (`usuarioId`): nombre, cédula, correo, profesión |
 | `ClinicaHeridasFoto` | Las fotos: `tipo` (enum `TipoFotoHerida`), `driveItemId`, `nombre`, `mimeType` |
 
@@ -64,6 +64,10 @@ convierte a hora de Colombia antes de mostrarlo (`ToColombiaTime`).
 La conexión se toma de `DATABASE_URL` con `NeonConnectionString.FromConfiguration`, la misma que ya
 usaba `NeonOpsAssistantUserRepository` para el listado de auxiliares OPS. **Todas las consultas son
 de lectura.**
+
+`cavitacionTunelizacion` y `pielPerilesional` se agregaron al portal despues (2026-08-24) y son
+**nullables**, a diferencia del resto de campos clinicos. Los seguimientos anteriores a ese cambio los
+traen vacios y la seccion 2 los muestra como "—", igual que cualquier otro dato ausente.
 
 ### Las cuatro fotos
 
@@ -122,6 +126,40 @@ cambiar.
 
 ---
 
+## 4.b Numeración de las secciones (2026-08-21)
+
+Al agregar la sección 3 "Manejo de la herida" (PICC, VAC, hasta cuatro apósitos/medicamentos,
+duración del tratamiento y frecuencia de visita), las secciones siguientes corrieron un puesto:
+
+| Sección | Nombre |
+|---|---|
+| 1 | Datos básicos |
+| 2 | Características de la herida (solo lectura, este documento) |
+| 3 | Manejo de la herida |
+| 4 | Activo fijo |
+| 5 | Seguimiento hospitalizado |
+| 6 | Devolución de productos |
+| 7 | Alta del programa |
+
+**PICC y VAC salieron de la sección 1** y ahora se guardan con el botón de la sección 3. Por eso sus
+columnas pasaron a admitir nulo (migración `20260821185302_AddClinicaHeridasManejoHerida`): un
+paciente recién creado todavía no las tiene diligenciadas. La regla de que VAC en "No" bloquea y
+limpia el Activo fijo se mantiene, pero ahora vive en el guardado de la sección 3, que es donde está
+el campo; guardar la sección 1 ya no puede borrar el activo fijo.
+
+"Frecuencia de visita" es de **selección única** (24h / 48h / 72h / una vez a la semana) y opcional.
+Se dibuja como lista de opciones pero solo admite una; como un radio marcado no se puede desmarcar
+por sí solo, hay un botón "Quitar selección" que deja el campo vacío. La columna guarda un solo
+valor; los registros que alcanzaron a guardarse con varios separados por coma se leen tomando el
+primero reconocible.
+
+El catálogo de apósitos/medicamentos (48 insumos) está en
+`ClinicaHeridasApositoMedicamentoValues`, dentro de `Controllers/CensoClinicaHeridasController.cs`.
+Agregar o retirar un insumo es editar esa lista: alimenta el autocompletado de los cuatro campos y
+su validación en servidor.
+
+---
+
 ## 5. Lo que se eliminó
 
 La sección 2 tenía un formulario propio y un cargue de fotos hacia SharePoint. Ambos desaparecieron:
@@ -162,3 +200,7 @@ reales en Neon y SharePoint:
 | Guardado de la sección 4 tras el cambio → sigue funcionando y no altera otros datos | ✅ |
 | Móvil 375 px: 2 fotos por fila, sin desbordamiento horizontal | ✅ |
 | Consola del navegador y log del servidor sin errores | ✅ |
+
+---
+
+El **CIE10 de la sección 1** también es propio del programa: 23 diagnósticos fijos en un desplegable cerrado. Ver [cie10-clinica-heridas.md](cie10-clinica-heridas.md).

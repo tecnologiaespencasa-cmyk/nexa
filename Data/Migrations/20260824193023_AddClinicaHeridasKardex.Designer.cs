@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nexa.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Nexa.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260824193023_AddClinicaHeridasKardex")]
+    partial class AddClinicaHeridasKardex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -380,9 +383,6 @@ namespace Nexa.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<long>("CensoClinicaHeridasPlanId")
-                        .HasColumnType("bigint");
-
                     b.Property<long>("CensoClinicaHeridasRecordId")
                         .HasColumnType("bigint");
 
@@ -393,62 +393,19 @@ namespace Nexa.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<bool>("FarmaciaBolsaDesempacada")
-                        .HasColumnType("boolean");
-
-                    b.Property<int?>("FarmaciaCantidadEntregas")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("FarmaciaEmpacadoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("FarmaciaEntregaActual")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime?>("FarmaciaEnviadoAtUtc")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool?>("FarmaciaEsEntregaParcial")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("FarmaciaEstado")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
-                    b.Property<bool>("FarmaciaFacturado")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("FarmaciaFechaHoraRecepcionUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("FarmaciaFirmaActualizadaAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FarmaciaFirmaEntregaDataUrl")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FarmaciaFirmaRecibeDataUrl")
-                        .HasColumnType("text");
-
                     b.Property<DateTime?>("FarmaciaKardexVistoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FarmaciaNombreRecibe")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<DateTime?>("FarmaciaNotif24hRestanteUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("FarmaciaNotifAuxiliarUltimaUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("FarmaciaOkKardex")
                         .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("FarmaciaRequisicionVistoAtUtc")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("KardexCerradoAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -466,11 +423,9 @@ namespace Nexa.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CensoClinicaHeridasRecordId");
-
                     b.HasIndex("FarmaciaEnviadoAtUtc");
 
-                    b.HasIndex("CensoClinicaHeridasPlanId", "Tipo")
+                    b.HasIndex("CensoClinicaHeridasRecordId", "Tipo")
                         .IsUnique();
 
                     b.ToTable("censo_clinica_heridas_kardex", (string)null);
@@ -504,65 +459,6 @@ namespace Nexa.Data.Migrations
                     b.HasIndex("CensoClinicaHeridasKardexId");
 
                     b.ToTable("censo_clinica_heridas_kardex_adjuntos", (string)null);
-                });
-
-            modelBuilder.Entity("Nexa.Data.Entities.CensoClinicaHeridasPlan", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("ApositoMedicamento1")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("ApositoMedicamento2")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("ApositoMedicamento3")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("ApositoMedicamento4")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<long>("CensoClinicaHeridasRecordId")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime?>("CerradoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CerradoPor")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<DateTime>("CreadoAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CreadoPor")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int?>("DuracionTratamientoDias")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("FrecuenciaVisita")
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<int>("Numero")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CensoClinicaHeridasRecordId", "Numero")
-                        .IsUnique();
-
-                    b.ToTable("censo_clinica_heridas_plan", (string)null);
                 });
 
             modelBuilder.Entity("Nexa.Data.Entities.CensoClinicaHeridasRecord", b =>
@@ -3523,12 +3419,6 @@ namespace Nexa.Data.Migrations
 
             modelBuilder.Entity("Nexa.Data.Entities.CensoClinicaHeridasKardex", b =>
                 {
-                    b.HasOne("Nexa.Data.Entities.CensoClinicaHeridasPlan", "Plan")
-                        .WithMany("Kardex")
-                        .HasForeignKey("CensoClinicaHeridasPlanId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("Nexa.Data.Entities.CensoClinicaHeridasRecord", "CensoClinicaHeridasRecord")
                         .WithMany()
                         .HasForeignKey("CensoClinicaHeridasRecordId")
@@ -3536,8 +3426,6 @@ namespace Nexa.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("CensoClinicaHeridasRecord");
-
-                    b.Navigation("Plan");
                 });
 
             modelBuilder.Entity("Nexa.Data.Entities.CensoClinicaHeridasKardexAdjunto", b =>
@@ -3549,17 +3437,6 @@ namespace Nexa.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Kardex");
-                });
-
-            modelBuilder.Entity("Nexa.Data.Entities.CensoClinicaHeridasPlan", b =>
-                {
-                    b.HasOne("Nexa.Data.Entities.CensoClinicaHeridasRecord", "CensoClinicaHeridasRecord")
-                        .WithMany()
-                        .HasForeignKey("CensoClinicaHeridasRecordId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CensoClinicaHeridasRecord");
                 });
 
             modelBuilder.Entity("Nexa.Data.Entities.CensoCronicoAgudizacion", b =>
@@ -3726,11 +3603,6 @@ namespace Nexa.Data.Migrations
             modelBuilder.Entity("Nexa.Data.Entities.CensoClinicaHeridasKardex", b =>
                 {
                     b.Navigation("Adjuntos");
-                });
-
-            modelBuilder.Entity("Nexa.Data.Entities.CensoClinicaHeridasPlan", b =>
-                {
-                    b.Navigation("Kardex");
                 });
 
             modelBuilder.Entity("Nexa.Data.Entities.CensoCronicoAgudizacion", b =>

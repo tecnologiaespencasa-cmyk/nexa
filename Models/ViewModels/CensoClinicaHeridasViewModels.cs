@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Nexa.Data.Entities;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
@@ -101,7 +101,8 @@ public class CensoClinicaHeridasViewModel
 
     [Required(ErrorMessage = "El código CIE10 es obligatorio.")]
     [StringLength(4, ErrorMessage = "El código CIE10 debe tener 4 caracteres.")]
-    [RegularExpression(@"^[A-Za-z][0-9]{3}$", ErrorMessage = "El código CIE10 debe iniciar con letra y continuar con 3 dígitos.")]
+    // Sin patrón de "letra + 3 dígitos": el listado propio incluye códigos terminados en X (L89X,
+    // L97X). Quien valida es el catálogo de clínica de heridas, no la forma del código.
     [Display(Name = "CIE10")]
     public string CodigoCie10 { get; set; } = string.Empty;
 
@@ -121,13 +122,42 @@ public class CensoClinicaHeridasViewModel
     [Display(Name = "Auxiliar de enfermería asignado")]
     public string? AuxiliarEnfermeriaAsignado { get; set; }
 
-    [Required(ErrorMessage = "Selecciona si el paciente tiene PICC.")]
+    // PICC, VAC y el resto de la seccion 3 se guardan con su propio boton, no al crear el registro.
     [Display(Name = "PICC")]
-    public string Picc { get; set; } = string.Empty;
+    public string? Picc { get; set; }
 
-    [Required(ErrorMessage = "Selecciona si el paciente tiene VAC.")]
     [Display(Name = "VAC")]
-    public string Vac { get; set; } = string.Empty;
+    public string? Vac { get; set; }
+
+    [Display(Name = "NPT")]
+    public string? Npt { get; set; }
+
+    [Display(Name = "Manejo de la herida")]
+    public string? ManejoHerida { get; set; }
+
+    [StringLength(200, ErrorMessage = "El apósito/medicamento no puede superar 200 caracteres.")]
+    [Display(Name = "Apósito/Medicamento 1")]
+    public string? ApositoMedicamento1 { get; set; }
+
+    [StringLength(200, ErrorMessage = "El apósito/medicamento no puede superar 200 caracteres.")]
+    [Display(Name = "Apósito/Medicamento 2")]
+    public string? ApositoMedicamento2 { get; set; }
+
+    [StringLength(200, ErrorMessage = "El apósito/medicamento no puede superar 200 caracteres.")]
+    [Display(Name = "Apósito/Medicamento 3")]
+    public string? ApositoMedicamento3 { get; set; }
+
+    [StringLength(200, ErrorMessage = "El apósito/medicamento no puede superar 200 caracteres.")]
+    [Display(Name = "Apósito/Medicamento 4")]
+    public string? ApositoMedicamento4 { get; set; }
+
+    [Range(1, 999, ErrorMessage = "La duración del tratamiento debe estar entre 1 y 999 días.")]
+    [Display(Name = "Duración de tratamiento (días)")]
+    public int? DuracionTratamientoDias { get; set; }
+
+    // Seleccion unica: se muestra como lista de opciones, pero solo se guarda una.
+    [Display(Name = "Frecuencia de visita")]
+    public string? FrecuenciaVisita { get; set; }
 
     [Display(Name = "Equipo en comodato")]
     public string? EquipoComodato { get; set; }
@@ -233,6 +263,18 @@ public class CensoClinicaHeridasViewModel
     public IReadOnlyList<SelectListItem> ProgramaPerteneceOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AuxiliarEnfermeriaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> SiNoOptions { get; set; } = [];
+    public IReadOnlyList<string> ApositoMedicamentoOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> Cie10Options { get; set; } = [];
+    public IReadOnlyList<string> FrecuenciaVisitaOptions { get; set; } = [];
+
+    /// <summary>Kardex disponibles segun los "Si" guardados: uno por tipo de atencion.</summary>
+    public IReadOnlyList<CensoClinicaHeridasKardexResumenViewModel> KardexDisponibles { get; set; } = [];
+
+    /// <summary>Planes de requisiciones del paciente, del mas reciente al mas antiguo.</summary>
+    public IReadOnlyList<CensoClinicaHeridasPlanResumenViewModel> Planes { get; set; } = [];
+
+    public CensoClinicaHeridasPlanResumenViewModel? PlanVigente =>
+        Planes.FirstOrDefault(x => x.Vigente);
     public IReadOnlyList<SelectListItem> MotivoHospitalizacionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> RemitidoPorHospitalizacionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> MotivoNovedadDevolucionOptions { get; set; } = [];
@@ -247,7 +289,7 @@ public class CensoClinicaHeridasViewModel
 }
 
 /// <summary>
-/// Sección 2 "Manejo de la herida": historial de solo lectura que la aplicación del Portal
+/// Sección 2 "Características de la herida": historial de solo lectura que la aplicación del Portal
 /// Administrativo captura en campo. La intranet no crea ni edita estos seguimientos.
 /// </summary>
 public class CensoClinicaHeridasHistorialViewModel
@@ -300,6 +342,10 @@ public class CensoClinicaHeridasSeguimientoViewModel
 
     public string Tejido { get; set; } = string.Empty;
 
+    public string CavitacionTunelizacion { get; set; } = string.Empty;
+
+    public string PielPerilesional { get; set; } = string.Empty;
+
     public string ExudadoCantidad { get; set; } = string.Empty;
 
     public string ExudadoCaracteristicas { get; set; } = string.Empty;
@@ -333,4 +379,48 @@ public class CensoClinicaHeridasFotoViewModel
     public string Nombre { get; set; } = string.Empty;
 
     public bool Disponible => !string.IsNullOrWhiteSpace(DriveItemId);
+}
+
+/// <summary>Tarjeta de acceso a un kardex desde el censo.</summary>
+public class CensoClinicaHeridasKardexResumenViewModel
+{
+    public string Tipo { get; set; } = string.Empty;
+
+    public string Nombre { get; set; } = string.Empty;
+
+    public bool Enviado { get; set; }
+
+    public bool Cerrado { get; set; }
+
+    public DateTime? EnviadoAtUtc { get; set; }
+
+    public int Adjuntos { get; set; }
+
+    public int Aplicaciones { get; set; }
+
+    public int Insumos { get; set; }
+}
+
+/// <summary>Un plan de requisiciones en la barra de navegacion de la seccion 3.</summary>
+public class CensoClinicaHeridasPlanResumenViewModel
+{
+    public long Id { get; set; }
+
+    public int Numero { get; set; }
+
+    public bool Vigente { get; set; }
+
+    public string? CreadoPor { get; set; }
+
+    /// <summary>Fecha de creacion ya convertida a hora de Colombia.</summary>
+    public DateTime CreadoEn { get; set; }
+
+    public DateTime? CerradoEn { get; set; }
+
+    public string? CerradoPor { get; set; }
+
+    /// <summary>Apositos con los que se armo el plan; en el vigente son los del censo.</summary>
+    public IReadOnlyList<string> Apositos { get; set; } = [];
+
+    public int Requisiciones { get; set; }
 }

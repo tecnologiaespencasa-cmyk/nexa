@@ -1,4 +1,4 @@
-using Nexa.Helpers;
+﻿using Nexa.Helpers;
 
 namespace Nexa.Models.ViewModels;
 
@@ -108,6 +108,12 @@ public class FarmaciaPedidoViewModel
     public bool EsAgudizacionCronica { get; set; }
 
     public int? NumeroAgudizacionCronica { get; set; }
+
+    /// <summary>True cuando el pedido es una requisición del censo de clínica de heridas.</summary>
+    public bool EsClinicaHeridas { get; set; }
+
+    /// <summary>Atención que originó la requisición: manejo de herida, VAC, NPT o PICC.</summary>
+    public string? TipoKardexClinicaHeridas { get; set; }
 
     public TimeSpan? TiempoEnEmpacado => FarmaciaEmpacadoAtUtc.HasValue
         ? DateTime.UtcNow - FarmaciaEmpacadoAtUtc.Value
@@ -277,4 +283,35 @@ public class FarmaciaEntregaParcialInputModel
     public bool EsEntregaParcial { get; set; }
 
     public int? CantidadEntregas { get; set; }
+}
+
+/// <summary>Requisicion de clinica de heridas tal como la ve farmacia (solo lectura).</summary>
+public class FarmaciaClinicaHeridasDocumentViewModel
+{
+    public long Id { get; set; }
+
+    public string Tipo { get; set; } = string.Empty;
+
+    public string TipoNombre { get; set; } = string.Empty;
+
+    public ClinicaHeridasKardexDocumento Documento { get; set; } = new();
+
+    public bool Cerrado { get; set; }
+
+    public DateTime? CerradoAtUtc { get; set; }
+
+    public DateTime? EnviadoAtUtc { get; set; }
+
+    public string FarmaciaEstado { get; set; } = FarmaciaEstados.Nuevo;
+
+    public IReadOnlyList<FarmaciaClinicaHeridasAdjuntoViewModel> Adjuntos { get; set; } = [];
+}
+
+public class FarmaciaClinicaHeridasAdjuntoViewModel
+{
+    public long Id { get; set; }
+
+    public string Nombre { get; set; } = string.Empty;
+
+    public DateTime SubidoAtUtc { get; set; }
 }

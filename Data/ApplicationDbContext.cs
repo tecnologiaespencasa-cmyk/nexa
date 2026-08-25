@@ -1,4 +1,4 @@
-using Nexa.Data.Entities;
+﻿using Nexa.Data.Entities;
 using Nexa.Models.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -17,6 +17,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CensoRecord> Censos => Set<CensoRecord>();
     public DbSet<CensoTerapiaAmbulatoriaRecord> CensoTerapiasAmbulatorias => Set<CensoTerapiaAmbulatoriaRecord>();
     public DbSet<CensoClinicaHeridasRecord> CensoClinicaHeridas => Set<CensoClinicaHeridasRecord>();
+
+    public DbSet<CensoClinicaHeridasPlan> CensoClinicaHeridasPlanes => Set<CensoClinicaHeridasPlan>();
+
+    public DbSet<CensoClinicaHeridasKardex> CensoClinicaHeridasKardex => Set<CensoClinicaHeridasKardex>();
+
+    public DbSet<CensoClinicaHeridasKardexAdjunto> CensoClinicaHeridasKardexAdjuntos => Set<CensoClinicaHeridasKardexAdjunto>();
     public DbSet<CensoNptRecord> CensoNpt => Set<CensoNptRecord>();
     public DbSet<CensoCronicoRecord> CensoCronicos => Set<CensoCronicoRecord>();
     public DbSet<CensoCronicoAgudizacion> CensoCronicoAgudizaciones => Set<CensoCronicoAgudizacion>();
@@ -324,6 +330,62 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(x => x.CreatedAtUtc);
         });
 
+        modelBuilder.Entity<CensoClinicaHeridasPlan>(entity =>
+        {
+            entity.ToTable("censo_clinica_heridas_plan");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.CreadoPor).HasMaxLength(200);
+            entity.Property(x => x.CerradoPor).HasMaxLength(200);
+            entity.Property(x => x.ApositoMedicamento1).HasMaxLength(200);
+            entity.Property(x => x.ApositoMedicamento2).HasMaxLength(200);
+            entity.Property(x => x.ApositoMedicamento3).HasMaxLength(200);
+            entity.Property(x => x.ApositoMedicamento4).HasMaxLength(200);
+            entity.Property(x => x.FrecuenciaVisita).HasMaxLength(160);
+
+            entity.HasOne(x => x.CensoClinicaHeridasRecord)
+                .WithMany()
+                .HasForeignKey(x => x.CensoClinicaHeridasRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => new { x.CensoClinicaHeridasRecordId, x.Numero }).IsUnique();
+        });
+
+        modelBuilder.Entity<CensoClinicaHeridasKardex>(entity =>
+        {
+            entity.ToTable("censo_clinica_heridas_kardex");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Tipo).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.ElaboradoPor).HasMaxLength(200);
+            entity.Property(x => x.FarmaciaEstado).HasMaxLength(30).IsRequired();
+
+            entity.HasOne(x => x.CensoClinicaHeridasRecord)
+                .WithMany()
+                .HasForeignKey(x => x.CensoClinicaHeridasRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.Plan)
+                .WithMany(x => x.Kardex)
+                .HasForeignKey(x => x.CensoClinicaHeridasPlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Un kardex por tipo de atencion dentro de cada plan.
+            entity.HasIndex(x => new { x.CensoClinicaHeridasPlanId, x.Tipo }).IsUnique();
+            entity.HasIndex(x => x.FarmaciaEnviadoAtUtc);
+        });
+
+        modelBuilder.Entity<CensoClinicaHeridasKardexAdjunto>(entity =>
+        {
+            entity.ToTable("censo_clinica_heridas_kardex_adjuntos");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.FileName).HasMaxLength(260).IsRequired();
+            entity.Property(x => x.FileData).IsRequired();
+
+            entity.HasOne(x => x.Kardex)
+                .WithMany(x => x.Adjuntos)
+                .HasForeignKey(x => x.CensoClinicaHeridasKardexId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<CensoClinicaHeridasRecord>(entity =>
         {
             entity.ToTable("censo_clinica_heridas");
@@ -354,8 +416,15 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.FechaValoracion).HasColumnType("date");
             entity.Property(x => x.ProgramaPertenece).HasMaxLength(20).IsRequired();
             entity.Property(x => x.AuxiliarEnfermeriaAsignado).HasMaxLength(120);
-            entity.Property(x => x.Picc).HasMaxLength(2).IsRequired();
-            entity.Property(x => x.Vac).HasMaxLength(2).IsRequired();
+            entity.Property(x => x.Picc).HasMaxLength(2);
+            entity.Property(x => x.Vac).HasMaxLength(2);
+            entity.Property(x => x.Npt).HasMaxLength(2);
+            entity.Property(x => x.ManejoHerida).HasMaxLength(2);
+            entity.Property(x => x.ApositoMedicamento1).HasMaxLength(200);
+            entity.Property(x => x.ApositoMedicamento2).HasMaxLength(200);
+            entity.Property(x => x.ApositoMedicamento3).HasMaxLength(200);
+            entity.Property(x => x.ApositoMedicamento4).HasMaxLength(200);
+            entity.Property(x => x.FrecuenciaVisita).HasMaxLength(160);
             entity.Property(x => x.DescripcionHerida).HasMaxLength(2000);
             entity.Property(x => x.UbicacionHerida).HasMaxLength(30);
             entity.Property(x => x.EquipoComodato).HasMaxLength(2);

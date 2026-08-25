@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Nexa.Data.Entities;
 
@@ -95,13 +95,38 @@ public class CensoClinicaHeridasRecord
     [StringLength(120)]
     public string? AuxiliarEnfermeriaAsignado { get; set; }
 
-    [Required]
+    // PICC y VAC se capturan en la seccion 3 "Manejo de la herida", no al crear el registro, por eso
+    // admiten nulo: un paciente recien registrado todavia no los tiene diligenciados.
     [StringLength(2)]
-    public string Picc { get; set; } = string.Empty;
+    public string? Picc { get; set; }
 
-    [Required]
     [StringLength(2)]
-    public string Vac { get; set; } = string.Empty;
+    public string? Vac { get; set; }
+
+    [StringLength(2)]
+    public string? Npt { get; set; }
+
+    [StringLength(2)]
+    public string? ManejoHerida { get; set; }
+
+    // Seccion 3 "Manejo de la herida": hasta cuatro apositos o medicamentos del catalogo de insumos.
+    [StringLength(200)]
+    public string? ApositoMedicamento1 { get; set; }
+
+    [StringLength(200)]
+    public string? ApositoMedicamento2 { get; set; }
+
+    [StringLength(200)]
+    public string? ApositoMedicamento3 { get; set; }
+
+    [StringLength(200)]
+    public string? ApositoMedicamento4 { get; set; }
+
+    public int? DuracionTratamientoDias { get; set; }
+
+    // Lista de frecuencias separadas por coma; el usuario puede marcar varias.
+    [StringLength(160)]
+    public string? FrecuenciaVisita { get; set; }
 
     // Histórico. La sección 2 dejó de capturar estos tres campos cuando pasó a mostrar los
     // seguimientos que registra la aplicación de clínica de heridas (origen, ubicación, medidas,

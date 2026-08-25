@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nexa.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Nexa.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260825154447_AddClinicaHeridasPlanRequisiciones")]
+    partial class AddClinicaHeridasPlanRequisiciones
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -437,12 +440,6 @@ namespace Nexa.Data.Migrations
                     b.Property<string>("FarmaciaNombreRecibe")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
-
-                    b.Property<DateTime?>("FarmaciaNotif24hRestanteUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("FarmaciaNotifAuxiliarUltimaUtc")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("FarmaciaOkKardex")
                         .HasColumnType("boolean");
