@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Nexa.Data.Entities;
 using Nexa.Helpers;
@@ -16,6 +17,9 @@ namespace Nexa.Controllers;
 /// Flujo: elegir plantilla -> llenar variables -> previsualizar el documento -> firmar.
 /// Al firmar se guarda el acta con el cuerpo ya renderizado y se envia la copia al correo
 /// capturado (ese correo no se imprime en el acta).
+///
+/// Las plantillas vienen de dos origenes -de fabrica y del disenador- pero se resuelven
+/// al mismo tipo, asi que de aqui hacia abajo el camino es uno solo.
 /// </summary>
 public partial class EspacioCorporativoController
 {
@@ -36,7 +40,7 @@ public partial class EspacioCorporativoController
         {
             Busqueda = busqueda?.Trim(),
             PlantillaFiltro = plantilla?.Trim(),
-            Plantillas = EspacioActaPlantillas.Todas
+            Plantillas = await ListarPlantillasAsync(soloActivas: true, cancellationToken)
         };
 
         var query = _context.EspacioActasDocumentales.AsNoTracking();
@@ -52,7 +56,8 @@ public partial class EspacioCorporativoController
                 || (x.CorreoRecibe != null && EF.Functions.ILike(x.CorreoRecibe, termino)));
         }
 
-        if (EspacioActaPlantillas.Obtener(model.PlantillaFiltro) is not null)
+        if (!string.IsNullOrWhiteSpace(model.PlantillaFiltro)
+            && model.Plantillas.Any(x => string.Equals(x.Codigo, model.PlantillaFiltro, StringComparison.OrdinalIgnoreCase)))
         {
             query = query.Where(x => x.PlantillaCodigo == model.PlantillaFiltro);
         }
@@ -108,12 +113,12 @@ public partial class EspacioCorporativoController
 
     [HttpGet]
     [Authorize(Policy = SystemPermissions.EspacioCorporativoAdmin)]
-    public IActionResult ActaNueva(string codigo)
+    public async Task<IActionResult> ActaNueva(string codigo, CancellationToken cancellationToken)
     {
-        var plantilla = EspacioActaPlantillas.Obtener(codigo);
+        var plantilla = await ObtenerPlantillaAsync(codigo, cancellationToken);
         if (plantilla is null)
         {
-            TempData[ErrorMessageKey] = "La plantilla solicitada no existe.";
+            TempData[ErrorMessageKey] = "La plantilla solicitada no existe o fue desactivada.";
             return RedirectToAction(nameof(Actas));
         }
 
@@ -132,10 +137,10 @@ public partial class EspacioCorporativoController
         string plantillaCodigo,
         CancellationToken cancellationToken)
     {
-        var plantilla = EspacioActaPlantillas.Obtener(plantillaCodigo);
+        var plantilla = await ObtenerPlantillaAsync(plantillaCodigo, cancellationToken);
         if (plantilla is null)
         {
-            TempData[ErrorMessageKey] = "La plantilla solicitada no existe.";
+            TempData[ErrorMessageKey] = "La plantilla solicitada no existe o fue desactivada.";
             return RedirectToAction(nameof(Actas));
         }
 
@@ -153,28 +158,7 @@ public partial class EspacioCorporativoController
             });
         }
 
-        var firmante = await ConstruirFirmanteAsync(cancellationToken);
-        var fecha = ColombiaTime.Convert(DateTime.UtcNow);
-        var firmaGuardada = await GetFirmaGuardadaAsync(cancellationToken);
-
-        return View("ActaFirmar", new EspacioActaFirmaViewModel
-        {
-            PlantillaCodigo = plantilla.Codigo,
-            PlantillaNombre = plantilla.Nombre,
-            TituloActa = plantilla.TituloActa,
-            RotuloRecibe = plantilla.RotuloRecibe,
-            CuerpoHtml = EspacioActaRenderer.Render(plantilla, valores, firmante, fecha),
-            Valores = valores,
-            NombreRecibe = valores.GetValueOrDefault(plantilla.CampoNombre) ?? string.Empty,
-            DocumentoRecibe = valores.GetValueOrDefault(plantilla.CampoDocumento),
-            CorreoRecibe = valores.GetValueOrDefault(plantilla.CampoCorreo),
-            EmitidaPorNombre = firmante.Nombre,
-            EmitidaPorCargo = firmante.Cargo,
-            EmitidaPorDocumento = firmante.Documento,
-            FirmaEmiteDataUrl = firmaGuardada?.FirmaDataUrl,
-            TieneFirmaGuardada = firmaGuardada is not null,
-            Fecha = fecha
-        });
+        return await ConstruirVistaFirmaAsync(plantilla, valores, null, cancellationToken);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -184,18 +168,16 @@ public partial class EspacioCorporativoController
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = SystemPermissions.EspacioCorporativoAdmin)]
-    [RequestSizeLimit(8 * 1024 * 1024)]
+    [RequestSizeLimit(16 * 1024 * 1024)]
     public async Task<IActionResult> ActaEmitir(
         string plantillaCodigo,
-        string? firmaRecibeDataUrl,
-        string? firmaEmiteDataUrl,
         bool guardarFirmaEmite,
         CancellationToken cancellationToken)
     {
-        var plantilla = EspacioActaPlantillas.Obtener(plantillaCodigo);
+        var plantilla = await ObtenerPlantillaAsync(plantillaCodigo, cancellationToken);
         if (plantilla is null)
         {
-            TempData[ErrorMessageKey] = "La plantilla solicitada no existe.";
+            TempData[ErrorMessageKey] = "La plantilla solicitada no existe o fue desactivada.";
             return RedirectToAction(nameof(Actas));
         }
 
@@ -204,59 +186,109 @@ public partial class EspacioCorporativoController
 
         if (errores.Count > 0)
         {
-            return await VolverAFirmarAsync(plantilla, valores, string.Join(" ", errores), cancellationToken);
-        }
-
-        if (!EspacioCorporativoCatalogos.EsFirmaValida(firmaRecibeDataUrl))
-        {
-            return await VolverAFirmarAsync(plantilla, valores, "Falta la firma de quien recibe.", cancellationToken);
-        }
-
-        // La firma del area de TI se reutiliza; solo se pide trazarla la primera vez.
-        var firmaGuardada = await GetFirmaGuardadaAsync(cancellationToken);
-        var firmaEmite = firmaGuardada?.FirmaDataUrl;
-
-        if (string.IsNullOrWhiteSpace(firmaEmite))
-        {
-            if (!EspacioCorporativoCatalogos.EsFirmaValida(firmaEmiteDataUrl))
-            {
-                return await VolverAFirmarAsync(
-                    plantilla,
-                    valores,
-                    "Aun no tienes una firma guardada. Trazala para emitir el acta.",
-                    cancellationToken);
-            }
-
-            firmaEmite = firmaEmiteDataUrl!.Trim();
-
-            if (guardarFirmaEmite)
-            {
-                await GuardarFirmaDelUsuarioAsync(firmaEmite, null, null, cancellationToken);
-            }
+            return await ConstruirVistaFirmaAsync(plantilla, valores, string.Join(" ", errores), cancellationToken);
         }
 
         var firmante = await ConstruirFirmanteAsync(cancellationToken);
+        var firmaGuardada = await GetFirmaGuardadaAsync(cancellationToken);
+        var firmasEstampadas = new List<EspacioActaFirmaEmitida>();
+        string? trazoEmisorNuevo = null;
+
+        foreach (var definicion in plantilla.FirmasEfectivas)
+        {
+            var trazo = Request.Form[$"firmas[{definicion.Clave}]"].ToString().Trim();
+            var esEmisor = definicion.Origen == EspacioActaFirmaOrigen.Emisor;
+
+            if (esEmisor && !string.IsNullOrWhiteSpace(firmaGuardada?.FirmaDataUrl))
+            {
+                // La firma del area de TI se reutiliza; solo se pide trazarla la primera vez.
+                trazo = firmaGuardada!.FirmaDataUrl;
+            }
+
+            if (string.IsNullOrWhiteSpace(trazo))
+            {
+                if (!definicion.Requerida)
+                {
+                    continue;
+                }
+
+                return await ConstruirVistaFirmaAsync(
+                    plantilla,
+                    valores,
+                    esEmisor
+                        ? "Aun no tienes una firma guardada. Trazala para emitir el acta."
+                        : $"Falta la firma de '{definicion.Rotulo}'.",
+                    cancellationToken);
+            }
+
+            if (!EspacioCorporativoCatalogos.EsFirmaValida(trazo))
+            {
+                return await ConstruirVistaFirmaAsync(
+                    plantilla,
+                    valores,
+                    $"La firma de '{definicion.Rotulo}' no se recibio correctamente. Vuelve a trazarla.",
+                    cancellationToken);
+            }
+
+            if (esEmisor && string.IsNullOrWhiteSpace(firmaGuardada?.FirmaDataUrl))
+            {
+                trazoEmisorNuevo = trazo;
+            }
+
+            var datos = DescribirFirmante(definicion, plantilla, valores, firmante);
+
+            firmasEstampadas.Add(new EspacioActaFirmaEmitida
+            {
+                Clave = definicion.Clave,
+                Rotulo = definicion.Rotulo,
+                Nombre = datos.Nombre,
+                Documento = datos.Documento,
+                Cargo = datos.Cargo,
+                DataUrl = trazo
+            });
+        }
+
+        if (firmasEstampadas.Count == 0)
+        {
+            return await ConstruirVistaFirmaAsync(
+                plantilla,
+                valores,
+                "El acta necesita al menos una firma para emitirse.",
+                cancellationToken);
+        }
+
+        if (trazoEmisorNuevo is not null && guardarFirmaEmite)
+        {
+            await GuardarFirmaDelUsuarioAsync(trazoEmisorNuevo, null, null, cancellationToken);
+        }
+
         var fecha = ColombiaTime.Convert(DateTime.UtcNow);
+        var nombreRecibe = ValorDe(valores, plantilla.CampoNombre);
 
         var acta = new EspacioActaDocumental
         {
             PlantillaCodigo = plantilla.Codigo,
             PlantillaNombre = plantilla.Nombre,
             TituloActa = plantilla.TituloActa,
-            NombreRecibe = (valores.GetValueOrDefault(plantilla.CampoNombre) ?? string.Empty).Trim(),
-            DocumentoRecibe = NormalizarOpcional(valores.GetValueOrDefault(plantilla.CampoDocumento)),
-            CorreoRecibe = NormalizarOpcional(valores.GetValueOrDefault(plantilla.CampoCorreo)),
-            UsuarioRecibe = plantilla.CampoUsuario is null
-                ? null
-                : NormalizarOpcional(valores.GetValueOrDefault(plantilla.CampoUsuario)),
+            NombreRecibe = Resumir(
+                string.IsNullOrWhiteSpace(nombreRecibe)
+                    ? firmasEstampadas[^1].Nombre
+                    : nombreRecibe,
+                160),
+            DocumentoRecibe = NormalizarOpcional(ValorDe(valores, plantilla.CampoDocumento)),
+            CorreoRecibe = NormalizarOpcional(ValorDe(valores, plantilla.CampoCorreo)),
+            UsuarioRecibe = NormalizarOpcional(ValorDe(valores, plantilla.CampoUsuario)),
             ValoresJson = JsonSerializer.Serialize(valores, ActaJsonOptions),
             CuerpoHtml = EspacioActaRenderer.Render(plantilla, valores, firmante, fecha),
             EmitidaPorUserId = GetCurrentUserId(),
             EmitidaPorNombre = firmante.Nombre,
             EmitidaPorCargo = firmante.Cargo,
             EmitidaPorDocumento = firmante.Documento,
-            FirmaEmiteDataUrl = firmaEmite,
-            FirmaRecibeDataUrl = firmaRecibeDataUrl!.Trim(),
+            // Las dos columnas de siempre siguen llenas para no romper actas ni consultas
+            // anteriores; el detalle completo vive en FirmasJson.
+            FirmaEmiteDataUrl = ElegirTrazo(firmasEstampadas, plantilla, EspacioActaFirmaOrigen.Emisor),
+            FirmaRecibeDataUrl = ElegirTrazo(firmasEstampadas, plantilla, EspacioActaFirmaOrigen.EnVivo),
+            FirmasJson = JsonSerializer.Serialize(firmasEstampadas, ActaJsonOptions),
             FirmadaAtUtc = DateTime.UtcNow
         };
 
@@ -335,14 +367,11 @@ public partial class EspacioCorporativoController
             return NotFound();
         }
 
-        var plantilla = EspacioActaPlantillas.Obtener(acta.PlantillaCodigo);
-
         return View(new EspacioActaEmitidaDocumentoViewModel
         {
             Id = acta.Id,
             TituloActa = acta.TituloActa,
             PlantillaNombre = acta.PlantillaNombre,
-            RotuloRecibe = plantilla?.RotuloRecibe ?? "Recibe",
             CuerpoHtml = acta.CuerpoHtml,
             NombreRecibe = acta.NombreRecibe,
             DocumentoRecibe = acta.DocumentoRecibe,
@@ -351,48 +380,179 @@ public partial class EspacioCorporativoController
             EmitidaPorDocumento = acta.EmitidaPorDocumento,
             FirmaEmiteDataUrl = acta.FirmaEmiteDataUrl,
             FirmaRecibeDataUrl = acta.FirmaRecibeDataUrl,
+            Firmas = EspacioActaFirmas.Leer(acta)
+                .Select(firma => new EspacioActaFirmaImpresaViewModel
+                {
+                    Rotulo = firma.Rotulo,
+                    Nombre = firma.Nombre,
+                    Documento = firma.Documento,
+                    Cargo = firma.Cargo,
+                    DataUrl = firma.DataUrl
+                })
+                .ToList(),
             FechaFirma = ColombiaTime.Convert(acta.FirmadaAtUtc)
         });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Helpers
+    // Resolucion de plantillas
     // ─────────────────────────────────────────────────────────────────────────
 
+    /// <summary>Busca primero en las plantillas de fabrica y luego en las del disenador.</summary>
+    private async Task<EspacioActaPlantilla?> ObtenerPlantillaAsync(
+        string? codigo,
+        CancellationToken cancellationToken,
+        bool incluirInactivas = false)
+    {
+        if (string.IsNullOrWhiteSpace(codigo))
+        {
+            return null;
+        }
+
+        if (EspacioActaPlantillas.Obtener(codigo) is { } deFabrica)
+        {
+            return deFabrica;
+        }
+
+        var entidad = await _context.EspacioActaPlantillas
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                x => x.Codigo == codigo && !x.Eliminada && (incluirInactivas || x.Activa),
+                cancellationToken);
+
+        return entidad is null ? null : EspacioActaDisenador.ADominio(entidad);
+    }
+
+    private async Task<IReadOnlyList<EspacioActaPlantilla>> ListarPlantillasAsync(
+        bool soloActivas,
+        CancellationToken cancellationToken)
+    {
+        var personalizadas = await _context.EspacioActaPlantillas
+            .AsNoTracking()
+            .Where(x => !x.Eliminada && (!soloActivas || x.Activa))
+            .OrderBy(x => x.Nombre)
+            .ToListAsync(cancellationToken);
+
+        return
+        [
+            .. EspacioActaPlantillas.DeFabrica,
+            .. personalizadas.Select(EspacioActaDisenador.ADominio)
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Firmas
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private sealed record DatosDeFirma(string Nombre, string? Documento, string? Cargo);
+
+    /// <summary>Resuelve a nombre de quien va cada firma segun lo que declaro la plantilla.</summary>
+    private static DatosDeFirma DescribirFirmante(
+        EspacioActaFirma definicion,
+        EspacioActaPlantilla plantilla,
+        IReadOnlyDictionary<string, string?> valores,
+        EspacioActaRenderer.DatosFirmante emisor)
+    {
+        if (definicion.Origen == EspacioActaFirmaOrigen.Emisor)
+        {
+            return new DatosDeFirma(
+                string.IsNullOrWhiteSpace(definicion.NombreFijo) ? emisor.Nombre : definicion.NombreFijo!,
+                emisor.Documento,
+                string.IsNullOrWhiteSpace(definicion.CargoFijo) ? emisor.Cargo : definicion.CargoFijo);
+        }
+
+        var nombre = ValorDe(valores, definicion.CampoNombre);
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            nombre = definicion.NombreFijo ?? ValorDe(valores, plantilla.CampoNombre) ?? definicion.Rotulo;
+        }
+
+        return new DatosDeFirma(
+            nombre,
+            NormalizarOpcional(ValorDe(valores, definicion.CampoDocumento)),
+            NormalizarOpcional(definicion.CargoFijo));
+    }
+
+    /// <summary>Trazo que va a las columnas heredadas de firma del acta.</summary>
+    private static string ElegirTrazo(
+        IReadOnlyList<EspacioActaFirmaEmitida> estampadas,
+        EspacioActaPlantilla plantilla,
+        EspacioActaFirmaOrigen origen)
+    {
+        var claves = plantilla.FirmasEfectivas
+            .Where(x => x.Origen == origen)
+            .Select(x => x.Clave)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var coincidencia = estampadas.FirstOrDefault(x => claves.Contains(x.Clave));
+
+        return coincidencia?.DataUrl
+            ?? (origen == EspacioActaFirmaOrigen.Emisor
+                ? estampadas[0].DataUrl
+                : estampadas[^1].DataUrl);
+    }
+
     /// <summary>
-    /// Vuelve a la pantalla de firma conservando lo capturado, en vez de mandar al
-    /// usuario al formulario vacio cuando el servidor rechaza algo.
+    /// Arma la pantalla de firma. Se usa tanto al previsualizar como al rechazar una
+    /// emision, para no mandar al usuario al formulario vacio cuando algo falla.
     /// </summary>
-    private async Task<IActionResult> VolverAFirmarAsync(
+    private async Task<IActionResult> ConstruirVistaFirmaAsync(
         EspacioActaPlantilla plantilla,
         Dictionary<string, string?> valores,
-        string mensajeError,
+        string? mensajeError,
         CancellationToken cancellationToken)
     {
         var firmante = await ConstruirFirmanteAsync(cancellationToken);
         var firmaGuardada = await GetFirmaGuardadaAsync(cancellationToken);
         var fecha = ColombiaTime.Convert(DateTime.UtcNow);
 
+        var firmas = plantilla.FirmasEfectivas
+            .Select(definicion =>
+            {
+                var datos = DescribirFirmante(definicion, plantilla, valores, firmante);
+                var esEmisor = definicion.Origen == EspacioActaFirmaOrigen.Emisor;
+                var trazoGuardado = esEmisor ? firmaGuardada?.FirmaDataUrl : null;
+
+                return new EspacioActaFirmaCapturaViewModel
+                {
+                    Clave = definicion.Clave,
+                    Rotulo = definicion.Rotulo,
+                    EsEmisor = esEmisor,
+                    Requerida = definicion.Requerida,
+                    Nombre = datos.Nombre,
+                    Documento = datos.Documento,
+                    Cargo = datos.Cargo,
+                    DataUrl = trazoGuardado,
+                    DebeTrazar = string.IsNullOrWhiteSpace(trazoGuardado),
+                    OfrecerGuardar = esEmisor && string.IsNullOrWhiteSpace(trazoGuardado)
+                };
+            })
+            .ToList();
+
         return View("ActaFirmar", new EspacioActaFirmaViewModel
         {
             PlantillaCodigo = plantilla.Codigo,
             PlantillaNombre = plantilla.Nombre,
             TituloActa = plantilla.TituloActa,
-            RotuloRecibe = plantilla.RotuloRecibe,
             CuerpoHtml = EspacioActaRenderer.Render(plantilla, valores, firmante, fecha),
             Valores = valores,
-            NombreRecibe = valores.GetValueOrDefault(plantilla.CampoNombre) ?? string.Empty,
-            DocumentoRecibe = valores.GetValueOrDefault(plantilla.CampoDocumento),
-            CorreoRecibe = valores.GetValueOrDefault(plantilla.CampoCorreo),
+            NombreRecibe = ValorDe(valores, plantilla.CampoNombre) ?? string.Empty,
+            DocumentoRecibe = ValorDe(valores, plantilla.CampoDocumento),
+            CorreoRecibe = ValorDe(valores, plantilla.CampoCorreo),
             EmitidaPorNombre = firmante.Nombre,
             EmitidaPorCargo = firmante.Cargo,
             EmitidaPorDocumento = firmante.Documento,
             FirmaEmiteDataUrl = firmaGuardada?.FirmaDataUrl,
             TieneFirmaGuardada = firmaGuardada is not null,
+            Firmas = firmas,
             Fecha = fecha,
             MensajeError = mensajeError
         });
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Captura y validacion de valores
+    // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Lee del formulario solo las claves declaradas por la plantilla; cualquier otro
@@ -406,6 +566,13 @@ public partial class EspacioCorporativoController
         {
             var bruto = Request.Form[$"valores[{campo.Clave}]"].ToString();
             var limpio = bruto.Trim();
+
+            // Una casilla sin marcar no viaja en el formulario: se guarda como "No".
+            if (campo.Tipo == EspacioActaTipoCampo.Casilla)
+            {
+                valores[campo.Clave] = EspacioActaRenderer.EsAfirmativo(limpio) ? "Si" : "No";
+                continue;
+            }
 
             if (limpio.Length > campo.MaxLength)
             {
@@ -428,6 +595,16 @@ public partial class EspacioCorporativoController
         {
             var valor = valores.GetValueOrDefault(campo.Clave);
 
+            if (campo.Tipo == EspacioActaTipoCampo.Casilla)
+            {
+                if (campo.Requerido && !EspacioActaRenderer.EsAfirmativo(valor))
+                {
+                    errores.Add($"Debes marcar '{campo.Etiqueta}'.");
+                }
+
+                continue;
+            }
+
             if (campo.Requerido && string.IsNullOrWhiteSpace(valor))
             {
                 errores.Add($"El campo '{campo.Etiqueta}' es obligatorio.");
@@ -439,22 +616,50 @@ public partial class EspacioCorporativoController
                 continue;
             }
 
-            if (campo.Tipo == EspacioActaTipoCampo.Seleccion
-                && campo.Opciones.Count > 0
-                && !campo.Opciones.Any(o => string.Equals(o.Valor, valor, StringComparison.OrdinalIgnoreCase)))
+            switch (campo.Tipo)
             {
-                errores.Add($"Selecciona un valor valido para '{campo.Etiqueta}'.");
-            }
+                case EspacioActaTipoCampo.Seleccion
+                    when campo.Opciones.Count > 0
+                         && !campo.Opciones.Any(o => string.Equals(o.Valor, valor, StringComparison.OrdinalIgnoreCase)):
+                    errores.Add($"Selecciona un valor valido para '{campo.Etiqueta}'.");
+                    break;
 
-            if (campo.Tipo == EspacioActaTipoCampo.Correo
-                && (!valor.Contains('@', StringComparison.Ordinal) || valor.Contains(' ', StringComparison.Ordinal)))
-            {
-                errores.Add($"El campo '{campo.Etiqueta}' debe ser un correo valido.");
+                case EspacioActaTipoCampo.Correo
+                    when !valor.Contains('@', StringComparison.Ordinal)
+                         || valor.Contains(' ', StringComparison.Ordinal):
+                    errores.Add($"El campo '{campo.Etiqueta}' debe ser un correo valido.");
+                    break;
+
+                case EspacioActaTipoCampo.Numero
+                    when !long.TryParse(valor, NumberStyles.Integer, CultureInfo.InvariantCulture, out _):
+                    errores.Add($"El campo '{campo.Etiqueta}' debe ser un numero entero.");
+                    break;
+
+                case EspacioActaTipoCampo.Decimal or EspacioActaTipoCampo.Moneda
+                    when !decimal.TryParse(valor, NumberStyles.Number, CultureInfo.InvariantCulture, out _):
+                    errores.Add($"El campo '{campo.Etiqueta}' debe ser una cifra.");
+                    break;
+
+                case EspacioActaTipoCampo.Fecha
+                    when !DateTime.TryParseExact(
+                        valor, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _):
+                    errores.Add($"El campo '{campo.Etiqueta}' debe ser una fecha valida.");
+                    break;
+
+                case EspacioActaTipoCampo.Hora
+                    when !DateTime.TryParseExact(
+                        valor, ["HH:mm", "HH:mm:ss"], CultureInfo.InvariantCulture, DateTimeStyles.None, out _):
+                    errores.Add($"El campo '{campo.Etiqueta}' debe ser una hora valida.");
+                    break;
             }
         }
 
         return errores;
     }
+
+    /// <summary>Lectura tolerante: la clave puede no estar declarada por la plantilla.</summary>
+    private static string? ValorDe(IReadOnlyDictionary<string, string?> valores, string? clave) =>
+        string.IsNullOrWhiteSpace(clave) ? null : valores.GetValueOrDefault(clave);
 
     /// <summary>Datos de quien firma por la compania: salen de la firma guardada y del usuario.</summary>
     private async Task<EspacioActaRenderer.DatosFirmante> ConstruirFirmanteAsync(CancellationToken cancellationToken)

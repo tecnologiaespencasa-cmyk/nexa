@@ -52,8 +52,12 @@
         <form asp-action="ActaEmitir" method="post" id="espacioActaEmitirForm">
             @Html.AntiForgeryToken()
             <input type="hidden" name="plantillaCodigo" value="@Model.PlantillaCodigo" />
-            <input type="hidden" name="firmaRecibeDataUrl" />
-            <input type="hidden" name="firmaEmiteDataUrl" />
+
+            @* Un campo oculto por firma; el script deposita el trazo antes de enviar. *@
+            @foreach (var firma in Model.Firmas)
+            {
+                <input type="hidden" name="firmas[@firma.Clave]" data-firma-destino="@firma.Clave" />
+            }
 
             @* Los valores viajan de nuevo para que el acta se renderice igual al emitirla. *@
             @foreach (var par in Model.Valores)
@@ -87,33 +91,28 @@
                         </div>
 
                         <div class="espacio-acta-firmas">
-                            <div class="espacio-acta-firma">
-                                <div class="espacio-acta-firma__imagen" id="vistaFirmaEmite">
-                                    @if (!string.IsNullOrWhiteSpace(Model.FirmaEmiteDataUrl))
+                            @foreach (var firma in Model.Firmas)
+                            {
+                                <div class="espacio-acta-firma">
+                                    <div class="espacio-acta-firma__imagen" data-firma-vista="@firma.Clave">
+                                        @if (!string.IsNullOrWhiteSpace(firma.DataUrl))
+                                        {
+                                            <img src="@firma.DataUrl" alt="Firma de @firma.Nombre" />
+                                        }
+                                    </div>
+                                    <div class="espacio-acta-firma__linea"></div>
+                                    <strong>@firma.Nombre</strong>
+                                    @if (!string.IsNullOrWhiteSpace(firma.Cargo))
                                     {
-                                        <img src="@Model.FirmaEmiteDataUrl" alt="Firma de quien entrega" />
+                                        <span>@firma.Cargo</span>
                                     }
+                                    @if (!string.IsNullOrWhiteSpace(firma.Documento))
+                                    {
+                                        <span>C.C. @firma.Documento</span>
+                                    }
+                                    <span>@firma.Rotulo</span>
                                 </div>
-                                <div class="espacio-acta-firma__linea"></div>
-                                <strong>@Model.EmitidaPorNombre</strong>
-                                <span>@Model.EmitidaPorCargo</span>
-                                @if (!string.IsNullOrWhiteSpace(Model.EmitidaPorDocumento))
-                                {
-                                    <span>C.C. @Model.EmitidaPorDocumento</span>
-                                }
-                                <span>Entrega</span>
-                            </div>
-
-                            <div class="espacio-acta-firma">
-                                <div class="espacio-acta-firma__imagen" id="vistaFirmaRecibe"></div>
-                                <div class="espacio-acta-firma__linea"></div>
-                                <strong>@Model.NombreRecibe</strong>
-                                @if (!string.IsNullOrWhiteSpace(Model.DocumentoRecibe))
-                                {
-                                    <span>C.C. @Model.DocumentoRecibe</span>
-                                }
-                                <span>@Model.RotuloRecibe</span>
-                            </div>
+                            }
                         </div>
                     </article>
                 </div>
@@ -132,46 +131,53 @@
                 </div>
 
                 <div class="espacio-panel__body">
-                    @if (Model.TieneFirmaGuardada)
+                    @foreach (var firma in Model.Firmas)
                     {
-                        <div class="espacio-firma-guardada">
-                            <img src="@Model.FirmaEmiteDataUrl" alt="Firma guardada" />
-                            <div>
-                                <strong>@Model.EmitidaPorNombre</strong>
-                                <span>Tu firma guardada &mdash; se aplica autom&aacute;ticamente.</span>
-                            </div>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="espacio-firma-bloque">
-                            <div class="espacio-firma-bloque__head">
-                                <span>Tu firma (&aacute;rea de TI) <span class="req">*</span></span>
-                                <button type="button" class="espacio-btn espacio-btn--soft espacio-btn--sm" data-firma-limpiar="emiteCanvas">
-                                    Limpiar
-                                </button>
-                            </div>
-                            <div class="espacio-firma-pad">
-                                <canvas id="emiteCanvas" aria-label="Firma de quien entrega"></canvas>
-                            </div>
-                            <label class="espacio-switch mt-2">
-                                <input type="checkbox" name="guardarFirmaEmite" value="true" checked />
-                                <span>Guardar esta firma para no volver a trazarla</span>
-                            </label>
-                        </div>
-                    }
+                        var canvasId = $"firma_{firma.Clave}Canvas";
 
-                    <div class="espacio-firma-bloque">
-                        <div class="espacio-firma-bloque__head">
-                            <span>Firma de @Model.NombreRecibe <span class="req">*</span></span>
-                            <button type="button" class="espacio-btn espacio-btn--soft espacio-btn--sm" data-firma-limpiar="recibeCanvas">
-                                Limpiar
-                            </button>
-                        </div>
-                        <div class="espacio-firma-pad">
-                            <canvas id="recibeCanvas" aria-label="Firma de quien recibe"></canvas>
-                        </div>
-                    </div>
+                        if (!firma.DebeTrazar)
+                        {
+                            <div class="espacio-firma-guardada">
+                                <img src="@firma.DataUrl" alt="Firma guardada" />
+                                <div>
+                                    <strong>@firma.Nombre</strong>
+                                    <span>Tu firma guardada &mdash; se aplica autom&aacute;ticamente como @firma.Rotulo.</span>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="espacio-firma-bloque">
+                                <div class="espacio-firma-bloque__head">
+                                    <span>
+                                        @firma.Rotulo: @firma.Nombre
+                                        @if (firma.Requerida)
+                                        {
+                                            <span class="req">*</span>
+                                        }
+                                    </span>
+                                    <button type="button" class="espacio-btn espacio-btn--soft espacio-btn--sm"
+                                            data-firma-limpiar="@canvasId">
+                                        Limpiar
+                                    </button>
+                                </div>
+                                <div class="espacio-firma-pad">
+                                    <canvas id="@canvasId" data-firma-clave="@firma.Clave"
+                                            data-firma-requerida="@firma.Requerida.ToString().ToLowerInvariant()"
+                                            data-firma-rotulo="@firma.Rotulo"
+                                            aria-label="Firma de @firma.Nombre"></canvas>
+                                </div>
+
+                                @if (firma.OfrecerGuardar)
+                                {
+                                    <label class="espacio-switch mt-2">
+                                        <input type="checkbox" name="guardarFirmaEmite" value="true" checked />
+                                        <span>Guardar esta firma para no volver a trazarla</span>
+                                    </label>
+                                }
+                            </div>
+                        }
+                    }
 
                     <p class="espacio-acta-aviso" id="espacioEmitirAviso" hidden></p>
 

@@ -1,0 +1,397 @@
+@model EspacioActaDisenadorViewModel
+@{
+    ViewData["Title"] = Model.EsEdicion ? Model.Titulo : "Nueva acta";
+}
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/espacio-corporativo.css" asp-append-version="true" />
+}
+
+@*
+    El editor es un recorrido de arriba abajo con cuatro preguntas en español llano.
+    Nada de pestañas ni de paneles simultáneos: quien lo usa avanza leyendo.
+*@
+<section class="espacio espacio--acta-taller">
+
+    <header class="espacio-hero">
+        <div class="espacio-shell">
+            <div class="espacio-hero__grid">
+                <div>
+                    <span class="espacio-hero__eyebrow">
+                        <i class="bi bi-vector-pen" aria-hidden="true"></i>
+                        Actas
+                        @if (Model.EsEdicion && !Model.Publicada)
+                        {
+                            <text>&middot; Borrador</text>
+                        }
+                    </span>
+                    <h1>@(Model.EsEdicion ? Model.Titulo : "Nueva acta")</h1>
+                    <p>
+                        Arma el documento una vez. Despu&eacute;s, cada vez que alguien lo necesite,
+                        solo llena los datos y lo firma.
+                    </p>
+                </div>
+                <div class="espacio-hero__actions">
+                    <a class="espacio-admin-btn" asp-action="ActaPlantillas">
+                        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                        Salir
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    @* ══ BARRA FIJA: qué falta y qué puedo hacer ══ *@
+    <div class="acta-barra" id="actaBarra">
+        <div class="espacio-shell acta-barra__shell">
+            <button type="button" class="acta-estado" id="actaEstado" aria-expanded="false">
+                <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                <span data-texto>Revisando&hellip;</span>
+                <i class="bi bi-chevron-down acta-estado__flecha" aria-hidden="true"></i>
+            </button>
+
+            <div class="acta-barra__botones">
+                <button type="button" class="espacio-btn espacio-btn--soft" id="actaVerComoQueda">
+                    <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                    Ver c&oacute;mo queda
+                </button>
+                <button type="button" class="espacio-btn espacio-btn--soft" id="actaGuardarBorrador">
+                    <i class="bi bi-save" aria-hidden="true"></i>
+                    Guardar
+                </button>
+                <button type="button" class="espacio-btn espacio-btn--primary" id="actaPublicar">
+                    <i class="bi bi-send-fill" aria-hidden="true"></i>
+                    Publicar
+                </button>
+            </div>
+        </div>
+
+        <div class="acta-pendientes" id="actaPendientes" hidden>
+            <div class="espacio-shell">
+                <ul data-lista></ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="espacio-shell">
+
+        @await Html.PartialAsync("_EspacioAlertas")
+
+        @if (Model.ActasEmitidas > 0)
+        {
+            <div class="espacio-alert espacio-alert--warn" role="status">
+                <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                <span>
+                    Ya se firmaron @Model.ActasEmitidas acta(s) con este modelo. Esas actas no cambian:
+                    guardan el texto tal como se firm&oacute;. Lo que ajustes aqu&iacute; aplica de ahora en adelante.
+                </span>
+            </div>
+        }
+
+        @* ══ PASO 1 ══ *@
+        <section class="acta-paso" id="paso1">
+            <div class="acta-paso__cabeza">
+                <span class="acta-paso__numero">1</span>
+                <div>
+                    <h2>&iquest;C&oacute;mo se llama esta acta?</h2>
+                    <p>Es el nombre con el que la vas a buscar despu&eacute;s en la lista.</p>
+                </div>
+            </div>
+
+            <div class="acta-paso__cuerpo">
+                <div class="espacio-form-grid">
+                    <div class="espacio-form-field espacio-form-field--full">
+                        <label for="actaNombre">Nombre <span class="req">*</span></label>
+                        <input type="text" id="actaNombre" maxlength="200" autocomplete="off"
+                               placeholder="Ej: Acta de entrega de dotaci&oacute;n" />
+                        <small data-error-de="actaNombre"></small>
+                    </div>
+
+                    <div class="espacio-form-field espacio-form-field--full">
+                        <label for="actaDescripcion">&iquest;Para qu&eacute; sirve?</label>
+                        <input type="text" id="actaDescripcion" maxlength="400" autocomplete="off"
+                               placeholder="Ej: Entrega de uniformes y elementos de protecci&oacute;n" />
+                        <small>Una l&iacute;nea que le explique a los dem&aacute;s cu&aacute;ndo usarla.</small>
+                    </div>
+
+                    <div class="espacio-form-field">
+                        <label for="actaIcono">Dibujo que la identifica</label>
+                        <select id="actaIcono">
+                            @foreach (var icono in Model.Iconos)
+                            {
+                                <option value="@icono.Valor">@icono.Etiqueta</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* ══ PASO 2 ══ *@
+        <section class="acta-paso" id="paso2">
+            <div class="acta-paso__cabeza">
+                <span class="acta-paso__numero">2</span>
+                <div>
+                    <h2>&iquest;Qu&eacute; dice el acta?</h2>
+                    <p>
+                        Escr&iacute;bela como si fuera una carta. Donde vaya un dato que cambia
+                        &mdash;un nombre, una fecha, un valor&mdash; toca <strong>Agregar dato</strong>.
+                    </p>
+                </div>
+            </div>
+
+            <div class="acta-paso__cuerpo acta-paso__cuerpo--pliego">
+
+                <div class="acta-herramientas" role="toolbar" aria-label="Herramientas del texto">
+                    <button type="button" class="acta-herramienta acta-herramienta--dato" id="actaAgregarDato">
+                        <i class="bi bi-plus-circle-fill" aria-hidden="true"></i>
+                        Agregar dato
+                    </button>
+
+                    <span class="acta-herramientas__sep" aria-hidden="true"></span>
+
+                    <button type="button" class="acta-herramienta" data-formato="negrita" title="Poner en negrita lo que est&eacute; seleccionado">
+                        <i class="bi bi-type-bold" aria-hidden="true"></i>
+                        Negrita
+                    </button>
+
+                    <span class="acta-herramientas__sep" aria-hidden="true"></span>
+
+                    <button type="button" class="acta-herramienta" data-agregar="Parrafo">
+                        <i class="bi bi-text-paragraph" aria-hidden="true"></i>
+                        P&aacute;rrafo
+                    </button>
+                    <button type="button" class="acta-herramienta" data-agregar="Titulo">
+                        <i class="bi bi-type-h2" aria-hidden="true"></i>
+                        T&iacute;tulo
+                    </button>
+                    <button type="button" class="acta-herramienta" data-agregar="Lista">
+                        <i class="bi bi-list-ul" aria-hidden="true"></i>
+                        Lista
+                    </button>
+                    <button type="button" class="acta-herramienta" data-agregar="Nota">
+                        <i class="bi bi-exclamation-square" aria-hidden="true"></i>
+                        Aviso
+                    </button>
+                    <button type="button" class="acta-herramienta" data-agregar="Datos">
+                        <i class="bi bi-table" aria-hidden="true"></i>
+                        Cuadro
+                    </button>
+                    <button type="button" class="acta-herramienta" data-agregar="Separador">
+                        <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                        L&iacute;nea
+                    </button>
+                </div>
+
+                <div class="acta-escritorio">
+                    <article class="espacio-acta-hoja">
+                        <header class="espacio-acta-hoja__head">
+                            <img src="~/images/especialistas-en-casa-logo.png" alt="Especialistas en Casa" />
+                            <div class="acta-titulo-caja">
+                                <label for="actaTitulo">T&iacute;tulo del documento <span class="req">*</span></label>
+                                <textarea class="acta-entrada acta-entrada--titulo" id="actaTitulo" rows="1"
+                                          maxlength="200"
+                                          placeholder="ACTA DE ENTREGA DE DOTACI&Oacute;N"></textarea>
+                                <small data-error-de="actaTitulo"></small>
+                            </div>
+                        </header>
+
+                        <div id="actaBloques"></div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        @* ══ PASO 3 ══ *@
+        <section class="acta-paso" id="paso3">
+            <div class="acta-paso__cabeza">
+                <span class="acta-paso__numero">3</span>
+                <div>
+                    <h2>&iquest;Qui&eacute;n firma?</h2>
+                    <p>As&iacute; se ver&aacute;n las rayas de firma al pie del documento.</p>
+                </div>
+            </div>
+
+            <div class="acta-paso__cuerpo">
+                <div class="acta-firmas" id="actaFirmas"></div>
+
+                <button type="button" class="espacio-btn espacio-btn--soft mt-3" id="actaAgregarFirma">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    Agregar otra firma
+                </button>
+            </div>
+        </section>
+
+        @* ══ PASO 4 ══ *@
+        <section class="acta-paso" id="paso4">
+            <div class="acta-paso__cabeza">
+                <span class="acta-paso__numero">4</span>
+                <div>
+                    <h2>Datos que se piden al llenarla</h2>
+                    <p>
+                        Cada vez que alguien emita esta acta, el sistema le va a pedir estos datos
+                        y los pondr&aacute; en el texto donde t&uacute; los insertaste.
+                    </p>
+                </div>
+            </div>
+
+            <div class="acta-paso__cuerpo">
+                <div id="actaListaDatos"></div>
+
+                <button type="button" class="espacio-btn espacio-btn--soft mt-3" data-agregar-dato>
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    Crear un dato
+                </button>
+
+                <details class="acta-avanzado">
+                    <summary>Opciones avanzadas</summary>
+                    <div class="acta-avanzado__cuerpo">
+                        <label class="acta-switch">
+                            <input type="checkbox" id="actaNumerar" />
+                            <span>Numerar los t&iacute;tulos del acta (1., 2., 3.&hellip;)</span>
+                        </label>
+
+                        <div class="espacio-form-field mt-3">
+                            <label for="actaCampoNombre">Dato con el nombre de la persona</label>
+                            <select id="actaCampoNombre"></select>
+                            <small>Por este dato se busca el acta despu&eacute;s. Si lo dejas autom&aacute;tico se usa el primer dato de texto.</small>
+                        </div>
+
+                        <div class="espacio-form-field mt-3">
+                            <label for="actaCampoCorreo">Dato con el correo para enviar la copia</label>
+                            <select id="actaCampoCorreo"></select>
+                            <small>Al firmar se env&iacute;a una copia del acta a ese correo.</small>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </section>
+    </div>
+
+    @* ══ MODAL: por dónde empezar ══ *@
+    <div class="espacio-modal" id="actaModalModelos" role="dialog" aria-modal="true" aria-labelledby="actaModalModelosTitulo">
+        <div class="espacio-modal__card espacio-modal__card--lg">
+            <div class="espacio-modal__head">
+                <div>
+                    <h3 id="actaModalModelosTitulo">&iquest;Por d&oacute;nde empezamos?</h3>
+                    <p>Elige un acta parecida a la que necesitas y ajusta el texto. Es m&aacute;s r&aacute;pido que escribirla desde cero.</p>
+                </div>
+            </div>
+            <div class="espacio-modal__body">
+                <div class="acta-modelos" id="actaModelos"></div>
+            </div>
+        </div>
+    </div>
+
+    @* ══ MODAL: crear o insertar un dato ══ *@
+    <div class="espacio-modal" id="actaModalDato" role="dialog" aria-modal="true" aria-labelledby="actaModalDatoTitulo">
+        <div class="espacio-modal__card espacio-modal__card--sm">
+            <div class="espacio-modal__head">
+                <div>
+                    <h3 id="actaModalDatoTitulo">Agregar un dato al acta</h3>
+                    <p>Un dato es algo que cambia en cada acta: un nombre, una fecha, un valor.</p>
+                </div>
+                <button type="button" class="espacio-modal__close" data-modal-cerrar aria-label="Cerrar">&times;</button>
+            </div>
+
+            <div class="espacio-modal__body">
+                <div class="espacio-form-field">
+                    <label for="datoEtiqueta">&iquest;C&oacute;mo se llama el dato? <span class="req">*</span></label>
+                    <input type="text" id="datoEtiqueta" maxlength="120" autocomplete="off"
+                           placeholder="Ej: Nombre del colaborador" />
+                </div>
+
+                <div class="espacio-form-field mt-3">
+                    <label for="datoTipo">&iquest;Qu&eacute; se escribe ah&iacute;?</label>
+                    <select id="datoTipo"></select>
+                    <small data-ejemplo-de="datoTipo"></small>
+                </div>
+
+                <div class="espacio-form-field mt-3" id="datoOpcionesCaja" hidden>
+                    <label>Opciones para elegir</label>
+                    <div id="datoOpciones"></div>
+                    <button type="button" class="espacio-btn espacio-btn--soft espacio-btn--sm mt-1" id="datoAgregarOpcion">
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        Agregar opci&oacute;n
+                    </button>
+                </div>
+
+                <label class="acta-switch mt-3" id="datoOcultoCaja">
+                    <input type="checkbox" id="datoOculto" />
+                    <span>Se pide pero no sale en el acta (por ejemplo, el correo para la copia)</span>
+                </label>
+
+                <p class="acta-aviso-modal" id="datoAviso" hidden></p>
+
+                <div class="acta-datos-existentes" id="datosExistentes" hidden>
+                    <span>O pon uno que ya creaste:</span>
+                    <div data-lista></div>
+                </div>
+
+                <div class="acta-datos-existentes" id="datosDelSistema">
+                    <span>Datos que pone el sistema solo:</span>
+                    <div data-lista></div>
+                </div>
+            </div>
+
+            <div class="espacio-modal__foot">
+                <button type="button" class="espacio-btn espacio-btn--soft" data-modal-cerrar>Cancelar</button>
+                <button type="button" class="espacio-btn espacio-btn--primary" id="datoGuardar">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    Insertar en el acta
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @* ══ MODAL: vista previa ══ *@
+    <div class="espacio-modal" id="actaModalVista" role="dialog" aria-modal="true" aria-labelledby="actaModalVistaTitulo">
+        <div class="espacio-modal__card espacio-modal__card--lg">
+            <div class="espacio-modal__head">
+                <div>
+                    <h3 id="actaModalVistaTitulo">As&iacute; queda el acta</h3>
+                    <p>Con datos de ejemplo. Lo resaltado es lo que cambia cada vez.</p>
+                </div>
+                <button type="button" class="espacio-modal__close" data-modal-cerrar aria-label="Cerrar">&times;</button>
+            </div>
+
+            <div class="espacio-modal__body acta-vista__body">
+                <div class="acta-vista__errores" id="actaVistaErrores" hidden>
+                    <strong>Todav&iacute;a falta algo para poder verla</strong>
+                    <ul data-lista></ul>
+                </div>
+
+                <article class="espacio-acta-hoja" id="actaVistaHoja">
+                    <header class="espacio-acta-hoja__head">
+                        <img src="~/images/especialistas-en-casa-logo.png" alt="Especialistas en Casa" />
+                        <div>
+                            <h1 id="actaVistaTitulo">&nbsp;</h1>
+                            <span class="espacio-doc-card__meta" id="actaVistaFecha"></span>
+                        </div>
+                    </header>
+                    <div class="espacio-acta-cuerpo" id="actaVistaCuerpo"></div>
+                    <div class="espacio-acta-firmas" id="actaVistaFirmas"></div>
+                </article>
+            </div>
+
+            <div class="espacio-modal__foot">
+                <button type="button" class="espacio-btn espacio-btn--soft" data-modal-cerrar>Seguir editando</button>
+            </div>
+        </div>
+    </div>
+
+</section>
+
+@Html.AntiForgeryToken()
+
+<script type="application/json" id="actaDefinicionInicial">@Html.Raw(Model.DefinicionJson)</script>
+<script type="application/json" id="actaTiposCampo">@Html.Raw(Model.TiposDeCampoJson)</script>
+<script type="application/json" id="actaModelosDatos">@Html.Raw(Model.ModelosJson)</script>
+<script type="application/json" id="actaMarcadoresSistema">@Html.Raw(Json.Serialize(Model.MarcadoresDelSistema))</script>
+<script type="application/json" id="actaConfig">{"elegirModelo":@(Model.ElegirModelo ? "true" : "false"),"publicada":@(Model.Publicada ? "true" : "false")}</script>
+
+@section Scripts
+{
+    <script src="~/js/espacio-acta-disenador.js" asp-append-version="true"></script>
+}

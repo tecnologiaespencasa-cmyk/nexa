@@ -1,83 +1,18 @@
 namespace Nexa.Models.EspacioCorporativo;
 
-public enum EspacioActaTipoCampo
-{
-    Texto,
-    TextoLargo,
-    Seleccion,
-    Correo,
-    Documento,
-    /// <summary>Lista de URLs (una por línea o separadas por coma) que se renderizan como enlaces.</summary>
-    Enlaces,
-    /// <summary>Credencial: se muestra enmascarada en el formulario y en el listado.</summary>
-    Credencial
-}
-
-public sealed record EspacioActaOpcion(string Valor, string Etiqueta);
-
-public sealed record EspacioActaCampo
-{
-    public required string Clave { get; init; }
-
-    public required string Etiqueta { get; init; }
-
-    public EspacioActaTipoCampo Tipo { get; init; } = EspacioActaTipoCampo.Texto;
-
-    public bool Requerido { get; init; } = true;
-
-    public string? Placeholder { get; init; }
-
-    public string? Ayuda { get; init; }
-
-    public IReadOnlyList<EspacioActaOpcion> Opciones { get; init; } = [];
-
-    /// <summary>
-    /// Falso para datos que se piden pero no se imprimen en el acta (por ejemplo el correo
-    /// al que se envía la copia firmada).
-    /// </summary>
-    public bool VisibleEnActa { get; init; } = true;
-
-    public int MaxLength { get; init; } = 300;
-}
-
-public sealed record EspacioActaPlantilla
-{
-    public required string Codigo { get; init; }
-
-    public required string Nombre { get; init; }
-
-    public required string Descripcion { get; init; }
-
-    /// <summary>Clase de Bootstrap Icons.</summary>
-    public required string Icono { get; init; }
-
-    public required string TituloActa { get; init; }
-
-    public required IReadOnlyList<EspacioActaCampo> Campos { get; init; }
-
-    /// <summary>Cuerpo del acta en HTML con marcadores {{clave}}.</summary>
-    public required string CuerpoHtml { get; init; }
-
-    /// <summary>Rótulo bajo la firma de quien recibe.</summary>
-    public string RotuloRecibe { get; init; } = "Recibe";
-
-    // Claves que se extraen a columnas propias para poder buscar y notificar.
-    public required string CampoNombre { get; init; }
-
-    public required string CampoDocumento { get; init; }
-
-    public required string CampoCorreo { get; init; }
-
-    public string? CampoUsuario { get; init; }
-}
-
 /// <summary>
-/// Catálogo de plantillas de acta. Para agregar una nueva basta con añadir una entrada
-/// aquí: el formulario, la previsualización, la firma y el envío por correo son genéricos.
+/// Catálogo de plantillas de fábrica y metadatos que consume el diseñador de actas.
+///
+/// Las plantillas que arma un administrador se guardan en base de datos; estas
+/// viven en código porque su cuerpo es HTML de confianza y no se edita desde la
+/// interfaz.
 /// </summary>
 public static class EspacioActaPlantillas
 {
     public const string CodigoAccesosTecnologicos = "ACCESOS_TECNOLOGICOS";
+
+    /// <summary>Prefijo de las plantillas creadas desde el diseñador.</summary>
+    public const string PrefijoPersonalizada = "PZ_";
 
     private static readonly EspacioActaPlantilla AccesosTecnologicos = new()
     {
@@ -197,10 +132,78 @@ public static class EspacioActaPlantillas
             """
     };
 
-    public static readonly IReadOnlyList<EspacioActaPlantilla> Todas = [AccesosTecnologicos];
+    /// <summary>Plantillas que vienen con el sistema.</summary>
+    public static readonly IReadOnlyList<EspacioActaPlantilla> DeFabrica = [AccesosTecnologicos];
 
     public static EspacioActaPlantilla? Obtener(string? codigo) =>
         string.IsNullOrWhiteSpace(codigo)
             ? null
-            : Todas.FirstOrDefault(x => string.Equals(x.Codigo, codigo, StringComparison.OrdinalIgnoreCase));
+            : DeFabrica.FirstOrDefault(x => string.Equals(x.Codigo, codigo, StringComparison.OrdinalIgnoreCase));
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Metadatos para el diseñador
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Tipos de campo que ofrece el diseñador, en el orden en que se muestran.</summary>
+    public static readonly IReadOnlyList<EspacioActaTipoCampoInfo> TiposDeCampo =
+    [
+        new(EspacioActaTipoCampo.Texto, "Texto", "bi-fonts", "Una línea: nombres, cargos, referencias."),
+        new(EspacioActaTipoCampo.TextoLargo, "Texto largo", "bi-text-paragraph", "Varias líneas: observaciones, motivos."),
+        new(EspacioActaTipoCampo.Seleccion, "Lista de opciones", "bi-ui-radios", "Quien diligencia elige una opción.", AdmiteOpciones: true),
+        new(EspacioActaTipoCampo.Numero, "Número", "bi-123", "Cantidades enteras."),
+        new(EspacioActaTipoCampo.Decimal, "Decimal", "bi-percent", "Cifras con decimales."),
+        new(EspacioActaTipoCampo.Moneda, "Dinero", "bi-cash-coin", "Importes en pesos."),
+        new(EspacioActaTipoCampo.Fecha, "Fecha", "bi-calendar-event", "Se imprime en letras: 12 de agosto de 2026."),
+        new(EspacioActaTipoCampo.Hora, "Hora", "bi-clock", "Se imprime como 02:30 p. m."),
+        new(EspacioActaTipoCampo.Casilla, "Sí / No", "bi-check2-square", "Casilla que se imprime como Sí o No."),
+        new(EspacioActaTipoCampo.Correo, "Correo", "bi-envelope-at", "Se valida el formato."),
+        new(EspacioActaTipoCampo.Telefono, "Teléfono", "bi-telephone", "Fijo o celular."),
+        new(EspacioActaTipoCampo.Documento, "Documento de identidad", "bi-person-vcard", "Cédula o NIT."),
+        new(EspacioActaTipoCampo.Enlaces, "Enlaces", "bi-link-45deg", "Una URL por línea; se imprimen como enlaces."),
+        new(EspacioActaTipoCampo.Credencial, "Contraseña", "bi-shield-lock", "Se oculta al escribirla.")
+    ];
+
+    public static EspacioActaTipoCampoInfo InfoDeTipo(EspacioActaTipoCampo tipo) =>
+        TiposDeCampo.FirstOrDefault(x => x.Tipo == tipo)
+        ?? new EspacioActaTipoCampoInfo(tipo, tipo.ToString(), "bi-input-cursor-text", string.Empty);
+
+    /// <summary>
+    /// Marcadores que el sistema resuelve solo (fecha, ciudad y datos de quien emite).
+    /// Se ofrecen en el diseñador junto a los campos de la plantilla.
+    /// </summary>
+    public static readonly IReadOnlyList<EspacioActaOpcion> MarcadoresDelSistema =
+    [
+        new("__fecha_completa", "Fecha completa"),
+        new("__fecha_dia", "Día"),
+        new("__fecha_mes", "Mes"),
+        new("__fecha_anio", "Año"),
+        new("__ciudad", "Ciudad"),
+        new("__firmante_nombre", "Nombre de quien emite"),
+        new("__firmante_documento", "Documento de quien emite"),
+        new("__firmante_cargo", "Cargo de quien emite")
+    ];
+
+    public static bool EsMarcadorDelSistema(string clave) =>
+        MarcadoresDelSistema.Any(x => string.Equals(x.Valor, clave, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Íconos disponibles para identificar la plantilla en el listado.</summary>
+    public static readonly IReadOnlyList<EspacioActaOpcion> Iconos =
+    [
+        new("bi-file-earmark-text-fill", "Documento"),
+        new("bi-key-fill", "Llave"),
+        new("bi-laptop", "Equipo"),
+        new("bi-shield-check", "Confidencialidad"),
+        new("bi-people-fill", "Reunión"),
+        new("bi-clipboard-check-fill", "Compromiso"),
+        new("bi-box-seam", "Entrega"),
+        new("bi-arrow-return-left", "Devolución"),
+        new("bi-cash-coin", "Dinero"),
+        new("bi-hospital", "Asistencial"),
+        new("bi-mortarboard-fill", "Capacitación"),
+        new("bi-exclamation-octagon-fill", "Llamado de atención")
+    ];
+
+    public static bool EsIconoValido(string? icono) =>
+        !string.IsNullOrWhiteSpace(icono)
+        && Iconos.Any(x => string.Equals(x.Valor, icono, StringComparison.Ordinal));
 }

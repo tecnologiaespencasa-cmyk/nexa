@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using Nexa.Data.Entities;
@@ -214,35 +215,7 @@ public class EspacioCorporativoNotificationService : IEspacioCorporativoNotifica
     private static DocumentoActa ConstruirDocumentoActa(EspacioActaDocumental acta)
     {
         var fecha = ColombiaTime.Convert(acta.FirmadaAtUtc).ToString("dd/MM/yyyy hh:mm tt");
-        var cargo = string.IsNullOrWhiteSpace(acta.EmitidaPorCargo) ? "Área de Tecnología" : acta.EmitidaPorCargo;
-
-        var firmas = $"""
-            <table style="width:100%;margin-top:34px;border-collapse:collapse;">
-              <tr>
-                <td style="width:50%;text-align:center;vertical-align:bottom;padding:0 14px;">
-                  <img src="{acta.FirmaEmiteDataUrl}" alt="Firma" style="height:82px;object-fit:contain;max-width:100%;" />
-                  <div style="border-top:1.5px solid #24272e;margin-top:2px;padding-top:6px;font-size:14px;font-weight:700;">
-                    {WebUtility.HtmlEncode(acta.EmitidaPorNombre)}
-                  </div>
-                  <div style="font-size:12px;color:#7b8490;">{WebUtility.HtmlEncode(cargo)}</div>
-                  {(string.IsNullOrWhiteSpace(acta.EmitidaPorDocumento)
-                      ? string.Empty
-                      : $"""<div style="font-size:12px;color:#7b8490;">C.C. {WebUtility.HtmlEncode(acta.EmitidaPorDocumento)}</div>""")}
-                  <div style="font-size:12px;color:#7b8490;">Entrega</div>
-                </td>
-                <td style="width:50%;text-align:center;vertical-align:bottom;padding:0 14px;">
-                  <img src="{acta.FirmaRecibeDataUrl}" alt="Firma" style="height:82px;object-fit:contain;max-width:100%;" />
-                  <div style="border-top:1.5px solid #24272e;margin-top:2px;padding-top:6px;font-size:14px;font-weight:700;">
-                    {WebUtility.HtmlEncode(acta.NombreRecibe)}
-                  </div>
-                  {(string.IsNullOrWhiteSpace(acta.DocumentoRecibe)
-                      ? string.Empty
-                      : $"""<div style="font-size:12px;color:#7b8490;">C.C. {WebUtility.HtmlEncode(acta.DocumentoRecibe)}</div>""")}
-                  <div style="font-size:12px;color:#7b8490;">Recibe</div>
-                </td>
-              </tr>
-            </table>
-            """;
+        var firmas = ConstruirFirmasActa(acta);
 
         var cuerpo = $"""
             <div style="font-size:14px;line-height:1.6;color:#24272e;">
@@ -269,6 +242,45 @@ public class EspacioCorporativoNotificationService : IEspacioCorporativoNotifica
             """;
 
         return new DocumentoActa(completo, cuerpo);
+    }
+
+    /// <summary>
+    /// Bloque de firmas del acta. Se arma como tabla porque es lo único que se comporta
+    /// igual en todos los clientes de correo, y reparte el ancho entre las firmas que
+    /// traiga el acta: dos en las de siempre, más si la plantilla las declaró.
+    /// </summary>
+    private static string ConstruirFirmasActa(EspacioActaDocumental acta)
+    {
+        var firmas = EspacioActaFirmas.Leer(acta);
+        var ancho = (100d / Math.Max(firmas.Count, 1)).ToString("0.##", CultureInfo.InvariantCulture);
+
+        var celdas = new StringBuilder();
+
+        foreach (var firma in firmas)
+        {
+            celdas.Append(
+                $"""
+                 <td style="width:{ancho}%;text-align:center;vertical-align:bottom;padding:0 12px;">
+                   <img src="{firma.DataUrl}" alt="Firma" style="height:82px;object-fit:contain;max-width:100%;" />
+                   <div style="border-top:1.5px solid #24272e;margin-top:2px;padding-top:6px;font-size:14px;font-weight:700;">
+                     {WebUtility.HtmlEncode(firma.Nombre)}
+                   </div>
+                   {(string.IsNullOrWhiteSpace(firma.Cargo)
+                       ? string.Empty
+                       : $"""<div style="font-size:12px;color:#7b8490;">{WebUtility.HtmlEncode(firma.Cargo)}</div>""")}
+                   {(string.IsNullOrWhiteSpace(firma.Documento)
+                       ? string.Empty
+                       : $"""<div style="font-size:12px;color:#7b8490;">C.C. {WebUtility.HtmlEncode(firma.Documento)}</div>""")}
+                   <div style="font-size:12px;color:#7b8490;">{WebUtility.HtmlEncode(firma.Rotulo)}</div>
+                 </td>
+                 """);
+        }
+
+        return $"""
+            <table style="width:100%;margin-top:34px;border-collapse:collapse;">
+              <tr>{celdas}</tr>
+            </table>
+            """;
     }
 
     private async Task<bool> SendAsync(

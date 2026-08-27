@@ -19,9 +19,17 @@
                         Mi espacio corporativo &middot; Administraci&oacute;n
                     </span>
                     <h1>Actas</h1>
-                    <p>Genera actas a partir de plantillas, f&iacute;rmalas digitalmente y env&iacute;a la copia al correo del colaborador.</p>
+                    <p>Elige un modelo, llena los datos, f&iacute;rmalo y la copia le llega al colaborador por correo.</p>
                 </div>
                 <div class="espacio-hero__actions">
+                    <a class="espacio-admin-btn" asp-action="ActaPlantillas">
+                        <i class="bi bi-journals" aria-hidden="true"></i>
+                        Modelos de acta
+                    </a>
+                    <a class="espacio-admin-btn" asp-action="ActaPlantillaNueva">
+                        <i class="bi bi-vector-pen" aria-hidden="true"></i>
+                        Crear un acta
+                    </a>
                     <a class="espacio-admin-btn" asp-action="Index">
                         <i class="bi bi-arrow-left" aria-hidden="true"></i>
                         Volver
@@ -63,10 +71,14 @@
                 <div class="espacio-panel__title">
                     <span class="espacio-panel__icon espacio-panel__icon--info"><i class="bi bi-journals" aria-hidden="true"></i></span>
                     <div>
-                        <h2>Plantillas disponibles</h2>
-                        <span>Elige una plantilla para generar un acta nueva</span>
+                        <h2>Modelos disponibles</h2>
+                        <span>Elige el modelo del acta que vas a emitir</span>
                     </div>
                 </div>
+                <a class="espacio-btn espacio-btn--soft" asp-action="ActaPlantillas">
+                    <i class="bi bi-gear-fill" aria-hidden="true"></i>
+                    Administrar modelos
+                </a>
             </div>
 
             <div class="espacio-panel__body">
@@ -78,12 +90,29 @@
                                 <i class="bi @plantilla.Icono" aria-hidden="true"></i>
                             </span>
                             <div>
-                                <strong>@plantilla.Nombre</strong>
+                                <strong>
+                                    @plantilla.Nombre
+                                    @if (plantilla.EsPersonalizada)
+                                    {
+                                        <span class="espacio-plantilla-card__origen">Propia</span>
+                                    }
+                                </strong>
                                 <span>@plantilla.Descripcion</span>
                             </div>
                             <i class="bi bi-arrow-right espacio-plantilla-card__flecha" aria-hidden="true"></i>
                         </a>
                     }
+
+                    <a class="espacio-plantilla-card" asp-action="ActaPlantillaNueva">
+                        <span class="espacio-plantilla-card__icon">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        </span>
+                        <div>
+                            <strong>Crear un acta nueva</strong>
+                            <span>Redacta el acta que necesitas y marca lo que cambia en cada una.</span>
+                        </div>
+                        <i class="bi bi-arrow-right espacio-plantilla-card__flecha" aria-hidden="true"></i>
+                    </a>
                 </div>
             </div>
         </section>
@@ -108,8 +137,8 @@
                                placeholder="Documento, nombre, usuario o correo..." aria-label="Buscar actas" />
                     </div>
 
-                    <select class="espacio-select" name="plantilla" aria-label="Filtrar por plantilla">
-                        <option value="">Todas las plantillas</option>
+                    <select class="espacio-select" name="plantilla" aria-label="Filtrar por modelo">
+                        <option value="">Todos los modelos</option>
                         @foreach (var plantilla in Model.Plantillas)
                         {
                             <option value="@plantilla.Codigo" selected="@(plantilla.Codigo == Model.PlantillaFiltro)">
@@ -127,7 +156,7 @@
                     <div class="espacio-empty">
                         <i class="bi bi-file-earmark-text-fill" aria-hidden="true"></i>
                         <strong>No hay actas para mostrar</strong>
-                        <span>Genera la primera desde una de las plantillas de arriba, o ajusta los filtros de b&uacute;squeda.</span>
+                        <span>Genera la primera desde uno de los modelos de arriba, o ajusta los filtros de b&uacute;squeda.</span>
                     </div>
                 }
                 else

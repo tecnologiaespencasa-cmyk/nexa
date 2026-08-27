@@ -1,4 +1,5 @@
 @model EspacioActaCapturaViewModel
+@using Nexa.Helpers
 @using Nexa.Models.EspacioCorporativo
 @{
     var plantilla = Model.Plantilla!;
@@ -70,17 +71,20 @@
                             var esAncho = campo.Tipo is EspacioActaTipoCampo.Enlaces or EspacioActaTipoCampo.TextoLargo;
 
                             <div class="espacio-form-field @(esAncho ? "espacio-form-field--full" : null)">
-                                <label for="@id">
-                                    @campo.Etiqueta
-                                    @if (campo.Requerido)
-                                    {
-                                        <span class="req">*</span>
-                                    }
-                                    @if (!campo.VisibleEnActa)
-                                    {
-                                        <span class="espacio-campo-oculto">No sale en el acta</span>
-                                    }
-                                </label>
+                                @if (campo.Tipo != EspacioActaTipoCampo.Casilla)
+                                {
+                                    <label for="@id">
+                                        @campo.Etiqueta
+                                        @if (campo.Requerido)
+                                        {
+                                            <span class="req">*</span>
+                                        }
+                                        @if (!campo.VisibleEnActa)
+                                        {
+                                            <span class="espacio-campo-oculto">No sale en el acta</span>
+                                        }
+                                    </label>
+                                }
 
                                 @switch (campo.Tipo)
                                 {
@@ -116,6 +120,50 @@
                                                 <i class="bi bi-eye-fill" aria-hidden="true"></i>
                                             </button>
                                         </div>
+                                        break;
+
+                                    case EspacioActaTipoCampo.Fecha:
+                                        <input type="date" name="@nombre" id="@id"
+                                               required="@campo.Requerido" value="@valor" />
+                                        break;
+
+                                    case EspacioActaTipoCampo.Hora:
+                                        <input type="time" name="@nombre" id="@id"
+                                               required="@campo.Requerido" value="@valor" />
+                                        break;
+
+                                    case EspacioActaTipoCampo.Numero:
+                                        <input type="number" step="1" inputmode="numeric" name="@nombre" id="@id"
+                                               required="@campo.Requerido" value="@valor"
+                                               placeholder="@campo.Placeholder" autocomplete="off" />
+                                        break;
+
+                                    case EspacioActaTipoCampo.Decimal:
+                                    case EspacioActaTipoCampo.Moneda:
+                                        <input type="number" step="0.01" inputmode="decimal" name="@nombre" id="@id"
+                                               required="@campo.Requerido" value="@valor"
+                                               placeholder="@campo.Placeholder" autocomplete="off" />
+                                        break;
+
+                                    case EspacioActaTipoCampo.Telefono:
+                                        <input type="tel" name="@nombre" id="@id" maxlength="@campo.MaxLength"
+                                               required="@campo.Requerido" value="@valor"
+                                               placeholder="@campo.Placeholder" autocomplete="off" />
+                                        break;
+
+                                    case EspacioActaTipoCampo.Casilla:
+                                        <label class="espacio-switch" for="@id">
+                                            @* Sin marcar no viaja nada, y el servidor lo guarda como "No". *@
+                                            <input type="checkbox" name="@nombre" id="@id" value="Si"
+                                                   checked="@EspacioActaRenderer.EsAfirmativo(valor)" />
+                                            <span>
+                                                @campo.Etiqueta
+                                                @if (campo.Requerido)
+                                                {
+                                                    <span class="req">*</span>
+                                                }
+                                            </span>
+                                        </label>
                                         break;
 
                                     default:

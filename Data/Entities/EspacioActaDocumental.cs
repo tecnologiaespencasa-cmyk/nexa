@@ -70,6 +70,16 @@ public class EspacioActaDocumental
     [Required]
     public string FirmaRecibeDataUrl { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Todas las firmas del acta en JSON (rótulo, nombre, documento, cargo y trazo).
+    ///
+    /// Las plantillas del diseñador pueden llevar más de dos firmas. Las dos columnas
+    /// de arriba se siguen llenando con la primera firma de cada lado para no romper
+    /// las actas anteriores ni las consultas existentes; cuando esta columna trae
+    /// datos, es la que manda al mostrar el documento.
+    /// </summary>
+    public string? FirmasJson { get; set; }
+
     // ── Envio de la copia ────────────────────────────────────────────────────
 
     public bool CorreoEnviado { get; set; }

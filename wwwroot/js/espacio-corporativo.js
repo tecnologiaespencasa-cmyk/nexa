@@ -860,23 +860,27 @@
 
   const emitirForm = document.getElementById("espacioActaEmitirForm");
   const emitirAviso = document.getElementById("espacioEmitirAviso");
-  const vistaFirmaRecibe = document.getElementById("vistaFirmaRecibe");
-  const vistaFirmaEmite = document.getElementById("vistaFirmaEmite");
 
   if (emitirForm) {
+    // Un acta puede llevar más de dos firmas: cada canvas declara a qué firma
+    // pertenece y dónde se refleja dentro de la previsualización del documento.
+    const canvasFirmas = Array.from(emitirForm.querySelectorAll("canvas[data-firma-clave]"));
+
     // Los pads de esta pantalla ya son visibles al cargar: se miden de una vez.
     window.requestAnimationFrame(() => {
-      pads.get("recibeCanvas")?.ajustar();
-      pads.get("emiteCanvas")?.ajustar();
+      canvasFirmas.forEach((canvas) => pads.get(canvas.id)?.ajustar());
     });
 
-    // Reflejar la firma trazada dentro de la previsualización del documento.
-    const reflejar = (idCanvas, contenedor) => {
-      const canvas = document.getElementById(idCanvas);
-      if (!canvas || !contenedor) return;
+    canvasFirmas.forEach((canvas) => {
+      const contenedor = emitirForm.querySelector(
+        '[data-firma-vista="' + canvas.dataset.firmaClave + '"]'
+      );
+      if (!contenedor) return;
+
       canvas.addEventListener("pointerup", () => {
-        const dataUrl = pads.get(idCanvas)?.obtener();
+        const dataUrl = pads.get(canvas.id)?.obtener();
         if (!dataUrl) return;
+
         let imagen = contenedor.querySelector("img");
         if (!imagen) {
           imagen = document.createElement("img");
@@ -885,31 +889,24 @@
         }
         imagen.src = dataUrl;
       });
-    };
-
-    reflejar("recibeCanvas", vistaFirmaRecibe);
-    reflejar("emiteCanvas", vistaFirmaEmite);
+    });
 
     emitirForm.addEventListener("submit", (evento) => {
-      const padRecibe = pads.get("recibeCanvas");
-      const padEmite = pads.get("emiteCanvas");
+      for (const canvas of canvasFirmas) {
+        const pad = pads.get(canvas.id);
+        const requerida = canvas.dataset.firmaRequerida === "true";
 
-      if (!padRecibe?.tieneTrazo()) {
-        evento.preventDefault();
-        mostrarAviso(emitirAviso, "Falta la firma de quien recibe.", true);
-        return;
-      }
+        if (requerida && !pad?.tieneTrazo()) {
+          evento.preventDefault();
+          mostrarAviso(emitirAviso, "Falta la firma de " + canvas.dataset.firmaRotulo + ".", true);
+          canvas.scrollIntoView({ behavior: "smooth", block: "center" });
+          return;
+        }
 
-      // El canvas de emisión solo existe cuando aún no hay firma guardada.
-      if (padEmite && !padEmite.tieneTrazo()) {
-        evento.preventDefault();
-        mostrarAviso(emitirAviso, "Traza tu firma para emitir el acta.", true);
-        return;
-      }
-
-      emitirForm.querySelector('[name="firmaRecibeDataUrl"]').value = padRecibe.obtener();
-      if (padEmite) {
-        emitirForm.querySelector('[name="firmaEmiteDataUrl"]').value = padEmite.obtener();
+        const destino = emitirForm.querySelector(
+          '[data-firma-destino="' + canvas.dataset.firmaClave + '"]'
+        );
+        if (destino) destino.value = pad?.tieneTrazo() ? pad.obtener() : "";
       }
 
       const boton = document.getElementById("espacioEmitirBoton");

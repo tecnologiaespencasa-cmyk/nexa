@@ -1716,3 +1716,965 @@
 /* El centrado de iconos en placas (panel, activo, documento, plantilla,
    icon-btn) ahora vive en las reglas base — aplica a todo el módulo, no
    solo a esta pantalla. Ver más arriba en el archivo. */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Editor de actas
+
+   Un recorrido de arriba abajo con cuatro preguntas numeradas. La pieza central
+   es la hoja: se escribe encima del documento, con la misma tipografía que
+   tendrá impreso, y los datos que cambian se ven como fichas con su nombre.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.espacio--acta-taller {
+  --ec-desk: #e9edf2;
+  --ec-guide: #cbd2dc;
+}
+
+/* ── Barra fija: qué falta y qué puedo hacer ──────────────────────────── */
+
+.acta-barra {
+  background: rgba(255, 255, 255, 0.97);
+  border-bottom: 1px solid var(--ec-red-line);
+  box-shadow: 0 6px 18px rgba(20, 25, 35, 0.06);
+  margin-bottom: 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+@supports (backdrop-filter: blur(8px)) {
+  .acta-barra { backdrop-filter: blur(8px); }
+}
+
+.acta-barra__shell {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  justify-content: space-between;
+  padding-bottom: 0.7rem;
+  padding-top: 0.7rem;
+}
+
+.acta-barra__botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.acta-estado {
+  align-items: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+}
+
+.acta-estado.is-listo {
+  background: #eaf7ef;
+  border-color: #bfe3cc;
+  color: #1d6b3c;
+  cursor: default;
+}
+
+.acta-estado.is-listo .acta-estado__flecha { display: none; }
+
+.acta-estado.is-pendiente {
+  background: #fff8e6;
+  border-color: #f3dfae;
+  color: #8a6410;
+}
+
+.acta-estado__flecha { font-size: 0.8rem; opacity: 0.7; }
+
+.acta-estado[aria-expanded="true"] .acta-estado__flecha { transform: rotate(180deg); }
+
+.acta-pendientes {
+  background: #fff8e6;
+  border-top: 1px solid #f3dfae;
+  padding: 0.7rem 0;
+}
+
+.acta-pendientes[hidden] { display: none; }
+
+.acta-pendientes ul {
+  display: grid;
+  gap: 0.2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.acta-pendientes li { color: #8a6410; font-size: 0.88rem; font-weight: 700; }
+
+.acta-pendientes button {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  gap: 0.2rem;
+  padding: 0.18rem 0.4rem;
+  text-align: left;
+}
+
+.acta-pendientes button:hover { background: rgba(138, 100, 16, 0.12); }
+
+/* ── Los cuatro pasos ─────────────────────────────────────────────────── */
+
+.acta-paso {
+  background: var(--ec-surface);
+  border: 1px solid var(--ec-red-line);
+  border-radius: var(--ec-radius);
+  box-shadow: var(--ec-shadow);
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+}
+
+.acta-paso.is-resaltado {
+  box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.35), var(--ec-shadow);
+}
+
+.acta-paso__cabeza {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--ec-red-line);
+  display: flex;
+  gap: 0.9rem;
+  padding: 1.15rem 1.35rem;
+}
+
+.acta-paso__numero {
+  background: linear-gradient(135deg, var(--ec-red), var(--ec-red-dark));
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(229, 57, 53, 0.25);
+  color: #fff;
+  display: grid;
+  flex: none;
+  font-size: 1.1rem;
+  font-weight: 800;
+  height: 40px;
+  place-items: center;
+  width: 40px;
+}
+
+.acta-paso__cabeza h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.acta-paso__cabeza p {
+  color: var(--ec-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin: 0.2rem 0 0;
+  max-width: 68ch;
+}
+
+.acta-paso__cuerpo { padding: 1.25rem 1.35rem 1.4rem; }
+
+.acta-paso__cuerpo--pliego {
+  background: var(--ec-desk);
+  padding: 0;
+}
+
+/* ── Herramientas del texto ───────────────────────────────────────────── */
+
+.acta-herramientas {
+  align-items: center;
+  background: #fff;
+  border-bottom: 1px solid #dde3ea;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.6rem 0.8rem;
+  position: sticky;
+  top: 3.6rem;
+  z-index: 20;
+}
+
+.acta-herramientas__sep {
+  background: #e2e7ee;
+  height: 22px;
+  margin: 0 0.25rem;
+  width: 1px;
+}
+
+.acta-herramienta {
+  align-items: center;
+  background: #f4f6f9;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: #46536b;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 0.35rem;
+  padding: 0.42rem 0.7rem;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.acta-herramienta:hover {
+  background: #e8ecf2;
+  color: var(--ec-ink);
+}
+
+/* El botón que resuelve el paso que más cuesta entender va destacado. */
+.acta-herramienta--dato {
+  background: linear-gradient(135deg, var(--ec-red), var(--ec-red-dark));
+  box-shadow: 0 8px 18px rgba(229, 57, 53, 0.28);
+  color: #fff;
+  font-size: 0.86rem;
+  padding: 0.48rem 0.9rem;
+}
+
+.acta-herramienta--dato:hover {
+  box-shadow: 0 12px 24px rgba(229, 57, 53, 0.36);
+  color: #fff;
+}
+
+.acta-escritorio { padding: 1.4rem clamp(0.6rem, 2vw, 1.6rem) 2rem; }
+
+/* ── La hoja ──────────────────────────────────────────────────────────── */
+
+.acta-titulo-caja { flex: 1 1 auto; min-width: 0; }
+
+.acta-titulo-caja label {
+  color: var(--ec-muted);
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.acta-titulo-caja small { display: block; text-align: right; }
+
+.acta-hoja-vacia {
+  align-items: center;
+  border: 2px dashed var(--ec-guide);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 2.2rem 1.25rem;
+  text-align: center;
+}
+
+.acta-hoja-vacia .bi { color: var(--ec-red); font-size: 2rem; opacity: 0.6; }
+
+.acta-hoja-vacia strong { font-size: 1rem; }
+
+.acta-hoja-vacia span {
+  color: var(--ec-muted);
+  font-size: 0.88rem;
+  max-width: 46ch;
+}
+
+.acta-hoja-vacia .espacio-btn { margin-top: 0.5rem; }
+
+/* ── Bloques del texto ────────────────────────────────────────────────── */
+
+.acta-bloque {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  margin: 0 -0.5rem;
+  padding: 0.15rem 0.5rem 0.3rem;
+  position: relative;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.acta-bloque:hover,
+.acta-bloque:focus-within {
+  background: #fcfdfe;
+  border-color: #e8ecf1;
+}
+
+/* La barra flota en el hueco de encima: no reserva una fila (el espaciado del
+   editor sería distinto al del acta impresa) ni tapa la primera línea. */
+.acta-bloque__barra {
+  align-items: center;
+  background: var(--ec-surface);
+  border: 1px solid #e8ecf1;
+  border-radius: 9px;
+  box-shadow: 0 4px 12px rgba(20, 25, 35, 0.1);
+  display: flex;
+  gap: 0.35rem;
+  opacity: 0;
+  padding: 0.1rem 0.3rem;
+  position: absolute;
+  right: 0.3rem;
+  top: -1.5rem;
+  transition: opacity 0.16s ease;
+  z-index: 3;
+}
+
+.acta-bloque:hover .acta-bloque__barra,
+.acta-bloque:focus-within .acta-bloque__barra { opacity: 1; }
+
+.acta-bloque__tipo {
+  background: #f4f6f9;
+  border: 0;
+  border-radius: 7px;
+  color: #46536b;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.16rem 0.3rem;
+}
+
+.acta-bloque__tipo-fijo {
+  color: var(--ec-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.acta-bloque__acciones { display: flex; gap: 0.15rem; }
+
+.acta-bloque__acciones button {
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: #7b8490;
+  cursor: pointer;
+  display: grid;
+  font-size: 0.85rem;
+  height: 22px;
+  place-items: center;
+  width: 22px;
+}
+
+.acta-bloque__acciones button:hover { background: #eef1f5; color: var(--ec-ink); }
+.acta-bloque__acciones button.is-danger:hover { background: #fdeaea; color: #b02020; }
+.acta-bloque__acciones button:disabled { cursor: default; opacity: 0.3; }
+
+.acta-bloque__pista {
+  color: var(--ec-muted);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-top: 0.1rem;
+}
+
+/* El área de escritura usa la tipografía del documento: redactar y leer el
+   resultado son la misma experiencia. */
+.acta-entrada {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ec-ink);
+  display: block;
+  font-family: inherit;
+  min-height: 1.5em;
+  padding: 0.1rem 0.2rem;
+  position: relative;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.acta-entrada:focus {
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(229, 57, 53, 0.22);
+  outline: none;
+}
+
+.acta-entrada.is-vacio::before {
+  color: #a8b0bb;
+  content: attr(data-pista);
+  font-weight: 600;
+  left: 0.2rem;
+  pointer-events: none;
+  position: absolute;
+  top: 0.1rem;
+}
+
+.acta-entrada--parrafo {
+  font-size: 0.92rem;
+  line-height: 1.68;
+  text-align: justify;
+}
+
+.acta-entrada--titulo {
+  color: var(--ec-red-dark);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  margin-top: 0.9rem;
+  overflow: hidden;
+  resize: none;
+  text-transform: uppercase;
+  width: 100%;
+}
+
+.acta-titulo-caja .acta-entrada--titulo {
+  margin-top: 0;
+  text-align: right;
+}
+
+.acta-entrada--lista {
+  font-size: 0.92rem;
+  line-height: 1.7;
+  padding-left: 1.1rem;
+}
+
+.acta-entrada--nota {
+  background: var(--ec-red-soft);
+  border-left: 3px solid var(--ec-red);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  padding: 0.55rem 0.7rem;
+}
+
+.acta-separador-vista {
+  border: 0;
+  border-top: 1px solid #d7dde5;
+  margin: 0.9rem 0;
+}
+
+/* ── Las fichas de dato dentro del texto ──────────────────────────────── */
+
+.acta-dato {
+  background: var(--ec-red-soft);
+  border: 1px solid var(--ec-red-line);
+  border-radius: 6px;
+  color: var(--ec-red-dark);
+  cursor: default;
+  display: inline-block;
+  font-size: 0.82em;
+  font-weight: 800;
+  line-height: 1.4;
+  padding: 0 0.32em;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.acta-dato--sistema {
+  background: #eef2f7;
+  border-color: #dde3ec;
+  color: #46536b;
+}
+
+.acta-dato--roto {
+  background: #fdeaea;
+  border-color: #f3c4c4;
+  color: #b02020;
+  text-decoration: line-through;
+}
+
+/* ── Firmas ───────────────────────────────────────────────────────────── */
+
+.acta-firmas {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.acta-firma-def {
+  background: #fbfcfd;
+  border: 1px solid #e8ecf1;
+  border-radius: 14px;
+  padding: 0.75rem 0.85rem 0.85rem;
+}
+
+.acta-firma-def__cab {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.2rem;
+}
+
+.acta-firma-def__cab span {
+  color: var(--ec-red-dark);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.acta-firma-def__linea {
+  border-top: 1.5px solid var(--ec-ink);
+  margin: 1.5rem 0 0.7rem;
+}
+
+.acta-firma-def label:not(.acta-switch) {
+  color: var(--ec-muted);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  margin-bottom: 0.18rem;
+}
+
+.acta-firma-def input[type="text"],
+.acta-firma-def select {
+  background: #fff;
+  border: 1px solid #e6dede;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  margin-bottom: 0.55rem;
+  padding: 0.42rem 0.55rem;
+  width: 100%;
+}
+
+.acta-firma-def input:focus,
+.acta-firma-def select:focus {
+  border-color: rgba(229, 57, 53, 0.6);
+  box-shadow: 0 0 0 0.18rem rgba(229, 57, 53, 0.1);
+  outline: none;
+}
+
+/* ── Lista de datos (paso 4) ──────────────────────────────────────────── */
+
+.acta-dato-fila {
+  align-items: center;
+  border-bottom: 1px solid #f0f2f6;
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  padding: 0.7rem 0;
+}
+
+.acta-dato-fila:last-child { border-bottom: 0; }
+
+.acta-dato-fila__icono {
+  background: var(--ec-red-soft);
+  border: 1px solid var(--ec-red-line);
+  border-radius: 10px;
+  color: var(--ec-red-dark);
+  display: grid;
+  height: 38px;
+  place-items: center;
+  width: 38px;
+}
+
+.acta-dato-fila strong { font-size: 0.94rem; }
+
+.acta-dato-fila__datos {
+  color: var(--ec-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  font-weight: 700;
+  gap: 0.2rem 0.8rem;
+  margin-top: 0.1rem;
+}
+
+.acta-dato-fila__aviso {
+  background: #fff8e6;
+  border-radius: 999px;
+  color: #8a6410;
+  padding: 0.05rem 0.45rem;
+}
+
+.acta-dato-fila__acciones {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .acta-dato-fila { grid-template-columns: 38px minmax(0, 1fr); }
+  .acta-dato-fila__acciones { grid-column: 2 / -1; justify-content: flex-start; }
+}
+
+/* ── Opciones avanzadas ───────────────────────────────────────────────── */
+
+.acta-avanzado {
+  border-top: 1px dashed var(--ec-red-line);
+  margin-top: 1.3rem;
+  padding-top: 0.9rem;
+}
+
+.acta-avanzado > summary {
+  color: var(--ec-muted);
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.acta-avanzado > summary::marker { color: var(--ec-red); }
+
+.acta-avanzado__cuerpo { padding-top: 0.9rem; }
+
+/* ── Modelos para empezar ─────────────────────────────────────────────── */
+
+.acta-modelos {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.acta-modelo {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--ec-red-line);
+  border-radius: 15px;
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  gap: 0.9rem;
+  padding: 0.95rem 1.05rem;
+  text-align: left;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+  width: 100%;
+}
+
+.acta-modelo:hover,
+.acta-modelo:focus-visible {
+  border-color: var(--ec-red);
+  box-shadow: var(--ec-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.acta-modelo > div { flex: 1 1 auto; min-width: 0; }
+
+.acta-modelo strong { display: block; font-size: 1rem; font-weight: 800; }
+
+.acta-modelo span {
+  color: var(--ec-muted);
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 600;
+  margin-top: 0.1rem;
+}
+
+.acta-modelo__icono {
+  background: var(--ec-red-soft);
+  border: 1px solid var(--ec-red-line);
+  border-radius: 13px;
+  color: var(--ec-red-dark);
+  display: grid;
+  flex: none;
+  height: 46px;
+  place-items: center;
+  width: 46px;
+}
+
+.acta-modelo__icono .bi { font-size: 1.3rem; }
+
+.acta-modelo > .bi { color: var(--ec-red); flex: none; }
+
+/* ── Fichas dentro del modal de datos ─────────────────────────────────── */
+
+.acta-ficha {
+  align-items: center;
+  background: var(--ec-red-soft);
+  border: 1px solid var(--ec-red-line);
+  border-radius: 999px;
+  color: var(--ec-red-dark);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  gap: 0.3rem;
+  padding: 0.28rem 0.65rem;
+  transition: background 0.15s ease;
+}
+
+.acta-ficha:hover { background: #ffe6e6; }
+
+.acta-ficha--sistema {
+  background: #eef2f7;
+  border-color: #dde3ec;
+  color: #46536b;
+}
+
+.acta-ficha--sistema:hover { background: #e3e9f2; }
+
+.acta-datos-existentes {
+  border-top: 1px dashed var(--ec-red-line);
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+}
+
+.acta-datos-existentes[hidden] { display: none; }
+
+.acta-datos-existentes > span {
+  color: var(--ec-muted);
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  margin-bottom: 0.45rem;
+}
+
+.acta-datos-existentes [data-lista] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.acta-opcion {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.acta-opcion input[type="text"] {
+  background: #fff;
+  border: 1px solid #e6dede;
+  border-radius: 9px;
+  flex: 1 1 auto;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.45rem 0.6rem;
+}
+
+.acta-aviso-modal {
+  background: var(--ec-red-soft);
+  border-radius: 11px;
+  color: #9d1c1c;
+  font-size: 0.86rem;
+  font-weight: 700;
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0.8rem;
+}
+
+.acta-aviso-modal[hidden] { display: none; }
+
+/* ── Interruptores ────────────────────────────────────────────────────── */
+
+.acta-switch {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font-size: 0.85rem;
+  font-weight: 700;
+  gap: 0.45rem;
+}
+
+.acta-switch input {
+  accent-color: var(--ec-red);
+  flex: none;
+  height: 17px;
+  width: 17px;
+}
+
+.acta-switch[hidden] { display: none; }
+
+/* ── Errores en línea ─────────────────────────────────────────────────── */
+
+.acta-error {
+  color: #b02020 !important;
+  font-weight: 800;
+}
+
+input.is-error,
+textarea.is-error {
+  border-color: #e58a8a !important;
+}
+
+/* ── Vista previa ─────────────────────────────────────────────────────── */
+
+.acta-vista__body { background: var(--ec-desk); }
+
+.acta-vista__errores {
+  background: #fff8e6;
+  border: 1px solid #f3dfae;
+  border-radius: 14px;
+  color: #8a6410;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1.1rem;
+}
+
+.acta-vista__errores[hidden] { display: none; }
+
+.acta-vista__errores strong { display: block; font-size: 0.95rem; }
+
+.acta-vista__errores ul { margin: 0.4rem 0 0; padding-left: 1.1rem; }
+
+.acta-vista__errores li { font-size: 0.88rem; font-weight: 600; }
+
+.acta-firma-hueco {
+  align-self: center;
+  border: 1px dashed var(--ec-guide);
+  border-radius: 8px;
+  color: #a8b0bb;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.5rem 0.7rem;
+}
+
+/* Lo que cambia en cada acta, resaltado solo en la vista previa. */
+.acta-var {
+  background: rgba(229, 57, 53, 0.08);
+  border-bottom: 1px dotted var(--ec-red);
+  border-radius: 3px;
+  color: var(--ec-red-dark);
+  font-weight: 700;
+  padding: 0 0.12rem;
+}
+
+.espacio-acta-cuerpo .acta-nota,
+.cuerpo .acta-nota { text-align: left; }
+
+/* ── Confirmación flotante ────────────────────────────────────────────── */
+
+.acta-confirmacion {
+  align-items: center;
+  background: #1d6b3c;
+  border-radius: 14px;
+  bottom: 1.5rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  color: #fff;
+  display: flex;
+  font-size: 0.9rem;
+  font-weight: 700;
+  gap: 0.55rem;
+  left: 50%;
+  max-width: min(92vw, 520px);
+  opacity: 0;
+  padding: 0.85rem 1.15rem;
+  position: fixed;
+  transform: translate(-50%, 14px);
+  transition: opacity 0.24s ease, transform 0.24s ease;
+  z-index: 1200;
+}
+
+.acta-confirmacion.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ── Listado de modelos de acta ───────────────────────────────────────── */
+
+.acta-plantilla-fila {
+  align-items: center;
+  border-bottom: 1px solid #f0f2f6;
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  padding: 0.85rem 0;
+}
+
+.acta-plantilla-fila:last-child { border-bottom: 0; }
+
+.acta-plantilla-fila__icono {
+  background: var(--ec-red-soft);
+  border: 1px solid var(--ec-red-line);
+  border-radius: 12px;
+  color: var(--ec-red-dark);
+  display: grid;
+  height: 44px;
+  place-items: center;
+  width: 44px;
+}
+
+.acta-plantilla-fila__icono .bi { font-size: 1.2rem; }
+
+.acta-plantilla-fila h3 {
+  font-size: 0.98rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.acta-plantilla-fila p {
+  color: var(--ec-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin: 0.1rem 0 0.3rem;
+}
+
+.acta-plantilla-fila__datos {
+  color: var(--ec-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.74rem;
+  font-weight: 700;
+  gap: 0.2rem 0.9rem;
+}
+
+.acta-plantilla-fila__acciones {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+/* Con las acciones al lado, el nombre se parte en tres líneas mucho antes de
+   llegar al móvil: bajan a su propia fila en cuanto aprieta. */
+@media (max-width: 980px) {
+  .acta-plantilla-fila { grid-template-columns: 44px minmax(0, 1fr); }
+  .acta-plantilla-fila__acciones { grid-column: 2 / -1; justify-content: flex-start; }
+}
+
+@media (max-width: 560px) {
+  .acta-plantilla-fila__acciones { grid-column: 1 / -1; }
+}
+
+.espacio-plantilla-card__origen {
+  background: #eef2f7;
+  border-radius: 999px;
+  color: #46536b;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.42rem;
+  text-transform: uppercase;
+}
+
+/* ── Ajustes finos ────────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .acta-barra__shell { justify-content: stretch; }
+  .acta-barra__botones { flex: 1 1 100%; }
+  .acta-barra__botones .espacio-btn { flex: 1 1 auto; justify-content: center; }
+  .acta-herramientas { top: 6.6rem; }
+  .acta-paso__cuerpo { padding: 1rem 0.9rem 1.1rem; }
+  .acta-escritorio { padding: 1rem 0.5rem 1.4rem; }
+}
+
+/* Sin puntero fino no hay hover: las acciones del bloque quedan siempre a la
+   vista, o en una tableta serían inalcanzables. */
+@media (hover: none) {
+  .acta-bloque__barra { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acta-paso,
+  .acta-modelo,
+  .acta-ficha,
+  .acta-bloque,
+  .acta-bloque__barra,
+  .acta-confirmacion,
+  .acta-herramienta { transition: none; }
+}
+
+/* Cuadro de datos dentro del acta */
+.acta-cuadro {
+  background: #fbfcfd;
+  border: 1px dashed var(--ec-guide);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+}
+
+.acta-cuadro__opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin-top: 0.45rem;
+}

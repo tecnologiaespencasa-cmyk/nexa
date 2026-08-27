@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Http;
 
 namespace Nexa.Models.ViewModels;
@@ -456,8 +456,6 @@ public class EspacioActaFirmaViewModel
 
     public string PlantillaNombre { get; set; } = string.Empty;
 
-    public string RotuloRecibe { get; set; } = "Recibe";
-
     public string CuerpoHtml { get; set; } = string.Empty;
 
     public Dictionary<string, string?> Valores { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -478,10 +476,55 @@ public class EspacioActaFirmaViewModel
 
     public bool TieneFirmaGuardada { get; set; }
 
+    /// <summary>Firmas que lleva el documento, en el orden en que se imprimen.</summary>
+    public IReadOnlyList<EspacioActaFirmaCapturaViewModel> Firmas { get; set; } = [];
+
     public DateTime Fecha { get; set; }
 
     /// <summary>Error de validacion al intentar emitir, sin perder lo ya capturado.</summary>
     public string? MensajeError { get; set; }
+}
+
+/// <summary>Una firma pendiente de trazar (o ya resuelta) en la pantalla de firma.</summary>
+public class EspacioActaFirmaCapturaViewModel
+{
+    public string Clave { get; set; } = string.Empty;
+
+    public string Rotulo { get; set; } = string.Empty;
+
+    /// <summary>Firma de quien emite: usa la firma guardada del administrador.</summary>
+    public bool EsEmisor { get; set; }
+
+    public bool Requerida { get; set; } = true;
+
+    public string Nombre { get; set; } = string.Empty;
+
+    public string? Documento { get; set; }
+
+    public string? Cargo { get; set; }
+
+    /// <summary>Trazo ya disponible. Solo lo trae la firma guardada del emisor.</summary>
+    public string? DataUrl { get; set; }
+
+    /// <summary>Verdadero cuando hay que trazarla en esta pantalla.</summary>
+    public bool DebeTrazar { get; set; }
+
+    /// <summary>Ofrece guardar el trazo para no volver a pedirlo (solo la del emisor).</summary>
+    public bool OfrecerGuardar { get; set; }
+}
+
+/// <summary>Firma tal como se imprime en un acta ya emitida.</summary>
+public class EspacioActaFirmaImpresaViewModel
+{
+    public string Rotulo { get; set; } = string.Empty;
+
+    public string Nombre { get; set; } = string.Empty;
+
+    public string? Documento { get; set; }
+
+    public string? Cargo { get; set; }
+
+    public string DataUrl { get; set; } = string.Empty;
 }
 
 /// <summary>Acta ya emitida, para verla o imprimirla.</summary>
@@ -492,8 +535,6 @@ public class EspacioActaEmitidaDocumentoViewModel
     public string TituloActa { get; set; } = string.Empty;
 
     public string PlantillaNombre { get; set; } = string.Empty;
-
-    public string RotuloRecibe { get; set; } = "Recibe";
 
     public string CuerpoHtml { get; set; } = string.Empty;
 
@@ -511,7 +552,89 @@ public class EspacioActaEmitidaDocumentoViewModel
 
     public string FirmaRecibeDataUrl { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Firmas guardadas con el acta. Las actas anteriores al diseñador no la traen:
+    /// en ese caso se arma con las dos columnas de firma de siempre.
+    /// </summary>
+    public IReadOnlyList<EspacioActaFirmaImpresaViewModel> Firmas { get; set; } = [];
+
     public DateTime FechaFirma { get; set; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Diseñador de plantillas de acta
+// ─────────────────────────────────────────────────────────────────────────────
+
+public class EspacioActaPlantillasIndexViewModel
+{
+    public IReadOnlyList<EspacioActaPlantillaResumenViewModel> Plantillas { get; set; } = [];
+
+    public IReadOnlyList<EspacioCorporativo.EspacioActaPlantilla> DeFabrica { get; set; } = [];
+
+    public int TotalActivas { get; set; }
+
+    public int TotalInactivas { get; set; }
+}
+
+public class EspacioActaPlantillaResumenViewModel
+{
+    public long Id { get; set; }
+
+    public string Codigo { get; set; } = string.Empty;
+
+    public string Nombre { get; set; } = string.Empty;
+
+    public string Descripcion { get; set; } = string.Empty;
+
+    public string Icono { get; set; } = string.Empty;
+
+    public string TituloActa { get; set; } = string.Empty;
+
+    public int TotalCampos { get; set; }
+
+    public int TotalFirmas { get; set; }
+
+    public bool Activa { get; set; }
+
+    public int Version { get; set; }
+
+    public string CreadaPorNombre { get; set; } = string.Empty;
+
+    public DateTime ActualizadaAt { get; set; }
+
+    /// <summary>Actas ya emitidas con esta plantilla. Bloquea el borrado definitivo.</summary>
+    public int ActasEmitidas { get; set; }
+}
+
+/// <summary>Estado inicial del diseñador: la definición en JSON y los catálogos.</summary>
+public class EspacioActaDisenadorViewModel
+{
+    public long? Id { get; set; }
+
+    public string Titulo { get; set; } = "Nueva acta";
+
+    public bool EsEdicion => Id.HasValue;
+
+    /// <summary>Falso mientras la plantilla es un borrador que nadie puede usar todavía.</summary>
+    public bool Publicada { get; set; }
+
+    /// <summary>Definición serializada que hidrata el editor.</summary>
+    public string DefinicionJson { get; set; } = "null";
+
+    /// <summary>Catálogo de tipos de campo, serializado para el editor.</summary>
+    public string TiposDeCampoJson { get; set; } = "[]";
+
+    /// <summary>Actas de ejemplo para arrancar, serializadas para el editor.</summary>
+    public string ModelosJson { get; set; } = "[]";
+
+    /// <summary>Verdadero cuando el editor debe abrir preguntando por dónde empezar.</summary>
+    public bool ElegirModelo { get; set; }
+
+    public IReadOnlyList<EspacioCorporativo.EspacioActaOpcion> MarcadoresDelSistema { get; set; } = [];
+
+    public IReadOnlyList<EspacioCorporativo.EspacioActaOpcion> Iconos { get; set; } = [];
+
+    public int ActasEmitidas { get; set; }
 }
 
 public class EspacioUsuarioOpcionViewModel

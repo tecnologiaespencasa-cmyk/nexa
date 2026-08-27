@@ -12,7 +12,7 @@ namespace Nexa.Controllers;
 
 public partial class CensoController
 {
-    private const string GerenciaReaperturaEmailFallback = "gerencia@especialistasencasa.com";
+    private const string GerenciaReaperturaEmailFallback = "programasespeciales@especialistasencasa.com";
 
     [HttpPost]
     public async Task<IActionResult> SolicitarReaperturaKardex(

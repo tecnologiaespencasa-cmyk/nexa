@@ -1,0 +1,221 @@
+@model EspacioActaPlantillasIndexViewModel
+@{
+    ViewData["Title"] = "Modelos de acta";
+}
+
+@section Styles
+{
+    <link rel="stylesheet" href="~/css/espacio-corporativo.css" asp-append-version="true" />
+}
+
+<section class="espacio">
+
+    <header class="espacio-hero">
+        <div class="espacio-shell">
+            <div class="espacio-hero__grid">
+                <div>
+                    <span class="espacio-hero__eyebrow">
+                        <i class="bi bi-journals" aria-hidden="true"></i>
+                        Actas &middot; Administraci&oacute;n
+                    </span>
+                    <h1>Modelos de acta</h1>
+                    <p>Arma el documento una vez. Despu&eacute;s solo hay que llenarlo y firmarlo.</p>
+                </div>
+                <div class="espacio-hero__actions">
+                    <a class="espacio-admin-btn" asp-action="ActaPlantillaNueva">
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        Crear un acta
+                    </a>
+                    <a class="espacio-admin-btn" asp-action="Actas">
+                        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                        Volver a Actas
+                    </a>
+                </div>
+            </div>
+
+            <div class="espacio-hero__stats">
+                <div class="espacio-stat">
+                    <span>Publicadas</span>
+                    <strong>@Model.TotalActivas</strong>
+                </div>
+                <div class="espacio-stat">
+                    <span>Borradores</span>
+                    <strong>@Model.TotalInactivas</strong>
+                </div>
+                <div class="espacio-stat">
+                    <span>De f&aacute;brica</span>
+                    <strong>@Model.DeFabrica.Count</strong>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="espacio-shell">
+
+        @await Html.PartialAsync("_EspacioAlertas")
+
+        @* ══ PLANTILLAS PROPIAS ══ *@
+        <section class="espacio-panel">
+            <div class="espacio-panel__head">
+                <div class="espacio-panel__title">
+                    <span class="espacio-panel__icon espacio-panel__icon--info"><i class="bi bi-pencil-square" aria-hidden="true"></i></span>
+                    <div>
+                        <h2>Tus actas</h2>
+                        <span>Las que armaste t&uacute; mismo</span>
+                    </div>
+                </div>
+                <a class="espacio-btn espacio-btn--primary" asp-action="ActaPlantillaNueva">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    Crear un acta
+                </a>
+            </div>
+
+            <div class="espacio-panel__body">
+                @if (Model.Plantillas.Count == 0)
+                {
+                    <div class="espacio-empty">
+                        <i class="bi bi-journal-plus" aria-hidden="true"></i>
+                        <strong>Todav&iacute;a no has armado ning&uacute;n acta</strong>
+                        <span>
+                            Empieza por una que uses seguido. El editor te ofrece varias ya escritas
+                            para que solo cambies las palabras.
+                        </span>
+                        <a class="espacio-btn espacio-btn--primary mt-2" asp-action="ActaPlantillaNueva">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                            Crear la primera
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var plantilla in Model.Plantillas)
+                    {
+                        <div class="acta-plantilla-fila">
+                            <span class="acta-plantilla-fila__icono">
+                                <i class="bi @plantilla.Icono" aria-hidden="true"></i>
+                            </span>
+
+                            <div>
+                                <h3>
+                                    @plantilla.Nombre
+                                    @if (plantilla.Activa)
+                                    {
+                                        <span class="espacio-chip espacio-chip--resuelta">Publicada</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="espacio-chip espacio-chip--revision">Borrador</span>
+                                    }
+                                </h3>
+                                <p>@(string.IsNullOrWhiteSpace(plantilla.Descripcion) ? plantilla.TituloActa : plantilla.Descripcion)</p>
+                                <div class="acta-plantilla-fila__datos">
+                                    <span>@plantilla.TotalCampos dato(s) que cambian</span>
+                                    <span>@plantilla.TotalFirmas firma(s)</span>
+                                    <span>@plantilla.ActasEmitidas acta(s) firmada(s)</span>
+                                    <span>&Uacute;ltimo cambio: @plantilla.ActualizadaAt.ToString("dd/MM/yyyy")</span>
+                                </div>
+                            </div>
+
+                            <div class="acta-plantilla-fila__acciones">
+                                @if (plantilla.Activa)
+                                {
+                                    <a class="espacio-btn espacio-btn--soft espacio-btn--sm"
+                                       asp-action="ActaNueva" asp-route-codigo="@plantilla.Codigo">
+                                        <i class="bi bi-file-earmark-plus" aria-hidden="true"></i>
+                                        Emitir acta
+                                    </a>
+                                }
+
+                                <a class="espacio-btn espacio-btn--primary espacio-btn--sm"
+                                   asp-action="ActaPlantillaEditar" asp-route-id="@plantilla.Id">
+                                    <i class="bi bi-pencil-fill" aria-hidden="true"></i>
+                                    Editar
+                                </a>
+
+                                <form asp-action="ActaPlantillaEstado" method="post" style="display:inline;">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@plantilla.Id" />
+                                    <input type="hidden" name="activa" value="@((!plantilla.Activa).ToString().ToLowerInvariant())" />
+                                    @if (plantilla.Activa)
+                                    {
+                                        <button type="submit" class="espacio-icon-btn" title="Retirar: deja de aparecer al emitir actas">
+                                            <i class="bi bi-pause-fill" aria-hidden="true"></i>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button type="submit" class="espacio-btn espacio-btn--soft espacio-btn--sm">
+                                            <i class="bi bi-send-fill" aria-hidden="true"></i>
+                                            Publicar
+                                        </button>
+                                    }
+                                </form>
+
+                                <form asp-action="ActaPlantillaDuplicar" method="post" style="display:inline;">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@plantilla.Id" />
+                                    <button type="submit" class="espacio-icon-btn" title="Duplicar">
+                                        <i class="bi bi-files" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+
+                                <form asp-action="ActaPlantillaEliminar" method="post" style="display:inline;"
+                                      data-confirmar="Se elimina el modelo &quot;@plantilla.Nombre&quot;. Las @plantilla.ActasEmitidas acta(s) ya firmadas se conservan. ¿Continuar?">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@plantilla.Id" />
+                                    <button type="submit" class="espacio-icon-btn espacio-icon-btn--danger" title="Eliminar">
+                                        <i class="bi bi-trash3-fill" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </section>
+
+        @* ══ PLANTILLAS DE FÁBRICA ══ *@
+        <section class="espacio-panel">
+            <div class="espacio-panel__head">
+                <div class="espacio-panel__title">
+                    <span class="espacio-panel__icon"><i class="bi bi-box-seam" aria-hidden="true"></i></span>
+                    <div>
+                        <h2>Actas que vienen con Nexa</h2>
+                        <span>Est&aacute;n listas para usar y no se editan desde aqu&iacute;</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="espacio-panel__body">
+                @foreach (var plantilla in Model.DeFabrica)
+                {
+                    <div class="acta-plantilla-fila">
+                        <span class="acta-plantilla-fila__icono">
+                            <i class="bi @plantilla.Icono" aria-hidden="true"></i>
+                        </span>
+                        <div>
+                            <h3>@plantilla.Nombre</h3>
+                            <p>@plantilla.Descripcion</p>
+                            <div class="acta-plantilla-fila__datos">
+                                <span>@plantilla.Campos.Count dato(s) que cambian</span>
+                                <span>@plantilla.FirmasEfectivas.Count firma(s)</span>
+                            </div>
+                        </div>
+                        <div class="acta-plantilla-fila__acciones">
+                            <a class="espacio-btn espacio-btn--soft espacio-btn--sm"
+                               asp-action="ActaNueva" asp-route-codigo="@plantilla.Codigo">
+                                <i class="bi bi-file-earmark-plus" aria-hidden="true"></i>
+                                Emitir acta
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+</section>
+
+@section Scripts
+{
+    <script src="~/js/espacio-corporativo.js" asp-append-version="true"></script>
+}
