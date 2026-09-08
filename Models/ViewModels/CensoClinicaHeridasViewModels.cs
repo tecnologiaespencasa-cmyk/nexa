@@ -304,6 +304,21 @@ public class CensoClinicaHeridasHistorialViewModel
 
     public string? CarpetaNombre { get; set; }
 
+    /// <summary>
+    /// Número de ingreso al programa que se está viendo (1 = primera atención). A un paciente se le
+    /// puede dar de alta y volver a ingresar, y el portal guarda todos sus seguimientos bajo la
+    /// misma carpeta: sin este número no habría forma de saber a qué atención pertenece cada uno.
+    /// </summary>
+    public int IngresoNumero { get; set; } = 1;
+
+    /// <summary>Cuántos ingresos al programa ha tenido el paciente en total.</summary>
+    public int TotalIngresos { get; set; } = 1;
+
+    /// <summary>Seguimientos del paciente que pertenecen a otros ingresos y no se listan aquí.</summary>
+    public int SeguimientosDeOtrosIngresos { get; set; }
+
+    public bool EsReingreso => TotalIngresos > 1;
+
     public int TotalSeguimientos => Seguimientos.Count;
 
     public CensoClinicaHeridasSeguimientoViewModel? Ultimo => Seguimientos.FirstOrDefault();
@@ -322,6 +337,9 @@ public class CensoClinicaHeridasSeguimientoViewModel
     public string Id { get; set; } = string.Empty;
 
     public int Numero { get; set; }
+
+    /// <summary>Ingreso al programa sobre el que se registró, tal como lo marcó el portal.</summary>
+    public int Ingreso { get; set; } = 1;
 
     /// <summary>Fecha y hora del registro, ya convertidas a la hora de Colombia.</summary>
     public DateTime RegistradoEn { get; set; }

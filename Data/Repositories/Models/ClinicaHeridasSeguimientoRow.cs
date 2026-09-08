@@ -11,6 +11,14 @@ public class ClinicaHeridasSeguimientoRow
     /// <summary>Número consecutivo del seguimiento dentro del paciente (1, 2, 3…).</summary>
     public int Numero { get; set; }
 
+    /// <summary>
+    /// Ingreso al programa sobre el que se registró el seguimiento (1 = primera atención). Lo
+    /// escribe el portal con el valor que le entrega el puente, así que coincide con la
+    /// numeración del censo. Los seguimientos anteriores a esa función traen 1, que es correcto:
+    /// se capturaron cuando el paciente solo había tenido un ingreso.
+    /// </summary>
+    public int Ingreso { get; set; } = 1;
+
     /// <summary>Momento en que el auxiliar registró el seguimiento. Se guarda en UTC.</summary>
     public DateTime CreatedAtUtc { get; set; }
 

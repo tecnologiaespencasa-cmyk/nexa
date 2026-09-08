@@ -1,22 +1,22 @@
 ﻿.page-censo {
   --censo-font-sans: "Nunito", "Segoe UI", sans-serif;
   --censo-font-display: "Nunito", "Segoe UI", sans-serif;
-  --censo-accent-base: #f5001e;
+  --censo-accent-base: #e04524;
   --censo-bg: #fff6f4;
   --censo-surface: rgba(255, 255, 255, 0.84);
   --censo-surface-strong: rgba(255, 255, 255, 0.96);
-  --censo-surface-soft: #fff4f5;
-  --censo-ink: #281d20;
-  --censo-ink-soft: #6d5b60;
-  --censo-border: rgba(245, 0, 30, 0.14);
-  --censo-border-strong: rgba(245, 0, 30, 0.24);
-  --censo-accent: #d9485f;
-  --censo-accent-strong: #ba2b43;
-  --censo-accent-soft: rgba(245, 0, 30, 0.1);
-  --censo-shadow: 0 24px 60px rgba(166, 78, 94, 0.12);
+  --censo-surface-soft: #fef7f5;
+  --censo-ink: #281f1d;
+  --censo-ink-soft: #6d5e5b;
+  --censo-border: rgba(224, 69, 36, 0.16);
+  --censo-border-strong: rgba(224, 69, 36, 0.26);
+  --censo-accent: #d96248;
+  --censo-accent-strong: #b4331a;
+  --censo-accent-soft: rgba(224, 69, 36, 0.1);
+  --censo-shadow: 0 24px 60px rgba(166, 94, 78, 0.12);
   background:
-    radial-gradient(circle at 0% 0%, rgba(246, 176, 181, 0.24), transparent 28rem),
-    radial-gradient(circle at 100% 15%, rgba(214, 141, 151, 0.14), transparent 24rem),
+    radial-gradient(circle at 0% 0%, rgba(246, 188, 176, 0.24), transparent 28rem),
+    radial-gradient(circle at 100% 15%, rgba(214, 154, 141, 0.14), transparent 24rem),
     linear-gradient(180deg, #fff9f8 0%, #fff6f6 46%, #fff9f8 100%);
   color: var(--censo-ink);
   font-family: var(--censo-font-sans);
@@ -47,9 +47,9 @@
   position: static;
   bottom: auto;
   width: auto;
-  border-top: 1px solid rgba(198, 40, 59, 0.12) !important;
+  border-top: 1px solid rgba(198, 68, 40, 0.12) !important;
   background: transparent;
-  color: rgba(94, 57, 61, 0.82) !important;
+  color: rgba(94, 64, 57, 0.82) !important;
 }
 
 .censo-page {
@@ -67,66 +67,6 @@
   box-shadow: var(--censo-shadow);
   overflow: visible;
   isolation: isolate;
-}
-
-.censo-construction {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--censo-border);
-  border-radius: 20px;
-  box-shadow: var(--censo-shadow);
-  display: flex;
-  gap: 1rem;
-  margin: 1rem clamp(1rem, 1.4vw, 1.4rem);
-  min-height: 16rem;
-  padding: clamp(1.25rem, 3vw, 2.25rem);
-}
-
-.censo-construction__icon {
-  align-items: center;
-  background: var(--censo-accent-soft);
-  border-radius: 16px;
-  color: var(--censo-accent-strong);
-  display: inline-flex;
-  flex: 0 0 auto;
-  height: 4rem;
-  justify-content: center;
-  width: 4rem;
-}
-
-.censo-construction__icon svg {
-  fill: none;
-  height: 2rem;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-  width: 2rem;
-}
-
-.censo-construction__eyebrow {
-  color: var(--censo-accent-strong);
-  display: block;
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0;
-  margin-bottom: 0.35rem;
-  text-transform: uppercase;
-}
-
-.censo-construction h2 {
-  color: var(--censo-ink);
-  font-size: clamp(1.65rem, 3vw, 2.35rem);
-  font-weight: 800;
-  line-height: 1.1;
-  margin: 0;
-}
-
-.censo-construction p {
-  color: var(--censo-ink-soft);
-  font-size: 1rem;
-  font-weight: 700;
-  margin: 0.45rem 0 0;
 }
 
 .censo-check-grid {
@@ -420,11 +360,6 @@
   font-weight: 700;
 }
 
-.censo-page--with-current-patient .censo-current-patient {
-  grid-column: 1 / -1;
-  grid-row: 1;
-}
-
 .censo-page--with-current-patient .censo-sidebar {
   grid-column: 1;
   grid-row: 2;
@@ -448,169 +383,7 @@
   overflow: visible;
   padding-right: 0.35rem;
   scrollbar-width: thin;
-  scrollbar-color: rgba(210, 139, 148, 0.35) transparent;
-}
-
-.censo-current-patient {
-  align-items: center;
-  background: linear-gradient(180deg, #ffffff, #f9fbff);
-  border: 1px solid #0b6ff0;
-  border-radius: 14px;
-  box-shadow: 0 18px 42px rgba(34, 74, 128, 0.07);
-  display: grid;
-  gap: 0.85rem;
-  grid-column: 1 / -1;
-  grid-template-columns: auto minmax(13rem, 1.15fr) minmax(5.5rem, 0.38fr) minmax(9rem, 0.55fr) minmax(14rem, 0.8fr) auto;
-  margin-bottom: 0;
-  padding: 0.62rem 0.9rem;
-}
-
-.censo-current-patient__avatar {
-  align-items: center;
-  background: linear-gradient(135deg, #d8e8ff, #76aef8);
-  border-radius: 999px;
-  color: #ffffff;
-  display: inline-flex;
-  height: 2.85rem;
-  justify-content: center;
-  width: 2.85rem;
-}
-
-.censo-current-patient__avatar svg {
-  fill: none;
-  height: 1.45rem;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
-  width: 1.45rem;
-}
-
-.censo-current-patient__identity,
-.censo-current-patient__item {
-  min-width: 0;
-}
-
-.censo-current-patient__identity {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.42rem 0.55rem;
-}
-
-.censo-current-patient__identity .censo-current-patient__label {
-  flex-basis: 100%;
-}
-
-.censo-current-patient__label {
-  color: #5e6a80;
-  display: block;
-  font-size: 0.67rem;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  margin-bottom: 0.14rem;
-  text-transform: uppercase;
-}
-
-.censo-current-patient strong {
-  color: #152033;
-  display: inline-flex;
-  font-size: 0.94rem;
-  font-weight: 900;
-  gap: 0.55rem;
-  line-height: 1.25;
-  min-width: 0;
-}
-
-.censo-current-patient__identity strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.censo-current-patient__item {
-  border-left: 1px solid #d8e2ef;
-  padding-left: 0.95rem;
-}
-
-.censo-current-patient__item svg {
-  fill: none;
-  flex: 0 0 auto;
-  height: 1rem;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.9;
-  width: 1rem;
-}
-
-.censo-current-patient__status {
-  background: #dff8eb;
-  border-radius: 999px;
-  color: #0f8d4d;
-  font-size: 0.7rem;
-  font-weight: 900;
-  padding: 0.2rem 0.5rem;
-}
-
-.censo-current-patient__actions {
-  align-items: center;
-  display: grid;
-  gap: 0.45rem;
-  justify-content: flex-end;
-}
-
-.censo-current-patient__button {
-  align-items: center;
-  background: #ffffff !important;
-  border: 1px solid #b8d2f8 !important;
-  border-radius: 8px !important;
-  color: #006be6 !important;
-  display: inline-flex;
-  font-weight: 900;
-  gap: 0.55rem;
-  min-height: 2.35rem;
-  padding: 0.46rem 0.82rem;
-  white-space: nowrap;
-}
-
-.censo-current-patient__button:hover,
-.censo-current-patient__button:focus {
-  background: #f1f6ff !important;
-  border-color: #7fb5ff !important;
-  color: #005bc5 !important;
-}
-
-.censo-current-patient__button--primary {
-  background: #006be6 !important;
-  border-color: #006be6 !important;
-  color: #ffffff !important;
-}
-
-.censo-current-patient__button--primary:hover,
-.censo-current-patient__button--primary:focus {
-  background: #005bc5 !important;
-  border-color: #005bc5 !important;
-  color: #ffffff !important;
-}
-
-.censo-current-patient__button svg {
-  fill: none;
-  height: 1.1rem;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.9;
-  width: 1.1rem;
-}
-
-.censo-current-patient__dropdown {
-  border: 1px solid #dbe5f2;
-  border-radius: 12px;
-  box-shadow: 0 18px 44px rgba(31, 45, 75, 0.14);
-  margin-top: 0.65rem !important;
-  min-width: 20rem;
-  padding: 1rem;
+  scrollbar-color: rgba(210, 152, 139, 0.35) transparent;
 }
 
 .censo-current-patient__search {
@@ -658,7 +431,7 @@
 }
 
 .censo-content::-webkit-scrollbar-thumb {
-  background: rgba(210, 139, 148, 0.35);
+  background: rgba(210, 152, 139, 0.35);
   border-radius: 999px;
 }
 
@@ -676,7 +449,7 @@
   right: -5rem;
   width: 18rem;
   height: 18rem;
-  background: radial-gradient(circle, rgba(209, 106, 119, 0.18), transparent 68%);
+  background: radial-gradient(circle, rgba(209, 124, 106, 0.18), transparent 68%);
 }
 
 .censo-page::after {
@@ -684,7 +457,7 @@
   left: -5rem;
   width: 20rem;
   height: 20rem;
-  background: radial-gradient(circle, rgba(241, 182, 188, 0.18), transparent 70%);
+  background: radial-gradient(circle, rgba(241, 193, 182, 0.18), transparent 70%);
 }
 
 .censo-section-strip {
@@ -702,9 +475,9 @@
   border: 1px solid rgba(255, 255, 255, 0.82);
   border-radius: 26px;
   background:
-    linear-gradient(145deg, rgba(255, 244, 245, 0.98), rgba(246, 219, 223, 0.94)),
-    rgba(255, 246, 247, 0.96);
-  box-shadow: 0 20px 40px rgba(155, 93, 105, 0.12);
+    linear-gradient(145deg, rgba(254, 247, 245, 0.98), rgba(246, 224, 219, 0.94)),
+    rgba(254, 248, 247, 0.96);
+  box-shadow: 0 20px 40px rgba(155, 104, 93, 0.12);
   backdrop-filter: blur(20px);
 }
 
@@ -716,51 +489,13 @@
   flex: 1 1 auto;
 }
 
-.censo-section-strip__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  flex: 0 0 auto;
-}
-
-.censo-section-strip__tools {
-  display: grid;
-  gap: 0.65rem;
-  flex: 0 0 auto;
-}
-
 .censo-filter-panel {
   display: grid;
   gap: 0.55rem;
   padding: 0.8rem;
-  border: 1px solid rgba(245, 0, 30, 0.14);
+  border: 1px solid rgba(220, 59, 24, 0.14);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 248, 249, 0.98));
-}
-
-.censo-filter-panel__label {
-  margin: 0;
-  font-size: 0.78rem;
-  font-weight: 800;
-  line-height: 1.2;
-  white-space: nowrap;
-  color: #7b3340;
-}
-
-.censo-filter-panel__input {
-  min-height: 2.75rem;
-}
-
-.censo-filter-panel__actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.45rem;
-}
-
-.censo-filter-panel__button {
-  min-height: 2.6rem;
-  border-radius: 16px;
-  font-weight: 800;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(254, 250, 249, 0.98));
 }
 
 .censo-nav {
@@ -781,7 +516,7 @@
   padding-right: 0.2rem;
   padding-bottom: 0.1rem;
   scrollbar-width: thin;
-  scrollbar-color: rgba(210, 139, 148, 0.35) transparent;
+  scrollbar-color: rgba(210, 152, 139, 0.35) transparent;
 }
 
 .censo-nav--top::-webkit-scrollbar {
@@ -789,7 +524,7 @@
 }
 
 .censo-nav--top::-webkit-scrollbar-thumb {
-  background: rgba(210, 139, 148, 0.35);
+  background: rgba(210, 152, 139, 0.35);
   border-radius: 999px;
 }
 
@@ -806,12 +541,12 @@
   min-width: 0;
   min-height: 3.25rem;
   padding: 0.55rem 0.85rem;
-  border: 1px solid rgba(245, 0, 30, 0.2) !important;
+  border: 1px solid rgba(220, 59, 24, 0.2) !important;
   border-radius: 20px !important;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(252, 241, 243, 0.98)),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(252, 243, 241, 0.98)),
     rgba(255, 255, 255, 0.94);
-  color: #56393f;
+  color: #563e39;
   text-align: left;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
   transition:
@@ -829,7 +564,7 @@
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.12em;
-  color: rgba(186, 43, 67, 0.65);
+  color: rgba(186, 69, 43, 0.65);
   justify-self: end;
   align-self: center;
 }
@@ -837,50 +572,28 @@
 .censo-nav__item:hover,
 .censo-nav__item:focus {
   transform: translateY(-2px);
-  border-color: rgba(245, 0, 30, 0.35) !important;
-  color: #44282e;
-  box-shadow: 0 14px 20px rgba(170, 111, 121, 0.14);
+  border-color: rgba(220, 59, 24, 0.35) !important;
+  color: #442d28;
+  box-shadow: 0 14px 20px rgba(170, 122, 111, 0.14);
 }
 
 .censo-nav__item.active {
-  border-color: rgba(245, 0, 30, 0.3) !important;
+  border-color: rgba(220, 59, 24, 0.3) !important;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 1), rgba(255, 245, 246, 0.98)),
+    linear-gradient(145deg, rgba(255, 255, 255, 1), rgba(254, 247, 246, 0.98)),
     #fff;
-  color: #3f252a;
-  box-shadow: 0 12px 22px rgba(170, 111, 121, 0.16);
+  color: #3f2a25;
+  box-shadow: 0 12px 22px rgba(170, 122, 111, 0.16);
 }
 
 .censo-nav__item.active::after {
-  color: rgba(186, 43, 67, 0.78);
-}
-
-.censo-nav__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  border-radius: 999px;
-  background: linear-gradient(145deg, rgba(246, 224, 227, 0.98), rgba(236, 192, 198, 0.96));
-  color: var(--censo-accent-strong);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32);
-}
-
-.censo-nav__icon svg {
-  width: 1rem;
-  height: 1rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.95;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  color: rgba(186, 69, 43, 0.78);
 }
 
 .censo-nav__item.active .censo-nav__icon {
   background: linear-gradient(145deg, var(--censo-accent), var(--censo-accent-strong));
   color: #fff;
-  box-shadow: 0 10px 16px rgba(186, 43, 67, 0.2);
+  box-shadow: 0 10px 16px rgba(186, 69, 43, 0.2);
 }
 
 .censo-nav__content {
@@ -896,11 +609,11 @@
   font-weight: 800;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: rgba(255, 228, 230, 0.7);
+  color: rgba(252, 235, 231, 0.7);
 }
 
 .censo-nav__item.active .censo-nav__eyebrow {
-  color: rgba(127, 18, 35, 0.72);
+  color: rgba(127, 37, 18, 0.72);
 }
 
 .censo-nav__title {
@@ -923,25 +636,25 @@
   font-weight: 800;
   color: #fff;
   background: linear-gradient(135deg, var(--censo-accent), var(--censo-accent-base));
-  box-shadow: 0 14px 26px rgba(245, 0, 30, 0.2);
+  box-shadow: 0 14px 26px rgba(220, 59, 24, 0.2);
 }
 
 .censo-page .btn-primary:hover,
 .censo-page .btn-primary:focus {
   color: #fff;
-  background: linear-gradient(135deg, #b22033, #dd4551);
+  background: linear-gradient(135deg, #b23a20, #dd6045);
 }
 
 .censo-page .alert-warning,
 .censo-page .alert-success,
 .censo-page .alert-danger {
-  border: 1px solid rgba(198, 40, 59, 0.12);
+  border: 1px solid rgba(198, 68, 40, 0.12);
   border-radius: 22px;
   box-shadow: none;
 }
 
 .censo-validation-summary {
-  color: #8c1d23;
+  color: #8c311d;
   background: linear-gradient(135deg, rgba(215, 68, 62, 0.1), rgba(255, 255, 255, 0.98));
 }
 
@@ -961,19 +674,19 @@
 }
 
 .censo-page .card {
-  border: 1px solid rgb(208, 12, 26);
+  border: 1px solid rgb(198, 53, 22);
   border-radius: 28px;
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(255, 251, 251, 0.98)),
     #fff;
-  box-shadow: 0 18px 36px rgba(95, 18, 34, 0.06);
+  box-shadow: 0 18px 36px rgba(95, 32, 18, 0.06);
 }
 
 .censo-page .card-header {
   padding: 0.95rem 1.15rem 1rem;
-  border-bottom: 1px solid rgba(198, 40, 59, 0.08);
-  background: rgb(250, 207, 211) !important;
+  border-bottom: 1px solid rgba(198, 68, 40, 0.08);
+  background: rgb(250, 215, 207) !important;
   background-image: none !important;
 }
 
@@ -987,7 +700,7 @@
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(143, 21, 38, 0.72);
+  color: rgba(143, 43, 21, 0.72);
 }
 
 .censo-page .card-header .h5,
@@ -997,14 +710,7 @@
   font-size: clamp(1.15rem, 1.6vw, 1.4rem);
   line-height: 1.08;
   letter-spacing: -0.03em;
-  color: #23171b;
-}
-
-.censo-card-heading__summary {
-  margin: 0.2rem 0 0;
-  max-width: 60rem;
-  color: var(--censo-ink-soft);
-  line-height: 1.45;
+  color: #231917;
 }
 
 .censo-page .card-body {
@@ -1038,7 +744,7 @@
 }
 
 .censo-recepcion-panel {
-  border: 1px solid rgba(198, 40, 59, 0.12);
+  border: 1px solid rgba(198, 68, 40, 0.12);
   border-radius: 24px;
   padding: 1rem;
   background:
@@ -1048,29 +754,6 @@
 
 .censo-recepcion-panel--timing {
   grid-row: span 2;
-}
-
-.censo-ingreso-mode {
-  align-items: center;
-  border: 1px solid rgba(0, 107, 230, 0.14);
-  border-radius: 20px;
-  display: grid;
-  gap: 0.85rem;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.8fr);
-  margin-bottom: 1rem;
-  padding: 0.9rem 1rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(243, 248, 255, 0.92)),
-    #fff;
-}
-
-.censo-ingreso-mode__switch {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.85rem;
-  font-weight: 900;
-  color: #24324a;
 }
 
 .censo-ingreso-mode__switch .form-check {
@@ -1084,10 +767,6 @@
   height: 1.55rem;
   margin: 0;
   width: 3rem;
-}
-
-.censo-prorroga-search {
-  min-width: 0;
 }
 
 .censo-prorroga-search .input-group {
@@ -1111,14 +790,14 @@
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(143, 21, 38, 0.72);
+  color: rgba(143, 43, 21, 0.72);
 }
 
 .censo-recepcion-panel__header h3 {
   margin: 0;
   font-size: 1.18rem;
   font-weight: 800;
-  color: #24181b;
+  color: #241a18;
 }
 
 .censo-recepcion-panel__header p {
@@ -1135,7 +814,7 @@
 .censo-time-card,
 .censo-assignment-card,
 .censo-gestion-status-card {
-  border: 1px solid rgba(198, 40, 59, 0.12);
+  border: 1px solid rgba(198, 68, 40, 0.12);
   border-radius: 20px;
   padding: 0.9rem;
   background: rgba(255, 255, 255, 0.82);
@@ -1156,7 +835,7 @@
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
-  background: rgba(198, 40, 59, 0.1);
+  background: rgba(198, 68, 40, 0.1);
   color: var(--censo-accent-strong);
   font-size: 0.78rem;
   font-weight: 900;
@@ -1167,7 +846,7 @@
   font-size: 0.88rem !important;
   letter-spacing: 0.03em !important;
   text-transform: none !important;
-  color: #4e2830 !important;
+  color: #4e2f28 !important;
 }
 
 .censo-time-card__header p {
@@ -1217,7 +896,7 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #7a4d56;
+  color: #7a554d;
 }
 
 .censo-page .form-control,
@@ -1237,11 +916,11 @@
 }
 
 .censo-page .form-select.is-placeholder {
-  color: #a59599;
+  color: #a59895;
 }
 
 .censo-page .form-select option {
-  color: #4d3439;
+  color: #4d3834;
 }
 
 .censo-page .form-select option[disabled][hidden] {
@@ -1255,15 +934,15 @@
 }
 
 .censo-page .form-control::placeholder {
-  color: #a59599;
+  color: #a59895;
 }
 
 .censo-page .form-control:focus,
 .censo-page .form-select:focus,
 .censo-page .btn:focus,
 .censo-page .form-check-input:focus {
-  border-color: rgba(198, 40, 59, 0.32);
-  box-shadow: 0 0 0 0.3rem rgba(198, 40, 59, 0.1);
+  border-color: rgba(198, 68, 40, 0.32);
+  box-shadow: 0 0 0 0.3rem rgba(198, 68, 40, 0.1);
 }
 
 .censo-page .form-control:focus,
@@ -1273,8 +952,8 @@
 }
 
 .censo-page .form-control[readonly] {
-  background: linear-gradient(180deg, rgba(248, 241, 242, 0.96), rgba(255, 248, 248, 0.98));
-  color: #6b5a5f;
+  background: linear-gradient(180deg, rgba(248, 242, 241, 0.96), rgba(255, 248, 248, 0.98));
+  color: #6b5d5a;
 }
 
 .censo-page .input-group {
@@ -1292,8 +971,8 @@
 .censo-page .input-group > .btn,
 .censo-page .btn-outline-secondary {
   min-height: 3rem;
-  border-color: rgba(177, 74, 88, 0.18);
-  color: #7c3842;
+  border-color: rgba(177, 92, 74, 0.18);
+  color: #7c4438;
   background: linear-gradient(180deg, rgba(255, 247, 247, 0.98), rgba(255, 239, 239, 0.94));
   font-size: 0.9rem;
   font-weight: 700;
@@ -1325,23 +1004,23 @@
 }
 
 #limpiarDireccionBtn {
-  border-color: rgb(210, 15, 29) !important;
-  background: rgb(210, 15, 29) !important;
+  border-color: rgb(202, 55, 23) !important;
+  background: rgb(202, 55, 23) !important;
   color: #ffffff !important;
 }
 
 #limpiarDireccionBtn:hover,
 #limpiarDireccionBtn:focus {
-  border-color: rgb(182, 12, 25) !important;
-  background: rgb(182, 12, 25) !important;
+  border-color: rgb(175, 47, 19) !important;
+  background: rgb(175, 47, 19) !important;
   color: #ffffff !important;
 }
 
 .censo-page .input-group > .btn:hover,
 .censo-page .btn-outline-secondary:hover {
-  color: #5a1e27;
-  background: linear-gradient(180deg, rgba(255, 236, 238, 0.98), rgba(255, 229, 230, 0.94));
-  border-color: rgba(177, 74, 88, 0.3);
+  color: #5a291e;
+  background: linear-gradient(180deg, rgba(253, 241, 238, 0.98), rgba(252, 235, 232, 0.94));
+  border-color: rgba(177, 92, 74, 0.3);
 }
 
 .censo-page .form-check {
@@ -1352,7 +1031,7 @@
   padding: 0.6rem 0.85rem 0.6rem 2.55rem;
   border: 1px solid #000000;
   border-radius: 20px;
-  background: linear-gradient(145deg, rgba(255, 250, 250, 0.95), rgba(255, 245, 246, 0.9));
+  background: linear-gradient(145deg, rgba(255, 250, 250, 0.95), rgba(254, 247, 246, 0.9));
 }
 
 .censo-page .form-check-input {
@@ -1368,7 +1047,7 @@
 }
 
 .censo-page .form-check-label {
-  color: #664e54;
+  color: #66524e;
   font-weight: 700;
 }
 
@@ -1384,7 +1063,7 @@
   justify-content: space-between;
   min-height: 3.25rem;
   padding: 0.55rem 0.8rem;
-  border: 1px solid rgba(198, 40, 59, 0.14);
+  border: 1px solid rgba(198, 68, 40, 0.14);
   border-radius: 18px;
   background: rgba(255, 250, 250, 0.88);
   width: 100%;
@@ -1407,7 +1086,7 @@
   justify-content: center;
   padding: 0.45rem 0.8rem;
   border-radius: 999px;
-  background: rgba(198, 40, 59, 0.08);
+  background: rgba(198, 68, 40, 0.08);
   color: var(--censo-accent-strong);
 }
 
@@ -1437,22 +1116,6 @@
   min-width: 7.5rem;
   justify-content: center;
   padding-left: 2.2rem;
-}
-
-.censo-promise-meridian-field {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}
-
-.censo-promise-meridian {
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 1.25rem !important;
-  height: 3rem;
-  min-height: 3rem;
-  padding: 0;
 }
 
 .censo-page .censo-promise-meridian .form-check {
@@ -1485,13 +1148,13 @@
 
 .censo-page .form-text {
   margin-top: 0.45rem;
-  color: #8a7177;
+  color: #8a7571;
 }
 
 .censo-page [id$="Container"]:not(.d-none) {
   margin-top: 0.25rem;
   padding: 1rem;
-  border: 1px dashed rgba(198, 40, 59, 0.2);
+  border: 1px dashed rgba(198, 68, 40, 0.2);
   border-radius: 24px;
   background: linear-gradient(180deg, rgba(255, 247, 247, 0.92), rgba(255, 251, 251, 0.98));
 }
@@ -1501,7 +1164,7 @@
   margin-top: 0.35rem;
   font-size: 0.8rem;
   font-weight: 700;
-  color: #ad2632 !important;
+  color: #ad3e26 !important;
 }
 
 .censo-form-actions {
@@ -1511,7 +1174,7 @@
   gap: 1rem;
   margin-top: 1rem;
   padding-top: 0.9rem;
-  border-top: 1px solid rgba(198, 40, 59, 0.1);
+  border-top: 1px solid rgba(198, 68, 40, 0.1);
 }
 
 .censo-save-button {
@@ -1532,11 +1195,11 @@
   border: 1px solid rgba(255, 255, 255, 0.88);
   border-radius: 32px;
   background:
-    radial-gradient(circle at top right, rgba(250, 207, 211, 0.32), transparent 36%),
+    radial-gradient(circle at top right, rgba(250, 215, 207, 0.32), transparent 36%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 247, 0.96)),
     #fff;
   box-shadow:
-    0 24px 48px rgba(96, 18, 34, 0.08),
+    0 24px 48px rgba(96, 32, 18, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
@@ -1559,75 +1222,20 @@
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(143, 21, 38, 0.72);
+  color: rgba(143, 43, 21, 0.72);
 }
 
 .censo-history-shell__header h2 {
   margin: 0;
   font-family: var(--censo-font-display);
   font-size: clamp(1.2rem, 1.8vw, 1.6rem);
-  color: #24181b;
+  color: #241a18;
 }
 
 .censo-history-shell__header p {
   margin: 0.55rem 0 0;
   color: var(--censo-ink-soft);
   line-height: 1.7;
-}
-
-.censo-gestion-summary {
-  display: grid;
-  flex: 0 0 min(52rem, 54%);
-  gap: 0.55rem;
-  grid-template-columns: repeat(3, minmax(8.5rem, 1fr));
-  margin: 0;
-}
-
-.censo-gestion-summary__card {
-  display: grid;
-  gap: 0.18rem;
-  min-height: 4.35rem;
-  padding: 0.62rem 0.72rem;
-  border: 1px solid rgba(143, 21, 38, 0.12);
-  border-radius: 14px;
-  color: #2d2430;
-  text-decoration: none;
-  background: #fff;
-  box-shadow:
-    0 14px 28px rgba(96, 18, 34, 0.07),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-}
-
-.censo-gestion-summary__card:hover,
-.censo-gestion-summary__card:focus {
-  color: #21151a;
-  transform: translateY(-2px);
-  box-shadow:
-    0 18px 34px rgba(96, 18, 34, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
-}
-
-.censo-gestion-summary__card span {
-  font-size: 0.62rem;
-  font-weight: 900;
-  letter-spacing: 0.07em;
-  line-height: 1.18;
-  text-transform: uppercase;
-}
-
-.censo-gestion-summary__card strong {
-  font-family: var(--censo-font-display);
-  font-size: clamp(1.12rem, 1.45vw, 1.55rem);
-  font-weight: 900;
-  line-height: 1;
-}
-
-.censo-gestion-summary__card small {
-  align-self: end;
-  color: rgba(35, 28, 42, 0.62);
-  font-size: 0.68rem;
-  font-weight: 800;
 }
 
 .censo-gestion-summary__card.is-pending {
@@ -1637,7 +1245,7 @@
 
 .censo-gestion-summary__card.is-pending strong,
 .censo-gestion-summary__card.is-pending span {
-  color: #c5161d;
+  color: #c53516;
 }
 
 .censo-gestion-summary__card.is-confirmed {
@@ -1663,34 +1271,13 @@
 .censo-gestion-summary__card.is-active {
   border-width: 2px;
   box-shadow:
-    0 20px 38px rgba(96, 18, 34, 0.14),
+    0 20px 38px rgba(96, 32, 18, 0.14),
     0 0 0 4px rgba(0, 107, 230, 0.08);
-}
-
-.censo-history-shell__active-filter {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.7rem;
-  justify-content: space-between;
-  margin: 0 0 1rem;
-  padding: 0.65rem 0.8rem;
-  border: 1px solid rgba(0, 107, 230, 0.15);
-  border-radius: 16px;
-  background: rgba(236, 244, 255, 0.72);
-  color: #24324a;
-  font-weight: 800;
-}
-
-.censo-history-shell__active-filter a {
-  color: var(--censo-accent-base);
-  font-weight: 900;
-  text-decoration: none;
 }
 
 .censo-history-shell__subnote {
   margin: 0.55rem 0 0;
-  color: #7a4d56;
+  color: #7a554d;
   font-size: 0.88rem;
   font-weight: 700;
 }
@@ -1706,13 +1293,13 @@
 .censo-history-shell__pill {
   min-width: 7.5rem;
   padding: 0.65rem 0.8rem;
-  border: 1px solid rgba(198, 40, 59, 0.12);
+  border: 1px solid rgba(198, 68, 40, 0.12);
   border-radius: 16px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 245, 246, 0.92)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(254, 247, 246, 0.92)),
     #fff;
   box-shadow:
-    0 10px 18px rgba(121, 20, 37, 0.06),
+    0 10px 18px rgba(121, 38, 20, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
@@ -1723,14 +1310,14 @@
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(143, 21, 38, 0.56);
+  color: rgba(143, 43, 21, 0.56);
 }
 
 .censo-history-shell__pill strong {
   display: block;
   font-size: 0.92rem;
   font-weight: 900;
-  color: #4d212b;
+  color: #4d2921;
 }
 
 .censo-history-shell__pill small {
@@ -1741,8 +1328,8 @@
   min-width: 9.5rem;
   width: 9.5rem;
   background:
-    radial-gradient(circle at top right, rgba(250, 207, 211, 0.38), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 245, 246, 0.95)),
+    radial-gradient(circle at top right, rgba(250, 215, 207, 0.38), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(254, 247, 246, 0.95)),
     #fff;
 }
 
@@ -1816,13 +1403,13 @@
   gap: 0.65rem;
   min-width: min(100%, 29rem);
   padding: 0.8rem 0.9rem;
-  border: 1px solid rgba(198, 40, 59, 0.12);
+  border: 1px solid rgba(198, 68, 40, 0.12);
   border-radius: 18px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 246, 247, 0.94)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(254, 248, 247, 0.94)),
     #fff;
   box-shadow:
-    0 10px 18px rgba(121, 20, 37, 0.06),
+    0 10px 18px rgba(121, 38, 20, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.94);
 }
 
@@ -1842,21 +1429,21 @@
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #7a4d56;
+  color: #7a554d;
 }
 
 .censo-history-filter__field .form-control {
   min-height: 2.65rem;
-  border: 1px solid rgba(177, 74, 88, 0.18);
+  border: 1px solid rgba(177, 92, 74, 0.18);
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 247, 0.94));
-  color: #4d3439;
+  color: #4d3834;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
 .censo-history-filter__field .form-control:focus {
-  border-color: rgba(198, 40, 59, 0.32);
-  box-shadow: 0 0 0 0.3rem rgba(198, 40, 59, 0.1);
+  border-color: rgba(198, 68, 40, 0.32);
+  box-shadow: 0 0 0 0.3rem rgba(198, 68, 40, 0.1);
 }
 
 .censo-history-filter__actions {
@@ -1891,56 +1478,32 @@
 }
 
 .censo-history-filter__reset {
-  border: 1px solid rgba(198, 40, 59, 0.14);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 245, 246, 0.94));
-  color: #7b2b3c;
+  border: 1px solid rgba(198, 68, 40, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(254, 247, 246, 0.94));
+  color: #7b392b;
 }
 
 .censo-history-filter__reset:hover,
 .censo-history-filter__reset:focus {
-  border-color: rgba(198, 40, 59, 0.26);
-  background: linear-gradient(180deg, rgba(255, 250, 250, 0.98), rgba(250, 233, 235, 0.94));
-  color: #6f2232;
-}
-
-.censo-history-filter__export {
-  border: 1px solid rgba(18, 140, 74, 0.18);
-  background: linear-gradient(135deg, #128c4a, #23a55a);
-  color: #fff;
-  box-shadow: 0 8px 14px rgba(18, 140, 74, 0.12);
-}
-
-.censo-history-filter__export:hover,
-.censo-history-filter__export:focus {
-  background: linear-gradient(135deg, #0f7b41, #1f944f);
-  color: #fff;
-}
-
-.censo-history-shell__hint {
-  margin-bottom: 0.95rem;
-  padding: 0.85rem 1rem;
-  border: 1px dashed rgba(198, 40, 59, 0.16);
-  border-radius: 18px;
-  background: rgba(255, 247, 247, 0.78);
-  color: #7a4d56;
-  font-size: 0.86rem;
-  line-height: 1.6;
+  border-color: rgba(198, 68, 40, 0.26);
+  background: linear-gradient(180deg, rgba(255, 250, 250, 0.98), rgba(250, 236, 233, 0.94));
+  color: #6f3022;
 }
 
 .censo-history-table-wrap {
   position: relative;
   overflow: auto;
   max-height: 34rem;
-  border: 1px solid rgba(198, 40, 59, 0.14);
+  border: 1px solid rgba(198, 68, 40, 0.14);
   border-radius: 28px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 245, 246, 0.95)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(254, 247, 246, 0.95)),
     #fff;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 20px 36px rgba(96, 18, 34, 0.08);
+    0 20px 36px rgba(96, 32, 18, 0.08);
   scrollbar-width: thin;
-  scrollbar-color: rgba(186, 43, 67, 0.45) rgba(250, 207, 211, 0.2);
+  scrollbar-color: rgba(186, 69, 43, 0.45) rgba(250, 215, 207, 0.2);
 }
 
 .censo-history-table-wrap::-webkit-scrollbar {
@@ -1949,14 +1512,14 @@
 }
 
 .censo-history-table-wrap::-webkit-scrollbar-track {
-  background: rgba(250, 207, 211, 0.18);
+  background: rgba(250, 215, 207, 0.18);
   border-radius: 999px;
 }
 
 .censo-history-table-wrap::-webkit-scrollbar-thumb {
-  border: 3px solid rgba(255, 245, 246, 0.95);
+  border: 3px solid rgba(254, 247, 246, 0.95);
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(198, 40, 59, 0.72), rgba(143, 21, 38, 0.78));
+  background: linear-gradient(180deg, rgba(198, 68, 40, 0.72), rgba(143, 43, 21, 0.78));
 }
 
 .censo-history-table {
@@ -1973,38 +1536,38 @@
   white-space: nowrap;
   padding: 1rem 0.8rem;
   border: 0;
-  border-bottom: 1px solid rgba(198, 40, 59, 0.12);
+  border-bottom: 1px solid rgba(198, 68, 40, 0.12);
   background:
-    linear-gradient(180deg, rgba(255, 251, 251, 0.98), rgba(250, 233, 235, 0.98)),
+    linear-gradient(180deg, rgba(255, 251, 251, 0.98), rgba(250, 236, 233, 0.98)),
     #fff;
-  color: #7b2b3c;
+  color: #7b392b;
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  box-shadow: inset -1px 0 0 rgba(198, 40, 59, 0.08);
+  box-shadow: inset -1px 0 0 rgba(198, 68, 40, 0.08);
 }
 
 .censo-history-table td {
   white-space: nowrap;
   padding: 0.95rem 0.8rem;
   border: 0;
-  border-bottom: 1px solid rgba(198, 40, 59, 0.08);
-  box-shadow: inset -1px 0 0 rgba(198, 40, 59, 0.06);
+  border-bottom: 1px solid rgba(198, 68, 40, 0.08);
+  box-shadow: inset -1px 0 0 rgba(198, 68, 40, 0.06);
   font-size: 0.84rem;
   font-weight: 600;
-  color: #5a4147;
+  color: #5a4541;
   background: rgba(255, 255, 255, 0.95);
   transition: background-color 0.18s ease, color 0.18s ease;
 }
 
 .censo-history-table tbody tr:nth-child(even) td {
-  background: rgba(255, 246, 247, 0.88);
+  background: rgba(254, 248, 247, 0.88);
 }
 
 .censo-history-table tbody tr:hover td {
   background: rgba(253, 237, 231, 0.95);
-  color: #45242c;
+  color: #452a24;
 }
 
 .censo-history-table thead th:first-child,
@@ -2017,7 +1580,7 @@
   z-index: 5;
   border-top-left-radius: 24px;
   background:
-    linear-gradient(180deg, rgba(255, 252, 252, 0.98), rgba(250, 233, 235, 0.98)),
+    linear-gradient(180deg, rgba(255, 252, 252, 0.98), rgba(250, 236, 233, 0.98)),
     #fff;
 }
 
@@ -2025,13 +1588,13 @@
   z-index: 2;
   text-align: center;
   background:
-    linear-gradient(180deg, rgba(255, 252, 252, 0.98), rgba(255, 246, 247, 0.94)),
+    linear-gradient(180deg, rgba(255, 252, 252, 0.98), rgba(254, 248, 247, 0.94)),
     #fff;
 }
 
 .censo-history-table tbody tr:nth-child(even) td:first-child {
   background:
-    linear-gradient(180deg, rgba(255, 249, 249, 0.98), rgba(255, 241, 243, 0.94)),
+    linear-gradient(180deg, rgba(255, 249, 249, 0.98), rgba(254, 244, 242, 0.94)),
     #fff;
 }
 
@@ -2067,15 +1630,15 @@
   justify-content: center;
   width: 2.4rem;
   height: 2.4rem;
-  border: 1px solid rgba(186, 43, 67, 0.18);
+  border: 1px solid rgba(186, 69, 43, 0.18);
   border-radius: 999px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(253, 237, 231, 0.94)),
     #fff;
-  color: #b02a40;
+  color: #b0422a;
   text-decoration: none;
   box-shadow:
-    0 10px 18px rgba(143, 21, 38, 0.1),
+    0 10px 18px rgba(143, 43, 21, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.94);
   transition:
     transform 0.16s ease,
@@ -2088,11 +1651,11 @@
 .censo-history-table__open:hover,
 .censo-history-table__open:focus {
   transform: translateY(-1px);
-  border-color: rgba(186, 43, 67, 0.42);
+  border-color: rgba(186, 69, 43, 0.42);
   background:
-    linear-gradient(180deg, rgba(232, 0, 20, 0.96), rgba(186, 17, 38, 0.92)),
-    rgb(232, 0, 20);
-  box-shadow: 0 14px 22px rgba(143, 21, 38, 0.18);
+    linear-gradient(180deg, rgba(209, 56, 23, 0.96), rgba(183, 49, 20, 0.92)),
+    rgb(209, 56, 23);
+  box-shadow: 0 14px 22px rgba(143, 43, 21, 0.18);
   color: #fff;
 }
 
@@ -2201,11 +1764,6 @@
     min-height: 2.8rem;
   }
 
-  .censo-export-button {
-    width: auto;
-    min-width: 10.5rem;
-  }
-
   .censo-form-shell {
     padding: 1rem;
   }
@@ -2218,11 +1776,6 @@
   .censo-history-shell__header {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .censo-gestion-summary {
-    flex-basis: auto;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .censo-history-shell__meta {
@@ -2240,9 +1793,6 @@
 }
 
 @media (max-width: 575.98px) {
-  .censo-gestion-summary {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 767.98px) {
@@ -2443,12 +1993,6 @@
   width: 1.35rem;
 }
 
-.censo-nav__icon svg {
-  height: 1.18rem;
-  stroke-width: 1.85;
-  width: 1.18rem;
-}
-
 .censo-nav__title,
 .censo-nav__item.active .censo-nav__title {
   color: currentColor;
@@ -2466,59 +2010,6 @@
   padding: 1.1rem;
 }
 
-.censo-filter-panel__title {
-  color: #1d2740;
-  font-size: 1.02rem;
-  font-weight: 800;
-  line-height: 1.2;
-  margin: 0;
-}
-
-.censo-filter-panel__label {
-  color: #687385;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.censo-filter-panel__input-wrap {
-  position: relative;
-}
-
-.censo-filter-panel__input {
-  padding-right: 2.4rem !important;
-}
-
-.censo-filter-panel__search-icon {
-  color: #78849a;
-  pointer-events: none;
-  position: absolute;
-  right: 0.9rem;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.censo-filter-panel__search-icon svg {
-  fill: none;
-  height: 1.1rem;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-  width: 1.1rem;
-}
-
-.censo-filter-panel__actions {
-  gap: 0.55rem;
-}
-
-.censo-filter-panel__button {
-  border-radius: 8px;
-  font-size: 0.84rem;
-  min-height: 2.6rem;
-}
-
 #buscarCedulaBtn,
 #buscarCedulaBtn:hover,
 #buscarCedulaBtn:focus {
@@ -2533,40 +2024,6 @@
   background: #ffffff !important;
   border-color: #b8c9e6 !important;
   color: var(--censo-blue) !important;
-}
-
-.censo-export-button,
-.censo-export-button:hover,
-.censo-export-button:focus {
-  align-items: center;
-  background: linear-gradient(135deg, #16b79d, #0ba987) !important;
-  border: 0 !important;
-  border-radius: 10px;
-  box-shadow: 0 14px 28px rgba(19, 179, 155, 0.18) !important;
-  color: #ffffff !important;
-  display: inline-flex;
-  gap: 0.6rem;
-  justify-content: center;
-  min-height: 3rem;
-  padding: 0.55rem 0.8rem;
-  width: 100%;
-}
-
-.censo-export-button__icon {
-  align-items: center;
-  display: inline-flex;
-  flex: 0 0 auto;
-  justify-content: center;
-}
-
-.censo-export-button__icon svg {
-  fill: none;
-  height: 1rem;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.9;
-  width: 1rem;
 }
 
 .censo-content {
@@ -3370,27 +2827,6 @@
   min-height: 2.5rem;
 }
 
-.censo-kardex-print-button {
-  align-items: center;
-  background: #ffffff !important;
-  border: 1px solid #aac5ef !important;
-  border-radius: 8px !important;
-  color: var(--censo-blue) !important;
-  display: inline-flex;
-  font-weight: 800;
-  gap: 0.55rem;
-  justify-content: center;
-  min-height: 2.5rem;
-  padding-inline: 1rem;
-}
-
-.censo-kardex-print-button:hover,
-.censo-kardex-print-button:focus {
-  background: #edf5ff !important;
-  border-color: var(--censo-blue) !important;
-  color: var(--censo-blue-strong) !important;
-}
-
 .censo-kardex-send-button {
   align-items: center;
   display: inline-flex;
@@ -3425,19 +2861,6 @@
     padding: 1.1rem;
   }
 
-  .censo-current-patient {
-    grid-template-columns: auto minmax(12rem, 1fr) minmax(6rem, 0.4fr) minmax(10rem, 0.7fr);
-  }
-
-  .censo-current-patient__item:nth-of-type(4) {
-    grid-column: 2 / 4;
-  }
-
-  .censo-current-patient__actions {
-    grid-column: 4 / 5;
-    grid-row: 1 / 3;
-  }
-
   .censo-nav__item {
     min-height: 3.75rem;
   }
@@ -3451,22 +2874,6 @@
 @media (max-width: 991.98px) {
   .censo-page {
     display: block;
-  }
-
-  .censo-current-patient {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .censo-current-patient__item,
-  .censo-current-patient__actions {
-    border-left: 0;
-    grid-column: 1 / -1;
-    padding-left: 0;
-  }
-
-  .censo-current-patient__actions {
-    grid-row: auto;
-    justify-content: flex-start;
   }
 
   .censo-sidebar {
@@ -3506,28 +2913,10 @@
     padding: 0.85rem;
   }
 
-  .censo-current-patient {
-    gap: 0.85rem;
-    padding: 1rem;
-  }
-
-  .censo-current-patient__avatar {
-    height: 3rem;
-    width: 3rem;
-  }
-
   .censo-current-patient__button,
   .censo-current-patient__actions,
   .censo-current-patient__actions .dropdown {
     width: 100%;
-  }
-
-  .censo-current-patient__button {
-    justify-content: center;
-  }
-
-  .censo-current-patient__dropdown {
-    min-width: min(20rem, calc(100vw - 2rem));
   }
 
   .censo-nav--top {
@@ -3558,25 +2947,6 @@
   opacity: 0.55;
   cursor: not-allowed;
   pointer-events: none;
-}
-
-.censo-nav__lock-hint {
-  display: block;
-  font-size: 0.68rem;
-  color: #78849a;
-  margin-top: 0.1rem;
-}
-
-.censo-nav__badge {
-  display: inline-block;
-  margin-top: 0.25rem;
-  padding: 0.1rem 0.5rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  border-radius: 999px;
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fcd34d;
 }
 
 .censo-prorroga-actions {
@@ -3748,9 +3118,9 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   white-space: nowrap;
   border: 0;
   border-radius: 0.65rem;
-  background: linear-gradient(135deg, #f5001e 0%, #e0384f 55%, #ff8a65 120%);
+  background: linear-gradient(135deg, #dc3b18 0%, #e05638 55%, #ff8a65 120%);
   color: #fff;
-  box-shadow: 0 6px 18px rgba(224, 56, 79, 0.35);
+  box-shadow: 0 6px 18px rgba(224, 86, 56, 0.35);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
@@ -3759,21 +3129,21 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   color: #fff;
   filter: brightness(1.06);
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(224, 56, 79, 0.42);
+  box-shadow: 0 10px 22px rgba(224, 86, 56, 0.42);
 }
 
 .censo-extractor-modal {
-  --ext-accent: #e0384f;
-  --ext-accent-strong: #c2263b;
-  --ext-grad: linear-gradient(135deg, #f5001e 0%, #e0384f 55%, #ff8a65 120%);
-  --ext-grad-soft: linear-gradient(135deg, rgba(245, 0, 30, 0.08), rgba(224, 56, 79, 0.08) 55%, rgba(255, 138, 101, 0.1));
+  --ext-accent: #e05638;
+  --ext-accent-strong: #c24226;
+  --ext-grad: linear-gradient(135deg, #dc3b18 0%, #e05638 55%, #ff8a65 120%);
+  --ext-grad-soft: linear-gradient(135deg, rgba(220, 59, 24, 0.08), rgba(224, 86, 56, 0.08) 55%, rgba(255, 138, 101, 0.1));
   --ext-ink: #16223a;
   --ext-ink-soft: #5d6b85;
   --ext-bg: #fdf3f3;
   --ext-surface: #ffffff;
-  --ext-border: #f5dde0;
-  --ext-border-strong: #eec3c9;
-  --ext-ring: rgba(224, 56, 79, 0.18);
+  --ext-border: #f5e1dd;
+  --ext-border-strong: #eecbc3;
+  --ext-ring: rgba(224, 86, 56, 0.18);
   --ext-radius: 1rem;
   font-family: var(--censo-font-sans, "Nunito", "Segoe UI", sans-serif);
   color: var(--ext-ink);
@@ -3806,7 +3176,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   border-radius: 1rem;
   background: var(--ext-grad);
   color: #fff;
-  box-shadow: 0 10px 24px rgba(224, 56, 79, 0.35);
+  box-shadow: 0 10px 24px rgba(224, 86, 56, 0.35);
   flex-shrink: 0;
 }
 
@@ -3915,8 +3285,8 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   text-align: center;
   padding: 2.4rem 2rem;
   border-radius: 1.25rem;
-  background: radial-gradient(120% 140% at 50% 0%, #3c1420 0%, #200a10 60%, #14070a 100%);
-  color: #ffd9dc;
+  background: radial-gradient(120% 140% at 50% 0%, #3c1b14 0%, #200e0a 60%, #140907 100%);
+  color: #fbe2dd;
   box-shadow: 0 30px 60px rgba(11, 18, 38, 0.45);
   animation: censo-extractor-fade-up 0.4s ease both;
 }
@@ -3931,7 +3301,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   position: relative;
   display: inline-flex;
   padding: 0.9rem;
-  color: #ff97a0;
+  color: #f5b0a1;
 }
 
 .censo-extractor-scan__beam {
@@ -3941,8 +3311,8 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   top: 12%;
   height: 3px;
   border-radius: 3px;
-  background: linear-gradient(90deg, transparent, #ff5470, transparent);
-  box-shadow: 0 0 16px rgba(255, 84, 112, 0.85);
+  background: linear-gradient(90deg, transparent, #ee7d65, transparent);
+  box-shadow: 0 0 16px rgba(238, 125, 101, 0.85);
   animation: censo-extractor-scan-move 1.5s ease-in-out infinite alternate;
 }
 
@@ -3951,14 +3321,14 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #ff5470;
-  box-shadow: 0 0 8px rgba(255, 84, 112, 0.9);
+  background: #ee7d65;
+  box-shadow: 0 0 8px rgba(238, 125, 101, 0.9);
   animation: censo-extractor-particle 2.6s ease-in-out infinite;
 }
 
 .censo-extractor-scan__particle--1 { top: 8%; left: -10px; animation-delay: 0s; }
 .censo-extractor-scan__particle--2 { bottom: 14%; right: -12px; animation-delay: 0.9s; background: #ffb199; box-shadow: 0 0 8px rgba(255, 177, 153, 0.9); }
-.censo-extractor-scan__particle--3 { top: 46%; right: -18px; animation-delay: 1.7s; background: #ff8fa3; box-shadow: 0 0 8px rgba(255, 143, 163, 0.9); }
+.censo-extractor-scan__particle--3 { top: 46%; right: -18px; animation-delay: 1.7s; background: #f4aa9a; box-shadow: 0 0 8px rgba(244, 170, 154, 0.9); }
 
 @keyframes censo-extractor-scan-move {
   from { top: 10%; }
@@ -4001,13 +3371,13 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid #4a2530;
+  border: 2px solid #4a2c25;
   flex-shrink: 0;
   transition: border-color 0.3s ease, background 0.3s ease;
 }
 
 .censo-extractor-steps__item.is-active .censo-extractor-steps__dot {
-  border-color: #ff5470;
+  border-color: #ee7d65;
   border-top-color: transparent;
   animation: censo-extractor-spin 0.8s linear infinite;
 }
@@ -4087,8 +3457,8 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   align-items: center;
   padding: 0.22rem 0.65rem;
   border-radius: 999px;
-  border: 1px solid rgba(224, 56, 79, 0.28);
-  background: rgba(224, 56, 79, 0.08);
+  border: 1px solid rgba(224, 86, 56, 0.28);
+  background: rgba(224, 86, 56, 0.08);
   color: var(--ext-accent-strong);
   font-size: 0.72rem;
   font-weight: 700;
@@ -4135,7 +3505,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   width: 26px;
   height: 26px;
   border-radius: 0.55rem;
-  background: rgba(224, 56, 79, 0.1);
+  background: rgba(224, 86, 56, 0.1);
   color: var(--ext-accent);
   flex-shrink: 0;
 }
@@ -4198,7 +3568,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   height: 9px;
   border-radius: 50%;
   background: var(--ext-grad);
-  box-shadow: 0 0 0 4px rgba(224, 56, 79, 0.12);
+  box-shadow: 0 0 0 4px rgba(224, 86, 56, 0.12);
   flex-shrink: 0;
 }
 
@@ -4239,7 +3609,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   border-radius: var(--ext-radius);
   border: 2px dashed var(--ext-border-strong);
   background:
-    radial-gradient(70% 60% at 50% 30%, rgba(224, 56, 79, 0.06), transparent 70%),
+    radial-gradient(70% 60% at 50% 30%, rgba(224, 86, 56, 0.06), transparent 70%),
     var(--ext-surface);
   color: var(--ext-ink-soft);
   cursor: pointer;
@@ -4274,7 +3644,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
 }
 
 .censo-extractor-source-tab.is-active {
-  background: rgba(224, 56, 79, 0.11);
+  background: rgba(224, 86, 56, 0.11);
   color: var(--ext-accent-strong);
   box-shadow: 0 2px 8px rgba(22, 34, 58, 0.07);
 }
@@ -4301,13 +3671,13 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
 
 .censo-extractor-dropzone:hover {
   border-color: var(--ext-accent);
-  box-shadow: 0 14px 34px rgba(224, 56, 79, 0.12);
+  box-shadow: 0 14px 34px rgba(224, 86, 56, 0.12);
 }
 
 .censo-extractor-dropzone.is-dragover {
   border-color: var(--ext-accent);
   background:
-    radial-gradient(70% 60% at 50% 30%, rgba(224, 56, 79, 0.14), transparent 70%),
+    radial-gradient(70% 60% at 50% 30%, rgba(224, 86, 56, 0.14), transparent 70%),
     var(--ext-surface);
   transform: scale(0.994);
   box-shadow: 0 0 0 6px var(--ext-ring);
@@ -4326,7 +3696,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   width: 84px;
   height: 84px;
   border-radius: 50%;
-  background: rgba(224, 56, 79, 0.1);
+  background: rgba(224, 86, 56, 0.1);
   color: var(--ext-accent);
   animation: censo-extractor-float 3.4s ease-in-out infinite;
 }
@@ -4361,7 +3731,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   display: inline-flex;
   padding: 0.14rem 0.55rem;
   border-radius: 999px;
-  background: rgba(224, 56, 79, 0.1);
+  background: rgba(224, 86, 56, 0.1);
   color: var(--ext-accent-strong);
   font-weight: 800;
   font-size: 0.72rem;
@@ -4394,7 +3764,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   width: 26px;
   height: 26px;
   border-radius: 0.55rem;
-  background: rgba(224, 56, 79, 0.1);
+  background: rgba(224, 86, 56, 0.1);
   color: var(--ext-accent);
 }
 
@@ -4430,7 +3800,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   gap: 0.45rem;
   border: 1px solid var(--ext-border);
   border-radius: 0.85rem;
-  background: linear-gradient(145deg, rgba(224, 56, 79, 0.08), var(--ext-surface));
+  background: linear-gradient(145deg, rgba(224, 86, 56, 0.08), var(--ext-surface));
   color: var(--ext-ink);
   text-align: center;
 }
@@ -4499,7 +3869,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   color: #fff;
   font-weight: 700;
   padding: 0.5rem 1.1rem;
-  box-shadow: 0 8px 20px rgba(224, 56, 79, 0.32);
+  box-shadow: 0 8px 20px rgba(224, 86, 56, 0.32);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
@@ -4508,7 +3878,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   color: #fff;
   filter: brightness(1.06);
   transform: translateY(-1px);
-  box-shadow: 0 12px 26px rgba(224, 56, 79, 0.4);
+  box-shadow: 0 12px 26px rgba(224, 86, 56, 0.4);
 }
 
 .censo-extractor-wa-btn {
@@ -4537,7 +3907,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  border: 1px solid rgba(224, 56, 79, 0.35);
+  border: 1px solid rgba(224, 86, 56, 0.35);
   border-radius: 0.6rem;
   background: var(--ext-surface);
   color: var(--ext-accent-strong);
@@ -4548,7 +3918,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
 
 .censo-extractor-ghost-btn:hover,
 .censo-extractor-ghost-btn:focus {
-  background: rgba(224, 56, 79, 0.08);
+  background: rgba(224, 86, 56, 0.08);
   border-color: var(--ext-accent);
   color: var(--ext-accent-strong);
 }
@@ -4632,6 +4002,43 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   align-items: center;
   display: flex;
   gap: 0.75rem;
+}
+
+/* -- Ingreso al programa --
+   Un paciente puede recibir el alta y volver a ingresar, y el portal guarda todos sus
+   seguimientos juntos. El distintivo dice cual de esos ingresos se esta viendo; solo
+   aparece cuando hay mas de uno, porque "Ingreso 1 de 1" no informa nada. Lleva el rojo
+   del sistema para no confundirse con el contador azul de seguimientos, que esta al lado. */
+.herida-header-ingreso {
+  background: var(--censo-accent-soft, rgba(224, 69, 36, 0.1));
+  border-radius: 999px;
+  color: var(--censo-accent-strong, #b4331a);
+  font-size: 0.78rem;
+  font-weight: 800;
+  margin-left: auto;
+  padding: 0.3rem 0.75rem;
+  white-space: nowrap;
+}
+
+/* Con los dos distintivos presentes, el margen automatico lo empuja solo el primero. */
+.herida-header-ingreso + .herida-header-count {
+  margin-left: 0;
+}
+
+.censo-page .card-header:has(.herida-header-ingreso) {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.herida-aviso-ingreso {
+  background: var(--censo-surface-soft, #fef7f5);
+  border: 1px solid var(--censo-border, rgba(224, 69, 36, 0.16));
+  border-radius: 12px;
+  color: var(--censo-ink-soft, #6d5e5b);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.9rem;
 }
 
 /* -- Resumen del ultimo seguimiento -- */
@@ -4881,8 +4288,8 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
 }
 
 .herida-delta--sube {
-  background: rgba(224, 56, 79, 0.1);
-  color: #c2263b;
+  background: rgba(224, 86, 56, 0.1);
+  color: #c24226;
 }
 
 .herida-delta--igual,
@@ -5171,7 +4578,7 @@ button.herida-fotos__marco:focus-visible {
 
 .herida-aposito__quitar {
   align-items: center;
-  color: #c2263b;
+  color: #c24226;
   display: inline-flex;
   font-size: 0.8rem;
   font-weight: 800;
@@ -5184,7 +4591,7 @@ button.herida-fotos__marco:focus-visible {
 
 .herida-aposito__quitar:hover,
 .herida-aposito__quitar:focus-visible {
-  color: #96162a;
+  color: #962d16;
   text-decoration: underline;
 }
 
@@ -5565,7 +4972,7 @@ button.herida-fotos__marco:focus-visible {
 }
 
 .herida-kardex-table__quitar .btn {
-  color: #c2263b;
+  color: #c24226;
   font-size: 0.72rem;
   font-weight: 700;
   text-decoration: none;

@@ -105,7 +105,7 @@ public partial class CensoController
         ["L020"] = "ABSCESO EN CARA",
         ["L023"] = "ABSCESO DEL GLUTEO",
         ["L024"] = "ABSCESO REGION AXILIAR",
-        ["L039"] = "DERMATITIS, NO ESPECIFICADA",
+        ["L039"] = "CELULITIS DE SITIO NO ESPECIFICADO",
         ["L89X"] = "ÚLCERA DE DECÚBITO",
         ["L97X"] = "ÚLCERA DEL MIEMBRO INFERIOR NO CLASIFICADA EN OTRA PARTE",
         ["L984"] = "ÚLCERA CRÓNICA DE LA PIEL NO CLASIFICADA EN OTRA PARTE",
@@ -186,40 +186,14 @@ public partial class CensoController
         long? recordId,
         CancellationToken cancellationToken)
     {
-        var model = BuildDefaultClinicaHeridasModel();
-        model.CedulaFiltro = NormalizeCedulaFilter(cedulaPaciente);
-
-        if (recordId.HasValue)
+        // La pantalla suelta de este censo se retiro: todo se administra desde la
+        // pantalla unica. La ruta se conserva para que los enlaces antiguos sigan llegando.
+        await Task.CompletedTask;
+        return RedirectToAction(nameof(Index), new
         {
-            var record = await _context.CensoClinicaHeridas
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == recordId.Value, cancellationToken);
-            if (record is not null)
-            {
-                ApplyClinicaHeridasRecordToModel(model, record);
-                model.CedulaFiltro = string.IsNullOrWhiteSpace(model.CedulaFiltro)
-                    ? record.NumeroIdentificacion
-                    : model.CedulaFiltro;
-            }
-        }
-        else if (!string.IsNullOrWhiteSpace(model.CedulaFiltro))
-        {
-            var record = await _context.CensoClinicaHeridas
-                .AsNoTracking()
-                .Where(x => x.NumeroIdentificacion == model.CedulaFiltro)
-                .OrderByDescending(x => x.CreatedAtUtc)
-                .ThenByDescending(x => x.Id)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (record is not null)
-            {
-                ApplyClinicaHeridasRecordToModel(model, record);
-                model.CedulaFiltro = record.NumeroIdentificacion;
-            }
-        }
-
-        await PopulateClinicaHeridasDropdownsAsync(model, cancellationToken);
-        return View("ClinicaHeridas", model);
+            cedulaPaciente,
+            programa = CensoProgramas.ClinicaHeridas
+        });
     }
 
     // Precarga de datos básicos: si el paciente ya existe en el censo de agudos o en el de crónicos
@@ -473,7 +447,8 @@ public partial class CensoController
         if (!ModelState.IsValid)
         {
             await PopulateClinicaHeridasLatestRecordsAsync(model, cancellationToken);
-            return View("ClinicaHeridas", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.ClinicaHeridas, model, model.CedulaFiltro, cancellationToken);
         }
 
         CensoClinicaHeridasRecord record;
@@ -514,7 +489,7 @@ public partial class CensoController
         TempData["SuccessMessage"] = model.EditingRecordId.HasValue
             ? "Registro de clínica de heridas actualizado correctamente."
             : "Registro de clínica de heridas guardado correctamente.";
-        return RedirectToAction(nameof(ClinicaHeridas), new { cedulaPaciente = record.NumeroIdentificacion });
+        return RedirectToAction(nameof(Index), new { cedulaPaciente = record.NumeroIdentificacion, programa = CensoProgramas.ClinicaHeridas });
     }
 
     // Proxy de las fotos de la herida. El navegador del usuario no tiene acceso a SharePoint, así
@@ -619,6 +594,64 @@ public partial class CensoController
             // El plan abierto refleja siempre los apósitos y el tratamiento vigentes; al cerrarse,
             // esa copia queda congelada.
             afterSaveAsync: (recordId, ct) => SincronizarPlanVigenteAsync(recordId, ct));
+    }
+
+    // VAC decide con que jerarquia sale el paciente en el informe de pacientes activos, y ese informe
+    // lee el valor guardado. Cambiarlo en pantalla sin pulsar el boton de la seccion dejaba el
+    // informe desfasado, asi que la pantalla lo confirma y lo persiste de inmediato con esta accion.
+    // Toca VAC y lo que VAC gobierna por si solo (el activo fijo). Los apositos dependen tambien de
+    // manejo de la herida, asi que se siguen resolviendo en el guardado completo de la seccion.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GuardarClinicaHeridasVac(
+        long recordId,
+        string? vac,
+        CancellationToken cancellationToken)
+    {
+        var valor = string.IsNullOrWhiteSpace(vac) ? null : vac.Trim();
+        if (!ClinicaHeridasSiNoValues.Contains(valor, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "El valor de VAC no es válido." });
+        }
+
+        var record = await _context.CensoClinicaHeridas
+            .FirstOrDefaultAsync(x => x.Id == recordId, cancellationToken);
+
+        if (record is null)
+        {
+            return NotFound(new { message = "No se encontró el registro de clínica de heridas." });
+        }
+
+        record.Vac = valor;
+
+        // Misma regla que aplica el guardado de la seccion: sin VAC el activo fijo se bloquea y sus
+        // datos dejan de tener sentido.
+        if (!EsSi(record.Vac))
+        {
+            record.EquipoComodato = null;
+            record.NumeroPlacaEquipos = null;
+            record.FechaEntregaEquipo = null;
+            record.FechaDevolucionEquipo = null;
+        }
+
+        record.UpdatedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // El plan abierto refleja siempre lo vigente del censo.
+        await SincronizarPlanVigenteAsync(record.Id, cancellationToken);
+
+        var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid)
+            ? (Guid?)parsedUid
+            : null;
+        await _auditService.LogAsync(
+            EsSi(record.Vac) ? "CENSO_CLINICA_HERIDAS_VAC_ACTIVADO" : "CENSO_CLINICA_HERIDAS_VAC_RETIRADO",
+            "CensoClinicaHeridas",
+            $"Paciente: {record.NombrePaciente}, Doc: {record.NumeroIdentificacion}",
+            auditUserId,
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            cancellationToken);
+
+        return Json(new { vac = record.Vac });
     }
 
     private static void NormalizeClinicaHeridasManejoHeridaModel(CensoClinicaHeridasViewModel model)
@@ -789,7 +822,8 @@ public partial class CensoController
 
         if (!ModelState.IsValid)
         {
-            return View("ClinicaHeridas", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.ClinicaHeridas, model, model.CedulaFiltro, cancellationToken);
         }
 
         var heridasRecord = record!;
@@ -808,7 +842,7 @@ public partial class CensoController
             auditUserId, auditIp, cancellationToken);
 
         TempData["SuccessMessage"] = "Activo fijo guardado correctamente.";
-        return RedirectToAction(nameof(ClinicaHeridas), new { recordId = heridasRecord.Id, cedulaPaciente = heridasRecord.NumeroIdentificacion });
+        return RedirectToAction(nameof(Index), new { cedulaPaciente = heridasRecord.NumeroIdentificacion, programa = CensoProgramas.ClinicaHeridas });
     }
 
     private void ValidateClinicaHeridasActivoFijoModel(
@@ -1024,7 +1058,8 @@ public partial class CensoController
 
         if (!ModelState.IsValid)
         {
-            return View("ClinicaHeridas", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.ClinicaHeridas, model, model.CedulaFiltro, cancellationToken);
         }
 
         var heridasRecord = record!;
@@ -1038,6 +1073,15 @@ public partial class CensoController
             await afterSaveAsync(heridasRecord.Id, cancellationToken);
         }
 
+        // El puente tambien se entera desde aqui, no solo al guardar los datos basicos. Por esta
+        // via pasa el alta del programa, que es justo el cambio que el portal necesita conocer para
+        // dejar de aceptar seguimientos: sin este envio el paciente seguiria figurando como activo
+        // en Supabase hasta que alguien volviera a guardar su ficha. Solo encola; el guardado no
+        // espera a Supabase ni falla si el puente no responde.
+        _bridgeSyncQueue.Enqueue(new BridgePatient(
+            heridasRecord.NumeroIdentificacion,
+            heridasRecord.NombrePaciente));
+
         var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
         var auditIp = HttpContext.Connection.RemoteIpAddress?.ToString();
         await _auditService.LogAsync(auditAction, "CensoClinicaHeridas",
@@ -1045,7 +1089,7 @@ public partial class CensoController
             auditUserId, auditIp, cancellationToken);
 
         TempData["SuccessMessage"] = successMessage;
-        return RedirectToAction(nameof(ClinicaHeridas), new { recordId = heridasRecord.Id, cedulaPaciente = heridasRecord.NumeroIdentificacion });
+        return RedirectToAction(nameof(Index), new { cedulaPaciente = heridasRecord.NumeroIdentificacion, programa = CensoProgramas.ClinicaHeridas });
     }
 
     // Sección 2 "Características de la herida": historial de solo lectura.
@@ -1107,8 +1151,63 @@ public partial class CensoController
             return;
         }
 
-        model.Historial.Seguimientos = BuildClinicaHeridasSeguimientos(seguimientos);
+        // Todos los ingresos del paciente al programa, del más antiguo al más reciente. Son los
+        // que definen a qué atención pertenece cada seguimiento.
+        var ingresos = await _context.CensoClinicaHeridas
+            .AsNoTracking()
+            .Where(x => x.NumeroIdentificacion == record.NumeroIdentificacion)
+            .OrderBy(x => x.FechaIngresoPrograma)
+            .ThenBy(x => x.Id)
+            .Select(x => new IngresoAlPrograma(x.Id, x.FechaIngresoPrograma))
+            .ToListAsync(cancellationToken);
+
+        RepartirSeguimientosPorIngreso(
+            model.Historial,
+            BuildClinicaHeridasSeguimientos(seguimientos),
+            ingresos,
+            record.Id);
     }
+
+    /// <summary>Un ingreso del paciente al programa: la fila del censo y el día en que empezó.</summary>
+    private sealed record IngresoAlPrograma(long Id, DateTime FechaIngresoPrograma);
+
+    /// <summary>
+    /// El portal guarda todos los seguimientos del paciente en una sola carpeta, así que si al
+    /// paciente se le dio de alta y volvió a ingresar llegan mezclados los de las dos atenciones.
+    /// Aquí se dejan solo los del ingreso que se está viendo.
+    ///
+    /// **El ingreso lo dice el propio seguimiento** (columna `ingreso` en Neon, desde 2026-09-08):
+    /// el portal la escribe con el número que le entrega el puente, que sale de esta misma
+    /// numeración del censo, así que las dos partes coinciden por construcción. Antes esto se
+    /// estimaba comparando fechas, porque el dato no existía; ya no hace falta.
+    ///
+    /// Los seguimientos anteriores a esa columna traen 1 por defecto, que es correcto: se
+    /// capturaron cuando el paciente solo había tenido un ingreso.
+    /// </summary>
+    private static void RepartirSeguimientosPorIngreso(
+        CensoClinicaHeridasHistorialViewModel historial,
+        IReadOnlyList<CensoClinicaHeridasSeguimientoViewModel> todos,
+        IReadOnlyList<IngresoAlPrograma> ingresos,
+        long registroActualId)
+    {
+        historial.TotalIngresos = Math.Max(ingresos.Count, 1);
+        var posicion = ingresos.Select(x => x.Id).ToList().IndexOf(registroActualId);
+        historial.IngresoNumero = posicion >= 0 ? posicion + 1 : historial.TotalIngresos;
+
+        if (ingresos.Count <= 1)
+        {
+            historial.Seguimientos = todos;
+            return;
+        }
+
+        var propios = todos
+            .Where(seguimiento => seguimiento.Ingreso == historial.IngresoNumero)
+            .ToList();
+
+        historial.Seguimientos = propios;
+        historial.SeguimientosDeOtrosIngresos = todos.Count - propios.Count;
+    }
+
 
     private static IReadOnlyList<CensoClinicaHeridasSeguimientoViewModel> BuildClinicaHeridasSeguimientos(
         IReadOnlyList<ClinicaHeridasSeguimientoRow> filas)
@@ -1118,6 +1217,7 @@ public partial class CensoController
             {
                 Id = fila.Id,
                 Numero = fila.Numero,
+                Ingreso = fila.Ingreso,
                 RegistradoEn = ToColombiaTime(fila.CreatedAtUtc),
                 Origen = fila.Origen,
                 Ubicacion = fila.Ubicacion,
@@ -1193,6 +1293,41 @@ public partial class CensoController
             FechaValoracion = today,
             DireccionEsValida = false
         };
+    }
+
+    /// <summary>
+    /// Propone "No" en los tres dispositivos cuando la sección "Manejo de la herida" todavía no se
+    /// ha diligenciado. Lo normal es que el paciente no traiga ninguno, y sin esto había que
+    /// elegirlos uno a uno en cada ingreso nuevo antes de poder guardar.
+    ///
+    /// Solo se aplica si los cuatro campos de la sección están vacíos, que es como queda el
+    /// registro recién creado desde "Datos específicos": ahí nadie ha decidido nada todavía y el
+    /// formulario puede proponer lo habitual. Si la sección ya tiene algo guardado se respeta tal
+    /// cual, porque entonces los vacíos sí son una decisión de quien la diligenció.
+    ///
+    /// No toca "Manejo de la herida": en el censo de clínica de heridas los cinco registros que lo
+    /// tienen diligenciado dicen "Si" y ninguno "No", así que proponerle "No" sería empujar al
+    /// valor equivocado. Se deja para que lo elija quien diligencia.
+    ///
+    /// Nada de esto se guarda por su cuenta: es lo que muestra el formulario hasta que alguien
+    /// pulse guardar en la sección.
+    /// </summary>
+    private static void ProponerDispositivosSinDiligenciar(CensoClinicaHeridasViewModel model)
+    {
+        var seccionSinDiligenciar =
+            string.IsNullOrWhiteSpace(model.Picc)
+            && string.IsNullOrWhiteSpace(model.Vac)
+            && string.IsNullOrWhiteSpace(model.Npt)
+            && string.IsNullOrWhiteSpace(model.ManejoHerida);
+
+        if (!seccionSinDiligenciar)
+        {
+            return;
+        }
+
+        model.Picc = "No";
+        model.Vac = "No";
+        model.Npt = "No";
     }
 
     private async Task PopulateClinicaHeridasDropdownsAsync(CensoClinicaHeridasViewModel model, CancellationToken cancellationToken)
@@ -1337,13 +1472,13 @@ public partial class CensoController
     {
         var opciones = ClinicaHeridasCie10Values
             .OrderBy(x => x.Key, StringComparer.Ordinal)
-            .Select(x => new SelectListItem($"{x.Key} - {x.Value}", x.Key))
+            .Select(x => new SelectListItem(x.Value, x.Key))
             .ToList();
 
         var codigo = NormalizeCie10(codigoActual ?? string.Empty);
         if (codigo.Length > 0 && !ClinicaHeridasCie10Values.ContainsKey(codigo))
         {
-            opciones.Add(new SelectListItem($"{codigo} - (fuera del listado actual)", codigo));
+            opciones.Add(new SelectListItem("(fuera del listado actual)", codigo));
         }
 
         return opciones;

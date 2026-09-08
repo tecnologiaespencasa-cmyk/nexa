@@ -1,0 +1,698 @@
+﻿@model CensoNptViewModel
+@* Scripts del programa, dentro del @section Scripts de la pantalla unica. *@
+@using Nexa.Data.Entities
+
+
+@{
+    ViewData["Title"] = "NPT";
+    var successMessage = TempData["SuccessMessage"] as string;
+    var errorMessage = TempData["ErrorMessage"] as string;
+    var hasAuxiliares = Model.AuxiliarEnfermeriaOptions.Any();
+    var showCurrentPatientBar = Model.EditingRecordId.HasValue
+        && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
+    var seccionesGuardado = new[]
+    {
+        new
+        {
+            Id = "tab-manejo-npt",
+            Eyebrow = "Sección 2",
+            Titulo = "Manejo de la NPT",
+            Descripcion = "Fechas, días de tratamiento y horas de conexión.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar el manejo de la NPT."
+        },
+        new
+        {
+            Id = "tab-cargue-servicios",
+            Eyebrow = "Sección 3",
+            Titulo = "Cargue de servicios",
+            Descripcion = "Cargues de laboratorios, glucometría y seguimientos.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar el cargue de servicios."
+        },
+        new
+        {
+            Id = "tab-activo-fijo",
+            Eyebrow = "Sección 4",
+            Titulo = "Activo fijo",
+            Descripcion = "Equipos en comodato asignados al paciente.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar el activo fijo."
+        },
+        new
+        {
+            Id = "tab-seguimiento-hospitalizado",
+            Eyebrow = "Sección 5",
+            Titulo = "Seguimiento hospitalizado",
+            Descripcion = "Hospitalización y fechas de seguimiento.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar el seguimiento hospitalizado."
+        },
+        new
+        {
+            Id = "tab-devolucion-productos",
+            Eyebrow = "Sección 6",
+            Titulo = "Devolución de productos",
+            Descripcion = "Novedades y gestión del servicio farmacéutico.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar la devolución de productos."
+        },
+        new
+        {
+            Id = "tab-alta-programa",
+            Eyebrow = "Sección 7",
+            Titulo = "Alta del programa",
+            Descripcion = "Motivo del egreso y estado del paciente.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar el alta del programa."
+        }
+    };
+}
+
+@functions {
+    private static Microsoft.AspNetCore.Html.IHtmlContent RequiredMark() =>
+        new Microsoft.AspNetCore.Html.HtmlString("<span class=\"text-danger ms-1\" aria-hidden=\"true\">*</span><span class=\"visually-hidden\">obligatorio</span>");
+}
+
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const validarDireccionUrl = "@Url.Action("ValidarDireccion", "Censo")";
+            const buscarBarriosUrl = "@Url.Action("BuscarBarrios", "Censo")";
+            const defaultsMunicipioUrl = "@Url.Action("ObtenerDefaultsMunicipio", "Censo")";
+            const form = document.getElementById("censoNptForm");
+            const csrfTokenInput = form?.querySelector("input[name='__RequestVerificationToken']");
+            const direccionInput = document.getElementById("direccionInput");
+            const validarDireccionBtn = document.getElementById("validarDireccionBtn");
+            const limpiarDireccionBtn = document.getElementById("limpiarDireccionBtn");
+            const asumirDireccionCheck = document.getElementById("asumirDireccionErradaCheck");
+            const direccionEsValidaInput = document.getElementById("nptDireccionEsValidaInput");
+            const direccionMessage = document.getElementById("direccionValidacionMensaje");
+            const direccionServerMessage = document.getElementById("direccionValidacionServerMensaje");
+            const usarSugerenciaServerBtn = document.getElementById("usarSugerenciaDireccionBtnServer");
+            const municipioSelect = document.getElementById("municipioResidenciaSelect");
+            const clasificacionSelect = document.getElementById("clasificacionZonaSuraSelect");
+            const barrioSelect = document.getElementById("barrioSelect");
+            const zonaSelect = document.getElementById("zonaDireccionSelect");
+            const tipoIdentificacionSelect = document.getElementById("tipoIdentificacionSelect");
+            const numeroIdentificacionInput = document.getElementById("numeroIdentificacionInput");
+            const cedulaNptFiltroInput = document.getElementById("cedulaNptFiltroInput");
+            const cambiarNptPacienteDocumentoInput = document.getElementById("cambiarNptPacienteDocumento");
+            const fechaNacimientoInput = document.getElementById("fechaNacimientoInput");
+            const edadInput = document.getElementById("edadInput");
+            const nombrePacienteInput = document.getElementById("NombrePaciente");
+            const auxiliarEnfermeriaInput = document.getElementById("nptAuxiliarEnfermeriaInput");
+            const telefonoAdicional2Toggle = document.getElementById("telefonoAdicional2Toggle");
+            const telefonoAdicional2Container = document.getElementById("telefonoAdicional2Container");
+            const telefonoAdicional2Input = document.getElementById("TelefonoAdicional2");
+            const fechaInicioNptInput = document.getElementById("FechaInicioNpt");
+            const fechaFinNptInput = document.getElementById("FechaFinNpt");
+            const diasTratamientoInput = document.getElementById("DiasTratamiento");
+            const auxiliarEnfermeriaOptions = Array.from(document.querySelectorAll("#nptAuxiliarEnfermeriaOptions option"))
+                .map((option) => option.value || "")
+                .filter((value) => value.trim());
+            let direccionValidada = @Model.DireccionEsValida.ToString().ToLowerInvariant();
+            let latestAddressCandidates = [];
+            let barriosLoaded = barrioSelect
+                ? Array.from(barrioSelect.options).map((option) => (option.value || "").trim()).filter((value) => !!value)
+                : [];
+            let lastValidationDistrict = "";
+
+            const escapeHtml = (value) => String(value || "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+
+            const shouldUppercaseControl = (control) => {
+                if (!control || control.disabled || control.readOnly) {
+                    return false;
+                }
+
+                if (control.matches("textarea")) {
+                    return true;
+                }
+
+                if (!control.matches("input")) {
+                    return false;
+                }
+
+                const type = String(control.getAttribute("type") || "text").toLowerCase();
+                return ["text", "search", "email", "tel", "url"].includes(type);
+            };
+
+            const uppercaseControlValue = (control) => {
+                if (!shouldUppercaseControl(control)) {
+                    return;
+                }
+
+                const currentValue = control.value || "";
+                const uppercaseValue = currentValue.toLocaleUpperCase("es-CO");
+                if (currentValue === uppercaseValue) {
+                    return;
+                }
+
+                const selectionStart = control.selectionStart;
+                const selectionEnd = control.selectionEnd;
+                control.value = uppercaseValue;
+
+                if (selectionStart !== null && selectionEnd !== null) {
+                    try {
+                        control.setSelectionRange(selectionStart, selectionEnd);
+                    } catch {
+                    }
+                }
+            };
+
+            document.addEventListener("input", (event) => {
+                const control = event.target;
+                if (!(control instanceof HTMLElement)
+                    || !control.closest("#censoNptForm, .censo-filter-panel, .censo-current-patient__search")) {
+                    return;
+                }
+
+                uppercaseControlValue(control);
+            });
+
+            const uppercaseAllNptTextFields = () => {
+                document
+                    .querySelectorAll("#censoNptForm input, #censoNptForm textarea, .censo-filter-panel input, .censo-current-patient__search input")
+                    .forEach((control) => uppercaseControlValue(control));
+            };
+
+            const alphanumericIdentificationTypes = new Set(["PA", "CE"]);
+            const normalizeDocumentValue = (value) => String(value || "")
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, "")
+                .trim();
+            const allowsAlphaNumericIdentification = (value) =>
+                alphanumericIdentificationTypes.has(String(value || "").trim().toUpperCase());
+            const syncNumeroIdentificacionMode = () => {
+                if (!numeroIdentificacionInput) return;
+
+                const allowAlphaNumeric = allowsAlphaNumericIdentification(tipoIdentificacionSelect ? tipoIdentificacionSelect.value : "");
+                numeroIdentificacionInput.setAttribute("inputmode", allowAlphaNumeric ? "text" : "numeric");
+                numeroIdentificacionInput.title = allowAlphaNumeric
+                    ? "Permite letras y números para PA o CE."
+                    : "Solo permite dígitos para este tipo de identificación.";
+
+                const currentValue = String(numeroIdentificacionInput.value || "").toUpperCase();
+                numeroIdentificacionInput.value = allowAlphaNumeric
+                    ? currentValue.replace(/[^A-Z0-9]/g, "").slice(0, 20)
+                    : currentValue.replace(/\D/g, "").slice(0, 20);
+            };
+
+            const getAuxiliarValidationMessage = () =>
+                document.querySelector("[data-valmsg-for='AuxiliarEnfermeriaAsignado']");
+
+            const getCanonicalAuxiliarValue = (value) => {
+                const normalized = String(value || "").trim().toLocaleUpperCase("es-CO");
+                if (!normalized) return "";
+                return auxiliarEnfermeriaOptions.find((item) =>
+                    item.trim().toLocaleUpperCase("es-CO") === normalized) || "";
+            };
+
+            const syncAuxiliarValidation = (showInvalidMessage = false) => {
+                if (!auxiliarEnfermeriaInput) return true;
+
+                const value = String(auxiliarEnfermeriaInput.value || "").trim();
+                const canonicalValue = getCanonicalAuxiliarValue(value);
+                const messageElement = getAuxiliarValidationMessage();
+
+                if (canonicalValue) {
+                    auxiliarEnfermeriaInput.value = canonicalValue;
+                    if (messageElement) messageElement.textContent = "";
+                    return true;
+                }
+
+                if (!value) {
+                    if (messageElement) messageElement.textContent = "";
+                    return true;
+                }
+
+                if (showInvalidMessage && messageElement) {
+                    messageElement.textContent = auxiliarEnfermeriaOptions.length === 0
+                        ? "No hay auxiliares OPS activos para asignar."
+                        : "Selecciona un auxiliar OPS válido.";
+                }
+
+                return false;
+            };
+
+            const setDireccionValidada = (value) => {
+                direccionValidada = value;
+                if (direccionEsValidaInput) direccionEsValidaInput.value = value ? "true" : "false";
+            };
+
+            const clearServerDireccionMessage = () => {
+                if (direccionServerMessage) direccionServerMessage.remove();
+            };
+
+            const setDireccionMessage = (type, html) => {
+                if (!direccionMessage) return;
+                direccionMessage.className = `alert alert-${type} mt-2`;
+                direccionMessage.innerHTML = html;
+                direccionMessage.classList.remove("d-none");
+            };
+
+            const clearDireccionMessage = () => {
+                if (!direccionMessage) return;
+                direccionMessage.className = "alert d-none mt-2";
+                direccionMessage.innerHTML = "";
+            };
+
+            const syncSelectPlaceholderState = (select) => {
+                if (!select) return;
+                select.classList.toggle("is-placeholder", !select.value);
+            };
+
+            const setSelectValue = (select, value) => {
+                if (!select) return;
+                const normalizedValue = String(value || "").trim();
+                if (!normalizedValue) {
+                    select.value = "";
+                    syncSelectPlaceholderState(select);
+                    return;
+                }
+
+                const existing = Array.from(select.options).some((option) => option.value === normalizedValue);
+                if (!existing) {
+                    select.appendChild(new Option(normalizedValue, normalizedValue));
+                }
+                select.value = normalizedValue;
+                syncSelectPlaceholderState(select);
+            };
+
+            const setBarrioOptions = (options, selectedValue, preserveCurrentSelection = true) => {
+                if (!barrioSelect) return;
+
+                const currentValue = preserveCurrentSelection ? (barrioSelect.value || "") : "";
+                const targetValue = String(selectedValue ?? currentValue ?? "").trim();
+                const uniqueOptions = Array.from(new Set((options || [])
+                    .map((x) => (x || "").trim())
+                    .filter((x) => x)));
+
+                barrioSelect.innerHTML = "";
+                const placeholder = document.createElement("option");
+                placeholder.value = "";
+                placeholder.textContent = "Selecciona barrio...";
+                placeholder.disabled = true;
+                placeholder.hidden = true;
+                barrioSelect.appendChild(placeholder);
+
+                uniqueOptions.forEach((opt) => {
+                    const option = document.createElement("option");
+                    option.value = opt;
+                    option.textContent = opt;
+                    barrioSelect.appendChild(option);
+                });
+
+                if (targetValue) {
+                    const hasTarget = uniqueOptions.some((opt) => opt.toLowerCase() === targetValue.toLowerCase());
+                    if (!hasTarget) {
+                        barrioSelect.appendChild(new Option(targetValue, targetValue));
+                    }
+                    barrioSelect.value = targetValue;
+                }
+
+                syncSelectPlaceholderState(barrioSelect);
+            };
+
+            const applyMunicipalityDefaults = async (municipio, barrio, district) => {
+                if (!municipio) return;
+
+                try {
+                    const url = new URL(defaultsMunicipioUrl, window.location.origin);
+                    url.searchParams.set("municipio", municipio);
+                    if (barrio) url.searchParams.set("barrio", barrio);
+                    if (district) url.searchParams.set("district", district);
+                    if (direccionInput?.value) url.searchParams.set("direccion", direccionInput.value);
+
+                    const response = await fetch(url);
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    setSelectValue(clasificacionSelect, data.clasificacionZonaSura);
+                    setSelectValue(zonaSelect, data.zonaDireccionSegunMunicipio);
+                } catch {
+                }
+            };
+
+            const loadBarriosByMunicipio = async (municipio, term, selectedBarrio, preserveCurrentSelection = true) => {
+                if (!municipio) {
+                    barriosLoaded = [];
+                    setBarrioOptions([], "", false);
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${buscarBarriosUrl}?municipio=${encodeURIComponent(municipio)}&term=${encodeURIComponent(term || "a")}`);
+                    if (!response.ok) {
+                        barriosLoaded = [];
+                        setBarrioOptions([], "", false);
+                        return;
+                    }
+
+                    const data = await response.json();
+                    barriosLoaded = (data.neighborhoods || []).filter((x) => !!x);
+                    setBarrioOptions(barriosLoaded, selectedBarrio, preserveCurrentSelection);
+                } catch {
+                    barriosLoaded = [];
+                    setBarrioOptions([], "", false);
+                }
+            };
+
+            const clearAddressDerivedFields = () => {
+                lastValidationDistrict = "";
+                barriosLoaded = [];
+                setBarrioOptions([], "", false);
+                setSelectValue(clasificacionSelect, "");
+                setSelectValue(municipioSelect, "");
+                setSelectValue(zonaSelect, "");
+                if (asumirDireccionCheck) asumirDireccionCheck.checked = false;
+            };
+
+            const clearAllAddressData = () => {
+                if (direccionInput) direccionInput.value = "";
+                setDireccionValidada(false);
+                latestAddressCandidates = [];
+                clearAddressDerivedFields();
+                clearDireccionMessage();
+                clearServerDireccionMessage();
+            };
+
+            const applyAddressCandidate = async (candidate) => {
+                if (!candidate) return;
+
+                const selectedMunicipality = candidate.municipality || "";
+                const selectedNeighborhood = (candidate.neighborhood || candidate.district || "").trim();
+                lastValidationDistrict = candidate.district || "";
+
+                if (direccionInput && candidate.formattedAddress && !asumirDireccionCheck?.checked) {
+                    direccionInput.value = candidate.formattedAddress;
+                }
+
+                if (municipioSelect) {
+                    const hasOption = selectedMunicipality
+                        ? Array.from(municipioSelect.options).some((x) => x.value === selectedMunicipality)
+                        : false;
+                    municipioSelect.value = hasOption ? selectedMunicipality : "";
+                }
+
+                await applyMunicipalityDefaults(selectedMunicipality, selectedNeighborhood, lastValidationDistrict);
+                await loadBarriosByMunicipio(selectedMunicipality, selectedNeighborhood || "a", selectedNeighborhood, false);
+
+                if (barrioSelect) {
+                    setBarrioOptions(barriosLoaded, selectedNeighborhood, false);
+                }
+
+                setSelectValue(zonaSelect, candidate.zonaDireccionSegunMunicipio);
+                setSelectValue(clasificacionSelect, candidate.clasificacionZonaSura);
+
+                setDireccionValidada(true);
+                latestAddressCandidates = [];
+                setDireccionMessage("success", "Direccion seleccionada correctamente desde las coincidencias de Google.");
+            };
+
+            const renderAddressCandidates = (candidates, message) => {
+                const safeCandidates = (candidates || []).filter((x) => !!x && !!x.formattedAddress);
+                latestAddressCandidates = safeCandidates;
+
+                if (safeCandidates.length === 0) return false;
+
+                const optionsHtml = safeCandidates
+                    .map((candidate, index) => {
+                        const municipio = candidate.municipality ? ` (${escapeHtml(candidate.municipality)})` : "";
+                        return `<button type="button" class="btn btn-sm btn-outline-secondary d-block text-start w-100 mb-1 js-direccion-candidate" data-index="${index}">${escapeHtml(candidate.formattedAddress)}${municipio}</button>`;
+                    })
+                    .join("");
+
+                setDireccionMessage(
+                    "warning",
+                    `${escapeHtml(message || "Selecciona la direccion correcta antes de continuar:")}<div class="mt-2">${optionsHtml}</div>`);
+
+                document.querySelectorAll(".js-direccion-candidate").forEach((button) => {
+                    button.addEventListener("click", async () => {
+                        const index = Number(button.getAttribute("data-index"));
+                        if (!Number.isFinite(index) || index < 0 || index >= latestAddressCandidates.length) return;
+                        await applyAddressCandidate(latestAddressCandidates[index]);
+                    });
+                });
+
+                return true;
+            };
+
+            if (validarDireccionBtn && direccionInput && csrfTokenInput) {
+                validarDireccionBtn.addEventListener("click", async () => {
+                    if (!direccionInput.value.trim()) {
+                        setDireccionMessage("warning", "Debes escribir una dirección para validarla.");
+                        return;
+                    }
+
+                    validarDireccionBtn.disabled = true;
+                    clearDireccionMessage();
+                    clearServerDireccionMessage();
+                    try {
+                        const response = await fetch(validarDireccionUrl, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "RequestVerificationToken": csrfTokenInput.value
+                            },
+                            body: JSON.stringify({ direccion: direccionInput.value.trim() })
+                        });
+                        if (!response.ok) {
+                            throw new Error("No se pudo validar la dirección.");
+                        }
+
+                        const data = await response.json();
+                        setDireccionValidada(data.isValid === true);
+                        latestAddressCandidates = [];
+
+                        const shouldClearDerivedData = data.outcome === "invalid" || data.outcome === "unavailable";
+                        const hasAddressCandidates = data.requiresSelection === true
+                            && Array.isArray(data.candidates)
+                            && data.candidates.length > 0;
+                        const suggestedBarrio = (data.neighborhood || data.district || "").trim();
+
+                        if (shouldClearDerivedData) {
+                            clearAddressDerivedFields();
+                        }
+
+                        if (!shouldClearDerivedData && hasAddressCandidates) {
+                            clearAddressDerivedFields();
+                            setDireccionValidada(false);
+                            renderAddressCandidates(data.candidates, data.message);
+                            return;
+                        }
+
+                        if (!shouldClearDerivedData && municipioSelect && data.municipality) {
+                            const hasOption = Array.from(municipioSelect.options).some((x) => x.value === data.municipality);
+                            if (hasOption) {
+                                if (barrioSelect) barrioSelect.value = "";
+                                municipioSelect.value = data.municipality;
+                                syncSelectPlaceholderState(municipioSelect);
+                                lastValidationDistrict = data.district || "";
+                                await applyMunicipalityDefaults(data.municipality, suggestedBarrio, lastValidationDistrict);
+                                await loadBarriosByMunicipio(data.municipality, suggestedBarrio || "a", suggestedBarrio, false);
+                            }
+                        }
+
+                        if (!shouldClearDerivedData && barrioSelect) {
+                            setBarrioOptions(barriosLoaded, suggestedBarrio, false);
+                        }
+
+                        if (!shouldClearDerivedData && zonaSelect && data.zonaDireccionSegunMunicipio) {
+                            zonaSelect.value = data.zonaDireccionSegunMunicipio;
+                            syncSelectPlaceholderState(zonaSelect);
+                        }
+
+                        if (!shouldClearDerivedData && clasificacionSelect && data.clasificacionZonaSura) {
+                            clasificacionSelect.value = data.clasificacionZonaSura;
+                            syncSelectPlaceholderState(clasificacionSelect);
+                        }
+
+                        if (data.isValid) {
+                            if (data.formattedAddress && !asumirDireccionCheck?.checked) {
+                                direccionInput.value = data.formattedAddress;
+                            }
+                            setDireccionMessage("success", data.message || "Direccion validada correctamente.");
+                            return;
+                        }
+
+                        let html = data.message || "La dirección no pudo ser validada.";
+                        if (data.suggestedAddress) {
+                            html += `<br/>Sugerencia: <strong>${escapeHtml(data.suggestedAddress)}</strong> <button type="button" class="btn btn-sm btn-link p-0 ms-2" id="usarSugerenciaDireccionBtnClient">Usar sugerencia</button>`;
+                        }
+                        setDireccionMessage("warning", html);
+                        document.getElementById("usarSugerenciaDireccionBtnClient")?.addEventListener("click", (event) => {
+                            event.preventDefault();
+                            direccionInput.value = data.suggestedAddress || "";
+                            setDireccionValidada(false);
+                        });
+                    } catch {
+                        clearAddressDerivedFields();
+                        setDireccionMessage("danger", "No fue posible validar la dirección. Intenta nuevamente o marca 'Asumir dirección errada y continuar'.");
+                        setDireccionValidada(false);
+                    } finally {
+                        validarDireccionBtn.disabled = false;
+                    }
+                });
+            }
+
+            if (direccionInput) {
+                direccionInput.addEventListener("input", () => {
+                    setDireccionValidada(false);
+                    clearServerDireccionMessage();
+                });
+            }
+
+            if (limpiarDireccionBtn && direccionInput) {
+                limpiarDireccionBtn.addEventListener("click", () => {
+                    clearAllAddressData();
+                });
+            }
+
+            usarSugerenciaServerBtn?.addEventListener("click", () => {
+                const suggested = usarSugerenciaServerBtn.previousElementSibling?.textContent || "";
+                if (direccionInput && suggested) {
+                    direccionInput.value = suggested.trim();
+                    setDireccionValidada(false);
+                }
+            });
+
+            municipioSelect?.addEventListener("change", async () => {
+                const municipio = municipioSelect.value || "";
+                lastValidationDistrict = "";
+                if (barrioSelect) barrioSelect.value = "";
+                await applyMunicipalityDefaults(municipio, "", "");
+                await loadBarriosByMunicipio(municipio, "a", "");
+            });
+
+            barrioSelect?.addEventListener("change", async () => {
+                const municipio = municipioSelect ? municipioSelect.value : "";
+                const barrio = barrioSelect.value || "";
+                await applyMunicipalityDefaults(municipio, barrio, lastValidationDistrict);
+            });
+
+            document.querySelectorAll(".npt-phone-input").forEach((input) => {
+                input.addEventListener("input", () => {
+                    input.value = input.value.replace(/\D/g, "").slice(0, 10);
+                });
+            });
+
+            const syncTelefonoAdicional2Visibility = () => {
+                if (!telefonoAdicional2Toggle || !telefonoAdicional2Container) return;
+                const shouldShow = telefonoAdicional2Toggle.checked;
+                telefonoAdicional2Container.classList.toggle("d-none", !shouldShow);
+                if (!shouldShow && telefonoAdicional2Input) {
+                    telefonoAdicional2Input.value = "";
+                }
+            };
+
+            if (telefonoAdicional2Toggle && telefonoAdicional2Input?.value) {
+                telefonoAdicional2Toggle.checked = true;
+            }
+            telefonoAdicional2Toggle?.addEventListener("change", syncTelefonoAdicional2Visibility);
+            syncTelefonoAdicional2Visibility();
+
+            auxiliarEnfermeriaInput?.addEventListener("input", () => syncAuxiliarValidation(false));
+            auxiliarEnfermeriaInput?.addEventListener("change", () => syncAuxiliarValidation(true));
+            auxiliarEnfermeriaInput?.addEventListener("blur", () => syncAuxiliarValidation(true));
+
+            numeroIdentificacionInput?.addEventListener("input", syncNumeroIdentificacionMode);
+            tipoIdentificacionSelect?.addEventListener("change", syncNumeroIdentificacionMode);
+            syncNumeroIdentificacionMode();
+
+            const sanitizeNombrePaciente = () => {
+                if (!nombrePacienteInput) return;
+                const currentValue = nombrePacienteInput.value || "";
+                const sanitizedValue = currentValue.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, "");
+                if (currentValue !== sanitizedValue) {
+                    nombrePacienteInput.value = sanitizedValue;
+                }
+            };
+
+            nombrePacienteInput?.addEventListener("input", sanitizeNombrePaciente);
+            sanitizeNombrePaciente();
+
+            const updateDiasTratamiento = () => {
+                if (!diasTratamientoInput) return;
+
+                const inicio = fechaInicioNptInput?.value || "";
+                const fin = fechaFinNptInput?.value || "";
+                if (!inicio || !fin) {
+                    diasTratamientoInput.value = "";
+                    return;
+                }
+
+                const start = new Date(`${inicio}T00:00:00`);
+                const end = new Date(`${fin}T00:00:00`);
+                const diffDays = Math.round((end.getTime() - start.getTime()) / 86400000);
+                diasTratamientoInput.value = diffDays < 0 ? "" : String(diffDays + 1);
+            };
+
+            fechaInicioNptInput?.addEventListener("change", updateDiasTratamiento);
+            fechaFinNptInput?.addEventListener("change", updateDiasTratamiento);
+            updateDiasTratamiento();
+
+            [cedulaNptFiltroInput, cambiarNptPacienteDocumentoInput].forEach((input) => {
+                if (!input) return;
+                input.value = normalizeDocumentValue(input.value);
+                input.addEventListener("input", () => {
+                    input.value = normalizeDocumentValue(input.value);
+                });
+            });
+            uppercaseAllNptTextFields();
+
+            const updateEdad = () => {
+                if (!fechaNacimientoInput || !edadInput) return;
+
+                const today = new Date();
+                const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                if (!fechaNacimientoInput.value || fechaNacimientoInput.value >= todayValue) {
+                    fechaNacimientoInput.setCustomValidity("La fecha de nacimiento debe ser anterior a la fecha actual.");
+                } else {
+                    fechaNacimientoInput.setCustomValidity("");
+                }
+
+                if (!fechaNacimientoInput.value) {
+                    edadInput.value = "0";
+                    return;
+                }
+
+                const birth = new Date(`${fechaNacimientoInput.value}T00:00:00`);
+                let age = today.getFullYear() - birth.getFullYear();
+                const monthDiff = today.getMonth() - birth.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                    age -= 1;
+                }
+                edadInput.value = Math.max(age, 0).toString();
+            };
+
+            fechaNacimientoInput?.addEventListener("change", updateEdad);
+            fechaNacimientoInput?.addEventListener("input", updateEdad);
+            updateEdad();
+
+            form?.addEventListener("submit", (event) => {
+                const submitAction = event.submitter?.getAttribute("formaction") || "";
+                if (submitAction.includes("GuardarNptManejo")
+                    || submitAction.includes("GuardarNptCargueServicios")
+                    || submitAction.includes("GuardarNptActivoFijo")
+                    || submitAction.includes("GuardarNptSeguimientoHospitalizado")
+                    || submitAction.includes("GuardarNptDevolucionProductos")
+                    || submitAction.includes("GuardarNptAltaPrograma")) {
+                    return;
+                }
+
+                sanitizeNombrePaciente();
+
+                if (!syncAuxiliarValidation(true)) {
+                    event.preventDefault();
+                    auxiliarEnfermeriaInput?.focus();
+                    return;
+                }
+
+                if (direccionInput?.value.trim() && !direccionValidada && !asumirDireccionCheck?.checked) {
+                    event.preventDefault();
+                    setDireccionMessage("warning", "Debes validar la dirección o marcar 'Asumir dirección errada y continuar'.");
+                    direccionInput?.focus();
+                }
+            });
+        })();
+    </script>

@@ -1,4 +1,4 @@
-@model Nexa.Models.ViewModels.ReportesDashboardViewModel
+﻿@model Nexa.Models.ViewModels.ReportesDashboardViewModel
 @using System.Globalization
 @{
     ViewData["Title"] = "Reportes";
@@ -12,6 +12,8 @@
 }
 
 @section Styles {
+    <link rel="stylesheet" href="~/css/censo.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/censo-unificado.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/reportes.css" asp-append-version="true" />
 }
 
@@ -481,5 +483,11 @@
                 </div>
             }
         </article>
+    </section>
+
+    @* Tabulado unificado del censo. Vive aqui, al final de reportes, porque es consulta de
+       historial: la pantalla del paciente no tiene por que cargar miles de filas. *@
+    <section class="censo-unificado reportes-tabulado">
+        <partial name="/Views/Censo/_CensoTabulado.cshtml" model="Model.TabuladoCenso" />
     </section>
 </div>

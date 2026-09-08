@@ -1,0 +1,984 @@
+﻿/* ==========================================================================
+   Censo unificado
+
+   Una sola pantalla para todo paciente: recepcion y datos basicos arriba, el
+   carril de programas en medio y las secciones del programa activo abajo.
+
+   El color aqui es una etiqueta, no un tema. Cada programa tiene un matiz que
+   se repite en tres lugares -- el carril donde se agrega, el navegador lateral
+   de secciones y la insignia del tabulado -- para que el operador aprenda un
+   solo lenguaje de color. La pagina conserva el rojo corporativo como color del
+   sistema; los matices solo identifican programas.
+
+   Se apoya en censo.css: reutiliza .censo-page, .censo-sidebar, .censo-nav y
+   .censo-nav__item tal como estan, sin redefinirlos.
+   ========================================================================== */
+
+.censo-unificado {
+  /* Rojo del sistema. Agudos comparte este matiz a proposito: siempre fue el
+     rojo corporativo, y dos rojos casi iguales uno al lado del otro se leen
+     como un error, no como dos etiquetas distintas. */
+  --rojo: #e04524;
+  --rojo-hondo: #b4331a;
+  --rojo-tenue: #fdefea;
+  --rojo-linea: #f2c6b9;
+  --sombra-suave: 0 1px 2px rgba(31, 42, 55, 0.05);
+  --sombra-alzada: 0 6px 16px -6px rgba(31, 42, 55, 0.18);
+
+  --prog-agudos: #e04524;
+  --prog-agudos-soft: rgba(224, 69, 36, 0.1);
+  --prog-cronicos: #6b4de6;
+  --prog-cronicos-soft: rgba(107, 77, 230, 0.1);
+  --prog-heridas: #0f9d76;
+  --prog-heridas-soft: rgba(15, 157, 118, 0.1);
+  --prog-npt: #d97400;
+  --prog-npt-soft: rgba(217, 116, 0, 0.1);
+  --prog-terapia: #006be6;
+  --prog-terapia-soft: rgba(0, 107, 230, 0.1);
+}
+
+/* El matiz activo se hereda: cada bloque marcado con data-programa lo fija una
+   sola vez y todos sus hijos lo usan, en lugar de repetir un selector por
+   programa en cada componente. */
+[data-programa="AGUDOS"] {
+  --prog: var(--prog-agudos);
+  --prog-soft: var(--prog-agudos-soft);
+}
+
+[data-programa="CRONICOS"] {
+  --prog: var(--prog-cronicos);
+  --prog-soft: var(--prog-cronicos-soft);
+}
+
+[data-programa="CLINICA_HERIDAS"] {
+  --prog: var(--prog-heridas);
+  --prog-soft: var(--prog-heridas-soft);
+}
+
+[data-programa="NPT"] {
+  --prog: var(--prog-npt);
+  --prog-soft: var(--prog-npt-soft);
+}
+
+[data-programa="TERAPIA_AMBULATORIA"] {
+  --prog: var(--prog-terapia);
+  --prog-soft: var(--prog-terapia-soft);
+}
+
+/* --------------------------------------------------------------------------
+   Barra de identidad del paciente
+   -------------------------------------------------------------------------- */
+.censo-identidad {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem 1.5rem;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--censo-border);
+  border-radius: 24px;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(254, 247, 246, 0.94));
+  box-shadow: 0 12px 28px rgba(170, 122, 111, 0.1);
+}
+
+.censo-identidad__datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 2rem;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.censo-identidad__nombre {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--censo-ink);
+  overflow-wrap: anywhere;
+}
+
+.censo-identidad__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.censo-identidad__label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--censo-ink-soft);
+}
+
+.censo-identidad__valor {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--censo-ink);
+}
+
+.censo-identidad__vacio {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--censo-ink-soft);
+}
+
+/* Campo y botones comparten alto y radio: antes uno era pildora y el otro
+   rectangulo, y la barra se veia armada con piezas de dos juegos distintos. */
+.censo-identidad__buscador {
+  --alto-control: 2.75rem;
+  --radio-control: 12px;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.censo-buscador__campo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 14rem;
+}
+
+.censo-buscador__icono {
+  position: absolute;
+  inset-inline-start: 0.85rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke: var(--censo-ink-soft, #697386);
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.censo-buscador__input {
+  width: 100%;
+  height: var(--alto-control);
+  padding: 0 0.9rem 0 2.5rem;
+  border: 1px solid var(--censo-border);
+  border-radius: var(--radio-control);
+  background: #fff;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--censo-ink);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.censo-buscador__input::placeholder {
+  color: var(--censo-ink-soft);
+}
+
+.censo-buscador__input:focus {
+  outline: none;
+  border-color: var(--rojo);
+  box-shadow: 0 0 0 3px var(--rojo-tenue);
+}
+
+.censo-boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--alto-control);
+  padding-inline: 1.15rem;
+  border: 1px solid transparent;
+  border-radius: var(--radio-control);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.censo-boton--solido {
+  background: var(--rojo);
+  color: #fff;
+}
+
+.censo-boton--solido:hover,
+.censo-boton--solido:focus-visible {
+  background: var(--rojo-hondo);
+  color: #fff;
+}
+
+.censo-boton--sutil {
+  border-color: var(--censo-border);
+  background: #fff;
+  color: var(--censo-ink);
+}
+
+.censo-boton--sutil:hover,
+.censo-boton--sutil:focus-visible {
+  border-color: var(--rojo-linea);
+  background: var(--rojo-tenue);
+  color: var(--rojo-hondo);
+}
+
+/* --------------------------------------------------------------------------
+   Carril de programas
+
+   Aqui se agregan y se quitan los programas del paciente. El par agudos /
+   cronicos es un solo control partido en dos porque son excluyentes: la regla
+   se ve antes de hacer clic, en vez de aparecer como error despues.
+   -------------------------------------------------------------------------- */
+.censo-carril {
+  margin: 1.25rem 0;
+  padding: 1.1rem 1.25rem 1.25rem;
+  border: 1px solid var(--censo-border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.censo-carril__encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  align-items: baseline;
+  margin-bottom: 0.9rem;
+}
+
+.censo-carril__titulo {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--censo-ink);
+}
+
+.censo-carril__ayuda {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--censo-ink-soft);
+}
+
+.censo-carril__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2rem;
+  align-items: flex-start;
+}
+
+.censo-carril__grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.censo-carril__grupo--adicionales {
+  flex: 1 1 22rem;
+}
+
+.censo-carril__grupo-titulo {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--censo-ink-soft);
+}
+
+.censo-carril__grupo-nota {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--censo-ink-soft);
+  opacity: 0.75;
+}
+
+/* La exclusion agudos / cronicos se dice con la estructura: un solo control
+   partido por una linea. Antes iba una "o" suelta entre dos tarjetas, que
+   ademas de fea no explicaba que la eleccion es entre esas dos y solo esas. */
+.censo-carril__segmento {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--censo-border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--sombra-suave);
+  overflow: hidden;
+}
+
+/* Dentro del segmento las dos mitades pierden marco propio: el marco es el del
+   segmento, y eso es lo que dice que son alternativas de un mismo control. */
+.censo-carril__segmento > .censo-programa,
+.censo-carril__segmento > form > .censo-programa {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.censo-carril__segmento > form {
+  display: flex;
+}
+
+/* Ancho suficiente para que "Terapia ambulatoria" quepa en una linea: en un
+   control de opciones, un rotulo partido se lee como mas opciones de las que hay. */
+.censo-carril__segmento .censo-programa {
+  min-width: 13.5rem;
+}
+
+.censo-carril__segmento > * + *,
+.censo-carril__segmento > form + form {
+  border-inline-start: 1px solid var(--censo-border);
+}
+
+/* Con tres opciones el segmento ya no cabe de lado a lado en pantallas medianas.
+   Se apila, pero sigue siendo UN marco partido: la linea divisoria solo cambia de
+   orientacion, que es lo que dice que son alternativas del mismo control. */
+@media (max-width: 61.99em) {
+  .censo-carril__segmento {
+    flex-direction: column;
+  }
+
+  .censo-carril__segmento .censo-programa {
+    min-width: 0;
+  }
+
+  .censo-carril__segmento > * + *,
+  .censo-carril__segmento > form + form {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--censo-border);
+  }
+}
+
+/* Cuando los dos grupos ya se apilan, ocupan el mismo ancho: si no, el marco del
+   base queda mas angosto que las tarjetas de al lado y parece otro componente. */
+@media (max-width: 47.99em) {
+  .censo-carril__grupo {
+    flex: 1 1 100%;
+  }
+}
+
+.censo-carril__adicionales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: stretch;
+}
+
+.censo-programa {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 0.1rem 0.65rem;
+  align-items: center;
+  min-width: 12.5rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--censo-border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--sombra-suave);
+  color: var(--censo-ink);
+  text-align: left;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.censo-programa__punto {
+  grid-row: 1 / span 2;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--prog, var(--censo-accent));
+}
+
+.censo-programa__nombre {
+  grid-column: 2;
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.censo-programa__estado {
+  grid-column: 2;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--censo-ink-soft);
+}
+
+/* La marca de verificacion y el "+" ocupan la misma casilla: el estado del
+   programa se reconoce por la forma antes de leer la palabra. */
+.censo-programa__check,
+.censo-programa__mas {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.censo-programa__check {
+  stroke: var(--prog, var(--censo-accent, #e04524));
+}
+
+.censo-programa__mas {
+  stroke: var(--censo-ink-soft, #697386);
+  transition: stroke 0.16s ease;
+}
+
+.censo-programa--agregado {
+  border-color: var(--prog, var(--censo-accent));
+  background: var(--prog-soft, var(--censo-accent-soft));
+}
+
+.censo-programa--agregado .censo-programa__estado {
+  color: var(--prog, var(--censo-accent));
+}
+
+button.censo-programa--agregable:hover,
+button.censo-programa--agregable:focus-visible {
+  transform: translateY(-1px);
+  border-color: var(--prog, var(--censo-accent));
+  background: var(--prog-soft, var(--censo-accent-soft));
+  box-shadow: var(--sombra-alzada);
+}
+
+button.censo-programa--agregable:hover .censo-programa__mas,
+button.censo-programa--agregable:focus-visible .censo-programa__mas {
+  stroke: var(--prog, var(--censo-accent));
+}
+
+/* Dentro del segmento las tarjetas no se levantan: son dos mitades de un mismo
+   control, y moverlas por separado rompe la lectura de "elige una de las dos". */
+.censo-carril__segmento button.censo-programa--agregable:hover,
+.censo-carril__segmento button.censo-programa--agregable:focus-visible {
+  transform: none;
+  box-shadow: none;
+}
+
+.censo-programa:disabled,
+.censo-programa--bloqueado {
+  background: var(--censo-surface-muted, #fafafa);
+  color: var(--censo-ink-soft);
+  cursor: not-allowed;
+}
+
+.censo-programa--bloqueado .censo-programa__punto {
+  background: var(--censo-border-strong);
+}
+
+.censo-programa--bloqueado .censo-programa__nombre {
+  font-weight: 700;
+  color: var(--censo-ink-soft);
+}
+
+.censo-programa__accion {
+  position: absolute;
+  inset-block-start: 0.3rem;
+  inset-inline-end: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--censo-ink-soft);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.censo-programa__accion:hover,
+.censo-programa__accion:focus-visible {
+  background: #fff;
+  color: var(--prog, var(--censo-accent));
+}
+
+.censo-carril__aviso {
+  margin: 0.9rem 0 0;
+  padding: 0.65rem 0.85rem;
+  border-inline-start: 3px solid var(--censo-accent);
+  border-radius: 0 12px 12px 0;
+  background: var(--censo-accent-soft);
+  font-size: 0.85rem;
+  color: var(--censo-ink);
+}
+
+/* --------------------------------------------------------------------------
+   Navegador lateral agrupado
+
+   Un grupo por programa, con su matiz en el borde interior. Reutiliza
+   .censo-nav__item para que los items se vean identicos a los de siempre.
+   -------------------------------------------------------------------------- */
+.censo-nav-grupo + .censo-nav-grupo {
+  margin-top: 1rem;
+}
+
+/* Cada programa se pliega. Con cinco programas abiertos el navegador pedia
+   quince secciones a la vez; plegado se ve la estructura y se abre lo que se
+   va a usar. El grupo de la seccion activa arranca abierto: si no, entrar a una
+   seccion te dejaba sin saber donde estabas. */
+/* En pantallas medias censo.css convierte el navegador en una rejilla de dos
+   columnas. Eso tenia sentido cuando cada grupo mostraba todas sus secciones;
+   con los grupos plegados quedaban dos cabeceras sueltas una al lado de otra.
+   Cada programa ocupa su propia fila: el navegador se lee como una lista. */
+.censo-nav--top .censo-nav-grupo {
+  grid-column: 1 / -1;
+}
+
+.censo-nav-grupo__cabecera {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--prog, var(--censo-ink-soft));
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+
+.censo-nav-grupo__cabecera:hover {
+  background: var(--prog-soft, var(--rojo-tenue));
+}
+
+.censo-nav-grupo__punto {
+  flex: 0 0 auto;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--prog, var(--censo-ink-soft));
+}
+
+.censo-nav-grupo__titulo {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: start;
+}
+
+.censo-nav-grupo__chevron {
+  flex: 0 0 auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.18s ease;
+}
+
+.censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__chevron {
+  transform: rotate(90deg);
+}
+
+/* Se pliega SIN display:none a proposito: los items siguen generando caja, asi
+   que el contador de secciones (01, 02, 03...) no se descuadra al cerrar un
+   grupo. Lo que se anima es la aparicion del contenido, no la altura: animar
+   altura obliga a medir en JavaScript y a depender de que termine la
+   transicion, y cuando eso falla el grupo queda abierto pero vacio. Aqui la
+   altura conmuta y no hay nada que se pueda quedar a medias. */
+.censo-nav-grupo__secciones {
+  overflow: hidden;
+}
+
+.censo-nav-grupo[data-abierto="false"] .censo-nav-grupo__secciones {
+  height: 0;
+}
+
+.censo-nav-grupo__pista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-block-end: 2px;
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+/* Ademas de invisible, fuera del alcance del teclado: sin esto el tabulador
+   entra en secciones que no se ven. */
+/* La visibilidad se apaga de inmediato, sin retardo de transicion: si la
+   transicion no llega a correr, el contenido quedaria alcanzable con el
+   tabulador dentro de un grupo cerrado. Visualmente no se nota, porque la
+   altura cero ya lo recorta. */
+.censo-nav-grupo[data-abierto="false"] .censo-nav-grupo__pista {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: none;
+}
+
+.censo-nav-grupo .censo-nav__item {
+  border-inline-start: 3px solid var(--prog, transparent) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Insignias y filtros del tabulado unificado
+   -------------------------------------------------------------------------- */
+.censo-insignia {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--prog, var(--censo-border));
+  border-radius: 999px;
+  background: var(--prog-soft, var(--censo-accent-soft));
+  color: var(--prog, var(--censo-accent-strong));
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.censo-filtro-programas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.9rem;
+}
+
+.censo-filtro-programas__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--censo-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--censo-ink-soft);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.censo-filtro-programas__chip:hover,
+.censo-filtro-programas__chip:focus-visible {
+  border-color: var(--prog, var(--censo-accent));
+  color: var(--prog, var(--censo-accent));
+}
+
+.censo-filtro-programas__chip.active {
+  border-color: var(--prog, var(--censo-accent));
+  background: var(--prog-soft, var(--censo-accent-soft));
+  color: var(--prog, var(--censo-accent-strong));
+}
+
+.censo-filtro-programas__conteo {
+  padding-inline: 0.4rem;
+  border-radius: 999px;
+  background: var(--prog-soft, var(--censo-accent-soft));
+  font-size: 0.72rem;
+}
+
+.censo-filtro-programas__chip.active .censo-filtro-programas__conteo {
+  background: #fff;
+}
+
+@media (max-width: 992px) {
+  .censo-identidad {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .censo-programa {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .censo-programa,
+  .censo-filtro-programas__chip {
+    transition: none;
+  }
+
+  button.censo-programa:hover:not(:disabled),
+  button.censo-programa:focus-visible:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* El formulario que envuelve la tarjeta no debe romper la rejilla del carril. */
+.d-contents {
+  display: contents;
+}
+
+/* --------------------------------------------------------------------------
+   Correcciones de encuadre sobre censo.css
+   -------------------------------------------------------------------------- */
+
+/* Los items del navegador agrupado no llevan icono, asi que no deben reservar
+   la columna de 2rem que si usa el navegador original: sin esto el titulo se
+   parte en tres lineas. */
+.censo-nav-grupo .censo-nav__item {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 2.9rem;
+  padding-block: 0.5rem;
+}
+
+/* Sin numeros de seccion: convivian con el conteo del grupo y se confundian
+   entre si. El orden ya lo dice la posicion en la lista. */
+/* El elemento activo venia forzado a azul por el refresco visual de censo.css.
+   En la pantalla unificada dice mas si toma el matiz de su propio programa: te
+   dice donde estas y a que programa pertenece, sin meter un color que no
+   significa nada. En el grupo del paciente cae al rojo del sistema. */
+.censo-nav-grupo .censo-nav__item.active {
+  color: var(--prog, var(--rojo)) !important;
+}
+
+.censo-nav-grupo .censo-nav__item.active::before {
+  background: var(--prog, var(--rojo)) !important;
+}
+
+.censo-nav-grupo .censo-nav__item::after {
+  content: none;
+}
+
+.censo-nav-grupo .censo-nav__title {
+  overflow-wrap: anywhere;
+}
+
+/* La franja de informes y filtros del tabulado se envuelve en vez de salirse
+   del margen derecho de la pagina. */
+.censo-unificado .censo-history-shell__header {
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.censo-unificado .censo-history-shell__meta {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  max-width: 100%;
+}
+
+.censo-unificado .censo-history-export-card {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.censo-unificado .censo-history-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* La barra de identidad respira igual que las tarjetas del carril. */
+.censo-identidad__buscador .btn {
+  white-space: nowrap;
+}
+
+/* Los formularios de programa viven dentro de la pagina unificada: no repiten
+   el marco ni el ancho de la pantalla suelta que tenian antes. */
+.censo-programa-panes .censo-form-shell {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.censo-programa-panes > div + div {
+  margin-top: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Barra de acciones de los programas
+
+   Cada formulario de programa trae su propia barra (guardar, kardex, cancelar).
+   Dentro de la pantalla unica queda pegada arriba de la seccion activa, para
+   que se lea como la barra de esa seccion y no como un bloque suelto.
+   -------------------------------------------------------------------------- */
+.censo-programa-panes .censo-form-toolbar,
+.censo-programa-panes .censo-sticky-actions,
+.censo-programa-panes .censo-actions-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 0.85rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--censo-border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.censo-programa-panes .btn {
+  white-space: nowrap;
+}
+
+/* Las tarjetas de seccion ya viven dentro del marco de la pagina: no repiten
+   sombra ni margen exterior. */
+.censo-programa-panes .card {
+  margin-bottom: 0;
+  border: 1px solid var(--censo-border);
+  border-radius: 20px;
+}
+
+.censo-programa-panes .tab-pane > .card + .card {
+  margin-top: 1rem;
+}
+
+/* --------------------------------------------------------------------------
+   Informes que quedan en el censo
+
+   El tabulado se consulta en Reportes; en la pantalla del paciente solo quedan
+   los dos exportables que se descargan desde aqui.
+   -------------------------------------------------------------------------- */
+.censo-informes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--censo-border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.censo-informes__enlace {
+  margin-inline-start: auto;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--censo-accent-strong);
+  text-decoration: none;
+}
+
+.censo-informes__enlace:hover,
+.censo-informes__enlace:focus-visible {
+  text-decoration: underline;
+}
+
+/* El tabulado dentro de reportes conserva el ancho de esa pagina. */
+.reportes-tabulado {
+  margin-top: 1.5rem;
+}
+
+.reportes-tabulado .censo-history-shell {
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .censo-informes__enlace {
+    margin-inline-start: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Piso de calidad
+   -------------------------------------------------------------------------- */
+
+/* Un anillo de foco visible y consistente en todos los controles del censo:
+   sin esto, quien navega con teclado no sabe donde esta parado. */
+.censo-unificado :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--rojo);
+  outline-offset: 2px;
+}
+
+/* Las cifras que se comparan en columna (documento, edad, numero de seccion)
+   con ancho fijo, para que no bailen entre filas. */
+.censo-identidad__valor {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .censo-unificado *,
+  .censo-unificado *::before,
+  .censo-unificado *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .censo-identidad__buscador {
+    flex-wrap: wrap;
+  }
+
+  .censo-buscador__campo {
+    flex: 1 1 100%;
+  }
+
+  .censo-boton {
+    flex: 1 1 auto;
+  }
+
+  .censo-carril__segmento {
+    flex-direction: column;
+  }
+
+  .censo-carril__segmento > * + *,
+  .censo-carril__segmento > form + form {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--censo-border);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Campos que aparecen al responder "Si"
+   -------------------------------------------------------------------------- */
+
+/* Los campos que revela un Si/No van envueltos en un contenedor para poder
+   mostrarlos y ocultarlos de una vez. Ese contenedor era un hijo suelto de la
+   fila, asi que ocupaba una sola columna y los col-lg-* de adentro no contaban:
+   los campos se apilaban hacia abajo, estrechos. Con display: contents el
+   envoltorio deja de generar caja y sus campos entran en la misma rejilla que
+   el resto de la seccion, continuando hacia la derecha.
+
+   Ocultarlo sigue funcionando: .d-none aplica display: none !important, que
+   gana sobre esto. */
+.censo-unificado .censo-inline-toggle {
+  display: contents;
+}
+
+/* Bootstrap le da a los hijos DIRECTOS de .row un ancho base del 100% (por eso
+   un col-lg-3 se apila a pantalla estrecha y se reparte a partir de lg). Con el
+   envoltorio en medio esa regla ya no alcanza a estos campos, asi que se les
+   repone: sin ella se apretaban todos en una sola linea en movil. */
+.censo-unificado .censo-mipres-grid > .censo-inline-toggle > * {
+  flex-shrink: 0;
+  padding-right: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
+  padding-left: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
+  margin-top: var(--bs-gutter-y, 0);
+}
+
+/* El ancho completo solo por debajo de lg: a partir de ahi mandan los col-lg-*
+   de cada campo. Va en una consulta de medios porque este selector tiene mas
+   especificidad que .col-lg-3 y si no, ganaria tambien en pantalla ancha. */
+@media (max-width: 991.98px) {
+  .censo-unificado .censo-mipres-grid > .censo-inline-toggle > * {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* En esta fila conviven etiquetas de una y de dos lineas ("Tiempo de prescripcion
+   (en meses)"). Sin esto, la etiqueta larga empuja su propio campo hacia abajo y
+   los controles quedan a distinta altura. Alineando el contenido al pie de cada
+   columna, todos los campos comparten linea. */
+/* Ojo: display: contents quita la caja del envoltorio, pero NO lo saca del arbol,
+   asi que sus columnas siguen siendo hijas suyas y hay que nombrarlas aparte. */
+.censo-unificado .censo-mipres-grid > [class*="col-"],
+.censo-unificado .censo-mipres-grid > .censo-inline-toggle > [class*="col-"] {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+

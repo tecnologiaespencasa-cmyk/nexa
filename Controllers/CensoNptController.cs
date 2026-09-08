@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Nexa.Data.Entities;
@@ -75,40 +75,14 @@ public partial class CensoController
         long? recordId,
         CancellationToken cancellationToken)
     {
-        var model = BuildDefaultNptModel();
-        model.CedulaFiltro = NormalizeCedulaFilter(cedulaPaciente);
-
-        if (recordId.HasValue)
+        // La pantalla suelta de este censo se retiro: todo se administra desde la
+        // pantalla unica. La ruta se conserva para que los enlaces antiguos sigan llegando.
+        await Task.CompletedTask;
+        return RedirectToAction(nameof(Index), new
         {
-            var record = await _context.CensoNpt
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == recordId.Value, cancellationToken);
-            if (record is not null)
-            {
-                ApplyNptRecordToModel(model, record);
-                model.CedulaFiltro = string.IsNullOrWhiteSpace(model.CedulaFiltro)
-                    ? record.NumeroIdentificacion
-                    : model.CedulaFiltro;
-            }
-        }
-        else if (!string.IsNullOrWhiteSpace(model.CedulaFiltro))
-        {
-            var record = await _context.CensoNpt
-                .AsNoTracking()
-                .Where(x => x.NumeroIdentificacion == model.CedulaFiltro)
-                .OrderByDescending(x => x.CreatedAtUtc)
-                .ThenByDescending(x => x.Id)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (record is not null)
-            {
-                ApplyNptRecordToModel(model, record);
-                model.CedulaFiltro = record.NumeroIdentificacion;
-            }
-        }
-
-        await PopulateNptDropdownsAsync(model, cancellationToken);
-        return View("Npt", model);
+            cedulaPaciente,
+            programa = CensoProgramas.Npt
+        });
     }
 
     [HttpPost]
@@ -137,7 +111,8 @@ public partial class CensoController
         if (!ModelState.IsValid)
         {
             await PopulateNptLatestRecordsAsync(model, cancellationToken);
-            return View("Npt", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.Npt, model, model.CedulaFiltro, cancellationToken);
         }
 
         CensoNptRecord record;
@@ -172,7 +147,7 @@ public partial class CensoController
         TempData["SuccessMessage"] = model.EditingRecordId.HasValue
             ? "Registro de NPT actualizado correctamente."
             : "Registro de NPT guardado correctamente.";
-        return RedirectToAction(nameof(Npt), new { cedulaPaciente = record.NumeroIdentificacion });
+        return RedirectToAction(nameof(Index), new { cedulaPaciente = record.NumeroIdentificacion, programa = CensoProgramas.Npt });
     }
 
     [HttpPost]
@@ -468,7 +443,8 @@ public partial class CensoController
 
         if (!ModelState.IsValid)
         {
-            return View("Npt", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.Npt, model, model.CedulaFiltro, cancellationToken);
         }
 
         var nptRecord = record!;
@@ -484,7 +460,7 @@ public partial class CensoController
             auditUserId, auditIp, cancellationToken);
 
         TempData["SuccessMessage"] = successMessage;
-        return RedirectToAction(nameof(Npt), new { recordId = nptRecord.Id, cedulaPaciente = nptRecord.NumeroIdentificacion });
+        return RedirectToAction(nameof(Index), new { cedulaPaciente = nptRecord.NumeroIdentificacion, programa = CensoProgramas.Npt });
     }
 
     private void ValidateNptSiNoOptional(string? value, string fieldName, string displayName)

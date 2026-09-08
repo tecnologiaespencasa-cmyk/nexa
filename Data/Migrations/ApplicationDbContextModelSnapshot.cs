@@ -607,6 +607,9 @@ namespace Nexa.Data.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
+                    b.Property<long?>("CensoPacienteId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("ClasificacionZonaSura")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
@@ -829,6 +832,8 @@ namespace Nexa.Data.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CensoPacienteId");
 
                     b.HasIndex("CreatedAtUtc");
 
@@ -1080,6 +1085,9 @@ namespace Nexa.Data.Migrations
                     b.Property<string>("CateterPicc")
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
+
+                    b.Property<long?>("CensoPacienteId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("ClasificacionCaso")
                         .HasMaxLength(20)
@@ -1348,6 +1356,8 @@ namespace Nexa.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CensoPacienteId");
+
                     b.HasIndex("CreatedAtUtc");
 
                     b.HasIndex("FechaIngreso");
@@ -1461,6 +1471,9 @@ namespace Nexa.Data.Migrations
                     b.Property<string>("CargueServiciosComplementarios")
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
+
+                    b.Property<long?>("CensoPacienteId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("ClasificacionZonaSura")
                         .HasMaxLength(30)
@@ -1683,6 +1696,8 @@ namespace Nexa.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CensoPacienteId");
+
                     b.HasIndex("CreatedAtUtc");
 
                     b.HasIndex("FechaIngresoPrograma");
@@ -1690,6 +1705,206 @@ namespace Nexa.Data.Migrations
                     b.HasIndex("NumeroIdentificacion");
 
                     b.ToTable("censo_npt", (string)null);
+                });
+
+            modelBuilder.Entity("Nexa.Data.Entities.CensoPaciente", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ActualizadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Area")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Asegurador")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<bool>("AsumirDireccionErrada")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Barrio")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ClasificacionZonaSura")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("CodigoCie10")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
+                    b.Property<string>("CorreoElectronico")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DetalleDireccion")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("DiagnosticoDescriptivo")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Direccion")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<bool>("DireccionValidada")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Edad")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("FechaIngreso")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("FechaNacimiento")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaRespuesta")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Genero")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<TimeSpan>("HoraIngreso")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeSpan?>("HoraRespuesta")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<int?>("IndicadorTiempoRespuestaMinutos")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("IpsQueRemite")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("MunicipioResidencia")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("NombrePaciente")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NombreRealizaKardex")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("NombreRecepcionaCaso")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("NumeroIdentificacion")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Telefono1")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Telefono2")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Telefono3")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("TipoIdentificacion")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VistoBuenoRangoFueraAnexo")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("ZonaDireccionSegunMunicipio")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FechaIngreso");
+
+                    b.HasIndex("NombrePaciente");
+
+                    b.HasIndex("NumeroIdentificacion")
+                        .IsUnique();
+
+                    b.ToTable("censo_paciente", (string)null);
+                });
+
+            modelBuilder.Entity("Nexa.Data.Entities.CensoPacientePrograma", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("AgregadoAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AgregadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<long>("CensoPacienteId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("CerradoAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CerradoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("MotivoCierre")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Programa")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<long?>("RegistroId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CensoPacienteId", "Programa")
+                        .HasDatabaseName("IX_censo_paciente_programa_abierto")
+                        .HasFilter("\"CerradoAtUtc\" IS NULL");
+
+                    b.HasIndex("Programa", "RegistroId");
+
+                    b.ToTable("censo_paciente_programa", (string)null);
                 });
 
             modelBuilder.Entity("Nexa.Data.Entities.CensoProrroga", b =>
@@ -1813,6 +2028,9 @@ namespace Nexa.Data.Migrations
                     b.Property<string>("CateterismoOSv")
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
+
+                    b.Property<long?>("CensoPacienteId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("ClasificacionRiesgo")
                         .IsRequired()
@@ -2446,6 +2664,8 @@ namespace Nexa.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CensoPacienteId");
+
                     b.HasIndex("CreatedAtUtc");
 
                     b.HasIndex("FarmaciaEnviadoAtUtc");
@@ -2537,6 +2757,9 @@ namespace Nexa.Data.Migrations
 
                     b.Property<int>("Cantidad")
                         .HasColumnType("integer");
+
+                    b.Property<long?>("CensoPacienteId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("ClasificacionZonaSura")
                         .HasMaxLength(30)
@@ -2716,6 +2939,8 @@ namespace Nexa.Data.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CensoPacienteId");
 
                     b.HasIndex("CreatedAtUtc");
 
@@ -3719,6 +3944,17 @@ namespace Nexa.Data.Migrations
                     b.Navigation("CensoRecord");
                 });
 
+            modelBuilder.Entity("Nexa.Data.Entities.CensoPacientePrograma", b =>
+                {
+                    b.HasOne("Nexa.Data.Entities.CensoPaciente", "CensoPaciente")
+                        .WithMany("Programas")
+                        .HasForeignKey("CensoPacienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CensoPaciente");
+                });
+
             modelBuilder.Entity("Nexa.Data.Entities.CensoProrroga", b =>
                 {
                     b.HasOne("Nexa.Data.Entities.CensoRecord", "CensoRecord")
@@ -3856,6 +4092,11 @@ namespace Nexa.Data.Migrations
                     b.Navigation("Agudizaciones");
 
                     b.Navigation("Hospitalizaciones");
+                });
+
+            modelBuilder.Entity("Nexa.Data.Entities.CensoPaciente", b =>
+                {
+                    b.Navigation("Programas");
                 });
 
             modelBuilder.Entity("Nexa.Data.Entities.CensoRecord", b =>

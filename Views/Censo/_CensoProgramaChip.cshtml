@@ -1,0 +1,69 @@
+﻿@model CensoProgramaChipViewModel
+@{
+    // Una tarjeta del carril de programas. Cuando el programa ya está agregado la tarjeta es un
+    // enlace a sus secciones; cuando no lo está es el botón que lo agrega.
+    var pacienteId = ViewData["PacienteId"] as long?;
+    var cedula = ViewData["CedulaFiltro"] as string;
+    var estado = Model.Agregado
+        ? "Activo"
+        : Model.SePuedeAgregar
+            ? "Agregar"
+            : Model.MotivoBloqueo ?? "No disponible";
+}
+
+@if (Model.Agregado)
+{
+    <div class="censo-programa censo-programa--agregado" data-programa="@Model.Programa">
+        <span class="censo-programa__punto" aria-hidden="true"></span>
+        <span class="censo-programa__nombre">@Model.Nombre</span>
+        <svg class="censo-programa__check" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m20 6-11 11-5-5"></path>
+        </svg>
+        <span class="censo-programa__estado">
+            @estado
+            @if (Model.EpisodiosCerrados > 0)
+            {
+                <text> &middot; @Model.EpisodiosCerrados cerrado@(Model.EpisodiosCerrados == 1 ? string.Empty : "s")</text>
+            }
+        </span>
+        @if (!Model.RegistroId.HasValue && Model.EpisodioId.HasValue)
+        {
+            @* Solo se puede quitar mientras no tenga información guardada. *@
+            <form asp-action="QuitarPrograma" method="post" class="d-inline">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="episodioId" value="@Model.EpisodioId" />
+                <input type="hidden" name="cedulaPaciente" value="@cedula" />
+                <button type="submit" class="censo-programa__accion"
+                        title="Quitar @Model.Nombre del paciente"
+                        aria-label="Quitar @Model.Nombre del paciente">&times;</button>
+            </form>
+        }
+    </div>
+}
+else if (Model.SePuedeAgregar && pacienteId.HasValue)
+{
+    <form asp-action="AgregarPrograma" method="post" class="d-contents" data-censo-agregar-programa="@Model.Nombre"
+          data-censo-agregar-aviso="@Model.AvisoAlAgregar">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="pacienteId" value="@pacienteId" />
+        <input type="hidden" name="programa" value="@Model.Programa" />
+        <button type="submit" class="censo-programa censo-programa--agregable" data-programa="@Model.Programa">
+            <span class="censo-programa__punto" aria-hidden="true"></span>
+            <span class="censo-programa__nombre">@Model.Nombre</span>
+            <span class="censo-programa__estado">@estado</span>
+            <svg class="censo-programa__mas" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14"></path>
+                <path d="M5 12h14"></path>
+            </svg>
+        </button>
+    </form>
+}
+else
+{
+    <div class="censo-programa censo-programa--bloqueado" data-programa="@Model.Programa"
+         title="@Model.MotivoBloqueo">
+        <span class="censo-programa__punto" aria-hidden="true"></span>
+        <span class="censo-programa__nombre">@Model.Nombre</span>
+        <span class="censo-programa__estado">@estado</span>
+    </div>
+}

@@ -1,0 +1,195 @@
+@model CensoClinicaHeridasViewModel
+@*
+    Modales de este programa (kardex, requisicion, confirmaciones).
+
+    Se renderizan fuera de .censo-page a proposito: esa capa declara isolation: isolate, que
+    crea su propio contexto de apilamiento. Un modal declarado dentro queda atrapado en el,
+    mientras Bootstrap cuelga el fondo oscuro del body, y el fondo termina tapando al modal:
+    la pantalla se ve negra y no se puede interactuar ni cerrar.
+*@
+@*
+    Formulario del programa dentro de la pantalla unica de censo.
+
+    Es el mismo marcado que tenia la pantalla independiente y envia a la misma accion, para
+    que kardex, requisiciones, farmacia y prorrogas sigan funcionando igual. Los cambios son
+    dos: los identificadores de panel llevan el prefijo del programa, porque los cinco
+    conviven ahora en un mismo documento, y los campos que subieron al maestro de paciente
+    viajan ocultos, para que la validacion de este censo siga recibiendo el modelo completo.
+*@
+@using System.Globalization
+@using Nexa.Data.Entities
+
+
+@{
+    ViewData["Title"] = "Clinica de heridas";
+    var successMessage = TempData["SuccessMessage"] as string;
+    var errorMessage = TempData["ErrorMessage"] as string;
+    var hasAuxiliares = Model.AuxiliarEnfermeriaOptions.Any();
+    var showCurrentPatientBar = Model.EditingRecordId.HasValue
+        && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
+    var vacActivo = string.Equals(Model.Vac, "Si", StringComparison.OrdinalIgnoreCase);
+    var historial = Model.Historial;
+    var mostrarApositos = string.Equals(Model.Vac, "Si", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(Model.ManejoHerida, "Si", StringComparison.OrdinalIgnoreCase);
+}
+
+@functions {
+    private static Microsoft.AspNetCore.Html.IHtmlContent RequiredMark() =>
+        new Microsoft.AspNetCore.Html.HtmlString("<span class=\"text-danger ms-1\" aria-hidden=\"true\">*</span><span class=\"visually-hidden\">obligatorio</span>");
+
+    // Las medidas llegan como double: se muestran sin decimales cuando son enteras (2 cm, no 2,0 cm).
+    private static string FormatCm(double value) =>
+        value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string Valor(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value;
+}
+
+<div class="modal fade herida-dialogo" id="heridaDialogo" tabindex="-1" aria-labelledby="heridaDialogoTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body">
+                <div class="herida-dialogo__icono" id="heridaDialogoIcono" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M12 9v4"></path>
+                        <path d="M12 17h.01"></path>
+                        <path d="M10.3 3.9 2.4 17.6A2 2 0 0 0 4.1 20.6h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path>
+                    </svg>
+                </div>
+                <h2 class="herida-dialogo__titulo" id="heridaDialogoTitulo"></h2>
+                <p class="herida-dialogo__mensaje" id="heridaDialogoMensaje"></p>
+                <ul class="herida-dialogo__detalles d-none" id="heridaDialogoDetalles"></ul>
+            </div>
+            <div class="modal-footer herida-dialogo__acciones">
+                <button type="button" class="btn btn-outline-secondary" id="heridaDialogoCancelar" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="heridaDialogoConfirmar"></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade herida-kardex-modal" id="heridaKardexModal" tabindex="-1" aria-labelledby="heridaKardexModalTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                    <h5 class="modal-title" id="heridaKardexModalTitulo">Requisición de insumos</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning d-none" id="kardexCerradoBanner" role="alert">
+                    <strong>Kardex cerrado.</strong> Farmacia ya aprobó esta requisición: queda solo para consulta.
+                </div>
+                <div class="alert alert-danger d-none" id="kardexErrorBanner" role="alert"></div>
+
+                <div class="herida-kardex-sheet" id="kardexSheet" aria-label="Requisición de insumos y dispositivos médicos">
+                    <div class="herida-kardex-sheet__head">
+                        <div class="herida-kardex-sheet__logo">
+                            <img src="~/images/logo.png" asp-append-version="true" alt="Especialistas En Casa" />
+                        </div>
+                        <div class="herida-kardex-sheet__title" id="kardexTitulo"></div>
+                        <div class="herida-kardex-sheet__meta">
+                            <label>Código:<input data-kardex-field="codigoFormato" /></label>
+                            <label>Versión:<input data-kardex-field="versionFormato" /></label>
+                            <label>Página:<input data-kardex-field="paginaFormato" /></label>
+                            <label>Fecha:<input data-kardex-field="fechaFormato" /></label>
+                        </div>
+                    </div>
+
+                    <div class="herida-kardex-sheet__subtitle" id="kardexSubtitulo"></div>
+
+                    <div class="herida-kardex-section-title">Datos del paciente</div>
+                    <div class="herida-kardex-patient">
+                        <label>Paciente:</label>
+                        <input data-kardex-field="paciente" />
+                        <label>Documento:</label>
+                        <input data-kardex-field="documento" />
+
+                        <label>Asegurador:</label>
+                        <input data-kardex-field="asegurador" />
+                        <label>Edad:</label>
+                        <input data-kardex-field="edad" />
+
+                        <label>Dirección:</label>
+                        <input data-kardex-field="direccion" />
+                        <label>Teléfonos:</label>
+                        <input data-kardex-field="telefonos" />
+
+                        <label>CIE10:</label>
+                        <input data-kardex-field="codigoCie10" />
+                        <label>Diagnóstico:</label>
+                        <input data-kardex-field="diagnostico" />
+                    </div>
+
+                    <div class="herida-kardex-section-title">Tratamiento</div>
+                    <div class="herida-kardex-patient">
+                        <label>Duración (días):</label>
+                        <input data-kardex-field="duracionDias" inputmode="numeric" />
+                        <label>Frecuencia:</label>
+                        <input data-kardex-field="frecuencia" />
+
+                        <label>Aplicaciones:</label>
+                        <input data-kardex-field="aplicaciones" inputmode="numeric" readonly />
+                        <label>Fecha de solicitud:</label>
+                        <input data-kardex-field="fechaSolicitud" type="date" />
+
+                        <label>Auxiliar asignado:</label>
+                        <input data-kardex-field="auxiliarAsignado" />
+                        <label>Elaborado por:</label>
+                        <input data-kardex-field="elaboradoPor" />
+                    </div>
+
+                    <div class="herida-kardex-section-title herida-kardex-section-title--center">Detalle de la requisición</div>
+                    <div class="herida-kardex-table-scroll">
+                        <table class="herida-kardex-table" id="kardexTabla">
+                            <thead>
+                                <tr id="kardexTablaCabecera"></tr>
+                            </thead>
+                            <tbody id="kardexTablaCuerpo"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-link herida-kardex__agregar-insumo" id="kardexAgregarInsumo">
+                        + Agregar insumo
+                    </button>
+
+                    <div class="herida-kardex-section-title">Observaciones</div>
+                    <textarea class="herida-kardex-observaciones" data-kardex-field="observaciones" rows="2"></textarea>
+                </div>
+
+                <div class="herida-kardex-adjuntos">
+                    <div class="herida-kardex-adjuntos__head">
+                        <strong>Adjuntos</strong>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="kardexSubirAdjuntoBtn">Subir archivo</button>
+                        <input type="file" id="kardexAdjuntoInput" class="d-none"
+                               accept=".pdf,.xls,.xlsx,.xlsm,.csv,.jpg,.jpeg,.png" aria-label="Seleccionar adjunto" />
+                        <span class="small text-muted" id="kardexAdjuntoEstado"></span>
+                    </div>
+                    <ul class="herida-kardex-adjuntos__list" id="kardexAdjuntosLista"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="me-auto small text-muted" id="kardexEstadoNota"></span>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-outline-success" id="kardexGuardarBtn">Guardar</button>
+                <button type="button" class="btn btn-primary" id="kardexEnviarBtn">Enviar a farmacia</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade herida-visor" id="heridaFotoVisor" tabindex="-1" aria-hidden="true" aria-labelledby="heridaFotoVisorTitulo">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title h6 mb-0" id="heridaFotoVisorTitulo" data-herida-visor-titulo>Foto de la herida</h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <img data-herida-visor-imagen alt="Foto de la herida" />
+            </div>
+        </div>
+    </div>
+</div>
+

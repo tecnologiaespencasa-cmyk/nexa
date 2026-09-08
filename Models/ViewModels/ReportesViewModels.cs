@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace Nexa.Models.ViewModels;
@@ -10,6 +10,12 @@ public class ReportesDashboardViewModel
     public ReportesFilterViewModel Filters { get; init; } = new();
 
     public ReportesFilterOptionsViewModel FilterOptions { get; init; } = new();
+
+    /// <summary>
+    /// Tabulado unificado del censo. Vive al final de esta pantalla: es consulta de historial, no
+    /// parte de la captura del paciente.
+    /// </summary>
+    public CensoUnificadoViewModel TabuladoCenso { get; init; } = new();
 
     public int TotalRegistrosCenso { get; init; }
 

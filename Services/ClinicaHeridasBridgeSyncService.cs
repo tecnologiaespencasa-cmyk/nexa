@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -135,6 +135,7 @@ public class ClinicaHeridasBridgeSyncService : IClinicaHeridasBridgeSyncService
                 summary.PatientsProcessed += result.Value.Processed;
                 summary.Inserted += result.Value.Inserted;
                 summary.Updated += result.Value.Updated;
+                summary.AdmissionsSynced += result.Value.Admissions;
             }
             else
             {
@@ -147,8 +148,9 @@ public class ClinicaHeridasBridgeSyncService : IClinicaHeridasBridgeSyncService
         summary.DurationMs = stopwatch.ElapsedMilliseconds;
 
         _logger.LogInformation(
-            "Sincronizacion puente clinica de heridas finalizada. Enviados: {Sent}. Procesados: {Processed}. Lotes ok: {BatchesOk}. Lotes con error: {BatchesFailed}. Duracion: {DurationMs} ms.",
-            summary.PatientsSent, summary.PatientsProcessed, summary.BatchesSent, summary.BatchesFailed, summary.DurationMs);
+            "Sincronizacion puente clinica de heridas finalizada. Enviados: {Sent}. Procesados: {Processed}. Ingresos: {Admissions}. Lotes ok: {BatchesOk}. Lotes con error: {BatchesFailed}. Duracion: {DurationMs} ms.",
+            summary.PatientsSent, summary.PatientsProcessed, summary.AdmissionsSynced, summary.BatchesSent,
+            summary.BatchesFailed, summary.DurationMs);
 
         return summary.BatchesFailed > 0 && summary.BatchesSent == 0
             ? ServiceResult<BridgeSyncSummary>.Failure(
@@ -211,11 +213,15 @@ public class ClinicaHeridasBridgeSyncService : IClinicaHeridasBridgeSyncService
     {
         var attempts = Math.Clamp(_options.MaxRetries, 0, 5) + 1;
 
+        // Se resuelven una sola vez para el lote: los reintentos reenvian el mismo estado.
+        var ingresos = await LoadAdmissionsAsync(batch, cancellationToken);
+
         for (var attempt = 1; attempt <= attempts; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var result = await SendBatchAsync(batch, batchNumber, totalBatches, attempt, cancellationToken);
+            var result = await SendBatchAsync(
+                batch, ingresos, batchNumber, totalBatches, attempt, cancellationToken);
             if (result.Succeeded || !result.IsTransient || attempt == attempts)
             {
                 return result.Result;
@@ -235,6 +241,7 @@ public class ClinicaHeridasBridgeSyncService : IClinicaHeridasBridgeSyncService
 
     private async Task<(bool Succeeded, bool IsTransient, ServiceResult<BridgeSyncResponsePayload> Result)> SendBatchAsync(
         IReadOnlyList<BridgePatient> batch,
+        IReadOnlyDictionary<string, List<BridgeAdmission>> ingresos,
         int batchNumber,
         int totalBatches,
         int attempt,
@@ -244,7 +251,7 @@ public class ClinicaHeridasBridgeSyncService : IClinicaHeridasBridgeSyncService
         // repetidos (anti-replay) y la escritura es idempotente por documento.
         var requestId = Guid.NewGuid().ToString();
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var rawBody = BuildRawBody(requestId, timestamp, batch);
+        var rawBody = BuildRawBody(requestId, timestamp, batch, ingresos);
         var signature = BridgeIdentityNormalizer.ComputeRequestSignature(
             _options.ApiSecret, timestamp.ToString(), requestId, rawBody);
 
@@ -312,16 +319,29 @@ public class ClinicaHeridasBridgeSyncService : IClinicaHeridasBridgeSyncService
     /// Serializa el cuerpo una sola vez: exactamente estos bytes son los que se
     /// firman y los que se envian, para que la firma coincida en el servidor.
     /// </summary>
-    private string BuildRawBody(string requestId, long timestamp, IReadOnlyList<BridgePatient> batch)
+    private string BuildRawBody(
+        string requestId,
+        long timestamp,
+        IReadOnlyList<BridgePatient> batch,
+        IReadOnlyDictionary<string, List<BridgeAdmission>> ingresosPorDocumento)
     {
         // Se envian documento y nombre reales por HTTPS: la Edge Function
         // necesita el nombre en claro para poder cifrarlo (nombre_encrypted),
         // ademas de derivar los dos HMAC. La clave de cifrado vive solo alli.
+        // Los ingresos no llevan fechas ni nada clinico: solo su numero de orden
+        // y si siguen abiertos.
         var patients = batch
             .Select(patient => new BridgeSyncRequestPatient
             {
                 Document = patient.Document,
-                Name = patient.Name
+                Name = patient.Name,
+                Admissions = ingresosPorDocumento.TryGetValue(
+                        BridgeIdentityNormalizer.NormalizeDocument(patient.Document),
+                        out var ingresos)
+                    ? ingresos
+                        .Select(x => new BridgeSyncRequestAdmission { Number = x.Number, State = x.State })
+                        .ToList()
+                    : []
             })
             .ToList();
 
@@ -333,6 +353,61 @@ public class ClinicaHeridasBridgeSyncService : IClinicaHeridasBridgeSyncService
                 Patients = patients
             },
             JsonOptions);
+    }
+
+    /// <summary>
+    /// Numera los ingresos al programa de cada paciente del lote y dice cuales siguen abiertos.
+    ///
+    /// El numero de ingreso es la posicion de la fila del censo entre las del mismo documento,
+    /// ordenadas por fecha de ingreso al programa: la primera atencion es el ingreso 1, el
+    /// reingreso posterior es el 2, y asi. Como en el censo las filas nunca se borran, esa
+    /// numeracion es estable y el portal puede usarla como identificador del ingreso.
+    ///
+    /// "Abierto" usa el mismo criterio con el que el informe de pacientes activos cuenta a un
+    /// paciente de clinica de heridas: sin fecha de egreso y en estado Activo.
+    /// </summary>
+    private async Task<Dictionary<string, List<BridgeAdmission>>> LoadAdmissionsAsync(
+        IReadOnlyList<BridgePatient> batch,
+        CancellationToken cancellationToken)
+    {
+        var documentos = batch
+            .Select(x => x.Document)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (documentos.Count == 0)
+        {
+            return [];
+        }
+
+        var filas = await _context.CensoClinicaHeridas
+            .AsNoTracking()
+            .Where(x => documentos.Contains(x.NumeroIdentificacion))
+            .Select(x => new
+            {
+                x.Id,
+                x.NumeroIdentificacion,
+                x.FechaIngresoPrograma,
+                x.FechaEgreso,
+                x.Estado
+            })
+            .ToListAsync(cancellationToken);
+
+        return filas
+            .GroupBy(x => BridgeIdentityNormalizer.NormalizeDocument(x.NumeroIdentificacion))
+            .Where(grupo => grupo.Key.Length > 0)
+            .ToDictionary(
+                grupo => grupo.Key,
+                grupo => grupo
+                    .OrderBy(x => x.FechaIngresoPrograma)
+                    .ThenBy(x => x.Id)
+                    .Select((fila, indice) => new BridgeAdmission(
+                        indice + 1,
+                        fila.FechaEgreso is null
+                            && string.Equals(fila.Estado, "Activo", StringComparison.OrdinalIgnoreCase)))
+                    .ToList(),
+                StringComparer.Ordinal);
     }
 
     private string BuildFunctionUrl() =>

@@ -1,4 +1,4 @@
-using Nexa.Services.Models;
+﻿using Nexa.Services.Models;
 
 namespace Nexa.Services.Interfaces;
 
@@ -6,7 +6,7 @@ public interface IUserAdministrationService
 {
     Task<IReadOnlyList<UserSummaryDto>> GetUsersAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<NursingAssistantDto>> GetNursingAssistantsAsync(bool onlyActive, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<OpsAssistantDto>> GetOpsAssistantsAsync(bool onlyActive, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<OpsAssistantDto>> GetOpsAssistantsAsync(bool onlyActive, IReadOnlyCollection<string>? professions = null, CancellationToken cancellationToken = default);
 
     Task<ServiceResult<UserEditDto>> GetUserForEditAsync(Guid userId, CancellationToken cancellationToken = default);
 

@@ -1,4 +1,4 @@
-using Nexa.Data.Entities;
+﻿using Nexa.Data.Entities;
 using Nexa.Data.Repositories.Interfaces;
 using Nexa.Models.Security;
 using Nexa.Services.Interfaces;
@@ -58,9 +58,10 @@ public class UserAdministrationService : IUserAdministrationService
 
     public async Task<IReadOnlyList<OpsAssistantDto>> GetOpsAssistantsAsync(
         bool onlyActive,
+        IReadOnlyCollection<string>? professions = null,
         CancellationToken cancellationToken = default)
     {
-        var opsAssistants = await _neonOpsAssistantUserRepository.GetUsersAsync(onlyActive, cancellationToken);
+        var opsAssistants = await _neonOpsAssistantUserRepository.GetUsersAsync(onlyActive, professions, cancellationToken);
         return opsAssistants
             .Select(opsAssistant => new OpsAssistantDto
             {

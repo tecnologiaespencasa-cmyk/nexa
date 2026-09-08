@@ -1,0 +1,1122 @@
+﻿@model CensoClinicaHeridasViewModel
+@*
+    Formulario del programa dentro de la pantalla unica de censo.
+
+    Es el mismo marcado que tenia la pantalla independiente y envia a la misma accion, para
+    que kardex, requisiciones, farmacia y prorrogas sigan funcionando igual. Los cambios son
+    dos: los identificadores de panel llevan el prefijo del programa, porque los cinco
+    conviven ahora en un mismo documento, y los campos que subieron al maestro de paciente
+    viajan ocultos, para que la validacion de este censo siga recibiendo el modelo completo.
+*@
+@using System.Globalization
+@using Nexa.Data.Entities
+
+
+@{
+    ViewData["Title"] = "Clinica de heridas";
+    var successMessage = TempData["SuccessMessage"] as string;
+    var errorMessage = TempData["ErrorMessage"] as string;
+    var hasAuxiliares = Model.AuxiliarEnfermeriaOptions.Any();
+    var showCurrentPatientBar = Model.EditingRecordId.HasValue
+        && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
+    var vacActivo = string.Equals(Model.Vac, "Si", StringComparison.OrdinalIgnoreCase);
+    var historial = Model.Historial;
+    var mostrarApositos = string.Equals(Model.Vac, "Si", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(Model.ManejoHerida, "Si", StringComparison.OrdinalIgnoreCase);
+}
+
+@functions {
+    private static Microsoft.AspNetCore.Html.IHtmlContent RequiredMark() =>
+        new Microsoft.AspNetCore.Html.HtmlString("<span class=\"text-danger ms-1\" aria-hidden=\"true\">*</span><span class=\"visually-hidden\">obligatorio</span>");
+
+    // Las medidas llegan como double: se muestran sin decimales cuando son enteras (2 cm, no 2,0 cm).
+    private static string FormatCm(double value) =>
+        value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string Valor(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value;
+}
+
+        <form asp-action="ClinicaHeridas" method="post" enctype="multipart/form-data" id="clinicaHeridasForm" class="censo-form-shell">
+            <input asp-for="EditingRecordId" type="hidden" id="heridasEditingRecordId" />
+            <input asp-for="CedulaFiltro" type="hidden" />
+            <input asp-for="DireccionEsValida" type="hidden" id="heridasDireccionEsValidaInput" />
+
+            <div asp-validation-summary="All" class="alert alert-danger censo-validation-summary mb-4" role="alert"></div>
+
+            <div class="tab-content">
+                <div class="tab-pane fade" id="tab-heridas-datos-especificos" role="tabpanel" aria-labelledby="tab-heridas-datos-especificos-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Datos específicos</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!hasAuxiliares)
+                            {
+                                <div class="alert alert-warning">
+                                    No hay auxiliares OPS activos para asignar. Puedes guardar el registro y asignarlo después.
+                                </div>
+                            }
+
+                            <div class="alert alert-info d-none" id="prefillPacienteAlert" role="status"></div>
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                            <path d="M8 3v4"></path>
+                                            <path d="M16 3v4"></path>
+                                            <path d="M4 10h16"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Ingreso al programa</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <input asp-for="Asegurador" type="hidden" />
+                                    <div class="col-lg-4">
+                                        <label asp-for="FuenteIngreso" class="form-label"></label>
+                                        <select asp-for="FuenteIngreso" asp-items="Model.FuenteIngresoOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="FuenteIngreso" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaIngresoPrograma" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="FechaIngresoPrograma" type="date" class="form-control" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                        <span asp-validation-for="FechaIngresoPrograma" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                                    <input asp-for="TipoIdentificacion" type="hidden" />
+                                    <input asp-for="NumeroIdentificacion" type="hidden" />
+                                    <input asp-for="NombrePaciente" type="hidden" />
+                                    <input asp-for="FechaNacimiento" type="hidden" />
+                                    <input asp-for="Edad" type="hidden" />
+                                    <input asp-for="Genero" type="hidden" />
+
+                                    <input asp-for="Direccion" type="hidden" />
+                                    <input asp-for="AsumirDireccionErrada" type="hidden" />
+                                    <input asp-for="DetalleDireccion" type="hidden" />
+                                    <input asp-for="ClasificacionZonaSura" type="hidden" />
+                                    <input asp-for="MunicipioResidencia" type="hidden" />
+                                    <input asp-for="Barrio" type="hidden" />
+                                    <input asp-for="ZonaDireccionSegunMunicipio" type="hidden" />
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M6 3h4l2 5-2.5 1.5a11 11 0 0 0 5 5L16 12l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2Z"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Contacto</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <input asp-for="TelefonoPrincipal" type="hidden" />
+                                    <input asp-for="TelefonoAdicional1" type="hidden" />
+                                    <input asp-for="TelefonoAdicional2" type="hidden" />
+                                    <div class="col-lg-4">
+                                        <label asp-for="LlamadaBienvenida" class="form-label"></label>
+                                        <select asp-for="LlamadaBienvenida" asp-items="Model.LlamadaBienvenidaOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="LlamadaBienvenida" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="TelefonoContacto" class="form-label"></label>
+                                        <input asp-for="TelefonoContacto" class="form-control heridas-phone-input" inputmode="numeric" maxlength="10" />
+                                        <span asp-validation-for="TelefonoContacto" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="Observacion" class="form-label"></label>
+                                        <textarea asp-for="Observacion" class="form-control" rows="4" maxlength="2000" placeholder="Registra las observaciones del paciente"></textarea>
+                                        <span asp-validation-for="Observacion" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M12 3v18"></path>
+                                            <path d="M3 12h18"></path>
+                                            <circle cx="12" cy="12" r="9"></circle>
+                                        </svg>
+                                    </span>
+                                    <h3>Información clínica</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-lg-3">
+                                        <label asp-for="CodigoCie10" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="CodigoCie10" class="form-control text-uppercase" id="heridasCodigoCie10Input"
+                                               list="heridasCie10Opciones" maxlength="4" autocomplete="off" placeholder="Ej: L039" />
+                                        <datalist id="heridasCie10Opciones">
+                                            @foreach (var cie in Model.Cie10Options)
+                                            {
+                                                <option value="@cie.Value" label="@cie.Text"></option>
+                                            }
+                                        </datalist>
+                                        <div class="form-text">Escribe el código o elígelo del listado de clínica de heridas.</div>
+                                        <span asp-validation-for="CodigoCie10" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label asp-for="DiagnosticoDescriptivo" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="DiagnosticoDescriptivo" class="form-control" id="heridasDiagnosticoInput" readonly />
+                                        <div class="form-text">Lo define el código CIE10.</div>
+                                        <span asp-validation-for="DiagnosticoDescriptivo" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="FechaValoracion" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="FechaValoracion" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaValoracion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="ProgramaPertenece" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="ProgramaPertenece" asp-items="Model.ProgramaPerteneceOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="ProgramaPertenece" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="AuxiliarEnfermeriaAsignado" class="form-label"></label>
+                                        <input asp-for="AuxiliarEnfermeriaAsignado" class="form-control" maxlength="120" id="heridasAuxiliarEnfermeriaInput" list="heridasAuxiliarEnfermeriaOptions" autocomplete="off" placeholder="Buscar auxiliar asignado" />
+                                        <datalist id="heridasAuxiliarEnfermeriaOptions">
+                                            @foreach (var assistant in Model.AuxiliarEnfermeriaOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                            {
+                                                <option value="@assistant.Value">@assistant.Text</option>
+                                            }
+                                        </datalist>
+                                        <div class="form-text">Selecciona un auxiliar OPS activo. Si no aparece, debe registrarse primero en administración de usuarios.</div>
+                                        <span asp-validation-for="AuxiliarEnfermeriaAsignado" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div class="censo-form-actions">
+                                <button type="submit" class="btn btn-primary censo-save-button">
+                                    <span>@(Model.EditingRecordId.HasValue ? "Actualizar registro" : "Guardar registro")</span>
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                        <path d="M5 12h14"></path>
+                                        <path d="m13 6 6 6-6 6"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-heridas-caracteristicas" role="tabpanel" aria-labelledby="tab-heridas-caracteristicas-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Características de la herida</h2>
+                            </div>
+                            @if (historial.EsReingreso)
+                            {
+                                <span class="herida-header-ingreso">
+                                    Ingreso @historial.IngresoNumero de @historial.TotalIngresos
+                                </span>
+                            }
+                            @if (historial.TotalSeguimientos > 0)
+                            {
+                                <span class="herida-header-count">
+                                    @historial.TotalSeguimientos @(historial.TotalSeguimientos == 1 ? "seguimiento" : "seguimientos")
+                                </span>
+                            }
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para consultar sus seguimientos de herida.
+                                </div>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(historial.Error))
+                            {
+                                <div class="alert alert-warning mb-0">@historial.Error</div>
+                            }
+                            else if (historial.TotalSeguimientos == 0)
+                            {
+                                <div class="herida-empty">
+                                    <span class="herida-empty__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                            <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            <path d="M9 13h6"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Sin seguimientos registrados</h3>
+                                    <p>
+                                        Este paciente todavía no tiene curaciones cargadas en la aplicación de clínica de heridas.
+                                        Aparecerán aquí en cuanto el auxiliar registre la primera, con sus medidas y sus cuatro fotos.
+                                    </p>
+                                </div>
+                            }
+                            else
+                            {
+                                var ultimo = historial.Ultimo!;
+                                var escala = historial.MedidaMaximaCm > 0 ? historial.MedidaMaximaCm : 1d;
+
+                                @if (historial.SeguimientosDeOtrosIngresos > 0)
+                                {
+                                    <p class="herida-aviso-ingreso">
+                                        Se muestran solo los seguimientos de este ingreso.
+                                        @historial.SeguimientosDeOtrosIngresos
+                                        @(historial.SeguimientosDeOtrosIngresos == 1 ? "seguimiento corresponde" : "seguimientos corresponden")
+                                        a otros ingresos del paciente.
+                                    </p>
+                                }
+
+                                <div class="herida-resumen">
+                                    <div class="herida-resumen__dato">
+                                        <span class="herida-resumen__etiqueta">Última curación</span>
+                                        <strong>@ultimo.RegistradoEn.ToString("dd/MM/yyyy")</strong>
+                                        <small>@ultimo.RegistradoEn.ToString("HH:mm") · Seguimiento @ultimo.Numero</small>
+                                    </div>
+                                    <div class="herida-resumen__dato">
+                                        <span class="herida-resumen__etiqueta">Medida actual</span>
+                                        <strong>@FormatCm(ultimo.DiametroVerticalCm) × @FormatCm(ultimo.DiametroHorizontalCm) cm</strong>
+                                        <small>@FormatCm(ultimo.ProfundidadCm) cm de profundidad</small>
+                                    </div>
+                                    <div class="herida-resumen__dato">
+                                        <span class="herida-resumen__etiqueta">Registró</span>
+                                        <strong>@(string.IsNullOrWhiteSpace(ultimo.AuxiliarNombre) ? "Sin auxiliar asociado" : ultimo.AuxiliarNombre)</strong>
+                                        <small>@(string.IsNullOrWhiteSpace(ultimo.AuxiliarProfesion) ? "—" : ultimo.AuxiliarProfesion)</small>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(historial.CarpetaWebUrl))
+                                    {
+                                        <a class="herida-resumen__enlace" href="@historial.CarpetaWebUrl" target="_blank" rel="noopener">
+                                            <span>Abrir carpeta en SharePoint</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M14 4h6v6"></path>
+                                                <path d="M20 4 10 14"></path>
+                                                <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>
+                                            </svg>
+                                        </a>
+                                    }
+                                </div>
+
+                                @if (historial.TotalSeguimientos > 1)
+                                {
+                                    <section class="herida-evolucion" aria-label="Evolución de la medida de la herida">
+                                        <div class="herida-evolucion__titulo">
+                                            <h3>Evolución de la medida</h3>
+                                            <p>Cada silueta es la herida a escala, del primer seguimiento al último.</p>
+                                        </div>
+                                        <ol class="herida-evolucion__pista">
+                                            @foreach (var seguimiento in historial.Seguimientos.Reverse())
+                                            {
+                                                var alto = Math.Max(6, Math.Round(seguimiento.DiametroVerticalCm / escala * 72, 1));
+                                                var ancho = Math.Max(6, Math.Round(seguimiento.DiametroHorizontalCm / escala * 72, 1));
+                                                <li class="herida-evolucion__paso">
+                                                    <span class="herida-evolucion__caja">
+                                                        <span class="herida-evolucion__silueta"
+                                                              style="height:@(alto.ToString(CultureInfo.InvariantCulture))px;width:@(ancho.ToString(CultureInfo.InvariantCulture))px"
+                                                              title="@FormatCm(seguimiento.DiametroVerticalCm) × @FormatCm(seguimiento.DiametroHorizontalCm) cm"></span>
+                                                    </span>
+                                                    <span class="herida-evolucion__numero">@seguimiento.Numero</span>
+                                                    <span class="herida-evolucion__medida">@FormatCm(seguimiento.AreaCm2) cm²</span>
+                                                </li>
+                                            }
+                                        </ol>
+                                    </section>
+                                }
+
+                                <ol class="herida-lista">
+                                    @foreach (var seguimiento in historial.Seguimientos)
+                                    {
+                                        <li class="herida-seguimiento">
+                                            <div class="herida-seguimiento__cabecera">
+                                                <span class="herida-seguimiento__numero">
+                                                    <small>Seguimiento</small>
+                                                    <strong>@seguimiento.Numero</strong>
+                                                </span>
+                                                <div class="herida-seguimiento__meta">
+                                                    <span class="herida-seguimiento__fecha">@seguimiento.RegistradoEn.ToString("dd/MM/yyyy · HH:mm")</span>
+                                                    <span class="herida-seguimiento__auxiliar">
+                                                        @(string.IsNullOrWhiteSpace(seguimiento.AuxiliarNombre) ? "Sin auxiliar asociado" : seguimiento.AuxiliarNombre)
+                                                        @if (!string.IsNullOrWhiteSpace(seguimiento.AuxiliarProfesion))
+                                                        {
+                                                            <em>@seguimiento.AuxiliarProfesion</em>
+                                                        }
+                                                    </span>
+                                                </div>
+                                                @if (seguimiento.VariacionAreaPorcentaje.HasValue)
+                                                {
+                                                    var variacion = seguimiento.VariacionAreaPorcentaje.Value;
+                                                    var tono = Math.Abs(variacion) < 0.5 ? "igual" : variacion < 0 ? "baja" : "sube";
+                                                    var textoVariacion = Math.Abs(variacion) < 0.5
+                                                        ? "Sin cambio de área"
+                                                        : $"{(variacion < 0 ? "−" : "+")}{Math.Abs(variacion).ToString("0.#", CultureInfo.InvariantCulture)}% de área";
+                                                    <span class="herida-delta herida-delta--@tono">@textoVariacion</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="herida-delta herida-delta--inicial">Medida inicial</span>
+                                                }
+                                            </div>
+
+                                            <div class="herida-seguimiento__cuerpo">
+                                                <div class="herida-medidas">
+                                                    <div class="herida-medidas__item">
+                                                        <span>Diámetro vertical</span>
+                                                        <strong>@FormatCm(seguimiento.DiametroVerticalCm)<em>cm</em></strong>
+                                                    </div>
+                                                    <div class="herida-medidas__item">
+                                                        <span>Diámetro horizontal</span>
+                                                        <strong>@FormatCm(seguimiento.DiametroHorizontalCm)<em>cm</em></strong>
+                                                    </div>
+                                                    <div class="herida-medidas__item">
+                                                        <span>Profundidad</span>
+                                                        <strong>@FormatCm(seguimiento.ProfundidadCm)<em>cm</em></strong>
+                                                    </div>
+                                                </div>
+
+                                                <dl class="herida-datos">
+                                                    <div>
+                                                        <dt>Origen</dt>
+                                                        <dd>@Valor(seguimiento.Origen)</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt>Ubicación</dt>
+                                                        <dd>@Valor(seguimiento.Ubicacion)</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt>Fondo</dt>
+                                                        <dd>@Valor(seguimiento.Fondo)</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt>Lecho</dt>
+                                                        <dd>@Valor(seguimiento.Lecho)</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt>Tejido</dt>
+                                                        <dd>@Valor(seguimiento.Tejido)</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt>Cavitación / tunelización</dt>
+                                                        <dd>@Valor(seguimiento.CavitacionTunelizacion)</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt>Piel perilesional</dt>
+                                                        <dd>@Valor(seguimiento.PielPerilesional)</dd>
+                                                    </div>
+                                                </dl>
+
+                                                <div class="herida-exudado">
+                                                    <h4>Exudado</h4>
+                                                    <dl class="herida-datos herida-datos--exudado">
+                                                        <div>
+                                                            <dt>Cantidad</dt>
+                                                            <dd>@Valor(seguimiento.ExudadoCantidad)</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt>Características</dt>
+                                                            <dd>@Valor(seguimiento.ExudadoCaracteristicas)</dd>
+                                                        </div>
+                                                    </dl>
+                                                </div>
+
+                                                <div class="herida-fotos">
+                                                    @foreach (var foto in seguimiento.Fotos)
+                                                    {
+                                                        <figure class="herida-fotos__item">
+                                                            @if (foto.Disponible)
+                                                            {
+                                                                <button type="button"
+                                                                        class="herida-fotos__marco"
+                                                                        data-herida-foto="@Url.Action("FotoSeguimientoClinicaHeridas", "Censo", new { driveItemId = foto.DriveItemId })"
+                                                                        data-herida-foto-titulo="@foto.TipoDescripcion — Seguimiento @seguimiento.Numero">
+                                                                    <img src="@Url.Action("FotoSeguimientoClinicaHeridas", "Censo", new { driveItemId = foto.DriveItemId, miniatura = true })"
+                                                                         alt="@foto.TipoDescripcion del seguimiento @seguimiento.Numero"
+                                                                         loading="lazy" />
+                                                                </button>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="herida-fotos__marco herida-fotos__marco--vacio">
+                                                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                                        <rect x="3" y="6" width="18" height="14" rx="2"></rect>
+                                                                        <circle cx="12" cy="13" r="3.2"></circle>
+                                                                        <path d="M9 6l1.5-2h3L15 6"></path>
+                                                                        <path d="m4 20 16-14"></path>
+                                                                    </svg>
+                                                                    <span>Sin foto</span>
+                                                                </span>
+                                                            }
+                                                            <figcaption>@foto.TipoDescripcion</figcaption>
+                                                        </figure>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </li>
+                                    }
+                                </ol>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-heridas-manejo" role="tabpanel" aria-labelledby="tab-heridas-manejo-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Manejo de la herida</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el manejo de la herida.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M12 3v18"></path>
+                                                <path d="M5 8h14"></path>
+                                                <path d="M7 16h10"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Dispositivos</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="Picc" class="form-label"></label>@RequiredMark()
+                                            <select asp-for="Picc" asp-items="Model.SiNoOptions" class="form-select">
+                                                <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.Picc))">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="Picc" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="Vac" class="form-label"></label>@RequiredMark()
+                                            <select asp-for="Vac" asp-items="Model.SiNoOptions" class="form-select" data-kardex-trigger>
+                                                <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.Vac))">Selecciona...</option>
+                                            </select>
+                                            <div class="form-text">Con VAC en Si se habilita la sección Activo fijo.</div>
+                                            <span asp-validation-for="Vac" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="Npt" class="form-label"></label>@RequiredMark()
+                                            <select asp-for="Npt" asp-items="Model.SiNoOptions" class="form-select" data-kardex-trigger>
+                                                <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.Npt))">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="Npt" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="ManejoHerida" class="form-label"></label>@RequiredMark()
+                                            <select asp-for="ManejoHerida" asp-items="Model.SiNoOptions" class="form-select" data-kardex-trigger>
+                                                <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.ManejoHerida))">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="ManejoHerida" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="3" y="7" width="18" height="13" rx="2"></rect>
+                                                <path d="M12 11v5"></path>
+                                                <path d="M9.5 13.5h5"></path>
+                                                <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Tratamiento</h3>
+                                    </div>
+
+                                    <div class="herida-apositos-bloque @(mostrarApositos ? null : "d-none")" id="apositosBloque">
+                                        <p class="herida-apositos__ayuda">
+                                            Los apósitos y medicamentos entran en las requisiciones de manejo de la herida y VAC.
+                                        </p>
+                                    <div class="herida-apositos" id="apositosContainer" data-max="4">
+                                        <datalist id="apositoMedicamentoOptions">
+                                            @foreach (var insumo in Model.ApositoMedicamentoOptions)
+                                            {
+                                                <option value="@insumo"></option>
+                                            }
+                                        </datalist>
+
+                                        @{
+                                            var apositos = new[]
+                                            {
+                                                Model.ApositoMedicamento1,
+                                                Model.ApositoMedicamento2,
+                                                Model.ApositoMedicamento3,
+                                                Model.ApositoMedicamento4
+                                            };
+                                        }
+
+                                        @for (var apositoIndex = 0; apositoIndex < apositos.Length; apositoIndex++)
+                                        {
+                                            var numero = apositoIndex + 1;
+                                            var campo = $"ApositoMedicamento{numero}";
+                                            var valor = apositos[apositoIndex];
+                                            // El primero siempre esta a la vista; los demas aparecen si traen dato
+                                            // guardado o cuando el usuario pulsa "Agregar".
+                                            var oculto = apositoIndex > 0 && string.IsNullOrWhiteSpace(valor);
+                                            <div class="herida-aposito @(oculto ? "d-none" : null)" data-aposito-slot="@apositoIndex">
+                                                <div class="herida-aposito__campo">
+                                                    <label class="form-label" for="@campo">Apósito/Medicamento @numero</label>
+                                                    <input class="form-control"
+                                                           id="@campo"
+                                                           name="@campo"
+                                                           value="@valor"
+                                                           maxlength="200"
+                                                           list="apositoMedicamentoOptions"
+                                                           autocomplete="off"
+                                                           data-aposito-input
+                                                           placeholder="Escribe para filtrar el listado" />
+                                                    @Html.ValidationMessage(campo, new { @class = "text-danger" })
+                                                </div>
+                                                @if (apositoIndex > 0)
+                                                {
+                                                    <button type="button" class="btn btn-link herida-aposito__quitar" data-aposito-quitar>
+                                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                            <path d="M6 6l12 12"></path>
+                                                            <path d="M18 6 6 18"></path>
+                                                        </svg>
+                                                        <span>Retirar</span>
+                                                    </button>
+                                                }
+                                            </div>
+                                        }
+
+                                        <button type="button" class="btn btn-outline-primary herida-aposito__agregar" id="apositoAgregar">
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M12 5v14"></path>
+                                                <path d="M5 12h14"></path>
+                                            </svg>
+                                            <span>Agregar apósito/medicamento</span>
+                                        </button>
+                                        <p class="herida-apositos__limite d-none" id="apositoLimite">Máximo 4 apósitos o medicamentos por paciente.</p>
+                                    </div>
+                                    </div>
+                                    <div class="herida-apositos-bloqueado @(mostrarApositos ? "d-none" : null)" id="apositosBloqueado">
+                                        Los apósitos y medicamentos se habilitan cuando manejo de la herida o VAC están en Sí.
+                                        NPT y PICC llevan lista fija de insumos.
+                                    </div>
+
+                                    @* Al consultar un plan cerrado se muestran sus apósitos congelados en lugar de los editables. *@
+                                    <div class="herida-apositos-historico d-none" id="apositosHistorico">
+                                        <div class="herida-apositos-historico__cabecera">
+                                            <span class="herida-apositos-historico__titulo">Apósitos y medicamentos</span>
+                                            <span class="herida-apositos-historico__plan" id="apositosHistoricoPlan"></span>
+                                        </div>
+                                        <ul class="herida-apositos-historico__lista" id="apositosHistoricoLista"></ul>
+                                        <p class="herida-apositos-historico__nota">
+                                            Este plan está cerrado: sus apósitos quedaron como estaban y no se pueden editar.
+                                        </p>
+                                    </div>
+
+                                    <div class="row g-3 censo-field-section__grid mt-1">
+                                        <div class="col-lg-3">
+                                            <label asp-for="DuracionTratamientoDias" class="form-label"></label>
+                                            <input asp-for="DuracionTratamientoDias"
+                                                   class="form-control"
+                                                   type="number"
+                                                   min="1"
+                                                   max="999"
+                                                   step="1"
+                                                   inputmode="numeric"
+                                                   placeholder="Días" />
+                                            <span asp-validation-for="DuracionTratamientoDias" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-9">
+                                            <span class="form-label d-block">Frecuencia de visita</span>
+                                            <div class="herida-frecuencia">
+                                                @for (var frecuenciaIndex = 0; frecuenciaIndex < Model.FrecuenciaVisitaOptions.Count; frecuenciaIndex++)
+                                                {
+                                                    var frecuencia = Model.FrecuenciaVisitaOptions[frecuenciaIndex];
+                                                    var frecuenciaId = $"frecuenciaVisita_{frecuenciaIndex}";
+                                                    <div class="form-check">
+                                                        <input class="form-check-input"
+                                                               type="radio"
+                                                               name="FrecuenciaVisita"
+                                                               value="@frecuencia"
+                                                               id="@frecuenciaId"
+                                                               data-frecuencia-visita
+                                                               @(string.Equals(Model.FrecuenciaVisita, frecuencia, StringComparison.OrdinalIgnoreCase) ? "checked" : null) />
+                                                        <label class="form-check-label" for="@frecuenciaId">@frecuencia</label>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <button type="button" class="btn btn-link herida-frecuencia__limpiar @(string.IsNullOrWhiteSpace(Model.FrecuenciaVisita) ? "d-none" : null)" id="frecuenciaVisitaLimpiar">
+                                                Quitar selección
+                                            </button>
+                                            <span asp-validation-for="FrecuenciaVisita" class="text-danger"></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasManejoHerida", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar manejo de la herida</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+
+                                <section class="censo-field-section herida-kardex">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                <path d="M14 3v5h5"></path>
+                                                <path d="M9 13h6"></path>
+                                                <path d="M9 17h4"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Requisiciones de insumos</h3>
+                                    </div>
+
+                                    <p class="herida-kardex__ayuda">
+                                        Se abre una requisición por cada atención marcada en Sí. Las cantidades salen de la
+                                        duración del tratamiento y la frecuencia de visita.
+                                    </p>
+
+                                    <div class="alert alert-info d-none" id="kardexDesactualizadoAviso" role="status">
+                                        Cambiaste las atenciones del paciente. Guarda el manejo de la herida para actualizar las requisiciones.
+                                    </div>
+
+                                    @if (Model.Planes.Any())
+                                    {
+                                        <div class="herida-planes" id="heridaPlanes">
+                                            <div class="herida-planes__barra">
+                                                <div class="herida-planes__lista" role="tablist" aria-label="Planes de requisiciones">
+                                                    @foreach (var plan in Model.Planes)
+                                                    {
+                                                        <button type="button"
+                                                                class="herida-plan-chip @(plan.Vigente ? "is-vigente is-activo" : null)"
+                                                                role="tab"
+                                                                aria-selected="@(plan.Vigente ? "true" : "false")"
+                                                                data-plan-id="@plan.Id"
+                                                                data-plan-numero="@plan.Numero"
+                                                                data-plan-vigente="@(plan.Vigente ? "true" : "false")">
+                                                            <span class="herida-plan-chip__numero">Plan @plan.Numero</span>
+                                                            <span class="herida-plan-chip__estado">@(plan.Vigente ? "Vigente" : "Cerrado")</span>
+                                                        </button>
+                                                    }
+                                                </div>
+                                                <button type="button" class="btn btn-outline-primary herida-planes__nuevo" id="heridaPlanNuevo">
+                                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                        <path d="M12 5v14"></path>
+                                                        <path d="M5 12h14"></path>
+                                                    </svg>
+                                                    <span>Abrir plan nuevo</span>
+                                                </button>
+                                            </div>
+                                            <p class="herida-planes__meta" id="heridaPlanMeta"></p>
+                                        </div>
+                                    }
+
+                                    @if (!Model.KardexDisponibles.Any())
+                                    {
+                                        <div class="herida-kardex__vacio">
+                                            Ninguna atención está en Sí todavía. Marca PICC, VAC, NPT o manejo de la herida y
+                                            guarda la sección para generar su requisición.
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="herida-kardex__grid" id="heridaKardexGrid">
+                                            @foreach (var kardex in Model.KardexDisponibles)
+                                            {
+                                                <article class="herida-kardex__card @(kardex.Cerrado ? "is-cerrado" : kardex.Enviado ? "is-enviado" : null)">
+                                                    <header>
+                                                        <span class="herida-kardex__tipo">@kardex.Nombre</span>
+                                                        @if (kardex.Cerrado)
+                                                        {
+                                                            <span class="herida-kardex__estado herida-kardex__estado--cerrado">Cerrado por farmacia</span>
+                                                        }
+                                                        else if (kardex.Enviado)
+                                                        {
+                                                            <span class="herida-kardex__estado herida-kardex__estado--enviado">En farmacia</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="herida-kardex__estado">Sin enviar</span>
+                                                        }
+                                                    </header>
+                                                    <dl class="herida-kardex__datos">
+                                                        <div><dt>Insumos</dt><dd>@kardex.Insumos</dd></div>
+                                                        <div><dt>Aplicaciones</dt><dd>@kardex.Aplicaciones</dd></div>
+                                                        <div><dt>Adjuntos</dt><dd>@kardex.Adjuntos</dd></div>
+                                                    </dl>
+                                                    <button type="button"
+                                                            class="btn btn-outline-primary herida-kardex__abrir"
+                                                            data-kardex-abrir="@kardex.Tipo"
+                                                            data-kardex-nombre="@kardex.Nombre">
+                                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                            <path d="M14 3v5h5"></path>
+                                                        </svg>
+                                                        <span>@(kardex.Cerrado ? "Ver requisición" : "Abrir requisición")</span>
+                                                    </button>
+                                                </article>
+                                            }
+                                        </div>
+                                    }
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-heridas-activo-fijo" role="tabpanel" aria-labelledby="tab-heridas-activo-fijo-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Activo fijo</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el activo fijo.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-info @(vacActivo ? "d-none" : "") mb-3" id="activoFijoBloqueadoAlert">
+                                    Esta sección está bloqueada. Solo se habilita cuando el campo VAC de los datos básicos está guardado en Si.
+                                </div>
+
+                                <fieldset id="activoFijoFieldset" disabled="@(vacActivo ? null : "disabled")">
+                                    <section class="censo-field-section">
+                                        <div class="censo-field-section__header">
+                                            <span class="censo-field-section__icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" focusable="false">
+                                                    <rect x="3" y="7" width="18" height="13" rx="2"></rect>
+                                                    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                    <path d="M3 13h18"></path>
+                                                </svg>
+                                            </span>
+                                            <h3>Equipos asignados</h3>
+                                        </div>
+                                        <div class="row g-3 censo-field-section__grid">
+                                            <div class="col-lg-3">
+                                                <label asp-for="EquipoComodato" class="form-label"></label>@RequiredMark()
+                                                <select asp-for="EquipoComodato" asp-items="Model.SiNoOptions" class="form-select">
+                                                    <option value="" disabled hidden>Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="EquipoComodato" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-9">
+                                                <label asp-for="NumeroPlacaEquipos" class="form-label"></label>@RequiredMark()
+                                                <input asp-for="NumeroPlacaEquipos" class="form-control" maxlength="100" autocomplete="off" placeholder="Ej: PLACA 00123, PLACA 00456" />
+                                                <span asp-validation-for="NumeroPlacaEquipos" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <label asp-for="FechaEntregaEquipo" class="form-label"></label>@RequiredMark()
+                                                <input asp-for="FechaEntregaEquipo" type="date" class="form-control" />
+                                                <span asp-validation-for="FechaEntregaEquipo" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <label asp-for="FechaDevolucionEquipo" class="form-label"></label>
+                                                <input asp-for="FechaDevolucionEquipo" type="date" class="form-control" />
+                                                <span asp-validation-for="FechaDevolucionEquipo" class="text-danger"></span>
+                                            </div>
+                                        </div>
+                                        <div class="censo-form-actions censo-form-actions--inline">
+                                            <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasActivoFijo", "Censo")" formmethod="post" formnovalidate>
+                                                <span>Guardar activo fijo</span>
+                                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                    <path d="M5 12h14"></path>
+                                                    <path d="m13 6 6 6-6 6"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </section>
+                                </fieldset>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-heridas-seguimiento-hospitalizado" role="tabpanel" aria-labelledby="tab-heridas-seguimiento-hospitalizado-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Seguimiento hospitalizado</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el seguimiento hospitalizado.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M3 12h4l2-5 4 10 2-5h6"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Datos de la hospitalización</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaHospitalizacion" class="form-label"></label>
+                                            <input asp-for="FechaHospitalizacion" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaHospitalizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="MotivoHospitalizacion" class="form-label"></label>
+                                            <select asp-for="MotivoHospitalizacion" asp-items="Model.MotivoHospitalizacionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="MotivoHospitalizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="RemitidoPorHospitalizacion" class="form-label"></label>
+                                            <select asp-for="RemitidoPorHospitalizacion" asp-items="Model.RemitidoPorHospitalizacionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="RemitidoPorHospitalizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label asp-for="IpsIntramural" class="form-label"></label>
+                                            <input asp-for="IpsIntramural" class="form-control" maxlength="200" id="ipsIntramuralInput" list="ipsIntramuralOptions" autocomplete="off" placeholder="Buscar IPS intramural" />
+                                            <datalist id="ipsIntramuralOptions">
+                                                @foreach (var ipsIntramuralOption in Model.IpsIntramuralOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                                {
+                                                    <option value="@ipsIntramuralOption.Value">@ipsIntramuralOption.Text</option>
+                                                }
+                                            </datalist>
+                                            <span asp-validation-for="IpsIntramural" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                                <path d="M8 3v4"></path>
+                                                <path d="M16 3v4"></path>
+                                                <path d="M4 10h16"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Fechas de seguimiento</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaPrimerSeguimiento24Horas" class="form-label"></label>
+                                            <input asp-for="FechaPrimerSeguimiento24Horas" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaPrimerSeguimiento24Horas" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaSegundoSeguimiento48Horas" class="form-label"></label>
+                                            <input asp-for="FechaSegundoSeguimiento48Horas" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaSegundoSeguimiento48Horas" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaTercerSeguimiento72Horas" class="form-label"></label>
+                                            <input asp-for="FechaTercerSeguimiento72Horas" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaTercerSeguimiento72Horas" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaCuartoSeguimientoSemana1" class="form-label"></label>
+                                            <input asp-for="FechaCuartoSeguimientoSemana1" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaCuartoSeguimientoSemana1" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaQuintoSeguimientoSemana2" class="form-label"></label>
+                                            <input asp-for="FechaQuintoSeguimientoSemana2" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaQuintoSeguimientoSemana2" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaSextoSeguimientoSemana3" class="form-label"></label>
+                                            <input asp-for="FechaSextoSeguimientoSemana3" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaSextoSeguimientoSemana3" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaSeptimoSeguimientoSemana4" class="form-label"></label>
+                                            <input asp-for="FechaSeptimoSeguimientoSemana4" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaSeptimoSeguimientoSemana4" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasSeguimientoHospitalizado", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar seguimiento hospitalizado</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-heridas-devolucion-productos" role="tabpanel" aria-labelledby="tab-heridas-devolucion-productos-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Devolución de productos</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar la devolución de productos.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"></path>
+                                                <path d="M1 3h22v5H1z"></path>
+                                                <path d="M10 12h4"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Novedad de devolución</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaNovedadDevolucionProductos" class="form-label"></label>
+                                            <input asp-for="FechaNovedadDevolucionProductos" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaNovedadDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="MotivoNovedadDevolucionProductos" class="form-label"></label>
+                                            <select asp-for="MotivoNovedadDevolucionProductos" asp-items="Model.MotivoNovedadDevolucionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="MotivoNovedadDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label asp-for="NotificacionAuxiliarDevolucionProductos" class="form-label"></label>
+                                            <select asp-for="NotificacionAuxiliarDevolucionProductos" asp-items="Model.SiNoOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="NotificacionAuxiliarDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaMaximaDevolucionProductos" class="form-label"></label>
+                                            <input asp-for="FechaMaximaDevolucionProductos" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaMaximaDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="EstadoDevolucionServicioFarmaceutico" class="form-label"></label>
+                                            <select asp-for="EstadoDevolucionServicioFarmaceutico" asp-items="Model.EstadoDevolucionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="EstadoDevolucionServicioFarmaceutico" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasDevolucionProductos", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar devolución de productos</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-heridas-alta-programa" role="tabpanel" aria-labelledby="tab-heridas-alta-programa-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Clinica de heridas</span>
+                                <h2 class="h5 mb-0">Alta del programa</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el alta del programa.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                                <path d="M8 3v4"></path>
+                                                <path d="M16 3v4"></path>
+                                                <path d="M4 10h16"></path>
+                                                <path d="m9 15 2 2 4-5"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Datos del egreso</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-6">
+                                            <label asp-for="MotivoEgreso" class="form-label"></label>
+                                            <select asp-for="MotivoEgreso" asp-items="Model.MotivoEgresoOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="MotivoEgreso" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaEgreso" class="form-label"></label>
+                                            <input asp-for="FechaEgreso" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaEgreso" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="Estado" class="form-label"></label>
+                                            <select asp-for="Estado" asp-items="Model.EstadoProgramaOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="Estado" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarClinicaHeridasAltaPrograma", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar alta del programa</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+

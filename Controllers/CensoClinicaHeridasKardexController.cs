@@ -362,7 +362,17 @@ public partial class CensoController
         var plan = await ResolverPlanAsync(recordId, planId, cancellationToken);
         if (plan is null)
         {
-            return NotFound(new { message = "No se encontró el plan de requisiciones." });
+            // Sin planId se esta pidiendo el plan vigente, y el primero puede no existir todavia:
+            // hasta ahora solo lo creaba el guardado, asi que un paciente al que apenas se le marco
+            // la atencion no podia ni abrir la requisicion. Se crea aqui, igual que al guardar.
+            // Con planId el plan pedido si tiene que existir, y sin atenciones en Si no hay nada
+            // que requisar.
+            if (planId.HasValue || TiposKardexHabilitados(record).Count == 0)
+            {
+                return NotFound(new { message = "No se encontró el plan de requisiciones." });
+            }
+
+            plan = await ObtenerOCrearPlanVigenteAsync(record, cancellationToken);
         }
 
         // En el plan vigente manda lo que hoy está marcado en Sí. En un plan cerrado se muestra lo

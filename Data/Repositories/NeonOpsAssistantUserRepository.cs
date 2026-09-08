@@ -1,4 +1,4 @@
-using Nexa.Data.Repositories.Interfaces;
+﻿using Nexa.Data.Repositories.Interfaces;
 using Nexa.Data.Repositories.Models;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
@@ -16,6 +16,7 @@ public class NeonOpsAssistantUserRepository : INeonOpsAssistantUserRepository
 
     public async Task<IReadOnlyList<NeonOpsAssistantUserRow>> GetUsersAsync(
         bool onlyActive,
+        IReadOnlyCollection<string>? professions = null,
         CancellationToken cancellationToken = default)
     {
         var connectionString = GetConnectionString();
@@ -37,9 +38,17 @@ public class NeonOpsAssistantUserRepository : INeonOpsAssistantUserRepository
                 profesion::text as profesion
             from public."User"
             where (@onlyActive = false or activo = true)
+              and (@professions is null or profesion::text = any(@professions))
             order by nombres, "primerApellido", "segundoApellido";
             """;
         command.Parameters.AddWithValue("onlyActive", onlyActive);
+        // Sin lista de profesiones el filtro no aplica: la administracion de usuarios y las
+        // notificaciones necesitan ver a todo el mundo.
+        var filtro = professions is { Count: > 0 } ? professions.ToArray() : null;
+        command.Parameters.Add(new NpgsqlParameter("professions", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text)
+        {
+            Value = (object?)filtro ?? DBNull.Value
+        });
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))

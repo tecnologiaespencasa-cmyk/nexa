@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
@@ -526,7 +526,6 @@ public partial class CensoController : Controller
         "SAN VICENTE FUNDACION RIONEGRO",
         "UROCLIN",
         "URGENCIAS IPS SURA LOS MOLINOS",
-        "URGENCIAS IPS SURA LOS ROBLEDO",
         "URGENCIAS IPS SURA LOS VEGAS",
         "IPS NUMA",
         "AC QUIROFANOS",
@@ -626,6 +625,8 @@ public partial class CensoController : Controller
     private readonly IRemisionExtractionService _remisionExtractionService;
     private readonly IBridgeSyncQueue _bridgeSyncQueue;
     private readonly INeonClinicaHeridasRepository _neonClinicaHeridasRepository;
+    private readonly ICensoPacienteService _censoPacienteService;
+    private readonly ICensoTabuladoService _censoTabuladoService;
     private readonly ILogger<CensoController> _logger;
     private readonly IReadOnlyList<string> _medicamentoFallbackValues;
     private readonly IReadOnlyDictionary<string, string> _cie10Catalog;
@@ -643,6 +644,8 @@ public partial class CensoController : Controller
         IRemisionExtractionService remisionExtractionService,
         IBridgeSyncQueue bridgeSyncQueue,
         INeonClinicaHeridasRepository neonClinicaHeridasRepository,
+        ICensoPacienteService censoPacienteService,
+        ICensoTabuladoService censoTabuladoService,
         ILogger<CensoController> logger,
         IWebHostEnvironment webHostEnvironment)
     {
@@ -657,6 +660,8 @@ public partial class CensoController : Controller
         _remisionExtractionService = remisionExtractionService;
         _bridgeSyncQueue = bridgeSyncQueue;
         _neonClinicaHeridasRepository = neonClinicaHeridasRepository;
+        _censoPacienteService = censoPacienteService;
+        _censoTabuladoService = censoTabuladoService;
         _logger = logger;
         _medicamentoFallbackValues = LoadMedicamentoPrincipalValues(webHostEnvironment.ContentRootPath);
         _cie10Catalog = LoadCie10Catalog(webHostEnvironment.ContentRootPath);
@@ -689,51 +694,16 @@ public partial class CensoController : Controller
     }
 
     [HttpGet]
-    public IActionResult Index(string? cedulaPaciente, string? CedulaFiltro, DateTime? fechaIngresoDesde, DateTime? fechaIngresoHasta, long? recordId)
-    {
-        return RedirectToAction(nameof(ProgramaAgudos), new
-        {
-            cedulaPaciente,
-            CedulaFiltro,
-            fechaIngresoDesde = fechaIngresoDesde?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            fechaIngresoHasta = fechaIngresoHasta?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            recordId
-        });
-    }
-
-    [HttpGet]
     public async Task<IActionResult> ProgramaAgudos(string? cedulaPaciente, string? CedulaFiltro, DateTime? fechaIngresoDesde, DateTime? fechaIngresoHasta, long? recordId, CancellationToken cancellationToken)
     {
-        var now = GetColombiaNow();
-        var model = new CensoReceptionViewModel
+        // La pantalla suelta del censo de agudos se retiro: todo se administra desde la
+        // pantalla unica. La ruta se conserva para que los enlaces antiguos sigan llegando.
+        await Task.CompletedTask;
+        return RedirectToAction(nameof(Index), new
         {
-            FechaIngreso = now.Date,
-            HoraIngreso = new TimeSpan(now.Hour, now.Minute, 0),
-            FechaRespuesta = now.Date,
-            HoraRespuesta = new TimeSpan(now.Hour, now.Minute, 0),
-            FechaNacimiento = now.Date,
-            Edad = 0,
-            DireccionEsValida = false,
-            MunicipioResidencia = MunicipioNoParametrizado,
-            ClasificacionZonaSura = InferClasificacionZonaSura(MunicipioNoParametrizado),
-            ZonaDireccionSegunMunicipio = InferZonaDireccionSegunMunicipio(MunicipioNoParametrizado),
-            Area = AreaValues[0]
-        };
-
-        model.CedulaFiltro = NormalizeCedulaFilter(!string.IsNullOrWhiteSpace(cedulaPaciente) ? cedulaPaciente : CedulaFiltro);
-        model.FechaIngresoFiltroDesde = fechaIngresoDesde?.Date;
-        model.FechaIngresoFiltroHasta = fechaIngresoHasta?.Date;
-        NormalizeHistoryFilters(model);
-        await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: true, selectedRecordId: recordId);
-        await PopulateDropdownsAsync(model, cancellationToken);
-        PreserveInactiveNursingAssistantSelections(model);
-        return View("Index", model);
-    }
-
-    [HttpPost]
-    public Task<IActionResult> Index(CensoReceptionViewModel model, CancellationToken cancellationToken)
-    {
-        return ProgramaAgudos(model, cancellationToken);
+            cedulaPaciente = string.IsNullOrWhiteSpace(cedulaPaciente) ? CedulaFiltro : cedulaPaciente,
+            programa = CensoProgramas.Agudos
+        });
     }
 
     [HttpPost]
@@ -1118,7 +1088,8 @@ public partial class CensoController : Controller
             }
 
             await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: false);
-            return View("Index", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.Agudos, model, model.CedulaFiltro, cancellationToken);
         }
 
         var fechaHoraIngreso = model.FechaIngreso.Date + model.HoraIngreso;
@@ -1140,7 +1111,8 @@ public partial class CensoController : Controller
                 ModelState.AddModelError(string.Empty, "No se encontró la última atención para actualizar. Vuelve a buscar por cédula.");
                 ViewData["ShowSaveErrorModal"] = true;
                 await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: false);
-                return View("Index", model);
+                return await VistaUnificadaConProgramaAsync(
+                    CensoProgramas.Agudos, model, model.CedulaFiltro, cancellationToken);
             }
 
             var previousAuxiliarAsignado = existingRecord.AuxiliarAsignado;
@@ -1166,7 +1138,8 @@ public partial class CensoController : Controller
             if (!await TrySaveCensoChangesAsync(model, cancellationToken))
             {
                 await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: false);
-                return View("Index", model);
+                return await VistaUnificadaConProgramaAsync(
+                    CensoProgramas.Agudos, model, model.CedulaFiltro, cancellationToken);
             }
             savedRecordId = existingRecord.Id;
             TempData["SuccessMessage"] = "Registro de censo actualizado correctamente.";
@@ -1195,7 +1168,8 @@ public partial class CensoController : Controller
                     "Este paciente tiene una atención anterior sin alta. Debes cerrarla o registrar el nuevo medicamento como prórroga.");
                 ViewData["ShowSaveErrorModal"] = true;
                 await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: false);
-                return View("Index", model);
+                return await VistaUnificadaConProgramaAsync(
+                    CensoProgramas.Agudos, model, model.CedulaFiltro, cancellationToken);
             }
             else
             {
@@ -1216,7 +1190,8 @@ public partial class CensoController : Controller
                 if (!await TrySaveCensoChangesAsync(model, cancellationToken))
                 {
                     await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: false);
-                    return View("Index", model);
+                    return await VistaUnificadaConProgramaAsync(
+                        CensoProgramas.Agudos, model, model.CedulaFiltro, cancellationToken);
                 }
                 newRecordId = censoRecord.Id;
                 savedRecordId = censoRecord.Id;
@@ -1240,32 +1215,26 @@ public partial class CensoController : Controller
         // New records clear date filters; updates keep them.
         if (newRecordId.HasValue)
         {
-            return RedirectToAction(nameof(ProgramaAgudos), new
+            return RedirectToAction(nameof(Index), new
             {
                 cedulaPaciente = model.NumeroIdentificacion,
-                recordId = newRecordId.Value
+                programa = CensoProgramas.Agudos
             });
         }
 
         var cedulaRedirect = !string.IsNullOrWhiteSpace(model.CedulaFiltro)
             ? model.CedulaFiltro
             : model.NumeroIdentificacion;
-        return RedirectToAction(nameof(ProgramaAgudos), new
+        return RedirectToAction(nameof(Index), new
         {
             cedulaPaciente = cedulaRedirect,
-            recordId = savedRecordId,
+            programa = CensoProgramas.Agudos,
             fechaIngresoDesde = model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             fechaIngresoHasta = model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
         });
     }
 
 
-    private IActionResult CensoEnConstruccion(string sectionName)
-    {
-        ViewData["Title"] = sectionName;
-        ViewData["CensoSectionTitle"] = sectionName;
-        return View("EnConstruccion");
-    }
 
     [HttpGet]
     public async Task<IActionResult> ObtenerDocumentos(long id, CancellationToken cancellationToken)
@@ -2489,11 +2458,12 @@ public partial class CensoController : Controller
     public async Task<IActionResult> ExportarPacientesActivos(CancellationToken cancellationToken)
     {
         var currentDate = ColombiaTime.Convert(DateTime.UtcNow).Date;
-        // Mismo criterio de visibilidad que la tabla del censo en pantalla: si una fila no se puede ver ni
-        // abrir en el censo, tampoco puede reportarse aquí como paciente activo. Sin este filtro una copia
-        // interna de despacho a farmacia con Estado contaminado hace que el paciente salga en el exportable
-        // pero no aparezca al filtrar su cédula en el censo.
-        var censoCandidates = await _context.Censos
+
+        // Mismo criterio de visibilidad que la tabla del censo en pantalla: si una fila no se puede
+        // ver ni abrir en el censo, tampoco puede reportarse aquí como paciente activo. Sin este
+        // filtro una copia interna de despacho a farmacia con Estado contaminado hace que el
+        // paciente salga en el exportable pero no aparezca al filtrar su cédula en el censo.
+        var agudos = await _context.Censos
             .AsNoTracking()
             .Where(IsEditableCensoRecordExpression())
             .Where(x => x.Estado != null
@@ -2502,62 +2472,166 @@ public partial class CensoController : Controller
                     || EF.Functions.ILike(x.Estado, "Aceptado crónico")
                     || EF.Functions.ILike(x.Estado, "Activo Estancia prolongada")
                     || EF.Functions.ILike(x.Estado, "Aceptado estancia prolongada")))
-            .Select(x => new
+            .Select(x => new CandidatoActivo
             {
-                x.Id,
-                x.FechaIngreso,
-                x.NombrePaciente,
-                x.TipoIdentificacion,
-                x.NumeroIdentificacion,
-                x.ClasificacionZonaSura,
-                x.DiagnosticoDescriptivo,
-                x.Programa,
-                x.Asegurador,
-                x.Estado
+                Programa = CensoProgramas.Agudos,
+                Id = x.Id,
+                FechaIngreso = x.FechaIngreso,
+                NombrePaciente = x.NombrePaciente,
+                TipoIdentificacion = x.TipoIdentificacion,
+                NumeroIdentificacion = x.NumeroIdentificacion,
+                Zona = x.ClasificacionZonaSura,
+                Diagnostico = x.DiagnosticoDescriptivo,
+                Asegurador = x.Asegurador,
+                Estado = x.Estado
             })
             .ToListAsync(cancellationToken);
 
-        var censoRows = censoCandidates
-            .GroupBy(x => x.NumeroIdentificacion, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group
-                .OrderByDescending(x => x.FechaIngreso)
-                .ThenByDescending(x => x.Id)
-                .First())
-            .Select(x => new ActivePatientReportRow
+        var cronicos = await _context.CensoCronicos
+            .AsNoTracking()
+            .Where(x => x.FechaEgreso == null
+                && (x.EstadoPaciente == null || !EF.Functions.ILike(x.EstadoPaciente, "Inactivo")))
+            .Select(x => new CandidatoActivo
             {
-                CurrentDate = currentDate,
-                FullName = x.NombrePaciente,
-                IdentificationType = x.TipoIdentificacion,
-                IdentificationNumber = x.NumeroIdentificacion,
-                Zone = x.ClasificacionZonaSura,
-                AdmissionDate = x.FechaIngreso.Date,
-                LengthOfStayDays = Math.Max(0, (currentDate - x.FechaIngreso.Date).Days),
-                Diagnosis = x.DiagnosticoDescriptivo,
-                Program = NormalizeActivePatientProgram(x.Programa, x.Estado),
-                Insurer = x.Asegurador
+                Programa = CensoProgramas.Cronicos,
+                Id = x.Id,
+                FechaIngreso = x.FechaIngreso,
+                NombrePaciente = x.NombrePaciente,
+                TipoIdentificacion = x.TipoIdentificacion,
+                NumeroIdentificacion = x.NumeroIdentificacion,
+                Zona = x.ClasificacionZonaSura,
+                Diagnostico = x.GrupoPatologiaCronica,
+                Asegurador = null,
+                Estado = x.EstadoPaciente
             })
-            .ToList();
+            .ToListAsync(cancellationToken);
 
-        var terapiaCandidates = await _context.CensoTerapiasAmbulatorias
+        var heridas = await _context.CensoClinicaHeridas
+            .AsNoTracking()
+            .Where(x => x.FechaEgreso == null && x.Estado != null && EF.Functions.ILike(x.Estado, "Activo"))
+            .Select(x => new CandidatoActivo
+            {
+                // Con VAC en Sí el paciente se reporta como VAC, que pesa más que clínica de
+                // heridas. Se lee el estado del momento: si mañana lo pasan a No, el informe
+                // vuelve a decir clínica de heridas sin que haya que tocar nada más.
+                Programa = x.Vac != null && EF.Functions.ILike(x.Vac, "Si")
+                    ? CensoProgramas.Vac
+                    : CensoProgramas.ClinicaHeridas,
+                Id = x.Id,
+                FechaIngreso = x.FechaIngresoPrograma,
+                NombrePaciente = x.NombrePaciente,
+                TipoIdentificacion = x.TipoIdentificacion,
+                NumeroIdentificacion = x.NumeroIdentificacion,
+                Zona = x.ClasificacionZonaSura,
+                Diagnostico = x.DiagnosticoDescriptivo,
+                Asegurador = x.Asegurador,
+                Estado = x.Estado
+            })
+            .ToListAsync(cancellationToken);
+
+        var npt = await _context.CensoNpt
+            .AsNoTracking()
+            .Where(x => x.FechaEgreso == null && x.Estado != null && EF.Functions.ILike(x.Estado, "Activo"))
+            .Select(x => new CandidatoActivo
+            {
+                Programa = CensoProgramas.Npt,
+                Id = x.Id,
+                FechaIngreso = x.FechaIngresoPrograma,
+                NombrePaciente = x.NombrePaciente,
+                TipoIdentificacion = x.TipoIdentificacion,
+                NumeroIdentificacion = x.NumeroIdentificacion,
+                Zona = x.ClasificacionZonaSura,
+                Diagnostico = x.DiagnosticoDescriptivo,
+                Asegurador = x.Asegurador,
+                Estado = x.Estado
+            })
+            .ToListAsync(cancellationToken);
+
+        var terapia = await _context.CensoTerapiasAmbulatorias
             .AsNoTracking()
             .Where(x => EF.Functions.ILike(x.EstadoPaciente, "Activo")
                 && !EF.Functions.ILike(x.EstadoAlta, "Cerrado"))
-            .Select(x => new
+            .Select(x => new CandidatoActivo
             {
-                x.Id,
-                x.FechaInicio,
-                x.NombrePaciente,
-                x.TipoIdentificacion,
-                x.NumeroIdentificacion,
-                x.ClasificacionZonaSura,
-                x.DiagnosticoDescriptivo
+                Programa = CensoProgramas.TerapiaAmbulatoria,
+                Id = x.Id,
+                FechaIngreso = x.FechaInicio,
+                NombrePaciente = x.NombrePaciente,
+                TipoIdentificacion = x.TipoIdentificacion,
+                NumeroIdentificacion = x.NumeroIdentificacion,
+                Zona = x.ClasificacionZonaSura,
+                Diagnostico = x.DiagnosticoDescriptivo,
+                Asegurador = "EPS SURA",
+                Estado = x.EstadoPaciente
             })
             .ToListAsync(cancellationToken);
 
-        var terapiaRows = terapiaCandidates
+        // Un programa recién asignado todavía no tiene fila en su censo: el episodio nace con
+        // RegistroId nulo y solo se enlaza cuando alguien guarda el formulario por primera vez. El
+        // paciente ya está en el programa —se lo asignaron—, así que el informe lo reporta con los
+        // datos del maestro y compite en la jerarquía como cualquier otro.
+        var episodiosPendientes = await _context.CensoPacienteProgramas
+            .AsNoTracking()
+            .Where(e => e.RegistroId == null && e.CerradoAtUtc == null)
+            .Select(e => new
+            {
+                e.Id,
+                e.Programa,
+                e.AgregadoAtUtc,
+                e.CensoPaciente.NombrePaciente,
+                e.CensoPaciente.TipoIdentificacion,
+                e.CensoPaciente.NumeroIdentificacion,
+                e.CensoPaciente.ClasificacionZonaSura,
+                e.CensoPaciente.DiagnosticoDescriptivo,
+                e.CensoPaciente.Asegurador
+            })
+            .ToListAsync(cancellationToken);
+
+        var conRegistro = agudos
+            .Concat(cronicos)
+            .Concat(heridas)
+            .Concat(npt)
+            .Concat(terapia)
+            .ToList();
+
+        // Cuando el programa ya tiene fila guardada manda la fila: sus datos son los reales y los del
+        // maestro solo los pisarían. El episodio pendiente únicamente llena el vacío de un programa
+        // asignado que nadie ha diligenciado.
+        var yaReportados = conRegistro
+            .Select(x => ClaveProgramaPaciente(x.NumeroIdentificacion, x.Programa))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var pendientes = episodiosPendientes
+            .Where(e => CensoProgramas.EsValido(e.Programa)
+                && !yaReportados.Contains(ClaveProgramaPaciente(e.NumeroIdentificacion, e.Programa)))
+            .Select(e => new CandidatoActivo
+            {
+                Programa = e.Programa,
+                Id = e.Id,
+                // Sin formulario diligenciado, el ingreso al programa es el día en que se asignó.
+                FechaIngreso = ColombiaTime.Convert(e.AgregadoAtUtc).Date,
+                NombrePaciente = e.NombrePaciente,
+                TipoIdentificacion = e.TipoIdentificacion,
+                NumeroIdentificacion = e.NumeroIdentificacion,
+                Zona = e.ClasificacionZonaSura,
+                Diagnostico = e.DiagnosticoDescriptivo,
+                // Terapia ambulatoria reporta siempre EPS SURA, igual que su consulta de arriba.
+                Asegurador = e.Programa == CensoProgramas.TerapiaAmbulatoria
+                    ? "EPS SURA"
+                    : e.Asegurador,
+                Estado = null
+            })
+            .ToList();
+
+        // Un paciente activo en varios programas se reporta una sola vez, con el programa de mayor
+        // jerarquía: NPT, crónicos, VAC, clínica de heridas, agudos y terapia ambulatoria en ese
+        // orden. Dentro del programa ganador se toma su atención más reciente.
+        var filas = conRegistro
+            .Concat(pendientes)
             .GroupBy(x => x.NumeroIdentificacion, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group
-                .OrderByDescending(x => x.FechaInicio)
+            .Select(grupo => grupo
+                .OrderBy(x => CensoProgramas.Jerarquia(x.Programa))
+                .ThenByDescending(x => x.FechaIngreso)
                 .ThenByDescending(x => x.Id)
                 .First())
             .Select(x => new ActivePatientReportRow
@@ -2566,27 +2640,54 @@ public partial class CensoController : Controller
                 FullName = x.NombrePaciente,
                 IdentificationType = x.TipoIdentificacion,
                 IdentificationNumber = x.NumeroIdentificacion,
-                Zone = x.ClasificacionZonaSura ?? string.Empty,
-                AdmissionDate = x.FechaInicio.Date,
-                LengthOfStayDays = Math.Max(0, (currentDate - x.FechaInicio.Date).Days),
-                Diagnosis = x.DiagnosticoDescriptivo,
-                Program = "Terapia ambulatoria",
-                Insurer = "EPS SURA"
+                Zone = x.Zona ?? string.Empty,
+                AdmissionDate = x.FechaIngreso.Date,
+                LengthOfStayDays = Math.Max(0, (currentDate - x.FechaIngreso.Date).Days),
+                Diagnosis = x.Diagnostico ?? string.Empty,
+                Program = NombreProgramaInforme(x),
+                Insurer = x.Asegurador ?? string.Empty
             })
-            .ToList();
-
-        var rows = censoRows
-            .Concat(terapiaRows)
             .OrderBy(x => x.FullName)
             .ThenBy(x => x.Program)
             .ToList();
 
-        var workbook = ExcelWorkbookWriter.BuildActivePatientsWorkbook(rows, DateTime.UtcNow);
+        var workbook = ExcelWorkbookWriter.BuildActivePatientsWorkbook(filas, DateTime.UtcNow);
         var fileName = $"Informe_pacientes_activos_{currentDate:yyyyMMdd}.xlsx";
         return File(
             workbook,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             fileName);
+    }
+
+    /// <summary>
+    /// El rótulo de agudos conserva la distinción Agudo / Cronico que ya traía el informe, porque
+    /// el censo de agudos marca con su propio campo Programa a los pacientes crónicos agudizados.
+    /// </summary>
+    private static string NombreProgramaInforme(CandidatoActivo candidato) =>
+        candidato.Programa == CensoProgramas.Agudos
+            ? NormalizeActivePatientProgram(null, candidato.Estado)
+            : CensoProgramas.Nombre(candidato.Programa);
+
+    /// <summary>
+    /// Clave paciente + programa para el informe. VAC no es un programa aparte sino el estado del
+    /// censo de heridas, así que comparte clave con clínica de heridas.
+    /// </summary>
+    private static string ClaveProgramaPaciente(string documento, string programa) =>
+        $"{documento}|{(programa == CensoProgramas.Vac ? CensoProgramas.ClinicaHeridas : programa)}";
+
+    /// <summary>Fila candidata del informe, ya homogeneizada entre los cinco censos.</summary>
+    private sealed class CandidatoActivo
+    {
+        public string Programa { get; init; } = string.Empty;
+        public long Id { get; init; }
+        public DateTime FechaIngreso { get; init; }
+        public string NombrePaciente { get; init; } = string.Empty;
+        public string TipoIdentificacion { get; init; } = string.Empty;
+        public string NumeroIdentificacion { get; init; } = string.Empty;
+        public string? Zona { get; init; }
+        public string? Diagnostico { get; init; }
+        public string? Asegurador { get; init; }
+        public string? Estado { get; init; }
     }
 
     [HttpGet]
@@ -3738,9 +3839,27 @@ public partial class CensoController : Controller
             .ToList();
     }
 
-    private async Task<IReadOnlyList<SelectListItem>> GetOpsAssistantOptionsAsync(CancellationToken cancellationToken)
+    // Profesiones que pueden ocupar un campo de "auxiliar" en cualquier censo. El directorio de
+    // Portal Administrativo trae a todo el personal (medicos, fisioterapia, nutricion...), y en
+    // estos campos solo tiene sentido asignar personal de enfermeria.
+    private static readonly string[] ProfesionesDeAuxiliar = ["AUXILIAR_ENFERMERIA", "ENFERMERIA"];
+
+    /// <summary>Personal asignable en los campos de auxiliar: solo enfermeria.</summary>
+    private Task<IReadOnlyList<SelectListItem>> GetOpsAssistantOptionsAsync(CancellationToken cancellationToken) =>
+        BuildOpsDirectoryOptionsAsync(ProfesionesDeAuxiliar, cancellationToken);
+
+    /// <summary>Directorio completo, sin filtrar por profesion.</summary>
+    private Task<IReadOnlyList<SelectListItem>> GetOpsDirectoryOptionsAsync(CancellationToken cancellationToken) =>
+        BuildOpsDirectoryOptionsAsync(null, cancellationToken);
+
+    private async Task<IReadOnlyList<SelectListItem>> BuildOpsDirectoryOptionsAsync(
+        IReadOnlyCollection<string>? profesiones,
+        CancellationToken cancellationToken)
     {
-        var assistants = await _userAdministrationService.GetOpsAssistantsAsync(onlyActive: true, cancellationToken);
+        var assistants = await _userAdministrationService.GetOpsAssistantsAsync(
+            onlyActive: true,
+            profesiones,
+            cancellationToken);
         return assistants
             .Where(assistant => !string.IsNullOrWhiteSpace(assistant.Name))
             .Select(assistant => new SelectListItem
@@ -5855,12 +5974,6 @@ public partial class CensoController : Controller
             .Replace("'", "&apos;", StringComparison.Ordinal);
     }
 
-    private static IReadOnlyList<SelectListItem> GetTipoIdentificacionOptions()
-    {
-        return TiposIdentificacion
-            .Select(tipo => new SelectListItem { Text = tipo, Value = tipo })
-            .ToList();
-    }
 
     private static int CalculateAge(DateTime fechaNacimiento, DateTime today)
     {

@@ -1,0 +1,321 @@
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Nexa.Data.Entities;
+
+namespace Nexa.Models.ViewModels;
+
+/// <summary>
+/// Recepción del paciente + datos básicos: lo que se captura una sola vez para todo paciente del
+/// censo, sin importar a cuántos programas pertenezca.
+///
+/// Obligatoriedad: los campos de identidad son obligatorios siempre. Los que hoy solo exige el
+/// programa de agudos (quien realiza kardex, correo, IPS que remite, visto bueno y teléfonos) se
+/// validan en el controlador según los programas que tenga el paciente, para no obligar a un
+/// paciente que solo es crónico o de terapia a diligenciar datos que su censo nunca le pidió.
+/// Por eso aquí no llevan [Required]: la regla vive en CensoController.Unificado.
+/// </summary>
+public class CensoPacienteFormViewModel
+{
+    public long? PacienteId { get; set; }
+
+    // ----- Sección 1: Recepción del paciente -----
+    [Required(ErrorMessage = "La fecha de ingreso es obligatoria.")]
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha y hora de ingreso")]
+    public DateTime FechaIngreso { get; set; } = DateTime.Today;
+
+    [Required(ErrorMessage = "La hora de ingreso es obligatoria.")]
+    [DataType(DataType.Time)]
+    [Display(Name = "Hora de ingreso")]
+    public TimeSpan HoraIngreso { get; set; }
+
+    [Required(ErrorMessage = "La fecha de respuesta es obligatoria.")]
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha y hora de respuesta")]
+    public DateTime? FechaRespuesta { get; set; } = DateTime.Today;
+
+    [Required(ErrorMessage = "La hora de respuesta es obligatoria.")]
+    [DataType(DataType.Time)]
+    [Display(Name = "Hora de respuesta")]
+    public TimeSpan? HoraRespuesta { get; set; }
+
+    [Display(Name = "Indicador tiempo de respuesta (minutos)")]
+    public int? IndicadorTiempoRespuestaMinutos { get; set; }
+
+    [Required(ErrorMessage = "Selecciona quien recepciona el caso.")]
+    [StringLength(120)]
+    [Display(Name = "Nombre de quien recepciona el caso")]
+    public string? NombreRecepcionaCaso { get; set; }
+
+    // Solo obligatorio cuando el paciente tiene un programa que genera kardex.
+    [StringLength(120)]
+    [Display(Name = "Nombre de quien realiza kardex")]
+    public string? NombreRealizaKardex { get; set; }
+
+    // ----- Sección 2: Datos básicos del paciente -----
+    [Required(ErrorMessage = "El nombre del paciente es obligatorio.")]
+    [StringLength(200, ErrorMessage = "El nombre del paciente no puede superar 200 caracteres.")]
+    [Display(Name = "Nombre del paciente")]
+    public string NombrePaciente { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Selecciona el tipo de identificación.")]
+    [StringLength(3)]
+    [Display(Name = "Tipo de identificación")]
+    public string TipoIdentificacion { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "El número de identificación es obligatorio.")]
+    [StringLength(20, ErrorMessage = "El número de identificación no puede superar 20 caracteres.")]
+    [Display(Name = "Número de identificación")]
+    public string NumeroIdentificacion { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La fecha de nacimiento es obligatoria.")]
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha de nacimiento")]
+    public DateTime FechaNacimiento { get; set; } = DateTime.Today;
+
+    [Display(Name = "Edad")]
+    public int Edad { get; set; }
+
+    // Subió al maestro desde crónicos, clínica de heridas y NPT.
+    [StringLength(20)]
+    [Display(Name = "Género")]
+    public string? Genero { get; set; }
+
+    [StringLength(150, ErrorMessage = "El correo electrónico no puede superar 150 caracteres.")]
+    [EmailAddress(ErrorMessage = "Ingresa un correo electrónico válido.")]
+    [Display(Name = "Correo electrónico")]
+    public string? CorreoElectronico { get; set; }
+
+    [StringLength(4, ErrorMessage = "El código CIE10 debe tener 4 caracteres.")]
+    [RegularExpression(@"^[A-Za-z][0-9]{3}$", ErrorMessage = "El código CIE10 debe iniciar con letra y continuar con 3 dígitos.")]
+    [Display(Name = "Código CIE10")]
+    public string? CodigoCie10 { get; set; }
+
+    [StringLength(300)]
+    [Display(Name = "Diagnóstico descriptivo")]
+    public string? DiagnosticoDescriptivo { get; set; }
+
+    // Subió al maestro: en agudos vivía en la sección 3 (plan de manejo) y en clínica de heridas y
+    // NPT en datos básicos. Se sigue replicando a la sección 3 de agudos.
+    [StringLength(120, ErrorMessage = "El asegurador no puede superar 120 caracteres.")]
+    [Display(Name = "Asegurador")]
+    public string? Asegurador { get; set; }
+
+    [StringLength(300, ErrorMessage = "La dirección no puede superar 300 caracteres.")]
+    [Display(Name = "Dirección")]
+    public string? Direccion { get; set; }
+
+    [Display(Name = "Asumir dirección errada y continuar")]
+    public bool AsumirDireccionErrada { get; set; }
+
+    public bool DireccionEsValida { get; set; }
+
+    public string? DireccionSugerida { get; set; }
+
+    public string? DireccionMensajeValidacion { get; set; }
+
+    [StringLength(200, ErrorMessage = "El detalle de dirección no puede superar 200 caracteres.")]
+    [Display(Name = "Detalle de dirección")]
+    public string? DetalleDireccion { get; set; }
+
+    [Display(Name = "Clasificación zona Sura")]
+    public string? ClasificacionZonaSura { get; set; }
+
+    [Display(Name = "Municipio de residencia")]
+    public string? MunicipioResidencia { get; set; }
+
+    [Display(Name = "Barrio")]
+    public string? Barrio { get; set; }
+
+    [Display(Name = "Zona de dirección según municipio")]
+    public string? ZonaDireccionSegunMunicipio { get; set; }
+
+    [Display(Name = "Area")]
+    public string? Area { get; set; }
+
+    [Display(Name = "IPS que remite")]
+    public string? IpsQueRemite { get; set; }
+
+    [Display(Name = "Visto bueno rango fuera del anexo")]
+    public string? VistoBuenoRangoFueraAnexo { get; set; }
+
+    [StringLength(10, ErrorMessage = "El teléfono principal no puede superar 10 dígitos.")]
+    [RegularExpression(@"^[0-9]*$", ErrorMessage = "El teléfono principal solo permite dígitos.")]
+    [Display(Name = "Teléfono principal")]
+    public string? Telefono1 { get; set; }
+
+    [StringLength(10, ErrorMessage = "El teléfono adicional 1 no puede superar 10 dígitos.")]
+    [RegularExpression(@"^[0-9]*$", ErrorMessage = "El teléfono adicional 1 solo permite dígitos.")]
+    [Display(Name = "Teléfono adicional 1")]
+    public string? Telefono2 { get; set; }
+
+    [StringLength(10, ErrorMessage = "El teléfono adicional 2 no puede superar 10 dígitos.")]
+    [RegularExpression(@"^[0-9]*$", ErrorMessage = "El teléfono adicional 2 solo permite dígitos.")]
+    [Display(Name = "Teléfono adicional 2")]
+    public string? Telefono3 { get; set; }
+}
+
+/// <summary>Estado de un programa en la tarjeta del selector.</summary>
+public class CensoProgramaChipViewModel
+{
+    public string Programa { get; set; } = string.Empty;
+
+    public string Nombre => CensoProgramas.Nombre(Programa);
+
+    public string NombreCorto => CensoProgramas.NombreCorto(Programa);
+
+    /// <summary>El paciente tiene un episodio abierto de este programa.</summary>
+    public bool Agregado { get; set; }
+
+    public long? EpisodioId { get; set; }
+
+    /// <summary>Id de la fila en la tabla propia del programa. Nulo mientras no se ha guardado.</summary>
+    public long? RegistroId { get; set; }
+
+    /// <summary>Episodios cerrados del mismo programa (atenciones o tratamientos anteriores).</summary>
+    public int EpisodiosCerrados { get; set; }
+
+    /// <summary>Se puede agregar: no está agregado y no choca con el programa excluyente.</summary>
+    public bool SePuedeAgregar { get; set; }
+
+    /// <summary>Motivo por el que no se puede agregar, para mostrarlo en la tarjeta.</summary>
+    public string? MotivoBloqueo { get; set; }
+
+    /// <summary>
+    /// Consecuencia que hay que advertir antes de agregar este programa, si la tiene. Se dice en el
+    /// momento de decidir y no como etiqueta permanente en la tarjeta.
+    /// </summary>
+    public string? AvisoAlAgregar { get; set; }
+
+}
+
+/// <summary>Fila del tabulado unificado, en su juego de columnas núcleo.</summary>
+public class CensoUnificadoTablaRowViewModel
+{
+    public string Programa { get; set; } = string.Empty;
+
+    public long RegistroId { get; set; }
+
+    public long? PacienteId { get; set; }
+
+    public string NombrePaciente { get; set; } = string.Empty;
+
+    public string TipoIdentificacion { get; set; } = string.Empty;
+
+    public string NumeroIdentificacion { get; set; } = string.Empty;
+
+    public DateTime? FechaIngreso { get; set; }
+
+    public string? Estado { get; set; }
+
+    public bool Abierto { get; set; }
+
+    public string? Asegurador { get; set; }
+
+    public string? ClasificacionZonaSura { get; set; }
+
+    public string? DiagnosticoDescriptivo { get; set; }
+
+    public string? EstadoFarmacia { get; set; }
+
+    public bool TieneAdjuntos { get; set; }
+
+    public bool TieneProrroga { get; set; }
+}
+
+/// <summary>Modelo de la pantalla única de censo.</summary>
+public class CensoUnificadoViewModel
+{
+    public CensoPacienteFormViewModel Paciente { get; set; } = new();
+
+    public IReadOnlyList<CensoProgramaChipViewModel> Programas { get; set; } = [];
+
+    // ----- Formularios de cada programa -----
+    // Se llenan solo para los programas que el paciente tiene abiertos. Son los mismos modelos que
+    // usaban las pantallas independientes, así que sus formularios siguen enviando a las mismas
+    // acciones y toda su lógica —kardex, requisiciones, farmacia y prórrogas— queda intacta.
+    public CensoReceptionViewModel? Agudos { get; set; }
+
+    public CensoCronicoViewModel? Cronicos { get; set; }
+
+    public CensoClinicaHeridasViewModel? ClinicaHeridas { get; set; }
+
+    public CensoNptViewModel? Npt { get; set; }
+
+    public CensoTerapiaAmbulatoriaViewModel? TerapiaAmbulatoria { get; set; }
+
+    /// <summary>Programa cuya pestaña se abre al cargar.</summary>
+    public string? ProgramaActivo { get; set; }
+
+    /// <summary>El paciente ya está guardado y por tanto se pueden agregar programas.</summary>
+    public bool PacienteGuardado => Paciente.PacienteId.HasValue;
+
+    /// <summary>
+    /// Pacientes que arrastran agudos y crónicos abiertos a la vez desde antes de la unificación.
+    /// No se rompen: se muestran con aviso y no se pueden agravar.
+    /// </summary>
+    /// <summary>
+    /// Programas abiertos que hoy serían incompatibles entre sí. Vienen de antes de que la regla
+    /// existiera; se muestran para que quien atiende sepa por qué el carril no deja agregar nada.
+    /// </summary>
+    public IReadOnlyList<string> ProgramasEnConflicto { get; set; } = [];
+
+    public bool TieneConflicto => ProgramasEnConflicto.Count > 0;
+
+    // ----- Filtros del tabulado -----
+    public string? CedulaFiltro { get; set; }
+
+    public string? ProgramaFiltro { get; set; }
+
+    public DateTime? FechaIngresoFiltroDesde { get; set; }
+
+    public DateTime? FechaIngresoFiltroHasta { get; set; }
+
+    public bool TieneFiltroFechaIngreso => FechaIngresoFiltroDesde.HasValue || FechaIngresoFiltroHasta.HasValue;
+
+    public IReadOnlyList<CensoUnificadoTablaRowViewModel> Filas { get; set; } = [];
+
+    /// <summary>
+    /// Registros completos del programa filtrado. Cuando se filtra por un solo programa la tabla
+    /// despliega su juego completo de columnas, igual que la pantalla propia de ese censo; con
+    /// "todos los programas" solo se muestran las columnas núcleo, porque la unión literal de los
+    /// cinco pasaría de seiscientas columnas.
+    /// </summary>
+    public IReadOnlyList<object> RegistrosDetalle { get; set; } = [];
+
+    /// <summary>Entidad de los registros de <see cref="RegistrosDetalle"/>, para reflejar sus columnas.</summary>
+    public Type? TipoDetalle { get; set; }
+
+    /// <summary>Filas que se muestran cuando el resultado se recorta.</summary>
+    public int TotalSinRecorte { get; set; }
+
+    public int LimiteFilas { get; set; }
+
+    public int IngresosHoyCount { get; set; }
+
+    public IReadOnlyDictionary<string, int> ConteoPorPrograma { get; set; } =
+        new Dictionary<string, int>(StringComparer.Ordinal);
+
+    // ----- Catálogos compartidos -----
+    public IReadOnlyList<SelectListItem> TipoIdentificacionOptions { get; set; } = [];
+
+    public IReadOnlyList<SelectListItem> GeneroOptions { get; set; } = [];
+
+    public IReadOnlyList<SelectListItem> ClasificacionZonaSuraOptions { get; set; } = [];
+
+    public IReadOnlyList<SelectListItem> MunicipioResidenciaOptions { get; set; } = [];
+
+    public IReadOnlyList<SelectListItem> ZonaDireccionOptions { get; set; } = [];
+
+    public IReadOnlyList<SelectListItem> AreaOptions { get; set; } = [];
+
+    public IReadOnlyList<SelectListItem> IpsQueRemiteOptions { get; set; } = [];
+
+    public IReadOnlyList<SelectListItem> VistoBuenoOptions { get; set; } = [];
+
+    public IReadOnlyList<SelectListItem> AseguradorOptions { get; set; } = [];
+
+    public IReadOnlyList<SelectListItem> NursingAssistantOptions { get; set; } = [];
+
+    public IReadOnlyList<string> BarrioOptions { get; set; } = [];
+}

@@ -397,7 +397,7 @@ public partial class FarmaciaDispatchNotificationService : IFarmaciaDispatchNoti
         }
 
         var normalizedName = NormalizeCatalogKey(assistantName);
-        var assistants = await _userAdministrationService.GetOpsAssistantsAsync(onlyActive: true, cancellationToken);
+        var assistants = await _userAdministrationService.GetOpsAssistantsAsync(onlyActive: true, cancellationToken: cancellationToken);
         return assistants
             .FirstOrDefault(x => NormalizeCatalogKey(x.Name) == normalizedName)
             ?.Email

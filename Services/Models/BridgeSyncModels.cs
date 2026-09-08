@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Nexa.Services.Models;
 
@@ -70,6 +70,19 @@ public sealed class SupabaseBridgeOptions
 /// <summary>Un paciente listo para enviar. Solo se usa en memoria.</summary>
 public sealed record BridgePatient(string Document, string Name);
 
+/// <summary>
+/// Un ingreso del paciente al programa de clínica de heridas: su número de orden (1 = primera
+/// atención) y si sigue abierto. Es lo que permite al portal saber si puede seguir registrando
+/// seguimientos y sobre cuál de los ingresos debe cargarlos.
+/// </summary>
+public sealed record BridgeAdmission(int Number, bool Open)
+{
+    public const string EstadoActivo = "activo";
+    public const string EstadoCerrado = "cerrado";
+
+    public string State => Open ? EstadoActivo : EstadoCerrado;
+}
+
 /// <summary>Resultado tecnico de una sincronizacion. No contiene datos personales.</summary>
 public sealed class BridgeSyncSummary
 {
@@ -87,6 +100,9 @@ public sealed class BridgeSyncSummary
     public int Inserted { get; set; }
 
     public int Updated { get; set; }
+
+    /// <summary>Ingresos al programa confirmados por Supabase.</summary>
+    public int AdmissionsSynced { get; set; }
 
     public int BatchesSent { get; set; }
 
@@ -123,6 +139,24 @@ internal sealed class BridgeSyncRequestPatient
 
     [JsonPropertyName("name")]
     public string Name { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Ingresos del paciente al programa, del primero al último. Se envía siempre la lista
+    /// completa: la Edge Function reconcilia con ella, así que un ingreso que cambia de activo a
+    /// cerrado llega en la misma pasada que cualquier otro cambio.
+    /// </summary>
+    [JsonPropertyName("admissions")]
+    public IReadOnlyList<BridgeSyncRequestAdmission> Admissions { get; init; } = [];
+}
+
+/// <summary>Un ingreso tal como viaja en el cuerpo firmado.</summary>
+internal sealed class BridgeSyncRequestAdmission
+{
+    [JsonPropertyName("number")]
+    public int Number { get; init; }
+
+    [JsonPropertyName("state")]
+    public string State { get; init; } = string.Empty;
 }
 
 /// <summary>Respuesta tecnica de la Edge Function.</summary>
@@ -139,6 +173,10 @@ internal sealed class BridgeSyncResponsePayload
 
     [JsonPropertyName("updated")]
     public int Updated { get; init; }
+
+    /// <summary>Ingresos escritos por la Edge Function. 0 si la función desplegada aún no los admite.</summary>
+    [JsonPropertyName("admissions")]
+    public int Admissions { get; init; }
 
     [JsonPropertyName("error")]
     public string? Error { get; init; }

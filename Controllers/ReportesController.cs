@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using Nexa.Data;
 using Nexa.Data.Repositories.Interfaces;
@@ -7,6 +7,7 @@ using Nexa.Helpers;
 using Nexa.Models.Reports;
 using Nexa.Models.Security;
 using Nexa.Models.ViewModels;
+using Nexa.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -59,14 +60,37 @@ public class ReportesController : Controller
     private readonly ApplicationDbContext _context;
     private readonly IPortalNovedadRepository _portalNovedadRepository;
 
-    public ReportesController(ApplicationDbContext context, IPortalNovedadRepository portalNovedadRepository)
+    private readonly ICensoTabuladoService _censoTabuladoService;
+
+    public ReportesController(
+        ApplicationDbContext context,
+        IPortalNovedadRepository portalNovedadRepository,
+        ICensoTabuladoService censoTabuladoService)
     {
         _context = context;
         _portalNovedadRepository = portalNovedadRepository;
+        _censoTabuladoService = censoTabuladoService;
     }
 
-    public async Task<IActionResult> Index(ReportesFilterViewModel filters, CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(
+        ReportesFilterViewModel filters,
+        string? cedulaPaciente,
+        string? programaFiltro,
+        DateTime? tabuladoDesde,
+        DateTime? tabuladoHasta,
+        CancellationToken cancellationToken)
     {
+        // El tabulado del censo trae sus propios parametros: se consulta por documento, por programa
+        // y por rango de ingreso, al margen de los filtros del tablero.
+        var tabulado = new CensoUnificadoViewModel
+        {
+            CedulaFiltro = cedulaPaciente,
+            ProgramaFiltro = programaFiltro,
+            FechaIngresoFiltroDesde = tabuladoDesde?.Date,
+            FechaIngresoFiltroHasta = tabuladoHasta?.Date
+        };
+        await _censoTabuladoService.ConstruirAsync(tabulado, cancellationToken);
+
         var normalizedFilters = NormalizeFilters(filters);
         var censoRows = ShouldIncludeAgudos(normalizedFilters.Programa)
             ? await ApplyBaseFilters(_context.Censos.AsNoTracking(), normalizedFilters, _context)
@@ -182,114 +206,11 @@ public class ReportesController : Controller
             FocosOperativos = BuildOperationalFocus(censoRows),
             FocosNoParametrizados = BuildUnparameterizedOperationalFocus(censoRows),
             RegistrosPrioritarios = BuildPriorityRecords(censoRows),
-            ActiveFilterLabels = BuildActiveFilterLabels(normalizedFilters)
+            ActiveFilterLabels = BuildActiveFilterLabels(normalizedFilters),
+            TabuladoCenso = tabulado
         };
 
         return View(model);
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> ExportarPacientesActivos(CancellationToken cancellationToken)
-    {
-        var currentDate = ColombiaTime.Convert(DateTime.UtcNow).Date;
-        // Mismo criterio de visibilidad que la tabla del censo en pantalla: si una fila no se puede ver ni
-        // abrir en el censo, tampoco puede reportarse aquí como paciente activo. Sin este filtro una copia
-        // interna de despacho a farmacia con Estado contaminado hace que el paciente salga en el exportable
-        // pero no aparezca al filtrar su cédula en el censo.
-        var censoCandidates = await _context.Censos
-            .AsNoTracking()
-            .Where(CensoVisibility.EditableRecord(_context))
-            .Where(x => x.Estado != null
-                && (EF.Functions.ILike(x.Estado, "Aceptado activo")
-                    || EF.Functions.ILike(x.Estado, "Aceptado cronico")
-                    || EF.Functions.ILike(x.Estado, "Aceptado crónico")
-                    || EF.Functions.ILike(x.Estado, "Activo Estancia prolongada")
-                    || EF.Functions.ILike(x.Estado, "Aceptado estancia prolongada")))
-            .Select(x => new
-            {
-                x.Id,
-                x.FechaIngreso,
-                x.NombrePaciente,
-                x.TipoIdentificacion,
-                x.NumeroIdentificacion,
-                x.ClasificacionZonaSura,
-                x.DiagnosticoDescriptivo,
-                x.Programa,
-                x.Asegurador,
-                x.Estado
-            })
-            .ToListAsync(cancellationToken);
-
-        var censoRows = censoCandidates
-            .GroupBy(x => x.NumeroIdentificacion, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group
-                .OrderByDescending(x => x.FechaIngreso)
-                .ThenByDescending(x => x.Id)
-                .First())
-            .Select(x => new ActivePatientReportRow
-            {
-                CurrentDate = currentDate,
-                FullName = x.NombrePaciente,
-                IdentificationType = x.TipoIdentificacion,
-                IdentificationNumber = x.NumeroIdentificacion,
-                Zone = x.ClasificacionZonaSura,
-                AdmissionDate = x.FechaIngreso.Date,
-                LengthOfStayDays = Math.Max(0, (currentDate - x.FechaIngreso.Date).Days),
-                Diagnosis = x.DiagnosticoDescriptivo,
-                Program = NormalizeActivePatientProgram(x.Programa, x.Estado),
-                Insurer = x.Asegurador
-            })
-            .ToList();
-
-        var terapiaCandidates = await _context.CensoTerapiasAmbulatorias
-            .AsNoTracking()
-            .Where(x => EF.Functions.ILike(x.EstadoPaciente, "Activo")
-                && !EF.Functions.ILike(x.EstadoAlta, "Cerrado"))
-            .Select(x => new
-            {
-                x.Id,
-                x.FechaInicio,
-                x.NombrePaciente,
-                x.TipoIdentificacion,
-                x.NumeroIdentificacion,
-                x.ClasificacionZonaSura,
-                x.DiagnosticoDescriptivo
-            })
-            .ToListAsync(cancellationToken);
-
-        var terapiaRows = terapiaCandidates
-            .GroupBy(x => x.NumeroIdentificacion, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group
-                .OrderByDescending(x => x.FechaInicio)
-                .ThenByDescending(x => x.Id)
-                .First())
-            .Select(x => new ActivePatientReportRow
-            {
-                CurrentDate = currentDate,
-                FullName = x.NombrePaciente,
-                IdentificationType = x.TipoIdentificacion,
-                IdentificationNumber = x.NumeroIdentificacion,
-                Zone = x.ClasificacionZonaSura ?? string.Empty,
-                AdmissionDate = x.FechaInicio.Date,
-                LengthOfStayDays = Math.Max(0, (currentDate - x.FechaInicio.Date).Days),
-                Diagnosis = x.DiagnosticoDescriptivo,
-                Program = "Terapia ambulatoria",
-                Insurer = "EPS SURA"
-            })
-            .ToList();
-
-        var rows = censoRows
-            .Concat(terapiaRows)
-            .OrderBy(x => x.FullName)
-            .ThenBy(x => x.Program)
-            .ToList();
-
-        var workbook = ExcelWorkbookWriter.BuildActivePatientsWorkbook(rows, DateTime.UtcNow);
-        var fileName = $"Informe_pacientes_activos_{currentDate:yyyyMMdd}.xlsx";
-        return File(
-            workbook,
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            fileName);
     }
 
     private static IQueryable<Data.Entities.CensoRecord> ApplyBaseFilters(
@@ -933,20 +854,6 @@ public class ReportesController : Controller
             (false, true) => "Gestión pendiente",
             _ => "Revisar caso"
         };
-    }
-
-    private static string NormalizeActivePatientProgram(string? program, string? state)
-    {
-        if (!string.IsNullOrWhiteSpace(program))
-        {
-            return program.Contains("cron", StringComparison.OrdinalIgnoreCase)
-                ? "Cronico"
-                : "Agudo";
-        }
-
-        return state?.Contains("cron", StringComparison.OrdinalIgnoreCase) == true
-            ? "Cronico"
-            : "Agudo";
     }
 
     private static bool IsResolved(PortalNovedadRow row)

@@ -32,6 +32,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CensoAdjunto> CensoAdjuntos => Set<CensoAdjunto>();
     public DbSet<CensoProrroga> CensoProrrogas => Set<CensoProrroga>();
     public DbSet<CensoKardexReaperturaSolicitud> CensoKardexReaperturas => Set<CensoKardexReaperturaSolicitud>();
+    public DbSet<CensoPaciente> CensoPacientes => Set<CensoPaciente>();
+    public DbSet<CensoPacientePrograma> CensoPacienteProgramas => Set<CensoPacientePrograma>();
     public DbSet<Medicamento> Medicamentos => Set<Medicamento>();
     public DbSet<NursingAssistant> NursingAssistants => Set<NursingAssistant>();
     public DbSet<OpsAssistant> OpsAssistants => Set<OpsAssistant>();
@@ -163,10 +165,78 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        modelBuilder.Entity<CensoPaciente>(entity =>
+        {
+            entity.ToTable("censo_paciente");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.TipoIdentificacion).HasMaxLength(3).IsRequired();
+            entity.Property(x => x.NumeroIdentificacion).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.NombrePaciente).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.NombreRecepcionaCaso).HasMaxLength(120);
+            entity.Property(x => x.NombreRealizaKardex).HasMaxLength(120);
+            entity.Property(x => x.Genero).HasMaxLength(20);
+            entity.Property(x => x.CorreoElectronico).HasMaxLength(150);
+            entity.Property(x => x.CodigoCie10).HasMaxLength(4);
+            entity.Property(x => x.DiagnosticoDescriptivo).HasMaxLength(300);
+            entity.Property(x => x.Asegurador).HasMaxLength(120);
+            entity.Property(x => x.Direccion).HasMaxLength(300);
+            entity.Property(x => x.DetalleDireccion).HasMaxLength(200);
+            entity.Property(x => x.ClasificacionZonaSura).HasMaxLength(30);
+            entity.Property(x => x.MunicipioResidencia).HasMaxLength(120);
+            entity.Property(x => x.Barrio).HasMaxLength(120);
+            entity.Property(x => x.ZonaDireccionSegunMunicipio).HasMaxLength(50);
+            entity.Property(x => x.Area).HasMaxLength(10);
+            entity.Property(x => x.IpsQueRemite).HasMaxLength(200);
+            entity.Property(x => x.VistoBuenoRangoFueraAnexo).HasMaxLength(2);
+            entity.Property(x => x.Telefono1).HasMaxLength(10);
+            entity.Property(x => x.Telefono2).HasMaxLength(10);
+            entity.Property(x => x.Telefono3).HasMaxLength(10);
+            entity.Property(x => x.CreadoPor).HasMaxLength(200);
+            entity.Property(x => x.ActualizadoPor).HasMaxLength(200);
+            entity.Property(x => x.FechaIngreso).HasColumnType("date");
+            entity.Property(x => x.FechaRespuesta).HasColumnType("date");
+            entity.Property(x => x.FechaNacimiento).HasColumnType("date");
+            entity.Property(x => x.HoraIngreso).HasColumnType("time without time zone");
+            entity.Property(x => x.HoraRespuesta).HasColumnType("time without time zone");
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
+            // Un paciente por documento: es la clave con la que se unifican los censos.
+            entity.HasIndex(x => x.NumeroIdentificacion).IsUnique();
+            entity.HasIndex(x => x.NombrePaciente);
+            entity.HasIndex(x => x.FechaIngreso);
+        });
+
+        modelBuilder.Entity<CensoPacientePrograma>(entity =>
+        {
+            entity.ToTable("censo_paciente_programa");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Programa).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.AgregadoPor).HasMaxLength(200);
+            entity.Property(x => x.CerradoPor).HasMaxLength(200);
+            entity.Property(x => x.MotivoCierre).HasMaxLength(120);
+            entity.Property(x => x.AgregadoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.CerradoAtUtc).HasColumnType("timestamp with time zone");
+            entity.HasOne(x => x.CensoPaciente)
+                .WithMany(x => x.Programas)
+                .HasForeignKey(x => x.CensoPacienteId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => new { x.CensoPacienteId, x.Programa });
+            entity.HasIndex(x => new { x.Programa, x.RegistroId });
+            // La regla "un solo episodio abierto por programa y paciente" se valida en la aplicacion,
+            // no con un indice unico: los datos historicos que se migran no la cumplen todos (hay
+            // atenciones antiguas de agudos sin estado, que cuentan como abiertas) y un indice unico
+            // haria fallar el backfill sobre datos de produccion. El indice parcial solo acelera la
+            // consulta de episodios abiertos.
+            entity.HasIndex(x => new { x.CensoPacienteId, x.Programa })
+                .HasFilter("\"CerradoAtUtc\" IS NULL")
+                .HasDatabaseName("IX_censo_paciente_programa_abierto");
+        });
+
         modelBuilder.Entity<CensoRecord>(entity =>
         {
             entity.ToTable("censo");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.CensoPacienteId);
             entity.Property(x => x.Asegurador).HasMaxLength(120).IsRequired();
             entity.Property(x => x.NombrePerfilGestionaCaso).HasMaxLength(120).IsRequired();
             entity.Property(x => x.NombreRecepcionaCaso).HasMaxLength(120).IsRequired();
@@ -283,6 +353,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.ToTable("censo_terapias_ambulatorias");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.CensoPacienteId);
             entity.Property(x => x.NombrePaciente).HasMaxLength(200).IsRequired();
             entity.Property(x => x.TipoIdentificacion).HasMaxLength(3).IsRequired();
             entity.Property(x => x.NumeroIdentificacion).HasMaxLength(20).IsRequired();
@@ -391,6 +462,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.ToTable("censo_clinica_heridas");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.CensoPacienteId);
             entity.Property(x => x.Asegurador).HasMaxLength(120).IsRequired();
             entity.Property(x => x.FechaIngresoPrograma).HasColumnType("date");
             entity.Property(x => x.TipoIdentificacion).HasMaxLength(3).IsRequired();
@@ -462,6 +534,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.ToTable("censo_npt");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.CensoPacienteId);
             entity.Property(x => x.Asegurador).HasMaxLength(120).IsRequired();
             entity.Property(x => x.FechaIngresoPrograma).HasColumnType("date");
             entity.Property(x => x.TipoIdentificacion).HasMaxLength(3).IsRequired();
@@ -535,6 +608,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.ToTable("censo_cronicos");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.CensoPacienteId);
             entity.Property(x => x.FuenteIngreso).HasMaxLength(30).IsRequired();
             entity.Property(x => x.FechaIngreso).HasColumnType("date");
             entity.Property(x => x.TipoIdentificacion).HasMaxLength(3).IsRequired();

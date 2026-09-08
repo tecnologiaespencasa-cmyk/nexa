@@ -38,7 +38,7 @@ function crearBaseFalsa() {
     recibidoEnCrudo.push(filas);
 
     if (nonces.has(requestId)) {
-      return { replay: true, recibidos: 0, unicos: 0, insertados: 0, actualizados: 0 };
+      return { replay: true, recibidos: 0, unicos: 0, insertados: 0, actualizados: 0, ingresos: 0 };
     }
     nonces.add(requestId);
 
@@ -66,6 +66,7 @@ function crearBaseFalsa() {
       unicos: deduplicado.size,
       insertados,
       actualizados,
+      ingresos: filas.reduce((total, fila) => total + (fila.i?.length ?? 0), 0),
     };
   };
 
@@ -526,8 +527,119 @@ test("la respuesta solo contiene informacion tecnica", async () => {
   });
   assert.deepEqual(
     Object.keys(cuerpo).sort(),
-    ["inserted", "processed", "requestId", "success", "updated"],
+    ["admissions", "inserted", "processed", "requestId", "success", "updated"],
   );
+  const texto = JSON.stringify(cuerpo);
+  assert.ok(!texto.includes("71234567"));
+  assert.ok(!texto.includes("CARLOS"));
+});
+
+// ---------------------------------------------------------------------------
+// Ingresos al programa (alta y reingreso)
+// ---------------------------------------------------------------------------
+test("los ingresos viajan a la base tal como llegan", async () => {
+  const base = crearBaseFalsa();
+  const { cuerpo } = await ejecutar({
+    patients: [{
+      document: "71234567",
+      name: "CARLOS ANDRES MEJIA",
+      admissions: [{ number: 1, state: "cerrado" }, { number: 2, state: "activo" }],
+    }],
+  }, { base, logs: [] });
+
+  assert.equal(cuerpo.admissions, 2);
+  assert.deepEqual(base.recibidoEnCrudo[0][0].i, [
+    { n: 1, s: "cerrado" },
+    { n: 2, s: "activo" },
+  ]);
+});
+
+test("sin admissions la clave no se envia, para que la base no reconcilie", async () => {
+  const base = crearBaseFalsa();
+  await ejecutar({ patients: [{ document: "71234567", name: "CARLOS ANDRES MEJIA" }] }, { base, logs: [] });
+
+  assert.equal("i" in base.recibidoEnCrudo[0][0], false);
+});
+
+test("admissions vacio si se envia: el paciente se quedo sin ingresos", async () => {
+  const base = crearBaseFalsa();
+  await ejecutar({
+    patients: [{ document: "71234567", name: "CARLOS ANDRES MEJIA", admissions: [] }],
+  }, { base, logs: [] });
+
+  assert.deepEqual(base.recibidoEnCrudo[0][0].i, []);
+});
+
+test("un estado que no es activo ni cerrado se rechaza", async () => {
+  const { respuesta, cuerpo } = await ejecutar({
+    patients: [{
+      document: "71234567",
+      name: "CARLOS ANDRES MEJIA",
+      admissions: [{ number: 1, state: "egresado" }],
+    }],
+  });
+
+  assert.equal(respuesta.status, 422);
+  assert.equal(cuerpo.error, "invalid_admission_state");
+});
+
+test("un numero de ingreso no entero se rechaza", async () => {
+  const { respuesta, cuerpo } = await ejecutar({
+    patients: [{
+      document: "71234567",
+      name: "CARLOS ANDRES MEJIA",
+      admissions: [{ number: 1.5, state: "activo" }],
+    }],
+  });
+
+  assert.equal(respuesta.status, 422);
+  assert.equal(cuerpo.error, "invalid_admission_number");
+});
+
+test("un ingreso cero o negativo se rechaza", async () => {
+  const { respuesta, cuerpo } = await ejecutar({
+    patients: [{
+      document: "71234567",
+      name: "CARLOS ANDRES MEJIA",
+      admissions: [{ number: 0, state: "activo" }],
+    }],
+  });
+
+  assert.equal(respuesta.status, 422);
+  assert.equal(cuerpo.error, "invalid_admission_number");
+});
+
+test("el mismo numero de ingreso dos veces se rechaza", async () => {
+  const { respuesta, cuerpo } = await ejecutar({
+    patients: [{
+      document: "71234567",
+      name: "CARLOS ANDRES MEJIA",
+      admissions: [{ number: 1, state: "activo" }, { number: 1, state: "cerrado" }],
+    }],
+  });
+
+  assert.equal(respuesta.status, 422);
+  assert.equal(cuerpo.error, "duplicate_admission");
+});
+
+test("admissions que no es arreglo se rechaza", async () => {
+  const { respuesta, cuerpo } = await ejecutar({
+    patients: [{ document: "71234567", name: "CARLOS ANDRES MEJIA", admissions: "activo" }],
+  });
+
+  assert.equal(respuesta.status, 422);
+  assert.equal(cuerpo.error, "invalid_admissions");
+});
+
+test("la respuesta con ingresos sigue sin filtrar datos del paciente", async () => {
+  const { cuerpo } = await ejecutar({
+    patients: [{
+      document: "71234567",
+      name: "CARLOS ANDRES MEJIA",
+      admissions: [{ number: 1, state: "activo" }],
+    }],
+  });
+
   const texto = JSON.stringify(cuerpo);
   assert.ok(!texto.includes("71234567"));
   assert.ok(!texto.includes("CARLOS"));

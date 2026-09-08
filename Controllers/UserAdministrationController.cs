@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Security.Claims;
 using System.Text;
 using Nexa.Models.Security;
@@ -500,7 +500,7 @@ public class UserAdministrationController : Controller
     {
         var users = await _userAdministrationService.GetUsersAsync(cancellationToken);
         var nursingAssistants = await _userAdministrationService.GetNursingAssistantsAsync(onlyActive: false, cancellationToken);
-        var opsAssistants = await _userAdministrationService.GetOpsAssistantsAsync(onlyActive: false, cancellationToken);
+        var opsAssistants = await _userAdministrationService.GetOpsAssistantsAsync(onlyActive: false, cancellationToken: cancellationToken);
         var mappedOpsAssistants = MapOpsAssistants(opsAssistants);
 
         var userSearchTerm = userSearch?.Trim() ?? string.Empty;

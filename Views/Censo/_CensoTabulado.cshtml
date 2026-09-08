@@ -1,0 +1,244 @@
+﻿@model CensoUnificadoViewModel
+@using System.Reflection
+@using Nexa.Controllers
+@using Nexa.Data.Entities
+@{
+    // Columnas que no aportan nada en pantalla: llaves internas, blobs y colecciones de navegación.
+    var columnasOcultas = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "RequisicionFarmaciaJson", "KardexEdicionJson", "ProrrogaRequisicionFarmaciaJson",
+        "ProrrogaKardexEdicionJson", "ProrrogaJson", "FarmaciaFirmaEntregaDataUrl",
+        "FarmaciaFirmaRecibeDataUrl", "Adjuntos", "Prorrogas", "Agudizaciones", "Hospitalizaciones"
+    };
+
+    PropertyInfo[] columnasDetalle = Model.TipoDetalle is null
+        ? []
+        : Model.TipoDetalle.GetProperties()
+            .Where(x => !columnasOcultas.Contains(x.Name))
+            .Where(x => x.PropertyType.IsPrimitive
+                || x.PropertyType == typeof(string)
+                || x.PropertyType == typeof(decimal)
+                || x.PropertyType == typeof(decimal?)
+                || x.PropertyType == typeof(DateTime)
+                || x.PropertyType == typeof(DateTime?)
+                || x.PropertyType == typeof(TimeSpan)
+                || x.PropertyType == typeof(TimeSpan?)
+                || Nullable.GetUnderlyingType(x.PropertyType)?.IsPrimitive == true)
+            .ToArray();
+
+    var hayDetalle = Model.ProgramaFiltro is not null && Model.RegistrosDetalle.Count > 0;
+}
+
+<section class="censo-history-shell" aria-labelledby="censoTabuladoTitulo">
+    <div class="censo-history-shell__header">
+        <div class="censo-history-shell__header-copy">
+            <span class="censo-history-shell__eyebrow">Historial</span>
+            <h2 id="censoTabuladoTitulo">Tabulado del censo</h2>
+            <p>
+@if (Model.ProgramaFiltro is not null)
+{
+                @:Mostrando @CensoProgramas.Nombre(Model.ProgramaFiltro) con todas sus columnas.
+}
+else if (string.IsNullOrWhiteSpace(Model.CedulaFiltro))
+{
+                @:Últimos @Model.LimiteFilas registros de todos los programas, con las columnas comunes.
+}
+else
+{
+                @:Todos los registros del documento @Model.CedulaFiltro, en todos los programas.
+}
+            </p>
+        </div>
+        <div class="censo-history-shell__meta" aria-label="Resumen y filtros del historial">
+            <div class="censo-history-shell__pill censo-history-shell__pill--highlight">
+                <span class="censo-history-shell__pill-label">Ingresos hoy</span>
+                <strong>@Model.IngresosHoyCount</strong>
+                <small>Suma de los cinco programas por fecha de ingreso.</small>
+            </div>
+@if (Model.ProgramaFiltro is not null)
+{
+            <div class="censo-history-export-card">
+                <div>
+                    <span>Exportable</span>
+                    <strong>@CensoProgramas.Nombre(Model.ProgramaFiltro)</strong>
+                </div>
+                <a asp-controller="Censo" asp-action="ExportarProgramaExcel"
+                   asp-route-programa="@Model.ProgramaFiltro"
+                   asp-route-cedulaPaciente="@Model.CedulaFiltro" download>Descargar Excel</a>
+            </div>
+}
+            <form method="get" asp-controller="Reportes" asp-action="Index" class="censo-history-filter" aria-label="Filtro por rango de fecha de ingreso">
+                <input type="hidden" name="cedulaPaciente" value="@Model.CedulaFiltro" />
+                <input type="hidden" name="programaFiltro" value="@Model.ProgramaFiltro" />
+                <div class="censo-history-filter__grid">
+                    <div class="censo-history-filter__field">
+                        <label for="fechaIngresoDesde">Fecha de ingreso desde</label>
+                        <input type="date" id="fechaIngresoDesde" name="fechaIngresoDesde"
+                               value="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")" class="form-control" />
+                    </div>
+                    <div class="censo-history-filter__field">
+                        <label for="fechaIngresoHasta">Fecha de ingreso hasta</label>
+                        <input type="date" id="fechaIngresoHasta" name="fechaIngresoHasta"
+                               value="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")" class="form-control" />
+                    </div>
+                </div>
+                <div class="censo-history-filter__actions">
+                    <button type="submit" class="btn btn-primary censo-history-filter__submit">Filtrar rango</button>
+                    <a class="btn btn-outline-secondary censo-history-filter__reset"
+                       asp-controller="Reportes" asp-action="Index"
+                       asp-route-cedulaPaciente="@Model.CedulaFiltro"
+                       asp-route-programaFiltro="@Model.ProgramaFiltro">Limpiar rango</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @* Chips de programa: el mismo lenguaje de color del carril y del navegador lateral. *@
+    <div class="censo-filtro-programas" role="group" aria-label="Filtrar el tabulado por programa">
+        <a class="censo-filtro-programas__chip @(Model.ProgramaFiltro is null ? "active" : null)"
+           asp-controller="Reportes" asp-action="Index"
+           asp-route-cedulaPaciente="@Model.CedulaFiltro"
+           asp-route-fechaIngresoDesde="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")"
+           asp-route-fechaIngresoHasta="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")">
+            Todos
+            <span class="censo-filtro-programas__conteo">@Model.ConteoPorPrograma.Values.Sum()</span>
+        </a>
+@foreach (var programa in CensoProgramas.Todos)
+{
+    var conteo = Model.ConteoPorPrograma.TryGetValue(programa, out var n) ? n : 0;
+        <a class="censo-filtro-programas__chip @(Model.ProgramaFiltro == programa ? "active" : null)"
+           data-programa="@programa"
+           asp-controller="Reportes" asp-action="Index"
+           asp-route-cedulaPaciente="@Model.CedulaFiltro"
+           asp-route-programaFiltro="@programa"
+           asp-route-fechaIngresoDesde="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")"
+           asp-route-fechaIngresoHasta="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")">
+            @CensoProgramas.NombreCorto(programa)
+            <span class="censo-filtro-programas__conteo">@conteo</span>
+        </a>
+}
+    </div>
+
+@if (Model.Filas.Count == 0)
+{
+    <div class="alert alert-warning mb-0">
+        @(string.IsNullOrWhiteSpace(Model.CedulaFiltro)
+            ? "No hay registros de censo para mostrar."
+            : $"No se encontraron registros para el documento {Model.CedulaFiltro}.")
+    </div>
+}
+else if (hayDetalle)
+{
+    @* Un solo programa: se despliega su juego completo de columnas, igual que su pantalla propia. *@
+    <div class="censo-history-table-wrap">
+        <table class="table table-sm table-bordered censo-history-table mb-0">
+            <thead>
+                <tr>
+                    <th scope="col">Abrir</th>
+@foreach (var columna in columnasDetalle)
+{
+                    <th scope="col">@CensoController.HumanizarColumna(columna)</th>
+}
+                </tr>
+            </thead>
+            <tbody>
+@foreach (var registro in Model.RegistrosDetalle)
+{
+    var idPropiedad = registro.GetType().GetProperty("Id");
+    var registroId = idPropiedad?.GetValue(registro) as long? ?? 0;
+    var fila = Model.Filas.FirstOrDefault(x => x.Programa == Model.ProgramaFiltro && x.RegistroId == registroId);
+                <tr>
+                    <td>
+                        <a class="censo-history-table__open"
+                           asp-controller="Censo" asp-action="Index"
+                           asp-route-cedulaPaciente="@fila?.NumeroIdentificacion"
+                           asp-route-programa="@Model.ProgramaFiltro"
+                           title="Abrir el paciente en el censo"
+                           aria-label="Abrir el paciente en el censo">
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <circle cx="11" cy="11" r="6"></circle>
+                                <path d="M16 16l5 5"></path>
+                            </svg>
+                        </a>
+                    </td>
+@foreach (var columna in columnasDetalle)
+{
+                    <td>@CensoController.FormatearValor(columna.GetValue(registro))</td>
+}
+                </tr>
+}
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    @* Todos los programas: columnas núcleo, con la insignia de color que identifica cada uno. *@
+    <div class="censo-history-table-wrap">
+        <table class="table table-sm table-bordered censo-history-table mb-0">
+            <thead>
+                <tr>
+                    <th scope="col">Abrir</th>
+                    <th scope="col">Programa</th>
+                    <th scope="col">Estado del programa</th>
+                    <th scope="col">Paciente</th>
+                    <th scope="col">Tipo ID</th>
+                    <th scope="col">Documento</th>
+                    <th scope="col">Fecha de ingreso</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Asegurador</th>
+                    <th scope="col">Zona Sura</th>
+                    <th scope="col">Diagnóstico</th>
+                    <th scope="col">Farmacia</th>
+                    <th scope="col">Adjuntos</th>
+                </tr>
+            </thead>
+            <tbody>
+@foreach (var fila in Model.Filas)
+{
+                <tr>
+                    <td>
+                        <a class="censo-history-table__open"
+                           asp-controller="Censo" asp-action="Index"
+                           asp-route-cedulaPaciente="@fila.NumeroIdentificacion"
+                           asp-route-programa="@fila.Programa"
+                           title="Abrir @fila.NombrePaciente en el censo"
+                           aria-label="Abrir @fila.NombrePaciente en el censo">
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <circle cx="11" cy="11" r="6"></circle>
+                                <path d="M16 16l5 5"></path>
+                            </svg>
+                        </a>
+                    </td>
+                    <td data-programa="@fila.Programa">
+                        <span class="censo-insignia">@CensoProgramas.NombreCorto(fila.Programa)</span>
+@if (fila.TieneProrroga)
+{
+                        <span class="badge bg-warning text-dark ms-1">Prórroga</span>
+}
+                    </td>
+                    <td>@(fila.Abierto ? "Abierto" : "Cerrado")</td>
+                    <td>@fila.NombrePaciente</td>
+                    <td>@fila.TipoIdentificacion</td>
+                    <td>@fila.NumeroIdentificacion</td>
+                    <td>@fila.FechaIngreso?.ToString("yyyy-MM-dd")</td>
+                    <td>@fila.Estado</td>
+                    <td>@fila.Asegurador</td>
+                    <td>@fila.ClasificacionZonaSura</td>
+                    <td>@fila.DiagnosticoDescriptivo</td>
+                    <td>@fila.EstadoFarmacia</td>
+                    <td>@(fila.TieneAdjuntos ? "Sí" : "No")</td>
+                </tr>
+}
+            </tbody>
+        </table>
+    </div>
+
+    @if (Model.TotalSinRecorte > Model.Filas.Count)
+    {
+        <p class="censo-history-shell__subnote">
+            Se muestran @Model.Filas.Count de @Model.TotalSinRecorte registros. Filtra por documento o por programa para ver el resto; el exportable incluye todo el filtro aplicado.
+        </p>
+    }
+}
+</section>

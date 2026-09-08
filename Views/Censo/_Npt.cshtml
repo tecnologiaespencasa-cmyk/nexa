@@ -1,0 +1,732 @@
+﻿@model CensoNptViewModel
+@*
+    Formulario del programa dentro de la pantalla unica de censo.
+
+    Es el mismo marcado que tenia la pantalla independiente y envia a la misma accion, para
+    que kardex, requisiciones, farmacia y prorrogas sigan funcionando igual. Los cambios son
+    dos: los identificadores de panel llevan el prefijo del programa, porque los cinco
+    conviven ahora en un mismo documento, y los campos que subieron al maestro de paciente
+    viajan ocultos, para que la validacion de este censo siga recibiendo el modelo completo.
+*@
+@using Nexa.Data.Entities
+
+
+@{
+    ViewData["Title"] = "NPT";
+    var successMessage = TempData["SuccessMessage"] as string;
+    var errorMessage = TempData["ErrorMessage"] as string;
+    var hasAuxiliares = Model.AuxiliarEnfermeriaOptions.Any();
+    var showCurrentPatientBar = Model.EditingRecordId.HasValue
+        && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
+    var seccionesGuardado = new[]
+    {
+        new
+        {
+            Id = "tab-manejo-npt",
+            Eyebrow = "Sección 2",
+            Titulo = "Manejo de la NPT",
+            Descripcion = "Fechas, días de tratamiento y horas de conexión.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar el manejo de la NPT."
+        },
+        new
+        {
+            Id = "tab-cargue-servicios",
+            Eyebrow = "Sección 3",
+            Titulo = "Cargue de servicios",
+            Descripcion = "Cargues de laboratorios, glucometría y seguimientos.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar el cargue de servicios."
+        },
+        new
+        {
+            Id = "tab-activo-fijo",
+            Eyebrow = "Sección 4",
+            Titulo = "Activo fijo",
+            Descripcion = "Equipos en comodato asignados al paciente.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar el activo fijo."
+        },
+        new
+        {
+            Id = "tab-seguimiento-hospitalizado",
+            Eyebrow = "Sección 5",
+            Titulo = "Seguimiento hospitalizado",
+            Descripcion = "Hospitalización y fechas de seguimiento.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar el seguimiento hospitalizado."
+        },
+        new
+        {
+            Id = "tab-devolucion-productos",
+            Eyebrow = "Sección 6",
+            Titulo = "Devolución de productos",
+            Descripcion = "Novedades y gestión del servicio farmacéutico.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar la devolución de productos."
+        },
+        new
+        {
+            Id = "tab-alta-programa",
+            Eyebrow = "Sección 7",
+            Titulo = "Alta del programa",
+            Descripcion = "Motivo del egreso y estado del paciente.",
+            Mensaje = "Guarda primero los datos básicos del paciente para registrar el alta del programa."
+        }
+    };
+}
+
+@functions {
+    private static Microsoft.AspNetCore.Html.IHtmlContent RequiredMark() =>
+        new Microsoft.AspNetCore.Html.HtmlString("<span class=\"text-danger ms-1\" aria-hidden=\"true\">*</span><span class=\"visually-hidden\">obligatorio</span>");
+}
+
+        <form asp-action="Npt" method="post" id="censoNptForm" class="censo-form-shell">
+            <input asp-for="EditingRecordId" type="hidden" />
+            <input asp-for="CedulaFiltro" type="hidden" />
+            <input asp-for="DireccionEsValida" type="hidden" id="nptDireccionEsValidaInput" />
+
+            <div asp-validation-summary="All" class="alert alert-danger censo-validation-summary mb-4" role="alert"></div>
+
+            <div class="tab-content">
+                <div class="tab-pane fade" id="tab-npt-datos-especificos" role="tabpanel" aria-labelledby="tab-npt-datos-especificos-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">NPT</span>
+                                <h2 class="h5 mb-0">Datos específicos</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!hasAuxiliares)
+                            {
+                                <div class="alert alert-warning">
+                                    No hay auxiliares OPS activos para asignar. Puedes guardar el registro y asignarlo después.
+                                </div>
+                            }
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                            <path d="M8 3v4"></path>
+                                            <path d="M16 3v4"></path>
+                                            <path d="M4 10h16"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Ingreso al programa</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <input asp-for="Asegurador" type="hidden" />
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaIngresoPrograma" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="FechaIngresoPrograma" type="date" class="form-control" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                        <span asp-validation-for="FechaIngresoPrograma" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                                    <input asp-for="TipoIdentificacion" type="hidden" />
+                                    <input asp-for="NumeroIdentificacion" type="hidden" />
+                                    <input asp-for="NombrePaciente" type="hidden" />
+                                    <input asp-for="FechaNacimiento" type="hidden" />
+                                    <input asp-for="Edad" type="hidden" />
+                                    <input asp-for="Genero" type="hidden" />
+
+                                    <input asp-for="Direccion" type="hidden" />
+                                    <input asp-for="AsumirDireccionErrada" type="hidden" />
+                                    <input asp-for="Barrio" type="hidden" />
+                                    <input asp-for="MunicipioResidencia" type="hidden" />
+                                    <input asp-for="ZonaDireccionSegunMunicipio" type="hidden" />
+                                    <input asp-for="ClasificacionZonaSura" type="hidden" />
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M6 3h4l2 5-2.5 1.5a11 11 0 0 0 5 5L16 12l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2Z"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Contacto</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <input asp-for="TelefonoPrincipal" type="hidden" />
+                                    <input asp-for="TelefonoAdicional1" type="hidden" />
+                                    <input asp-for="TelefonoAdicional2" type="hidden" />
+                                    <div class="col-lg-4">
+                                        <label asp-for="LlamadaBienvenida" class="form-label"></label>
+                                        <select asp-for="LlamadaBienvenida" asp-items="Model.LlamadaBienvenidaOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="LlamadaBienvenida" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="TelefonoContacto" class="form-label"></label>
+                                        <input asp-for="TelefonoContacto" class="form-control npt-phone-input" inputmode="numeric" maxlength="10" />
+                                        <span asp-validation-for="TelefonoContacto" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="Observacion" class="form-label"></label>
+                                        <textarea asp-for="Observacion" class="form-control" rows="4" maxlength="2000" placeholder="Registra las observaciones del paciente"></textarea>
+                                        <span asp-validation-for="Observacion" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M12 3v18"></path>
+                                            <path d="M3 12h18"></path>
+                                            <circle cx="12" cy="12" r="9"></circle>
+                                        </svg>
+                                    </span>
+                                    <h3>Información clínica</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <input asp-for="CodigoCie10" type="hidden" id="nptCodigoCie10Input" />
+                                    <input asp-for="DiagnosticoDescriptivo" type="hidden" id="nptDiagnosticoInput" />
+                                    <div class="col-lg-3">
+                                        <label asp-for="FechaValoracion" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="FechaValoracion" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaValoracion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="ProgramaPertenece" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="ProgramaPertenece" asp-items="Model.ProgramaPerteneceOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="ProgramaPertenece" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="AuxiliarEnfermeriaAsignado" class="form-label"></label>
+                                        <input asp-for="AuxiliarEnfermeriaAsignado" class="form-control" maxlength="120" id="nptAuxiliarEnfermeriaInput" list="nptAuxiliarEnfermeriaOptions" autocomplete="off" placeholder="Buscar auxiliar asignado" />
+                                        <datalist id="nptAuxiliarEnfermeriaOptions">
+                                            @foreach (var assistant in Model.AuxiliarEnfermeriaOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                            {
+                                                <option value="@assistant.Value">@assistant.Text</option>
+                                            }
+                                        </datalist>
+                                        <div class="form-text">Selecciona un auxiliar OPS activo. Si no aparece, debe registrarse primero en administración de usuarios.</div>
+                                        <span asp-validation-for="AuxiliarEnfermeriaAsignado" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="TipoNutricion" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="TipoNutricion" asp-items="Model.TipoNutricionOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="TipoNutricion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="TipoSonda" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="TipoSonda" asp-items="Model.TipoSondaOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="TipoSonda" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="Picc" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="Picc" asp-items="Model.SiNoOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="Picc" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaUltimaCuracionPicc" class="form-label"></label>
+                                        <input asp-for="FechaUltimaCuracionPicc" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaUltimaCuracionPicc" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div class="censo-form-actions">
+                                <button type="submit" class="btn btn-primary censo-save-button">
+                                    <span>@(Model.EditingRecordId.HasValue ? "Actualizar registro" : "Guardar registro")</span>
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                        <path d="M5 12h14"></path>
+                                        <path d="m13 6 6 6-6 6"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-npt-manejo" role="tabpanel" aria-labelledby="tab-npt-manejo-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">NPT</span>
+                                <h2 class="h5 mb-0">Manejo de la NPT</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el manejo de la NPT.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <circle cx="12" cy="12" r="9"></circle>
+                                                <path d="M12 7v5l3 2"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Tratamiento NPT</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaInicioNpt" class="form-label"></label>@RequiredMark()
+                                            <input asp-for="FechaInicioNpt" type="date" class="form-control" id="FechaInicioNpt" />
+                                            <span asp-validation-for="FechaInicioNpt" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaFinNpt" class="form-label"></label>
+                                            <input asp-for="FechaFinNpt" type="date" class="form-control" id="FechaFinNpt" />
+                                            <span asp-validation-for="FechaFinNpt" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label asp-for="DiasTratamiento" class="form-label"></label>
+                                            <input asp-for="DiasTratamiento" class="form-control" id="DiasTratamiento" readonly />
+                                            <span asp-validation-for="DiasTratamiento" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label asp-for="HoraConexion" class="form-label"></label>@RequiredMark()
+                                            <input asp-for="HoraConexion" type="time" class="form-control" />
+                                            <span asp-validation-for="HoraConexion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label asp-for="HoraDesconexion" class="form-label"></label>@RequiredMark()
+                                            <input asp-for="HoraDesconexion" type="time" class="form-control" />
+                                            <span asp-validation-for="HoraDesconexion" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarNptManejo", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar manejo de la NPT</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-npt-cargue-servicios" role="tabpanel" aria-labelledby="tab-npt-cargue-servicios-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">NPT</span>
+                                <h2 class="h5 mb-0">Cargue de servicios</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el cargue de servicios.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                <path d="M14 3v5h5"></path>
+                                                <path d="M9 13h6"></path>
+                                                <path d="M9 17h4"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Servicios cargados</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="CargueLaboratorios" class="form-label"></label>
+                                            <select asp-for="CargueLaboratorios" asp-items="Model.SiNoOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="CargueLaboratorios" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="CargueGlucometria" class="form-label"></label>
+                                            <select asp-for="CargueGlucometria" asp-items="Model.SiNoOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="CargueGlucometria" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="CargueServiciosComplementarios" class="form-label"></label>
+                                            <select asp-for="CargueServiciosComplementarios" asp-items="Model.SiNoOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="CargueServiciosComplementarios" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="CargueSeguimientoMedico" class="form-label"></label>
+                                            <select asp-for="CargueSeguimientoMedico" asp-items="Model.SiNoOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="CargueSeguimientoMedico" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarNptCargueServicios", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar cargue de servicios</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-npt-activo-fijo" role="tabpanel" aria-labelledby="tab-npt-activo-fijo-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">NPT</span>
+                                <h2 class="h5 mb-0">Activo fijo</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el activo fijo.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="3" y="7" width="18" height="13" rx="2"></rect>
+                                                <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                <path d="M3 13h18"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Equipos asignados</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="EquipoComodato" class="form-label"></label>
+                                            <select asp-for="EquipoComodato" asp-items="Model.SiNoOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="EquipoComodato" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="DescripcionEquipo" class="form-label"></label>
+                                            <input asp-for="DescripcionEquipo" class="form-control" maxlength="200" autocomplete="off" placeholder="Ej: BOMBA DE INFUSION" />
+                                            <span asp-validation-for="DescripcionEquipo" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-5">
+                                            <label asp-for="NumeroPlacaEquipos" class="form-label"></label>
+                                            <input asp-for="NumeroPlacaEquipos" class="form-control" maxlength="100" autocomplete="off" placeholder="Ej: PLACA 00123, PLACA 00456" />
+                                            <span asp-validation-for="NumeroPlacaEquipos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="FechaEntregaEquipo" class="form-label"></label>
+                                            <input asp-for="FechaEntregaEquipo" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaEntregaEquipo" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="FechaDevolucionEquipo" class="form-label"></label>
+                                            <input asp-for="FechaDevolucionEquipo" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaDevolucionEquipo" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarNptActivoFijo", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar activo fijo</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-npt-seguimiento-hospitalizado" role="tabpanel" aria-labelledby="tab-npt-seguimiento-hospitalizado-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">NPT</span>
+                                <h2 class="h5 mb-0">Seguimiento hospitalizado</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el seguimiento hospitalizado.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M3 12h4l2-5 4 10 2-5h6"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Datos de la hospitalización</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaHospitalizacion" class="form-label"></label>
+                                            <input asp-for="FechaHospitalizacion" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaHospitalizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="MotivoHospitalizacion" class="form-label"></label>
+                                            <select asp-for="MotivoHospitalizacion" asp-items="Model.MotivoHospitalizacionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="MotivoHospitalizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="RemitidoPorHospitalizacion" class="form-label"></label>
+                                            <select asp-for="RemitidoPorHospitalizacion" asp-items="Model.RemitidoPorHospitalizacionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="RemitidoPorHospitalizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label asp-for="IpsIntramural" class="form-label"></label>
+                                            <input asp-for="IpsIntramural" class="form-control" maxlength="200" autocomplete="off" />
+                                            <span asp-validation-for="IpsIntramural" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                                <path d="M8 3v4"></path>
+                                                <path d="M16 3v4"></path>
+                                                <path d="M4 10h16"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Fechas de seguimiento</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaPrimerSeguimiento24Horas" class="form-label"></label>
+                                            <input asp-for="FechaPrimerSeguimiento24Horas" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaPrimerSeguimiento24Horas" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaSegundoSeguimiento48Horas" class="form-label"></label>
+                                            <input asp-for="FechaSegundoSeguimiento48Horas" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaSegundoSeguimiento48Horas" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaTercerSeguimiento72Horas" class="form-label"></label>
+                                            <input asp-for="FechaTercerSeguimiento72Horas" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaTercerSeguimiento72Horas" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaCuartoSeguimientoSemana1" class="form-label"></label>
+                                            <input asp-for="FechaCuartoSeguimientoSemana1" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaCuartoSeguimientoSemana1" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaQuintoSeguimientoSemana2" class="form-label"></label>
+                                            <input asp-for="FechaQuintoSeguimientoSemana2" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaQuintoSeguimientoSemana2" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaSextoSeguimientoSemana3" class="form-label"></label>
+                                            <input asp-for="FechaSextoSeguimientoSemana3" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaSextoSeguimientoSemana3" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaSeptimoSeguimientoSemana4" class="form-label"></label>
+                                            <input asp-for="FechaSeptimoSeguimientoSemana4" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaSeptimoSeguimientoSemana4" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaAltaHospitalizacion" class="form-label"></label>
+                                            <input asp-for="FechaAltaHospitalizacion" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaAltaHospitalizacion" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarNptSeguimientoHospitalizado", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar seguimiento hospitalizado</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-npt-devolucion-productos" role="tabpanel" aria-labelledby="tab-npt-devolucion-productos-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">NPT</span>
+                                <h2 class="h5 mb-0">Devolución de productos</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar la devolución de productos.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"></path>
+                                                <path d="M1 3h22v5H1z"></path>
+                                                <path d="M10 12h4"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Novedad de devolución</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaNovedadDevolucionProductos" class="form-label"></label>
+                                            <input asp-for="FechaNovedadDevolucionProductos" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaNovedadDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="MotivoNovedadDevolucionProductos" class="form-label"></label>
+                                            <select asp-for="MotivoNovedadDevolucionProductos" asp-items="Model.MotivoNovedadDevolucionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="MotivoNovedadDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label asp-for="NotificacionAuxiliarDevolucionProductos" class="form-label"></label>
+                                            <select asp-for="NotificacionAuxiliarDevolucionProductos" asp-items="Model.SiNoOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="NotificacionAuxiliarDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaMaximaDevolucionProductos" class="form-label"></label>
+                                            <input asp-for="FechaMaximaDevolucionProductos" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaMaximaDevolucionProductos" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="EstadoDevolucionServicioFarmaceutico" class="form-label"></label>
+                                            <select asp-for="EstadoDevolucionServicioFarmaceutico" asp-items="Model.EstadoDevolucionOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="EstadoDevolucionServicioFarmaceutico" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarNptDevolucionProductos", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar devolución de productos</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-npt-alta-programa" role="tabpanel" aria-labelledby="tab-npt-alta-programa-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">NPT</span>
+                                <h2 class="h5 mb-0">Alta del programa</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda primero los datos básicos del paciente para registrar el alta del programa.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                                <path d="M8 3v4"></path>
+                                                <path d="M16 3v4"></path>
+                                                <path d="M4 10h16"></path>
+                                                <path d="m9 15 2 2 4-5"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Datos del egreso</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-6">
+                                            <label asp-for="MotivoEgreso" class="form-label"></label>
+                                            <select asp-for="MotivoEgreso" asp-items="Model.MotivoEgresoOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="MotivoEgreso" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="FechaEgreso" class="form-label"></label>
+                                            <input asp-for="FechaEgreso" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaEgreso" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="Estado" class="form-label"></label>
+                                            <select asp-for="Estado" asp-items="Model.EstadoProgramaOptions" class="form-select">
+                                                <option value="">Selecciona...</option>
+                                            </select>
+                                            <span asp-validation-for="Estado" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarNptAltaPrograma", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Guardar alta del programa</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>

@@ -7,3 +7,9 @@ project_id = "nexa-bridge"
 # JWT de Supabase. Por eso se desactiva la verificacion de JWT de la plataforma.
 verify_jwt = false
 entrypoint = "./functions/sync-pacientes-heridas/index.ts"
+
+[functions.estado-paciente-heridas]
+# El portal se autentica con BRIDGE_QUERY_API_SECRET + firma HMAC propia, no con
+# un JWT de Supabase. Misma barrera que la funcion de escritura.
+verify_jwt = false
+entrypoint = "./functions/estado-paciente-heridas/index.ts"

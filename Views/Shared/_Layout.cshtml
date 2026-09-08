@@ -1,4 +1,4 @@
-@using Nexa.Models.Security
+﻿@using Nexa.Models.Security
 @using Microsoft.AspNetCore.Authorization
 @using System.Linq
 @using System.Security.Claims
@@ -11,13 +11,6 @@
         && string.Equals(actionName, "Index", System.StringComparison.OrdinalIgnoreCase);
     var isLoginPage = string.Equals(controllerName, "Auth", System.StringComparison.OrdinalIgnoreCase)
         && string.Equals(actionName, "Login", System.StringComparison.OrdinalIgnoreCase);
-    var isCensoAgudos = isCensoView
-        && (string.Equals(actionName, "Index", System.StringComparison.OrdinalIgnoreCase)
-            || string.Equals(actionName, "ProgramaAgudos", System.StringComparison.OrdinalIgnoreCase));
-    var isCensoCronicos = isCensoView && string.Equals(actionName, "ProgramaCronicos", System.StringComparison.OrdinalIgnoreCase);
-    var isCensoTerapia = isCensoView && string.Equals(actionName, "TerapiaAmbulatoria", System.StringComparison.OrdinalIgnoreCase);
-    var isCensoHeridas = isCensoView && string.Equals(actionName, "ClinicaHeridas", System.StringComparison.OrdinalIgnoreCase);
-    var isCensoNpt = isCensoView && string.Equals(actionName, "Npt", System.StringComparison.OrdinalIgnoreCase);
     var showNavigation = User.Identity?.IsAuthenticated == true && !isLoginPage;
     var currentUserName = User.FindFirstValue("full_name") ?? User.Identity?.Name ?? "Usuario";
     var currentUserRoles = User.FindAll(ClaimTypes.Role)
@@ -114,73 +107,15 @@
 
                             @if (canCenso)
                             {
-                                <li class="nav-item dropdown intranet-nav-dropdown">
-                                    <button class="nav-link dropdown-toggle intranet-nav-link intranet-nav-link--dropdown @(isCensoView ? "active" : null)"
-                                            type="button"
-                                            data-bs-toggle="dropdown"
-                                            aria-expanded="false">
+                                <li class="nav-item">
+                                    <a class="nav-link intranet-nav-link @(isCensoView ? "active" : null)"
+                                       asp-controller="Censo"
+                                       asp-action="Index">
                                         <span class="intranet-nav-link__icon" aria-hidden="true">
                                             <i class="bi bi-clipboard2-pulse-fill" aria-hidden="true"></i>
                                         </span>
-                                        <span>Censos</span>
-                                    </button>
-                                    <ul class="dropdown-menu intranet-censo-dropdown">
-                                        <li>
-                                            <a class="dropdown-item intranet-censo-dropdown__item @(isCensoAgudos ? "active" : null)"
-                                               asp-controller="Censo"
-                                               asp-action="ProgramaAgudos">
-                                                <span>Programa Agudos</span>
-                                                @if (isCensoAgudos)
-                                                {
-                                                    <span class="intranet-censo-dropdown__current">Actual</span>
-                                                }
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item intranet-censo-dropdown__item @(isCensoCronicos ? "active" : null)"
-                                               asp-controller="Censo"
-                                               asp-action="ProgramaCronicos">
-                                                <span>Programa Cronicos</span>
-                                                @if (isCensoCronicos)
-                                                {
-                                                    <span class="intranet-censo-dropdown__current">Actual</span>
-                                                }
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item intranet-censo-dropdown__item @(isCensoTerapia ? "active" : null)"
-                                               asp-controller="Censo"
-                                               asp-action="TerapiaAmbulatoria">
-                                                <span>Terapia Ambulatoria</span>
-                                                @if (isCensoTerapia)
-                                                {
-                                                    <span class="intranet-censo-dropdown__current">Actual</span>
-                                                }
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item intranet-censo-dropdown__item @(isCensoHeridas ? "active" : null)"
-                                               asp-controller="Censo"
-                                               asp-action="ClinicaHeridas">
-                                                <span>Clinica de heridas</span>
-                                                @if (isCensoHeridas)
-                                                {
-                                                    <span class="intranet-censo-dropdown__current">Actual</span>
-                                                }
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item intranet-censo-dropdown__item @(isCensoNpt ? "active" : null)"
-                                               asp-controller="Censo"
-                                               asp-action="Npt">
-                                                <span>NPT</span>
-                                                @if (isCensoNpt)
-                                                {
-                                                    <span class="intranet-censo-dropdown__current">Actual</span>
-                                                }
-                                            </a>
-                                        </li>
-                                    </ul>
+                                        <span>Censo</span>
+                                    </a>
                                 </li>
                             }
 

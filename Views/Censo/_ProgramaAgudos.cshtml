@@ -1,0 +1,1959 @@
+﻿@model CensoReceptionViewModel
+@*
+    Formulario del programa dentro de la pantalla unica de censo.
+
+    Es el mismo marcado que tenia la pantalla independiente y envia a la misma accion, para
+    que kardex, requisiciones, farmacia y prorrogas sigan funcionando igual. Los cambios son
+    dos: los identificadores de panel llevan el prefijo del programa, porque los cinco
+    conviven ahora en un mismo documento, y los campos que subieron al maestro de paciente
+    viajan ocultos, para que la validacion de este censo siga recibiendo el modelo completo.
+*@
+@using Nexa.Data.Entities
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Programa Agudos";
+    var hasNursingAssistants = Model.NursingAssistantOptions.Any();
+    var successMessage = TempData["SuccessMessage"] as string;
+    var saveErrorMessages = ViewData.ModelState.Values
+        .SelectMany(x => x.Errors)
+        .Select(x => x.ErrorMessage?.Trim())
+        .Where(x => !string.IsNullOrWhiteSpace(x))
+        .Cast<string>()
+        .Distinct()
+        .ToList();
+    var missingMandatorySections = ViewData["MissingMandatorySections"] as IReadOnlyList<string> ?? Array.Empty<string>();
+    var shouldShowSaveErrorModal = ViewData["ShowSaveErrorModal"] is true && saveErrorMessages.Count > 0;
+    var showCurrentPatientBar = !string.IsNullOrWhiteSpace(Model.CedulaFiltro) && Model.EditingRecordId.HasValue;
+    var currentPatientAdmissionAt = Model.FechaIngreso.Date + Model.HoraIngreso;
+    var kardexTelefonos = string.Join(" / ", new[] { Model.Telefono1, Model.Telefono2, Model.Telefono3 }
+        .Where(x => !string.IsNullOrWhiteSpace(x)));
+    var kardexDocumento = string.Join(" ", new[] { Model.TipoIdentificacion, Model.NumeroIdentificacion }
+        .Where(x => !string.IsNullOrWhiteSpace(x)));
+    var kardexTiempoTratamiento = !string.IsNullOrWhiteSpace(Model.DiasTratamientoIv)
+        ? Model.DiasTratamientoIv
+        : Model.DiasMedicamentoPrincipal?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+    var kardexFechaInicio = Model.FechaInicioTratamiento?.ToString("dd/MM/yyyy") ?? string.Empty;
+    var kardexFechaFin = Model.FechaFinTratamiento?.ToString("dd/MM/yyyy") ?? string.Empty;
+    var medicamentoCatalogJson = JsonSerializer.Serialize(Model.MedicamentoCatalog);
+    var censoColumnOrder = new[]
+    {
+        nameof(CensoRecord.Id),
+        nameof(CensoRecord.Asegurador),
+        nameof(CensoRecord.EsProrroga),
+        nameof(CensoRecord.FechaIngreso),
+        nameof(CensoRecord.HoraIngreso),
+        nameof(CensoRecord.FechaRespuesta),
+        nameof(CensoRecord.HoraRespuesta),
+        nameof(CensoRecord.FechaGestionFarmacia),
+        nameof(CensoRecord.HoraGestionFarmacia),
+        nameof(CensoRecord.GestionCompletaPendiente),
+        nameof(CensoRecord.IndicadorTiempoRespuestaMinutos),
+        nameof(CensoRecord.IndicadorTiempoGestionMinutos),
+        nameof(CensoRecord.NombrePerfilGestionaCaso),
+        nameof(CensoRecord.NombreRecepcionaCaso),
+        nameof(CensoRecord.NombreRealizaKardex),
+        nameof(CensoRecord.NombrePaciente),
+        nameof(CensoRecord.TipoIdentificacion),
+        nameof(CensoRecord.NumeroIdentificacion),
+        nameof(CensoRecord.CodigoCie10),
+        nameof(CensoRecord.DiagnosticoDescriptivo),
+        nameof(CensoRecord.FechaNacimiento),
+        nameof(CensoRecord.Edad),
+        nameof(CensoRecord.CorreoElectronico),
+        nameof(CensoRecord.Direccion),
+        nameof(CensoRecord.ClasificacionZonaSura),
+        nameof(CensoRecord.MunicipioResidencia),
+        nameof(CensoRecord.Barrio),
+        nameof(CensoRecord.ZonaDireccionSegunMunicipio),
+        nameof(CensoRecord.Area),
+        nameof(CensoRecord.IpsQueRemite),
+        nameof(CensoRecord.VistoBuenoRangoFueraAnexo),
+        nameof(CensoRecord.Telefono1),
+        nameof(CensoRecord.Telefono2),
+        nameof(CensoRecord.Telefono3),
+        nameof(CensoRecord.ClasificacionRiesgo),
+        nameof(CensoRecord.AdministracionMedicamentos),
+        nameof(CensoRecord.NombreMedicamentoPrincipalTratante),
+        nameof(CensoRecord.DosisMedicamentoPrincipal),
+        nameof(CensoRecord.MedidaMedicamentoPrincipal),
+        nameof(CensoRecord.ViaAdministracionMedicamentoPrincipal),
+        nameof(CensoRecord.FrecuenciaAdministracionMxPrincipal),
+        nameof(CensoRecord.DiasMedicamentoPrincipal),
+        nameof(CensoRecord.NumeroDosisDiaMedicamentoPrincipal),
+        nameof(CensoRecord.NombreMedicamentoNumero2),
+        nameof(CensoRecord.DosisMedicamento2),
+        nameof(CensoRecord.MedidaMedicamento2),
+        nameof(CensoRecord.ViaAdministracionMedicamento2),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento2),
+        nameof(CensoRecord.DiasMedicamento2),
+        nameof(CensoRecord.NumeroDosisMedicamento2),
+        nameof(CensoRecord.NombreMedicamentoNumero3),
+        nameof(CensoRecord.DosisMedicamento3),
+        nameof(CensoRecord.MedidaMedicamento3),
+        nameof(CensoRecord.ViaAdministracionMedicamento3),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento3),
+        nameof(CensoRecord.DiasMedicamento3),
+        nameof(CensoRecord.NumeroDosisMedicamento3),
+        nameof(CensoRecord.NombreMedicamentoNumero4),
+        nameof(CensoRecord.DosisMedicamento4),
+        nameof(CensoRecord.MedidaMedicamento4),
+        nameof(CensoRecord.ViaAdministracionMedicamento4),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento4),
+        nameof(CensoRecord.DiasMedicamento4),
+        nameof(CensoRecord.NumeroDosisMedicamento4),
+        nameof(CensoRecord.NombreMedicamentoNumero5),
+        nameof(CensoRecord.DosisMedicamento5),
+        nameof(CensoRecord.MedidaMedicamento5),
+        nameof(CensoRecord.ViaAdministracionMedicamento5),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento5),
+        nameof(CensoRecord.DiasMedicamento5),
+        nameof(CensoRecord.NumeroDosisMedicamento5),
+        nameof(CensoRecord.NombreMedicamentoNumero6),
+        nameof(CensoRecord.DosisMedicamento6),
+        nameof(CensoRecord.MedidaMedicamento6),
+        nameof(CensoRecord.ViaAdministracionMedicamento6),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento6),
+        nameof(CensoRecord.DiasMedicamento6),
+        nameof(CensoRecord.NumeroDosisMedicamento6),
+        nameof(CensoRecord.AplicacionesTotales),
+        nameof(CensoRecord.DiasTratamientoIv),
+        nameof(CensoRecord.CambioFrecuenciaAdministracionTto),
+        nameof(CensoRecord.FrecuenciaAjustada),
+        nameof(CensoRecord.MedicamentoFrecuenciaAjustada),
+        nameof(CensoRecord.FechaInicioTratamiento),
+        nameof(CensoRecord.FechaFinTratamiento),
+        nameof(CensoRecord.FechaPromesaInicioTto),
+        nameof(CensoRecord.HoraPromesaInicioTto),
+        nameof(CensoRecord.AuxiliarAsignado),
+        nameof(CensoRecord.Estado),
+        nameof(CensoRecord.AutorizacionEvento),
+        nameof(CensoRecord.ResponsableLlamadaBienvenida),
+        nameof(CensoRecord.EstadoLlamadaBienvenida),
+        nameof(CensoRecord.ObservacionesPlanManejo),
+        nameof(CensoRecord.NumeroTelefonoLlamadaBienvenida),
+        nameof(CensoRecord.NumeroDiasAutorizado),
+        nameof(CensoRecord.RequiereServiciosComplementarios),
+        nameof(CensoRecord.Programa),
+        nameof(CensoRecord.ServicioComplementario),
+        nameof(CensoRecord.PacienteGestante),
+        nameof(CensoRecord.Nebulizaciones),
+        nameof(CensoRecord.SistemasPresionNegativaVac),
+        nameof(CensoRecord.NutricionParenteral),
+        nameof(CensoRecord.NutricionEnteral),
+        nameof(CensoRecord.PacienteAnticoagulado),
+        nameof(CensoRecord.LaboratorioClinicoProcedimiento),
+        nameof(CensoRecord.ClinicaHeridas),
+        nameof(CensoRecord.Aislamiento),
+        nameof(CensoRecord.TipoAislamiento),
+        nameof(CensoRecord.CateterismoOSv),
+        nameof(CensoRecord.CateterPicc),
+        nameof(CensoRecord.NumeroCalibreSonda),
+        nameof(CensoRecord.FechaUltimoCambioSonda),
+        nameof(CensoRecord.AuxiliarAsignadoCateterismo),
+        nameof(CensoRecord.FechaProximoCambioSonda),
+        nameof(CensoRecord.FechaUltimaCuracionPicc),
+        nameof(CensoRecord.FechaAlta),
+        nameof(CensoRecord.NombreQuienGestionaAlta),
+        nameof(CensoRecord.AltaTardia),
+        nameof(CensoRecord.FechaPrimerSeguimiento24Horas),
+        nameof(CensoRecord.FechaSegundoSeguimiento48Horas),
+        nameof(CensoRecord.FechaTercerSeguimiento72Horas),
+        nameof(CensoRecord.ObservacionAltaTardia),
+        nameof(CensoRecord.NombreQuienRealizaSeguimientoAltaTardia),
+        nameof(CensoRecord.PacienteRehospitalizado),
+        nameof(CensoRecord.FechaRegistroReporteRehospitalizacion),
+        nameof(CensoRecord.FechaRehospitalizacion),
+        nameof(CensoRecord.MotivoRehospitalizacion),
+        nameof(CensoRecord.AmpliacionMotivoRehospitalizacion),
+        nameof(CensoRecord.RemitidoPorRehospitalizacion),
+        nameof(CensoRecord.IpsIntramuralRehospitalizacion),
+        nameof(CensoRecord.FechaPrimerSeguimientoRehospitalizacion),
+        nameof(CensoRecord.FechaSegundoSeguimientoRehospitalizacion),
+        nameof(CensoRecord.FechaTercerSeguimientoRehospitalizacion),
+        nameof(CensoRecord.FechaAltaHospitalizacion),
+        nameof(CensoRecord.ObservacionRehospitalizacion),
+        nameof(CensoRecord.FechaNovedadDevolucionProductos),
+        nameof(CensoRecord.MotivoNovedadDevolucionProductos),
+        nameof(CensoRecord.NotificacionAuxiliarDevolucionProductos),
+        nameof(CensoRecord.FechaMaximaDevolucionProductos),
+        nameof(CensoRecord.EstadoDevolucionServicioFarmaceutico),
+        nameof(CensoRecord.CreatedAtUtc)
+    };
+    var hiddenCensoTableColumns = new HashSet<string>
+    {
+        nameof(CensoRecord.KardexEdicionJson),
+        nameof(CensoRecord.RequisicionFarmaciaJson),
+        nameof(CensoRecord.ProrrogaKardexEdicionJson),
+        nameof(CensoRecord.ProrrogaRequisicionFarmaciaJson),
+        nameof(CensoRecord.ProrrogaJson),
+        nameof(CensoRecord.DireccionValidada),
+        nameof(CensoRecord.AsumirDireccionErrada),
+        nameof(CensoRecord.FarmaciaEnviadoAtUtc),
+        nameof(CensoRecord.FarmaciaKardexVistoAtUtc),
+        nameof(CensoRecord.FarmaciaRequisicionVistoAtUtc),
+        nameof(CensoRecord.FarmaciaNombreRecibe),
+        nameof(CensoRecord.FarmaciaFirmaEntregaDataUrl),
+        nameof(CensoRecord.FarmaciaFirmaRecibeDataUrl),
+        nameof(CensoRecord.FarmaciaFechaHoraRecepcionUtc),
+        nameof(CensoRecord.FarmaciaFirmaActualizadaAtUtc),
+        nameof(CensoRecord.Adjuntos),
+        nameof(CensoRecord.Prorrogas)
+    };
+    var censoTableColumns = typeof(CensoRecord).GetProperties()
+        .Where(property => !hiddenCensoTableColumns.Contains(property.Name))
+        .Select((property, index) => new
+        {
+            Property = property,
+            OriginalIndex = index,
+            PriorityIndex = Array.IndexOf(censoColumnOrder, property.Name)
+        })
+        .OrderBy(item => item.PriorityIndex >= 0 ? item.PriorityIndex : int.MaxValue)
+        .ThenBy(item => item.OriginalIndex)
+        .Select(item => item.Property)
+        .ToArray();
+    var censoColumnTitleOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        [nameof(CensoRecord.Id)] = "Número de registro",
+        [nameof(CensoRecord.CreatedAtUtc)] = "Fecha de creación",
+        [nameof(CensoRecord.EsProrroga)] = "Tiene prórroga",
+        [nameof(CensoRecord.KardexCerradoAtUtc)] = "Fecha de cierre del Kardex",
+        [nameof(CensoRecord.KardexCerradoPorFarmaciaId)] = "Registro de Farmacia que cerró el Kardex",
+        [nameof(CensoRecord.ProrrogaCerradaAtUtc)] = "Fecha de cierre de la prórroga",
+        [nameof(CensoRecord.ProrrogaCerradaPorFarmaciaId)] = "Registro de Farmacia que cerró la prórroga",
+        [nameof(CensoRecord.FechaGestionFarmacia)] = "Fecha de envío a Farmacia",
+        [nameof(CensoRecord.HoraGestionFarmacia)] = "Hora de envío a Farmacia",
+        [nameof(CensoRecord.IndicadorTiempoRespuestaMinutos)] = "Tiempo de respuesta (minutos)",
+        [nameof(CensoRecord.IndicadorTiempoGestionMinutos)] = "Tiempo de gestión en Farmacia (minutos)"
+    };
+    Func<string, string> humanizeColumnTitle = name =>
+    {
+        var title = System.Text.RegularExpressions.Regex.Replace(name, "([a-z0-9])([A-Z])", "$1 $2");
+        return title
+            .Replace(" Utc", " UTC", StringComparison.OrdinalIgnoreCase)
+            .Replace(" Id", " ID", StringComparison.OrdinalIgnoreCase)
+            .Replace("Cie 10", "CIE10", StringComparison.OrdinalIgnoreCase)
+            .Replace("Ips", "IPS", StringComparison.OrdinalIgnoreCase)
+            .Replace("Tto", "TTO", StringComparison.OrdinalIgnoreCase)
+            .Replace("Mx", "MX", StringComparison.OrdinalIgnoreCase);
+    };
+    Func<string, string> getCensoColumnTitle = name => censoColumnTitleOverrides.TryGetValue(name, out var title)
+        ? title
+        : humanizeColumnTitle(name);
+    var prorrogaColumnTitleOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Prorroga_Numero"] = "Número de prórroga",
+        ["Prorroga_Cerrada"] = "Prórroga cerrada",
+        ["Prorroga_TipoProrroga"] = "Tipo de prórroga",
+        ["Prorroga_SeguimientoMedico"] = "Seguimiento médico"
+    };
+    Func<string, string> getProrrogaColumnTitle = name => prorrogaColumnTitleOverrides.TryGetValue(name, out var title)
+        ? title
+        : $"Prórroga - {humanizeColumnTitle(name.Replace("Prorroga_", string.Empty, StringComparison.OrdinalIgnoreCase))}";
+}
+
+        <form asp-action="ProgramaAgudos" method="post" id="censoForm" class="censo-form-shell">
+            <div asp-validation-summary="All" class="alert alert-danger censo-validation-summary mb-4" role="alert"></div>
+            <input asp-for="EditingRecordId" type="hidden" />
+            <input type="hidden" name="CedulaFiltro" value="@Model.CedulaFiltro" />
+            <input asp-for="FechaIngresoFiltroDesde" type="hidden" />
+            <input asp-for="FechaIngresoFiltroHasta" type="hidden" />
+
+            <div class="tab-content">
+                    <div class="tab-pane fade" id="tab-agudos-oculto-recepcion" role="tabpanel" aria-labelledby="tab-agudos-oculto-recepcion-link" data-section-title="Recepción del paciente" data-section-description="Registra tiempos de ingreso, respuesta y responsables del caso con una lectura clara y ordenada.">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <div class="censo-card-heading">
+                                        <span class="censo-card-heading__eyebrow">Sección 1</span>
+                                        <h2 class="h5 mb-0">Recepción del paciente</h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if (!hasNursingAssistants)
+                                {
+                                    <div class="alert alert-warning">
+                                        No hay auxiliares de enfermería activos. Debes registrarlos en Administración de usuarios.
+                                    </div>
+                                }
+
+                                <div class="censo-recepcion-layout">
+                                    <section class="censo-recepcion-panel censo-recepcion-panel--timing">
+                                        <div class="censo-recepcion-panel__header">
+                                            <span class="censo-recepcion-panel__eyebrow">Tiempos clave</span>
+                                        </div>
+
+                                        <div class="censo-recepcion-timeline">
+                                            <div class="censo-time-card">
+                                                <div class="censo-time-card__header">
+                                                    <span class="censo-time-card__step">01</span>
+                                                    <div>
+                                                        <label asp-for="FechaIngreso" class="form-label censo-time-card__label"></label>
+                                                        <p>Registro inicial del paciente.</p>
+                                                    </div>
+                                                </div>
+                                                <div class="censo-time-card__grid">
+                                                    <div class="censo-compact-field">
+                                                        <label asp-for="FechaIngreso" class="form-label">Fecha</label>
+                                                        <input asp-for="FechaIngreso" type="date" class="form-control" />
+                                                    </div>
+                                                    <div class="censo-compact-field">
+                                                        <label asp-for="HoraIngreso" class="form-label">Hora</label>
+                                                        <input asp-for="HoraIngreso" type="text" class="form-control hora-24h-input" placeholder="HH:mm" maxlength="5" autocomplete="off" aria-label="Hora de ingreso (formato 24h)" />
+                                                    </div>
+                                                </div>
+                                                <span asp-validation-for="FechaIngreso" class="text-danger d-block"></span>
+                                                <span asp-validation-for="HoraIngreso" class="text-danger d-block"></span>
+                                            </div>
+
+                                            <div class="censo-time-card">
+                                                <div class="censo-time-card__header">
+                                                    <span class="censo-time-card__step">02</span>
+                                                    <div>
+                                                        <label asp-for="FechaRespuesta" class="form-label censo-time-card__label"></label>
+                                                        <p>Momento en que se confirma la atencion del caso.</p>
+                                                    </div>
+                                                </div>
+                                                <div class="censo-time-card__grid">
+                                                    <div class="censo-compact-field">
+                                                        <label asp-for="FechaRespuesta" class="form-label">Fecha</label>
+                                                        <input asp-for="FechaRespuesta" type="date" class="form-control" />
+                                                    </div>
+                                                    <div class="censo-compact-field">
+                                                        <label asp-for="HoraRespuesta" class="form-label">Hora</label>
+                                                        <input asp-for="HoraRespuesta" type="text" class="form-control hora-24h-input" placeholder="HH:mm" maxlength="5" autocomplete="off" aria-label="Hora de respuesta (formato 24h)" />
+                                                    </div>
+                                                </div>
+                                                <span asp-validation-for="FechaRespuesta" class="text-danger d-block"></span>
+                                                <span asp-validation-for="HoraRespuesta" class="text-danger d-block"></span>
+                                            </div>
+
+                                            <div class="censo-time-card">
+                                                <div class="censo-time-card__header">
+                                                    <span class="censo-time-card__step">03</span>
+                                                    <div>
+                                                        <label asp-for="FechaGestionFarmacia" class="form-label censo-time-card__label"></label>
+                                                        <p>Seguimiento del movimiento con farmacia.</p>
+                                                    </div>
+                                                </div>
+                                                <div class="censo-time-card__grid">
+                                                    <div class="censo-compact-field">
+                                                        <label asp-for="FechaGestionFarmacia" class="form-label">Fecha</label>
+                                                        <input asp-for="FechaGestionFarmacia" type="date" class="form-control" id="fechaGestionFarmaciaDisplay" disabled aria-readonly="true" />
+                                                    </div>
+                                                    <div class="censo-compact-field">
+                                                        <label asp-for="HoraGestionFarmacia" class="form-label">Hora</label>
+                                                        <input asp-for="HoraGestionFarmacia" type="text" class="form-control" id="horaGestionFarmaciaDisplay" placeholder="HH:mm" maxlength="5" aria-label="Hora de gestión farmacia" disabled aria-readonly="true" />
+                                                    </div>
+                                                </div>
+                                                <span asp-validation-for="FechaGestionFarmacia" class="text-danger d-block"></span>
+                                                <span asp-validation-for="HoraGestionFarmacia" class="text-danger d-block"></span>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section class="censo-recepcion-panel">
+                                        <div class="censo-recepcion-panel__header">
+                                            <span class="censo-recepcion-panel__eyebrow">Responsables</span>
+                                        </div>
+
+                                        <div class="censo-recepcion-assignments">
+                                            <div class="censo-assignment-card">
+                                                <label asp-for="NombreRecepcionaCaso" class="form-label"></label>
+                                                <select asp-for="NombreRecepcionaCaso" asp-items="Model.NursingAssistantOptions" class="form-select">
+                                                    <option value="">Selecciona un auxiliar...</option>
+                                                </select>
+                                                <span asp-validation-for="NombreRecepcionaCaso" class="text-danger"></span>
+                                            </div>
+
+                                            <div class="censo-assignment-card">
+                                                <label asp-for="NombreRealizaKardex" class="form-label"></label>
+                                                <select asp-for="NombreRealizaKardex" asp-items="Model.NursingAssistantOptions" class="form-select">
+                                                    <option value="">Selecciona un auxiliar...</option>
+                                                </select>
+                                                <span asp-validation-for="NombreRealizaKardex" class="text-danger"></span>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section class="censo-recepcion-panel censo-recepcion-panel--status">
+                                        <div class="censo-recepcion-panel__header">
+                                            <span class="censo-recepcion-panel__eyebrow">Estados</span>
+                                        </div>
+
+                                        <label class="form-label d-block">Gestión completa o pendiente</label>
+                                        <div class="censo-gestion-status-card">
+                                            <div class="form-check form-switch censo-gestion-check">
+                                                <input asp-for="GestionCompleta" class="form-check-input" type="checkbox" role="switch" id="gestionCompletaSwitch" />
+                                                <label class="form-check-label" for="gestionCompletaSwitch">
+                                                    <span id="gestionEstadoTexto">Pendiente</span>
+                                                </label>
+                                            </div>
+                                            <p class="censo-gestion-status-card__hint">Usa este control para diferenciar de inmediato los casos cerrados de los que aun necesitan seguimiento.</p>
+                                        </div>
+
+                                        <label class="form-label d-block mt-3">Gestión Analista asistencial</label>
+                                        <div class="censo-gestion-status-card">
+                                            <div class="form-check form-switch censo-gestion-check">
+                                                <input asp-for="GestionAnalistaAsistencial" class="form-check-input" type="checkbox" role="switch" id="gestionAnalistaSwitch" />
+                                                <label class="form-check-label" for="gestionAnalistaSwitch">
+                                                    <span id="gestionAnalistaTexto">No</span>
+                                                </label>
+                                            </div>
+                                            <p class="censo-gestion-status-card__hint">Solo los perfiles con el permiso <strong>Analista asistencial</strong> pueden activar o desactivar este estado.</p>
+                                        </div>
+                                    </section>
+                                </div>
+                            </div>
+                        </div>
+
+                    <div class="card mt-3" id="precargarPacienteCard" data-censo-no-lock="true">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <h2 class="h5 mb-0">Validar precarga del paciente</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-3">Ingresa el n&uacute;mero de documento para buscar un paciente existente y precargar sus datos en la secci&oacute;n 2. Esto crear&aacute; una nueva atenci&oacute;n.</p>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-lg-4 col-md-6">
+                                    <label for="precargaDocumentoInput" class="form-label">N&uacute;mero de documento</label>
+                                    <input type="text" id="precargaDocumentoInput" class="form-control" inputmode="text" maxlength="20" placeholder="Ingrese n&uacute;mero de documento" />
+                                </div>
+                                <div class="col-auto">
+                                    <button type="button" id="validarPrecargaBtn" class="btn btn-outline-primary">Validar</button>
+                                </div>
+                            </div>
+                            <div id="precargaMensaje" class="mt-3"></div>
+                        </div>
+                    </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-agudos-oculto-datos-basicos" role="tabpanel" aria-labelledby="tab-agudos-oculto-datos-basicos-link" data-section-title="Datos básicos del paciente" data-section-description="Consolida identificación, dirección, clasificación georreferenciada y canales de contacto.">
+                        <div class="card">
+                            <div class="card-body">
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <circle cx="12" cy="8" r="3"></circle>
+                                                <path d="M5 20a7 7 0 0 1 14 0"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Informaci&oacute;n personal</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-lg-6">
+                                        <label asp-for="NombrePaciente" class="form-label"></label>
+                                        <input asp-for="NombrePaciente" class="form-control" placeholder="Ingrese nombre completo del paciente" />
+                                        <span asp-validation-for="NombrePaciente" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label asp-for="TipoIdentificacion" class="form-label"></label>
+                                        <select asp-for="TipoIdentificacion" asp-items="Model.TipoIdentificacionOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="TipoIdentificacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="NumeroIdentificacion" class="form-label"></label>
+                                        <input asp-for="NumeroIdentificacion" class="form-control" maxlength="20" inputmode="numeric" autocomplete="off" placeholder="Ingrese n&uacute;mero de identificaci&oacute;n" />
+                                        <span asp-validation-for="NumeroIdentificacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="FechaNacimiento" class="form-label"></label>
+                                        <input asp-for="FechaNacimiento"
+                                               type="date"
+                                               class="form-control"
+                                               id="fechaNacimientoInput"
+                                               max="@DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd")"
+                                               data-msg-max="La fecha de nacimiento debe ser anterior a la fecha actual."
+                                               oninvalid="this.setCustomValidity('La fecha de nacimiento debe ser anterior a la fecha actual.')"
+                                               oninput="this.setCustomValidity('')" />
+                                        <span asp-validation-for="FechaNacimiento" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label asp-for="Edad" class="form-label"></label>
+                                        <input asp-for="Edad" class="form-control" id="edadInput" readonly />
+                                    </div>
+                                    <div class="col-lg-7">
+                                        <label asp-for="CorreoElectronico" class="form-label"></label>
+                                        <input asp-for="CorreoElectronico" class="form-control" type="email" maxlength="150" autocomplete="email" placeholder="correo@ejemplo.com" />
+                                        <span asp-validation-for="CorreoElectronico" class="text-danger"></span>
+                                    </div>
+                                    </div>
+                                </section>
+
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8Z"></path>
+                                                <path d="M3.2 12.4h4.2l1.4-3.2 2.8 6.4 1.6-3.2h3.6"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Informaci&oacute;n cl&iacute;nica</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-lg-4">
+                                        <label asp-for="CodigoCie10" class="form-label"></label>
+                                        <input asp-for="CodigoCie10" class="form-control" id="codigoCie10Input" maxlength="4" autocomplete="off" placeholder="Buscar c&oacute;digo CIE10" />
+                                        <span asp-validation-for="CodigoCie10" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-8">
+                                        <label asp-for="DiagnosticoDescriptivo" class="form-label"></label>
+                                        <input asp-for="DiagnosticoDescriptivo" class="form-control" id="diagnosticoDescriptivoInput" readonly placeholder="Ingrese diagn&oacute;stico descriptivo" />
+                                        <span asp-validation-for="DiagnosticoDescriptivo" class="text-danger"></span>
+                                    </div>
+                                    </div>
+                                </section>
+
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M12 21s7-4.7 7-11a7 7 0 1 0-14 0c0 6.3 7 11 7 11Z"></path>
+                                                <circle cx="12" cy="10" r="2.5"></circle>
+                                            </svg>
+                                        </span>
+                                        <h3>Ubicaci&oacute;n y contacto</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-12">
+                                        <label asp-for="Direccion" class="form-label"></label>
+                                        <div class="input-group censo-direccion-group">
+                                            <input asp-for="Direccion" class="form-control" id="direccionInput" placeholder="Ingrese direcci&oacute;n completa del paciente" />
+                                        </div>
+                                        <span asp-validation-for="Direccion" class="text-danger d-block"></span>
+                                        @if (!string.IsNullOrWhiteSpace(Model.DireccionMensajeValidacion))
+                                        {
+                                            <div class="alert @(Model.DireccionEsValida ? "alert-success" : "alert-warning") mt-2" id="direccionValidacionServerMensaje">
+                                                @Model.DireccionMensajeValidacion
+                                                @if (!string.IsNullOrWhiteSpace(Model.DireccionSugerida))
+                                                {
+                                                    <div class="mt-1">
+                                                        Sugerencia: <strong>@Model.DireccionSugerida</strong>
+                                                        <button type="button" class="btn btn-sm btn-link p-0 ms-2" id="usarSugerenciaDireccionBtnServer">Usar sugerencia</button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                        <div class="alert d-none mt-2" id="direccionValidacionMensaje"></div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-check censo-direccion-check">
+                                            <input asp-for="AsumirDireccionErrada" class="form-check-input" type="checkbox" id="asumirDireccionErradaCheck" />
+                                            <label asp-for="AsumirDireccionErrada" class="form-check-label">
+                                                Asumir dirección errada y continuar
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="DetalleDireccion" class="form-label"></label>
+                                        <input asp-for="DetalleDireccion" class="form-control" placeholder="Ej: Apartamento 501 torre 2 (opcional)" />
+                                        <span asp-validation-for="DetalleDireccion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="ClasificacionZonaSura" class="form-label"></label>
+                                        <select asp-for="ClasificacionZonaSura" asp-items="Model.ClasificacionZonaSuraOptions" class="form-select" id="clasificacionZonaSuraSelect">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="ClasificacionZonaSura" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="MunicipioResidencia" class="form-label"></label>
+                                        <select asp-for="MunicipioResidencia" asp-items="Model.MunicipioResidenciaOptions" class="form-select" id="municipioResidenciaSelect">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="MunicipioResidencia" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="Barrio" class="form-label"></label>
+                                        <select asp-for="Barrio" class="form-select" id="barrioSelect">
+                                            <option value="" disabled selected hidden>Selecciona barrio...</option>
+                                            @foreach (var barrioOption in Model.BarrioOptions)
+                                            {
+                                                <option value="@barrioOption">@barrioOption</option>
+                                            }
+                                        </select>
+                                        <span asp-validation-for="Barrio" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="ZonaDireccionSegunMunicipio" class="form-label"></label>
+                                        <select asp-for="ZonaDireccionSegunMunicipio" asp-items="Model.ZonaDireccionOptions" class="form-select" id="zonaDireccionSelect">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="ZonaDireccionSegunMunicipio" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="Area" class="form-label"></label>
+                                        <select asp-for="Area" asp-items="Model.AreaOptions" class="form-select" id="areaSelect">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="Area" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="IpsQueRemite" class="form-label"></label>
+                                        <input asp-for="IpsQueRemite" class="form-control" maxlength="200" id="ipsQueRemiteInput" list="ipsQueRemiteOptions" autocomplete="off" placeholder="Buscar IPS que remite" />
+                                        <datalist id="ipsQueRemiteOptions">
+                                            @foreach (var ipsOption in Model.IpsQueRemiteOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                            {
+                                                <option value="@ipsOption.Value">@ipsOption.Text</option>
+                                            }
+                                        </datalist>
+                                        <span asp-validation-for="IpsQueRemite" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="VistoBuenoRangoFueraAnexo" class="form-label"></label>
+                                        <select asp-for="VistoBuenoRangoFueraAnexo" asp-items="Model.VistoBuenoOptions" class="form-select"></select>
+                                        <span asp-validation-for="VistoBuenoRangoFueraAnexo" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="Telefono1" class="form-label"></label>
+                                        <input asp-for="Telefono1" class="form-control" id="telefono1Input" inputmode="numeric" maxlength="10" placeholder="Ingrese tel&eacute;fono de contacto" />
+                                        <span asp-validation-for="Telefono1" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12 d-none">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="telefono2Toggle" checked />
+                                            <label class="form-check-label" for="telefono2Toggle">
+                                                Adicionar teléfono
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4" id="telefono2Container">
+                                        <label asp-for="Telefono2" class="form-label"></label>
+                                        <input asp-for="Telefono2" class="form-control" id="telefono2Input" inputmode="numeric" maxlength="10" />
+                                        <span asp-validation-for="Telefono2" class="text-danger"></span>
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="telefono3Toggle" />
+                                            <label class="form-check-label" for="telefono3Toggle">
+                                                Adicionar otro teléfono
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4 d-none" id="telefono3Container">
+                                        <label asp-for="Telefono3" class="form-label"></label>
+                                        <input asp-for="Telefono3" class="form-control" id="telefono3Input" inputmode="numeric" maxlength="10" />
+                                        <span asp-validation-for="Telefono3" class="text-danger"></span>
+                                    </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-agudos-plan-manejo" role="tabpanel" aria-labelledby="tab-agudos-plan-manejo-link" data-section-title="Plan de manejo" data-section-description="Organiza riesgo, tratamiento, promesa de inicio, apoyos complementarios y seguimiento operativo.">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="censo-card-heading">
+                                    <span class="censo-card-heading__eyebrow">Sección 3</span>
+                                    <h2 class="h5 mb-0">Plan de manejo</h2>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-xl-3 col-lg-4">
+                                        <label asp-for="Asegurador" class="form-label"></label>
+                                        <select asp-for="Asegurador" asp-items="Model.AseguradorOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                            @if (!string.IsNullOrWhiteSpace(Model.Asegurador)
+                                                && !Model.AseguradorOptions.Any(option => string.Equals(option.Value, Model.Asegurador, StringComparison.OrdinalIgnoreCase)))
+                                            {
+                                                <option value="@Model.Asegurador">@Model.Asegurador</option>
+                                            }
+                                        </select>
+                                        <span asp-validation-for="Asegurador" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-xl-3 col-lg-4">
+                                        <label asp-for="ClasificacionRiesgo" class="form-label"></label>
+                                        <select asp-for="ClasificacionRiesgo" asp-items="Model.ClasificacionRiesgoOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="ClasificacionRiesgo" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-xl-3 col-lg-4">
+                                        <label asp-for="AdministracionMedicamentos" class="form-label"></label>
+                                        <select asp-for="AdministracionMedicamentos" asp-items="Model.AdministracionMedicamentosOptions" class="form-select" id="administracionMedicamentosSelect"></select>
+                                        <span asp-validation-for="AdministracionMedicamentos" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-xl-3 col-lg-4 d-none" id="diasTratamientoNoMedicamentosContainer">
+                                        <label class="form-label" for="diasTratamientoNoMedicamentosInput">D&iacute;as de tratamiento</label>
+                                        <input class="form-control" type="number" id="diasTratamientoNoMedicamentosInput" min="1" max="9999" step="1" inputmode="numeric" />
+                                    </div>
+                                    <div class="w-100"></div>
+                                    <div class="col-12 d-none" id="panAmericanFieldsContainer">
+                                        <div class="border rounded p-3 bg-light-subtle">
+                                            <h3 class="h6 mb-3">Datos Pan-American Life de Colombia</h3>
+                                            <div class="row g-3">
+                                                <div class="col-xl-3 col-lg-4">
+                                                    <label asp-for="PanAmericanFechaCirugia" class="form-label"></label>
+                                                    <input asp-for="PanAmericanFechaCirugia" class="form-control" type="date" />
+                                                    <span asp-validation-for="PanAmericanFechaCirugia" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-xl-3 col-lg-4">
+                                                    <label asp-for="PanAmericanNombreCirujano" class="form-label"></label>
+                                                    <input asp-for="PanAmericanNombreCirujano" class="form-control" maxlength="200" />
+                                                    <span asp-validation-for="PanAmericanNombreCirujano" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-xl-3 col-lg-4">
+                                                    <label asp-for="PanAmericanIpsQuirurgica" class="form-label"></label>
+                                                    <select asp-for="PanAmericanIpsQuirurgica" asp-items="Model.PanAmericanIpsQuirurgicaOptions" class="form-select">
+                                                        <option value="">Selecciona...</option>
+                                                    </select>
+                                                    <span asp-validation-for="PanAmericanIpsQuirurgica" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-xl-3 col-lg-4">
+                                                    <label asp-for="PanAmericanProcedimiento" class="form-label"></label>
+                                                    <select asp-for="PanAmericanProcedimiento" asp-items="Model.PanAmericanProcedimientoOptions" class="form-select">
+                                                        <option value="">Selecciona...</option>
+                                                    </select>
+                                                    <span asp-validation-for="PanAmericanProcedimiento" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-xl-4 col-lg-6">
+                                                    <label class="form-label d-block">Activador de la p&oacute;liza</label>
+                                                    @for (var activadorIndex = 0; activadorIndex < Model.PanAmericanActivadorPolizaOptions.Count; activadorIndex++)
+                                                    {
+                                                        var activador = Model.PanAmericanActivadorPolizaOptions[activadorIndex];
+                                                        var activadorId = $"panAmericanActivador_{activadorIndex}";
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" name="PanAmericanActivadorPoliza" value="@activador" id="@activadorId"
+                                                                   @(Model.PanAmericanActivadorPoliza.Contains(activador, StringComparer.OrdinalIgnoreCase) ? "checked" : null) />
+                                                            <label class="form-check-label" for="@activadorId">@activador</label>
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <div class="col-xl-3 col-lg-4">
+                                                    <label asp-for="PanAmericanCartaAutorizacion" class="form-label"></label>
+                                                    <select asp-for="PanAmericanCartaAutorizacion" class="form-select" id="panAmericanCartaSelect">
+                                                        <option value="">Selecciona...</option>
+                                                        <option value="Si">Si</option>
+                                                        <option value="No">No</option>
+                                                    </select>
+                                                    <span asp-validation-for="PanAmericanCartaAutorizacion" class="text-danger"></span>
+                                                </div>
+                                                <div class="col-12 d-none" id="panAmericanCartaContainer">
+                                                    <div class="row g-3">
+                                                        <div class="col-xl-3 col-lg-4">
+                                                            <label asp-for="PanAmericanFechaSolicitud" class="form-label"></label>
+                                                            <input asp-for="PanAmericanFechaSolicitud" class="form-control" type="date" />
+                                                            <span asp-validation-for="PanAmericanFechaSolicitud" class="text-danger"></span>
+                                                        </div>
+                                                        <div class="col-xl-3 col-lg-4">
+                                                            <label asp-for="PanAmericanNumeroAutorizacion" class="form-label"></label>
+                                                            <input asp-for="PanAmericanNumeroAutorizacion" class="form-control" maxlength="100" />
+                                                            <span asp-validation-for="PanAmericanNumeroAutorizacion" class="text-danger"></span>
+                                                        </div>
+                                                        <div class="col-xl-6 col-lg-8">
+                                                            <label class="form-label d-block">Adjuntos (SharePoint)</label>
+                                                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                                <input type="file" id="panAmericanAdjuntosInput" class="form-control" multiple style="max-width:320px;" aria-label="Seleccionar documentos Pan-American" />
+                                                                <button type="button" class="btn btn-outline-primary" id="panAmericanSubirAdjuntosBtn">Subir adjuntos</button>
+                                                                <span id="panAmericanAdjuntosStatus" class="small text-muted"></span>
+                                                            </div>
+                                                            <ul class="list-group list-group-flush mt-2" id="panAmericanAdjuntosList" style="max-height:150px;overflow-y:auto;"></ul>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 d-none" id="administracionMedicamentosFieldsContainer">
+                                        <div class="row g-3">
+                                            <div class="col-lg-4">
+                                                <label asp-for="NombreMedicamentoPrincipalTratante" class="form-label"></label>
+                                                <input asp-for="NombreMedicamentoPrincipalTratante" class="form-control" maxlength="300" id="nombreMedicamentoPrincipalInput" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                <datalist id="medicamentoPrincipalOptions">
+                                                    @foreach (var medicamento in Model.MedicamentoPrincipalOptions)
+                                                    {
+                                                        <option value="@medicamento"></option>
+                                                    }
+                                                </datalist>
+                                                <span asp-validation-for="NombreMedicamentoPrincipalTratante" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-1">
+                                                <label asp-for="DosisMedicamentoPrincipal" class="form-label"></label>
+                                                <input asp-for="DosisMedicamentoPrincipal" class="form-control" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" id="dosisMedicamentoPrincipalInput" />
+                                                <span asp-validation-for="DosisMedicamentoPrincipal" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label asp-for="MedidaMedicamentoPrincipal" class="form-label"></label>
+                                                <select asp-for="MedidaMedicamentoPrincipal" asp-items="Model.MedidaMedicamentoOptions" class="form-select" id="medidaMedicamentoPrincipalSelect">
+                                                    <option value="">Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="MedidaMedicamentoPrincipal" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label asp-for="ViaAdministracionMedicamentoPrincipal" class="form-label"></label>
+                                                <select asp-for="ViaAdministracionMedicamentoPrincipal" asp-items="Model.ViaAdministracionMedicamentoOptions" class="form-select" id="viaAdministracionMedicamentoPrincipalSelect">
+                                                    <option value="">Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="ViaAdministracionMedicamentoPrincipal" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label asp-for="FrecuenciaAdministracionMxPrincipal" class="form-label"></label>
+                                                <select asp-for="FrecuenciaAdministracionMxPrincipal" asp-items="Model.FrecuenciaAdministracionMxPrincipalOptions" class="form-select" id="frecuenciaAdministracionMxPrincipalSelect">
+                                                    <option value="">Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="FrecuenciaAdministracionMxPrincipal" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-1">
+                                                <label asp-for="DiasMedicamentoPrincipal" class="form-label"></label>
+                                                <input asp-for="DiasMedicamentoPrincipal" class="form-control" type="number" min="1" max="999" step="1" inputmode="numeric" id="diasMedicamentoPrincipalInput" />
+                                                <span asp-validation-for="DiasMedicamentoPrincipal" class="text-danger"></span>
+                                            </div>
+                                            <input asp-for="NumeroDosisDiaMedicamentoPrincipal" type="hidden" id="numeroDosisDiaMedicamentoPrincipalInput" />
+                                            <div class="col-12">
+                                                <div class="form-check form-switch">
+                                                    <input asp-for="TieneSegundoMedicamento" class="form-check-input" type="checkbox" role="switch" id="medicamento2Toggle" />
+                                                    <label asp-for="TieneSegundoMedicamento" class="form-check-label"></label>
+                                                </div>
+                                                <span asp-validation-for="TieneSegundoMedicamento" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-12 d-none" id="medicamento2Container">
+                                                <div class="row g-3">
+                                                    <div class="col-lg-4">
+                                                        <label asp-for="NombreMedicamentoNumero2" class="form-label"></label>
+                                                        <input asp-for="NombreMedicamentoNumero2" class="form-control" maxlength="300" id="nombreMedicamento2Input" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                        <span asp-validation-for="NombreMedicamentoNumero2" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DosisMedicamento2" class="form-label"></label>
+                                                        <input asp-for="DosisMedicamento2" class="form-control" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" id="dosisMedicamento2Input" />
+                                                        <span asp-validation-for="DosisMedicamento2" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="MedidaMedicamento2" class="form-label"></label>
+                                                        <select asp-for="MedidaMedicamento2" asp-items="Model.MedidaMedicamentoOptions" class="form-select" id="medidaMedicamento2Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="MedidaMedicamento2" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="ViaAdministracionMedicamento2" class="form-label"></label>
+                                                        <select asp-for="ViaAdministracionMedicamento2" asp-items="Model.ViaAdministracionMedicamentoOptions" class="form-select" id="viaAdministracionMedicamento2Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="ViaAdministracionMedicamento2" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="FrecuenciaAdministracionMedicamento2" class="form-label"></label>
+                                                        <select asp-for="FrecuenciaAdministracionMedicamento2" asp-items="Model.FrecuenciaAdministracionMxPrincipalOptions" class="form-select" id="frecuenciaMedicamento2Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="FrecuenciaAdministracionMedicamento2" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DiasMedicamento2" class="form-label"></label>
+                                                        <input asp-for="DiasMedicamento2" class="form-control" type="number" min="1" max="999" step="1" inputmode="numeric" id="diasMedicamento2Input" />
+                                                        <span asp-validation-for="DiasMedicamento2" class="text-danger"></span>
+                                                    </div>
+                                                    <input asp-for="NumeroDosisMedicamento2" type="hidden" id="numeroDosisMedicamento2Select" />
+                                                    <div class="col-12">
+                                                        <div class="form-check form-switch">
+                                                            <input asp-for="TieneTercerMedicamento" class="form-check-input" type="checkbox" role="switch" id="medicamento3Toggle" />
+                                                            <label asp-for="TieneTercerMedicamento" class="form-check-label"></label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 d-none" id="medicamento3Container">
+                                                <div class="row g-3">
+                                                    <div class="col-lg-4">
+                                                        <label asp-for="NombreMedicamentoNumero3" class="form-label"></label>
+                                                        <input asp-for="NombreMedicamentoNumero3" class="form-control" maxlength="300" id="nombreMedicamento3Input" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                        <span asp-validation-for="NombreMedicamentoNumero3" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DosisMedicamento3" class="form-label"></label>
+                                                        <input asp-for="DosisMedicamento3" class="form-control" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" id="dosisMedicamento3Input" />
+                                                        <span asp-validation-for="DosisMedicamento3" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="MedidaMedicamento3" class="form-label"></label>
+                                                        <select asp-for="MedidaMedicamento3" asp-items="Model.MedidaMedicamentoOptions" class="form-select" id="medidaMedicamento3Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="MedidaMedicamento3" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="ViaAdministracionMedicamento3" class="form-label"></label>
+                                                        <select asp-for="ViaAdministracionMedicamento3" asp-items="Model.ViaAdministracionMedicamentoOptions" class="form-select" id="viaAdministracionMedicamento3Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="ViaAdministracionMedicamento3" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="FrecuenciaAdministracionMedicamento3" class="form-label"></label>
+                                                        <select asp-for="FrecuenciaAdministracionMedicamento3" asp-items="Model.FrecuenciaAdministracionMxPrincipalOptions" class="form-select" id="frecuenciaMedicamento3Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="FrecuenciaAdministracionMedicamento3" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DiasMedicamento3" class="form-label"></label>
+                                                        <input asp-for="DiasMedicamento3" class="form-control" type="number" min="1" max="999" step="1" inputmode="numeric" id="diasMedicamento3Input" />
+                                                        <span asp-validation-for="DiasMedicamento3" class="text-danger"></span>
+                                                    </div>
+                                                    <input asp-for="NumeroDosisMedicamento3" type="hidden" id="numeroDosisMedicamento3Select" />
+                                                    <div class="col-12">
+                                                        <div class="form-check form-switch">
+                                                            <input asp-for="TieneCuartoMedicamento" class="form-check-input" type="checkbox" role="switch" id="medicamento4Toggle" />
+                                                            <label asp-for="TieneCuartoMedicamento" class="form-check-label"></label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 d-none" id="medicamento4Container">
+                                                <div class="row g-3">
+                                                    <div class="col-lg-4">
+                                                        <label asp-for="NombreMedicamentoNumero4" class="form-label"></label>
+                                                        <input asp-for="NombreMedicamentoNumero4" class="form-control" maxlength="300" id="nombreMedicamento4Input" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                        <span asp-validation-for="NombreMedicamentoNumero4" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DosisMedicamento4" class="form-label"></label>
+                                                        <input asp-for="DosisMedicamento4" class="form-control" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" id="dosisMedicamento4Input" />
+                                                        <span asp-validation-for="DosisMedicamento4" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="MedidaMedicamento4" class="form-label"></label>
+                                                        <select asp-for="MedidaMedicamento4" asp-items="Model.MedidaMedicamentoOptions" class="form-select" id="medidaMedicamento4Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="MedidaMedicamento4" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="ViaAdministracionMedicamento4" class="form-label"></label>
+                                                        <select asp-for="ViaAdministracionMedicamento4" asp-items="Model.ViaAdministracionMedicamentoOptions" class="form-select" id="viaAdministracionMedicamento4Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="ViaAdministracionMedicamento4" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="FrecuenciaAdministracionMedicamento4" class="form-label"></label>
+                                                        <select asp-for="FrecuenciaAdministracionMedicamento4" asp-items="Model.FrecuenciaAdministracionMxPrincipalOptions" class="form-select" id="frecuenciaMedicamento4Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="FrecuenciaAdministracionMedicamento4" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DiasMedicamento4" class="form-label"></label>
+                                                        <input asp-for="DiasMedicamento4" class="form-control" type="number" min="1" max="999" step="1" inputmode="numeric" id="diasMedicamento4Input" />
+                                                        <span asp-validation-for="DiasMedicamento4" class="text-danger"></span>
+                                                    </div>
+                                                    <input asp-for="NumeroDosisMedicamento4" type="hidden" id="numeroDosisMedicamento4Select" />
+                                                    <div class="col-12">
+                                                        <div class="form-check form-switch">
+                                                            <input asp-for="TieneQuintoMedicamento" class="form-check-input" type="checkbox" role="switch" id="medicamento5Toggle" />
+                                                            <label asp-for="TieneQuintoMedicamento" class="form-check-label"></label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 d-none" id="medicamento5Container">
+                                                <div class="row g-3">
+                                                    <div class="col-lg-4">
+                                                        <label asp-for="NombreMedicamentoNumero5" class="form-label"></label>
+                                                        <input asp-for="NombreMedicamentoNumero5" class="form-control" maxlength="300" id="nombreMedicamento5Input" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                        <span asp-validation-for="NombreMedicamentoNumero5" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DosisMedicamento5" class="form-label"></label>
+                                                        <input asp-for="DosisMedicamento5" class="form-control" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" id="dosisMedicamento5Input" />
+                                                        <span asp-validation-for="DosisMedicamento5" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="MedidaMedicamento5" class="form-label"></label>
+                                                        <select asp-for="MedidaMedicamento5" asp-items="Model.MedidaMedicamentoOptions" class="form-select" id="medidaMedicamento5Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="MedidaMedicamento5" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="ViaAdministracionMedicamento5" class="form-label"></label>
+                                                        <select asp-for="ViaAdministracionMedicamento5" asp-items="Model.ViaAdministracionMedicamentoOptions" class="form-select" id="viaAdministracionMedicamento5Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="ViaAdministracionMedicamento5" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="FrecuenciaAdministracionMedicamento5" class="form-label"></label>
+                                                        <select asp-for="FrecuenciaAdministracionMedicamento5" asp-items="Model.FrecuenciaAdministracionMxPrincipalOptions" class="form-select" id="frecuenciaMedicamento5Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="FrecuenciaAdministracionMedicamento5" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DiasMedicamento5" class="form-label"></label>
+                                                        <input asp-for="DiasMedicamento5" class="form-control" type="number" min="1" max="999" step="1" inputmode="numeric" id="diasMedicamento5Input" />
+                                                        <span asp-validation-for="DiasMedicamento5" class="text-danger"></span>
+                                                    </div>
+                                                    <input asp-for="NumeroDosisMedicamento5" type="hidden" id="numeroDosisMedicamento5Select" />
+                                                    <div class="col-12">
+                                                        <div class="form-check form-switch">
+                                                            <input asp-for="TieneSextoMedicamento" class="form-check-input" type="checkbox" role="switch" id="medicamento6Toggle" />
+                                                            <label asp-for="TieneSextoMedicamento" class="form-check-label"></label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 d-none" id="medicamento6Container">
+                                                <div class="row g-3">
+                                                    <div class="col-lg-4">
+                                                        <label asp-for="NombreMedicamentoNumero6" class="form-label"></label>
+                                                        <input asp-for="NombreMedicamentoNumero6" class="form-control" maxlength="300" id="nombreMedicamento6Input" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                        <span asp-validation-for="NombreMedicamentoNumero6" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DosisMedicamento6" class="form-label"></label>
+                                                        <input asp-for="DosisMedicamento6" class="form-control" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" id="dosisMedicamento6Input" />
+                                                        <span asp-validation-for="DosisMedicamento6" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="MedidaMedicamento6" class="form-label"></label>
+                                                        <select asp-for="MedidaMedicamento6" asp-items="Model.MedidaMedicamentoOptions" class="form-select" id="medidaMedicamento6Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="MedidaMedicamento6" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="ViaAdministracionMedicamento6" class="form-label"></label>
+                                                        <select asp-for="ViaAdministracionMedicamento6" asp-items="Model.ViaAdministracionMedicamentoOptions" class="form-select" id="viaAdministracionMedicamento6Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="ViaAdministracionMedicamento6" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label asp-for="FrecuenciaAdministracionMedicamento6" class="form-label"></label>
+                                                        <select asp-for="FrecuenciaAdministracionMedicamento6" asp-items="Model.FrecuenciaAdministracionMxPrincipalOptions" class="form-select" id="frecuenciaMedicamento6Select">
+                                                            <option value="">Selecciona...</option>
+                                                        </select>
+                                                        <span asp-validation-for="FrecuenciaAdministracionMedicamento6" class="text-danger"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label asp-for="DiasMedicamento6" class="form-label"></label>
+                                                        <input asp-for="DiasMedicamento6" class="form-control" type="number" min="1" max="999" step="1" inputmode="numeric" id="diasMedicamento6Input" />
+                                                        <span asp-validation-for="DiasMedicamento6" class="text-danger"></span>
+                                                    </div>
+                                                    <input asp-for="NumeroDosisMedicamento6" type="hidden" id="numeroDosisMedicamento6Select" />
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <label asp-for="AplicacionesTotales" class="form-label"></label>
+                                                <input asp-for="AplicacionesTotales" class="form-control" maxlength="50" id="aplicacionesTotalesInput" readonly />
+                                                <span asp-validation-for="AplicacionesTotales" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <label asp-for="DiasTratamientoIv" class="form-label"></label>
+                                                <input asp-for="DiasTratamientoIv" class="form-control" maxlength="50" id="diasTratamientoIvInput" readonly />
+                                                <span asp-validation-for="DiasTratamientoIv" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <label asp-for="CambioFrecuenciaAdministracionTto" class="form-label"></label>
+                                                <select asp-for="CambioFrecuenciaAdministracionTto" asp-items="Model.CambioFrecuenciaAdministracionTtoOptions" class="form-select" id="cambioFrecuenciaAdministracionTtoSelect">
+                                                    <option value="">Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="CambioFrecuenciaAdministracionTto" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-6 d-none" id="medicamentoFrecuenciaAjustadaContainer">
+                                                <label asp-for="MedicamentoFrecuenciaAjustada" class="form-label"></label>
+                                                <select asp-for="MedicamentoFrecuenciaAjustada" class="form-select" id="medicamentoFrecuenciaAjustadaSelect">
+                                                    <option value="">Selecciona...</option>
+                                                    <option value="1">Medicamento 1</option>
+                                                    <option value="2" class="d-none" id="medAjustadaOpt2">Medicamento 2</option>
+                                                    <option value="3" class="d-none" id="medAjustadaOpt3">Medicamento 3</option>
+                                                    <option value="4" class="d-none" id="medAjustadaOpt4">Medicamento 4</option>
+                                                    <option value="5" class="d-none" id="medAjustadaOpt5">Medicamento 5</option>
+                                                    <option value="6" class="d-none" id="medAjustadaOpt6">Medicamento 6</option>
+                                                </select>
+                                                <span asp-validation-for="MedicamentoFrecuenciaAjustada" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-6 d-none" id="frecuenciaAjustadaContainer">
+                                                <label asp-for="FrecuenciaAjustada" class="form-label"></label>
+                                                <select asp-for="FrecuenciaAjustada" asp-items="Model.FrecuenciaAjustadaOptions" class="form-select" id="frecuenciaAjustadaSelect">
+                                                    <option value="">Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="FrecuenciaAjustada" class="text-danger"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaInicioTratamiento" class="form-label"></label>
+                                        <input asp-for="FechaInicioTratamiento" type="date" class="form-control" id="fechaInicioTratamientoInput" />
+                                        <span asp-validation-for="FechaInicioTratamiento" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaFinTratamiento" class="form-label"></label>
+                                        <input asp-for="FechaFinTratamiento" type="date" class="form-control" id="fechaFinTratamientoInput" />
+                                        <span asp-validation-for="FechaFinTratamiento" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaPromesaInicioTto" class="form-label"></label>
+                                        <input asp-for="FechaPromesaInicioTto" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaPromesaInicioTto" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="HoraPromesaInicioTto" class="form-label"></label>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label asp-for="HoraPromesaInicioTtoDesde" class="form-label">Entre</label>
+                                                <select asp-for="HoraPromesaInicioTtoDesde" class="form-select">
+                                                    <option value="">Selecciona...</option>
+@for (var hour = 0; hour <= 23; hour++)
+{
+                                                    <option value="@hour">@hour:00</option>
+}
+                                                </select>
+                                                <span asp-validation-for="HoraPromesaInicioTtoDesde" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label asp-for="HoraPromesaInicioTtoHasta" class="form-label">Y</label>
+                                                <select asp-for="HoraPromesaInicioTtoHasta" class="form-select">
+                                                    <option value="">Selecciona...</option>
+@for (var hour = 0; hour <= 23; hour++)
+{
+                                                    <option value="@hour">@hour:00</option>
+}
+                                                </select>
+                                                <span asp-validation-for="HoraPromesaInicioTtoHasta" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <span asp-validation-for="HoraPromesaInicioTto" class="text-danger d-block"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="AuxiliarAsignado" class="form-label"></label>
+                                        <input asp-for="AuxiliarAsignado" class="form-control" maxlength="200" id="auxiliarAsignadoInput" list="auxiliarAsignadoOptions" autocomplete="off" placeholder="Buscar auxiliar asignado" />
+                                        <datalist id="auxiliarAsignadoOptions">
+                                            @foreach (var assistant in Model.OpsAssistantOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                            {
+                                                <option value="@assistant.Value">@assistant.Text</option>
+                                            }
+                                        </datalist>
+                                        <div class="form-text">Selecciona un auxiliar OPS activo. Si no aparece, debe registrarse primero en administraci&oacute;n de usuarios.</div>
+                                        <span asp-validation-for="AuxiliarAsignado" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="Estado" class="form-label"></label>
+                                        <select asp-for="Estado" asp-items="Model.EstadoOptions" class="form-select" id="estadoSelect">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="Estado" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="AutorizacionEvento" class="form-label"></label>
+                                        <input asp-for="AutorizacionEvento" class="form-control" maxlength="100" id="autorizacionEventoInput" />
+                                        <span asp-validation-for="AutorizacionEvento" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="NumeroDiasAutorizado" class="form-label"></label>
+                                        <input asp-for="NumeroDiasAutorizado" class="form-control" maxlength="50" id="numeroDiasAutorizadoInput" />
+                                        <span asp-validation-for="NumeroDiasAutorizado" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-xl-4 col-lg-4">
+                                        <label asp-for="ResponsableLlamadaBienvenida" class="form-label"></label>
+                                        <select asp-for="ResponsableLlamadaBienvenida" asp-items="Model.NursingAssistantOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="ResponsableLlamadaBienvenida" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-xl-4 col-lg-4">
+                                        <label asp-for="EstadoLlamadaBienvenida" class="form-label"></label>
+                                        <select asp-for="EstadoLlamadaBienvenida" asp-items="Model.EstadoLlamadaBienvenidaOptions" class="form-select" id="estadoLlamadaBienvenidaSelect">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="EstadoLlamadaBienvenida" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-xl-4 col-lg-4">
+                                        <label asp-for="NumeroTelefonoLlamadaBienvenida" class="form-label"></label>
+                                        <input asp-for="NumeroTelefonoLlamadaBienvenida" class="form-control" id="numeroTelefonoLlamadaBienvenidaInput" maxlength="10" inputmode="numeric" pattern="[0-9]{1,10}" autocomplete="tel" />
+                                        <span asp-validation-for="NumeroTelefonoLlamadaBienvenida" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="ObservacionesPlanManejo" class="form-label"></label>
+                                        <textarea asp-for="ObservacionesPlanManejo" class="form-control" rows="4" maxlength="2000"></textarea>
+                                        <span asp-validation-for="ObservacionesPlanManejo" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="RequiereServiciosComplementarios" class="form-label"></label>
+                                        <select asp-for="RequiereServiciosComplementarios" asp-items="Model.SiNoOptions" class="form-select" id="requiereServiciosComplementariosSelect"></select>
+                                        <span asp-validation-for="RequiereServiciosComplementarios" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="Programa" class="form-label"></label>
+                                        <select asp-for="Programa" asp-items="Model.ProgramaOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="Programa" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12 d-none" id="servicioComplementarioContainer">
+                                        <label class="form-label">Servicio complementario</label>
+                                        <div class="d-flex flex-wrap gap-3 mt-1">
+                                            @foreach (var opt in Model.ServicioComplementarioOptions)
+                                            {
+                                                var cbId = $"servComp_{opt.Value.Replace(" ", "_")}";
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           data-servicio-checkbox
+                                                           value="@opt.Value"
+                                                           id="@cbId" />
+                                                    <label class="form-check-label" for="@cbId">@opt.Text</label>
+                                                </div>
+                                            }
+                                        </div>
+                                        <input type="hidden" asp-for="ServicioComplementario" id="servicioComplementarioHidden" />
+                                        <span asp-validation-for="ServicioComplementario" class="text-danger small d-block mt-1"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="PacienteGestante" class="form-label"></label>
+                                        <select asp-for="PacienteGestante" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="PacienteGestante" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="Nebulizaciones" class="form-label"></label>
+                                        <select asp-for="Nebulizaciones" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="Nebulizaciones" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="SistemasPresionNegativaVac" class="form-label"></label>
+                                        <select asp-for="SistemasPresionNegativaVac" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="SistemasPresionNegativaVac" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="NutricionParenteral" class="form-label"></label>
+                                        <select asp-for="NutricionParenteral" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="NutricionParenteral" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="NutricionEnteral" class="form-label"></label>
+                                        <select asp-for="NutricionEnteral" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="NutricionEnteral" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="PacienteAnticoagulado" class="form-label"></label>
+                                        <select asp-for="PacienteAnticoagulado" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="PacienteAnticoagulado" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="LaboratorioClinicoProcedimiento" class="form-label"></label>
+                                        <select asp-for="LaboratorioClinicoProcedimiento" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="LaboratorioClinicoProcedimiento" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="ClinicaHeridas" class="form-label"></label>
+                                        <select asp-for="ClinicaHeridas" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="ClinicaHeridas" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="Aislamiento" class="form-label"></label>
+                                        <select asp-for="Aislamiento" asp-items="Model.SiNoOptions" class="form-select" id="aislamientoSelect"></select>
+                                        <span asp-validation-for="Aislamiento" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4 d-none" id="tipoAislamientoContainer">
+                                        <label asp-for="TipoAislamiento" class="form-label"></label>
+                                        <select asp-for="TipoAislamiento" asp-items="Model.TipoAislamientoOptions" class="form-select" id="tipoAislamientoSelect">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="TipoAislamiento" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="CateterismoOSv" class="form-label"></label>
+                                        <select asp-for="CateterismoOSv" asp-items="Model.SiNoOptions" class="form-select" id="cateterismoOSvSelect"></select>
+                                        <span asp-validation-for="CateterismoOSv" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="CateterPicc" class="form-label"></label>
+                                        <select asp-for="CateterPicc" asp-items="Model.SiNoOptions" class="form-select" id="cateterPiccSelect"></select>
+                                        <span asp-validation-for="CateterPicc" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12 d-none" id="cateterismoContainer">
+                                        <div class="row g-3">
+                                            <div class="col-lg-3">
+                                                <label asp-for="NumeroCalibreSonda" class="form-label"></label>
+                                                <input asp-for="NumeroCalibreSonda" type="number" min="1" class="form-control" id="numeroCalibreSondaInput" />
+                                                <span asp-validation-for="NumeroCalibreSonda" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-3">
+                                                <label asp-for="FechaUltimoCambioSonda" class="form-label"></label>
+                                                <input asp-for="FechaUltimoCambioSonda" type="date" class="form-control" id="fechaUltimoCambioSondaInput" />
+                                                <span asp-validation-for="FechaUltimoCambioSonda" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-3">
+                                                <label asp-for="AuxiliarAsignadoCateterismo" class="form-label"></label>
+                                                <input asp-for="AuxiliarAsignadoCateterismo" class="form-control" maxlength="120" list="auxiliarAsignadoCateterismoOptions" autocomplete="off" id="auxiliarAsignadoCateterismoInput" />
+                                                <datalist id="auxiliarAsignadoCateterismoOptions">
+@foreach (var assistant in Model.OpsAssistantOptions)
+{
+                                                    <option value="@assistant.Value"></option>
+}
+                                                </datalist>
+                                                <span asp-validation-for="AuxiliarAsignadoCateterismo" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-3">
+                                                <label asp-for="FechaProximoCambioSonda" class="form-label"></label>
+                                                <input asp-for="FechaProximoCambioSonda" type="date" class="form-control" id="fechaProximoCambioSondaInput" readonly />
+                                                <span asp-validation-for="FechaProximoCambioSonda" class="text-danger"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 d-none" id="cateterPiccContainer">
+                                        <div class="row g-3">
+                                            <div class="col-lg-4">
+                                                <label asp-for="FechaUltimaCuracionPicc" class="form-label"></label>
+                                                <input asp-for="FechaUltimaCuracionPicc" type="date" class="form-control" id="fechaUltimaCuracionPiccInput" />
+                                                <span asp-validation-for="FechaUltimaCuracionPicc" class="text-danger"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-agudos-gestion-alta" role="tabpanel" aria-labelledby="tab-agudos-gestion-alta-link" data-section-title="Gestión de alta" data-section-description="Documenta fecha de alta y el responsable que gestiona el cierre del servicio.">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="censo-card-heading">
+                                    <span class="censo-card-heading__eyebrow">Sección 4</span>
+                                    <h2 class="h5 mb-0">Gestión de alta</h2>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-lg-6">
+                                        <label asp-for="FechaAlta" class="form-label"></label>
+                                                <input asp-for="FechaAlta" type="date" class="form-control" id="fechaAltaInput" />
+                                        <span asp-validation-for="FechaAlta" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label asp-for="NombreQuienGestionaAlta" class="form-label"></label>
+                                                <input asp-for="NombreQuienGestionaAlta" class="form-control" maxlength="200" id="nombreQuienGestionaAltaInput" />
+                                        <span asp-validation-for="NombreQuienGestionaAlta" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-agudos-seguimiento-alta-tardia" role="tabpanel" aria-labelledby="tab-agudos-seguimiento-alta-tardia-link" data-section-title="Seguimiento alta tardía" data-section-description="Haz seguimiento estructurado a 24, 48 y 72 horas con observaciones y trazabilidad.">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="censo-card-heading">
+                                    <span class="censo-card-heading__eyebrow">Sección 5</span>
+                                    <h2 class="h5 mb-0">Seguimiento Alta tardia</h2>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-lg-6">
+                                        <label asp-for="AltaTardia" class="form-label"></label>
+                                        <select asp-for="AltaTardia" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="AltaTardia" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaPrimerSeguimiento24Horas" class="form-label"></label>
+                                        <input asp-for="FechaPrimerSeguimiento24Horas" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaPrimerSeguimiento24Horas" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaSegundoSeguimiento48Horas" class="form-label"></label>
+                                        <input asp-for="FechaSegundoSeguimiento48Horas" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaSegundoSeguimiento48Horas" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaTercerSeguimiento72Horas" class="form-label"></label>
+                                        <input asp-for="FechaTercerSeguimiento72Horas" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaTercerSeguimiento72Horas" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label asp-for="NombreQuienRealizaSeguimientoAltaTardia" class="form-label"></label>
+                                        <select asp-for="NombreQuienRealizaSeguimientoAltaTardia" asp-items="Model.NursingAssistantOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="NombreQuienRealizaSeguimientoAltaTardia" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="ObservacionAltaTardia" class="form-label"></label>
+                                        <textarea asp-for="ObservacionAltaTardia" class="form-control" rows="4" maxlength="2000"></textarea>
+                                        <span asp-validation-for="ObservacionAltaTardia" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-agudos-seguimiento-hospitalizacion" role="tabpanel" aria-labelledby="tab-agudos-seguimiento-hospitalizacion-link" data-section-title="Seguimiento hospitalización" data-section-description="Controla rehospitalización, motivos, IPS implicadas y tiempos de acompañamiento.">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="censo-card-heading">
+                                    <span class="censo-card-heading__eyebrow">Sección 6</span>
+                                    <h2 class="h5 mb-0">Seguimiento hospitalización</h2>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label asp-for="PacienteRehospitalizado" class="form-label"></label>
+                                        <select asp-for="PacienteRehospitalizado" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="PacienteRehospitalizado" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label asp-for="FechaRegistroReporteRehospitalizacion" class="form-label"></label>
+                                        <input asp-for="FechaRegistroReporteRehospitalizacion" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaRegistroReporteRehospitalizacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label asp-for="FechaRehospitalizacion" class="form-label"></label>
+                                        <input asp-for="FechaRehospitalizacion" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaRehospitalizacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label asp-for="MotivoRehospitalizacion" class="form-label"></label>
+                                        <select asp-for="MotivoRehospitalizacion" asp-items="Model.MotivoRehospitalizacionOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="MotivoRehospitalizacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label asp-for="RemitidoPorRehospitalizacion" class="form-label"></label>
+                                        <select asp-for="RemitidoPorRehospitalizacion" asp-items="Model.RemitidoPorRehospitalizacionOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="RemitidoPorRehospitalizacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="AmpliacionMotivoRehospitalizacion" class="form-label"></label>
+                                        <textarea asp-for="AmpliacionMotivoRehospitalizacion" class="form-control" rows="4" maxlength="2000"></textarea>
+                                        <span asp-validation-for="AmpliacionMotivoRehospitalizacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label asp-for="IpsIntramuralRehospitalizacion" class="form-label"></label>
+                                        <input asp-for="IpsIntramuralRehospitalizacion" class="form-control" />
+                                        <span asp-validation-for="IpsIntramuralRehospitalizacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label asp-for="FechaPrimerSeguimientoRehospitalizacion" class="form-label"></label>
+                                        <input asp-for="FechaPrimerSeguimientoRehospitalizacion" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaPrimerSeguimientoRehospitalizacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label asp-for="FechaSegundoSeguimientoRehospitalizacion" class="form-label"></label>
+                                        <input asp-for="FechaSegundoSeguimientoRehospitalizacion" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaSegundoSeguimientoRehospitalizacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label asp-for="FechaTercerSeguimientoRehospitalizacion" class="form-label"></label>
+                                        <input asp-for="FechaTercerSeguimientoRehospitalizacion" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaTercerSeguimientoRehospitalizacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label asp-for="FechaAltaHospitalizacion" class="form-label"></label>
+                                        <input asp-for="FechaAltaHospitalizacion" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaAltaHospitalizacion" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="ObservacionRehospitalizacion" class="form-label"></label>
+                                        <textarea asp-for="ObservacionRehospitalizacion" class="form-control" rows="4" maxlength="2000"></textarea>
+                                        <span asp-validation-for="ObservacionRehospitalizacion" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-agudos-devolucion-productos" role="tabpanel" aria-labelledby="tab-agudos-devolucion-productos-link" data-section-title="Devolución de productos" data-section-description="Gestiona novedades, notificaciones y estados del proceso con servicio farmacéutico.">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="censo-card-heading">
+                                    <span class="censo-card-heading__eyebrow">Sección 7</span>
+                                    <h2 class="h5 mb-0">Devolución de productos</h2>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label asp-for="FechaNovedadDevolucionProductos" class="form-label"></label>
+                                        <input asp-for="FechaNovedadDevolucionProductos" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaNovedadDevolucionProductos" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label asp-for="MotivoNovedadDevolucionProductos" class="form-label"></label>
+                                        <select asp-for="MotivoNovedadDevolucionProductos" asp-items="Model.MotivoNovedadDevolucionProductosOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="MotivoNovedadDevolucionProductos" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label asp-for="NotificacionAuxiliarDevolucionProductos" class="form-label"></label>
+                                        <select asp-for="NotificacionAuxiliarDevolucionProductos" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="NotificacionAuxiliarDevolucionProductos" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label asp-for="FechaMaximaDevolucionProductos" class="form-label"></label>
+                                        <input asp-for="FechaMaximaDevolucionProductos" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaMaximaDevolucionProductos" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label asp-for="EstadoDevolucionServicioFarmaceutico" class="form-label"></label>
+                                        <select asp-for="EstadoDevolucionServicioFarmaceutico" asp-items="Model.EstadoDevolucionServicioFarmaceuticoOptions" class="form-select">
+                                            <option value="">Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="EstadoDevolucionServicioFarmaceutico" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-agudos-prorroga" role="tabpanel" aria-labelledby="tab-agudos-prorroga-link" data-section-title="Prórroga o cambio" data-section-description="Registra el tratamiento de la prórroga o cambio de forma independiente al censo principal.">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="censo-card-heading">
+                                    <span class="censo-card-heading__eyebrow">Pr&oacute;rroga</span>
+                                    <h2 class="h5 mb-0">Pr&oacute;rroga o cambio</h2>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="censo-prorroga-version-panel mb-3">
+                                    <div>
+                                        <label class="form-label fw-semibold" for="prorrogaVersionSelect">Pr&oacute;rrogas del paciente</label>
+                                        <select class="form-select" id="prorrogaVersionSelect">
+                                            <option value="">Pr&oacute;rroga actual</option>
+                                        </select>
+                                    </div>
+                                    <div class="censo-prorroga-version-panel__actions">
+                                        <button type="button" class="btn btn-outline-primary" id="adicionalProrrogaBtn">
+                                            Adicionar pr&oacute;rroga
+                                        </button>
+                                    </div>
+                                    <span class="badge text-bg-primary d-none" id="prorrogaNumeroBadge">Pr&oacute;rroga #1</span>
+                                </div>
+                                <div class="alert alert-warning d-none" id="prorrogaSoloLecturaBanner" role="alert">
+                                    <strong>Kardex cerrado.</strong> Esta pr&oacute;rroga est&aacute; disponible solo para consulta. Usa <strong>Adicionar pr&oacute;rroga</strong> para crear una nueva.
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-lg-6">
+                                        <label class="form-label fw-semibold">&iquest;Es extensi&oacute;n o adici&oacute;n de tratamiento?</label>
+                                        <div role="radiogroup" aria-label="Tipo de prórroga">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="prorroga-tipo" id="prorrogaTipoExtension" value="extension" />
+                                                <label class="form-check-label" for="prorrogaTipoExtension">Extensi&oacute;n</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="prorroga-tipo" id="prorrogaTipoAdicion" value="adicion" />
+                                                <label class="form-check-label" for="prorrogaTipoAdicion">Adici&oacute;n de tratamiento</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label class="form-label fw-semibold">&iquest;Seguimiento m&eacute;dico?</label>
+                                        <div role="radiogroup" aria-label="Seguimiento médico">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="prorroga-seguimiento-medico" id="prorrogaSeguimientoSi" value="si" />
+                                                <label class="form-check-label" for="prorrogaSeguimientoSi">S&iacute;</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="prorroga-seguimiento-medico" id="prorrogaSeguimientoNo" value="no" />
+                                                <label class="form-check-label" for="prorrogaSeguimientoNo">No</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="prorroga-seguimiento-medico" id="prorrogaSeguimientoNoAplica" value="no-aplica" />
+                                                <label class="form-check-label" for="prorrogaSeguimientoNoAplica">No aplica</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 d-none" id="prorrogaExtensionContainer">
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-lg-3">
+                                                <label class="form-label" for="prorrogaNumeroDiasExtension">N&uacute;mero de d&iacute;as</label>
+                                                <input class="form-control" id="prorrogaNumeroDiasExtension" type="number" min="1" max="9999" step="1" inputmode="numeric" />
+                                            </div>
+                                            <div class="col-lg-9">
+                                                <div class="form-check pb-1">
+                                                    <input class="form-check-input" type="checkbox" id="prorrogaNotificadoAsegurador" />
+                                                    <label class="form-check-label" for="prorrogaNotificadoAsegurador">Notificado al asegurador</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-4">
+                                        <label class="form-label" for="prorrogaNombreMedPrincipal">Nombre medicamento principal / Principio activo</label>
+                                        <input class="form-control" id="prorrogaNombreMedPrincipal" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                        <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMedPrincipal"></span>
+                                    </div>
+                                    <div class="col-lg-1">
+                                        <label class="form-label" for="prorrogaDosisMedPrincipal">Dosis</label>
+                                        <input class="form-control" id="prorrogaDosisMedPrincipal" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label" for="prorrogaMedidaMedPrincipal">Medida</label>
+                                        <select class="form-select" id="prorrogaMedidaMedPrincipal">
+                                            <option value="">Selecciona...</option>
+                                            @foreach (var opt in Model.MedidaMedicamentoOptions)
+                                            {
+                                                <option value="@opt.Value">@opt.Text</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label" for="prorrogaViaMedPrincipal">V&iacute;a de administraci&oacute;n</label>
+                                        <select class="form-select" id="prorrogaViaMedPrincipal">
+                                            <option value="">Selecciona...</option>
+                                            @foreach (var opt in Model.ViaAdministracionMedicamentoOptions)
+                                            {
+                                                <option value="@opt.Value">@opt.Text</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label" for="prorrogaFrecuenciaMedPrincipal">Frecuencia</label>
+                                        <select class="form-select" id="prorrogaFrecuenciaMedPrincipal">
+                                            <option value="">Selecciona...</option>
+                                            @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions)
+                                            {
+                                                <option value="@opt.Value">@opt.Text</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-1">
+                                        <label class="form-label" for="prorrogaDiasMedPrincipal">D&iacute;as</label>
+                                        <input class="form-control" id="prorrogaDiasMedPrincipal" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                    </div>
+
+                                    <div class="col-12">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="prorrogaTieneSegundoMed" />
+                                            <label class="form-check-label" for="prorrogaTieneSegundoMed">Tiene segundo medicamento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 d-none" id="prorrogaMed2Container">
+                                        <div class="row g-3">
+                                            <div class="col-lg-4">
+                                                <label class="form-label" for="prorrogaNombreMed2">Nombre medicamento 2 / Principio activo</label>
+                                                <input class="form-control" id="prorrogaNombreMed2" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMed2"></span>
+                                            </div>
+                                            <div class="col-lg-1">
+                                                <label class="form-label" for="prorrogaDosisMed2">Dosis</label>
+                                                <input class="form-control" id="prorrogaDosisMed2" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label class="form-label" for="prorrogaMedidaMed2">Medida</label>
+                                                <select class="form-select" id="prorrogaMedidaMed2">
+                                                    <option value="">Selecciona...</option>
+                                                    @foreach (var opt in Model.MedidaMedicamentoOptions)
+                                                    {
+                                                        <option value="@opt.Value">@opt.Text</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label class="form-label" for="prorrogaViaMed2">V&iacute;a de administraci&oacute;n</label>
+                                                <select class="form-select" id="prorrogaViaMed2">
+                                                    <option value="">Selecciona...</option>
+                                                    @foreach (var opt in Model.ViaAdministracionMedicamentoOptions)
+                                                    {
+                                                        <option value="@opt.Value">@opt.Text</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label class="form-label" for="prorrogaFrecuenciaMed2">Frecuencia</label>
+                                                <select class="form-select" id="prorrogaFrecuenciaMed2">
+                                                    <option value="">Selecciona...</option>
+                                                    @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions)
+                                                    {
+                                                        <option value="@opt.Value">@opt.Text</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="col-lg-1">
+                                                <label class="form-label" for="prorrogaDiasMed2">D&iacute;as</label>
+                                                <input class="form-control" id="prorrogaDiasMed2" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                            </div>
+
+                                            <div class="col-12">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" role="switch" id="prorrogaTieneTercerMed" />
+                                                    <label class="form-check-label" for="prorrogaTieneTercerMed">Tiene tercer medicamento</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 d-none" id="prorrogaMed3Container">
+                                                <div class="row g-3">
+                                                    <div class="col-lg-4">
+                                                        <label class="form-label" for="prorrogaNombreMed3">Nombre medicamento 3 / Principio activo</label>
+                                                        <input class="form-control" id="prorrogaNombreMed3" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                        <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMed3"></span>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label class="form-label" for="prorrogaDosisMed3">Dosis</label>
+                                                        <input class="form-control" id="prorrogaDosisMed3" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label class="form-label" for="prorrogaMedidaMed3">Medida</label>
+                                                        <select class="form-select" id="prorrogaMedidaMed3">
+                                                            <option value="">Selecciona...</option>
+                                                            @foreach (var opt in Model.MedidaMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label class="form-label" for="prorrogaViaMed3">V&iacute;a de administraci&oacute;n</label>
+                                                        <select class="form-select" id="prorrogaViaMed3">
+                                                            <option value="">Selecciona...</option>
+                                                            @foreach (var opt in Model.ViaAdministracionMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <label class="form-label" for="prorrogaFrecuenciaMed3">Frecuencia</label>
+                                                        <select class="form-select" id="prorrogaFrecuenciaMed3">
+                                                            <option value="">Selecciona...</option>
+                                                            @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-lg-1">
+                                                        <label class="form-label" for="prorrogaDiasMed3">D&iacute;as</label>
+                                                        <input class="form-control" id="prorrogaDiasMed3" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                                    </div>
+
+                                                    <div class="col-12">
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox" role="switch" id="prorrogaTieneCuartoMed" />
+                                                            <label class="form-check-label" for="prorrogaTieneCuartoMed">Tiene cuarto medicamento</label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12 d-none" id="prorrogaMed4Container">
+                                                        <div class="row g-3">
+                                                            <div class="col-lg-4">
+                                                                <label class="form-label" for="prorrogaNombreMed4">Nombre medicamento 4 / Principio activo</label>
+                                                                <input class="form-control" id="prorrogaNombreMed4" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                                <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMed4"></span>
+                                                            </div>
+                                                            <div class="col-lg-1">
+                                                                <label class="form-label" for="prorrogaDosisMed4">Dosis</label>
+                                                                <input class="form-control" id="prorrogaDosisMed4" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                                            </div>
+                                                            <div class="col-lg-2">
+                                                                <label class="form-label" for="prorrogaMedidaMed4">Medida</label>
+                                                                <select class="form-select" id="prorrogaMedidaMed4">
+                                                                    <option value="">Selecciona...</option>
+                                                                    @foreach (var opt in Model.MedidaMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-lg-2">
+                                                                <label class="form-label" for="prorrogaViaMed4">V&iacute;a de administraci&oacute;n</label>
+                                                                <select class="form-select" id="prorrogaViaMed4">
+                                                                    <option value="">Selecciona...</option>
+                                                                    @foreach (var opt in Model.ViaAdministracionMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-lg-2">
+                                                                <label class="form-label" for="prorrogaFrecuenciaMed4">Frecuencia</label>
+                                                                <select class="form-select" id="prorrogaFrecuenciaMed4">
+                                                                    <option value="">Selecciona...</option>
+                                                                    @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-lg-1">
+                                                                <label class="form-label" for="prorrogaDiasMed4">D&iacute;as</label>
+                                                                <input class="form-control" id="prorrogaDiasMed4" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                                            </div>
+
+                                                            <div class="col-12">
+                                                                <div class="form-check form-switch">
+                                                                    <input class="form-check-input" type="checkbox" role="switch" id="prorrogaTieneQuintoMed" />
+                                                                    <label class="form-check-label" for="prorrogaTieneQuintoMed">Tiene quinto medicamento</label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-12 d-none" id="prorrogaMed5Container">
+                                                                <div class="row g-3">
+                                                                    <div class="col-lg-4">
+                                                                        <label class="form-label" for="prorrogaNombreMed5">Nombre medicamento 5 / Principio activo</label>
+                                                                        <input class="form-control" id="prorrogaNombreMed5" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                                        <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMed5"></span>
+                                                                    </div>
+                                                                    <div class="col-lg-1">
+                                                                        <label class="form-label" for="prorrogaDosisMed5">Dosis</label>
+                                                                        <input class="form-control" id="prorrogaDosisMed5" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                                                    </div>
+                                                                    <div class="col-lg-2">
+                                                                        <label class="form-label" for="prorrogaMedidaMed5">Medida</label>
+                                                                        <select class="form-select" id="prorrogaMedidaMed5">
+                                                                            <option value="">Selecciona...</option>
+                                                                            @foreach (var opt in Model.MedidaMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-lg-2">
+                                                                        <label class="form-label" for="prorrogaViaMed5">V&iacute;a de administraci&oacute;n</label>
+                                                                        <select class="form-select" id="prorrogaViaMed5">
+                                                                            <option value="">Selecciona...</option>
+                                                                            @foreach (var opt in Model.ViaAdministracionMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-lg-2">
+                                                                        <label class="form-label" for="prorrogaFrecuenciaMed5">Frecuencia</label>
+                                                                        <select class="form-select" id="prorrogaFrecuenciaMed5">
+                                                                            <option value="">Selecciona...</option>
+                                                                            @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-lg-1">
+                                                                        <label class="form-label" for="prorrogaDiasMed5">D&iacute;as</label>
+                                                                        <input class="form-control" id="prorrogaDiasMed5" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                                                    </div>
+
+                                                                    <div class="col-12">
+                                                                        <div class="form-check form-switch">
+                                                                            <input class="form-check-input" type="checkbox" role="switch" id="prorrogaTieneSextoMed" />
+                                                                            <label class="form-check-label" for="prorrogaTieneSextoMed">Tiene sexto medicamento</label>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="col-12 d-none" id="prorrogaMed6Container">
+                                                                        <div class="row g-3">
+                                                                            <div class="col-lg-4">
+                                                                                <label class="form-label" for="prorrogaNombreMed6">Nombre medicamento 6 / Principio activo</label>
+                                                                                <input class="form-control" id="prorrogaNombreMed6" maxlength="300" list="medicamentoPrincipalOptions" autocomplete="off" />
+                                                                                <span class="text-danger d-block" data-prorroga-med-validation-for="prorrogaNombreMed6"></span>
+                                                                            </div>
+                                                                            <div class="col-lg-1">
+                                                                                <label class="form-label" for="prorrogaDosisMed6">Dosis</label>
+                                                                                <input class="form-control" id="prorrogaDosisMed6" type="number" min="0.01" max="999999.99" step="0.01" inputmode="decimal" />
+                                                                            </div>
+                                                                            <div class="col-lg-2">
+                                                                                <label class="form-label" for="prorrogaMedidaMed6">Medida</label>
+                                                                                <select class="form-select" id="prorrogaMedidaMed6">
+                                                                                    <option value="">Selecciona...</option>
+                                                                                    @foreach (var opt in Model.MedidaMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                                </select>
+                                                                            </div>
+                                                                            <div class="col-lg-2">
+                                                                                <label class="form-label" for="prorrogaViaMed6">V&iacute;a de administraci&oacute;n</label>
+                                                                                <select class="form-select" id="prorrogaViaMed6">
+                                                                                    <option value="">Selecciona...</option>
+                                                                                    @foreach (var opt in Model.ViaAdministracionMedicamentoOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                                </select>
+                                                                            </div>
+                                                                            <div class="col-lg-2">
+                                                                                <label class="form-label" for="prorrogaFrecuenciaMed6">Frecuencia</label>
+                                                                                <select class="form-select" id="prorrogaFrecuenciaMed6">
+                                                                                    <option value="">Selecciona...</option>
+                                                                                    @foreach (var opt in Model.FrecuenciaAdministracionMxPrincipalOptions) { <option value="@opt.Value">@opt.Text</option> }
+                                                                                </select>
+                                                                            </div>
+                                                                            <div class="col-lg-1">
+                                                                                <label class="form-label" for="prorrogaDiasMed6">D&iacute;as</label>
+                                                                                <input class="form-control" id="prorrogaDiasMed6" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-6">
+                                        <label class="form-label" for="prorrogaAplicacionesTotales">Aplicaciones totales</label>
+                                        <input class="form-control" id="prorrogaAplicacionesTotales" readonly />
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label class="form-label" for="prorrogaDiasTratamientoIv">D&iacute;as de tratamiento IV</label>
+                                        <input class="form-control" id="prorrogaDiasTratamientoIv" readonly />
+                                    </div>
+
+                                    <div class="col-lg-4">
+                                        <label class="form-label" for="prorrogaFechaInicio">Fecha de inicio de tratamiento</label>
+                                        <input class="form-control" id="prorrogaFechaInicio" type="date" />
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label class="form-label" for="prorrogaFechaFin">Fecha fin de tratamiento</label>
+                                        <input class="form-control" id="prorrogaFechaFin" type="date" readonly />
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label class="form-label" for="prorrogaFechaPromesa">Fecha ordenamiento</label>
+                                        <input class="form-control" id="prorrogaFechaPromesa" type="date" />
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label">Hora promesa de inicio de TTO</label>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label" for="prorrogaHoraDesde">Entre</label>
+                                                <select class="form-select" id="prorrogaHoraDesde">
+                                                    <option value="">Selecciona...</option>
+                                                    @for (var hour = 0; hour <= 23; hour++) { <option value="@hour">@hour:00</option> }
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label" for="prorrogaHoraHasta">Y</label>
+                                                <select class="form-select" id="prorrogaHoraHasta">
+                                                    <option value="">Selecciona...</option>
+                                                    @for (var hour = 0; hour <= 23; hour++) { <option value="@hour">@hour:00</option> }
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label" for="prorrogaAuxiliarAsignado">Auxiliar asignado</label>
+                                        <select class="form-select" id="prorrogaAuxiliarAsignado">
+                                            <option value="">Selecciona...</option>
+                                            @foreach (var opt in Model.OpsAssistantOptions)
+                                            {
+                                                <option value="@opt.Value">@opt.Text</option>
+                                            }
+                                        </select>
+                                        <div class="form-text">Selecciona un auxiliar OPS activo.</div>
+                                    </div>
+                                </div>
+
+                                <div class="censo-prorroga-actions mt-4">
+                                    <button type="button" class="btn btn-primary" id="guardarProrrogaBtn">
+                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true" style="width:1rem;height:1rem;margin-right:.4rem;vertical-align:-.15em">
+                                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                            <polyline points="7 3 7 8 15 8"></polyline>
+                                        </svg>
+                                        <span>Guardar pr&oacute;rroga</span>
+                                    </button>
+                                    <span class="censo-prorroga-actions__status ms-3 text-muted small" id="prorrogaGuardadoStatus"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="censo-form-actions">
+                    <a class="btn btn-outline-secondary censo-cancel-button" asp-action="Index" asp-route-cedulaPaciente="@Model.CedulaFiltro">Cancelar</a>
+                    <button type="button" class="btn censo-kardex-button" data-bs-toggle="modal" data-bs-target="#censoKardexModal">
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M9 3h6"></path>
+                            <path d="M10 3v2"></path>
+                            <path d="M14 3v2"></path>
+                            <rect x="5" y="5" width="14" height="16" rx="3"></rect>
+                            <path d="M8 11h8"></path>
+                            <path d="M8 15h5"></path>
+                        </svg>
+                        <span>Gestionar kardex y requisici&oacute;n</span>
+                    </button>
+                    <button type="submit" class="btn btn-primary censo-save-button" @(hasNursingAssistants ? null : "disabled")>
+                        <span>@(Model.EditingRecordId.HasValue ? "Actualizar registro" : "Guardar y continuar")</span>
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M5 12h14"></path>
+                            <path d="m13 6 6 6-6 6"></path>
+                        </svg>
+                    </button>
+                </div>
+        </form>
+
+
+
+
+
+
+

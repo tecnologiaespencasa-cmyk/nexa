@@ -890,30 +890,6 @@ public partial class FarmaciaController : Controller
         return record.FarmaciaProrrogaDeId.HasValue || record.FarmaciaProrrogaVersionId.HasValue;
     }
 
-    private static async Task<FarmaciaSectionPageViewModel> BuildSectionPageAsync(
-        IQueryable<CensoRecord> query,
-        int requestedPage,
-        CancellationToken cancellationToken)
-    {
-        var totalItems = await query.CountAsync(cancellationToken);
-        var totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)PageSize));
-        var currentPage = Math.Clamp(requestedPage, 1, totalPages);
-        var records = await query
-            .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
-            .ThenByDescending(x => x.Id)
-            .Skip((currentPage - 1) * PageSize)
-            .Take(PageSize)
-            .Select(x => new { Record = x, TieneAdjuntos = x.Adjuntos.Any() })
-            .ToListAsync(cancellationToken);
-
-        return new FarmaciaSectionPageViewModel
-        {
-            CurrentPage = currentPage,
-            TotalItems = totalItems,
-            TotalPages = totalPages,
-            Items = records.Select(x => MapPedido(x.Record, x.TieneAdjuntos)).ToList()
-        };
-    }
 
     private static FarmaciaPedidoViewModel MapCronicoPedido(CensoCronicoAgudizacion agudizacion)
     {

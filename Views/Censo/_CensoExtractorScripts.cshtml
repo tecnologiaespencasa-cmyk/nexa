@@ -1,0 +1,976 @@
+@model CensoUnificadoViewModel
+@* Script del extractor de remisión. Se carga desde la pantalla única. *@
+    <script>
+        (() => {
+            // ── Extractor de datos de remisión (IA) ──
+            const extraerDatosRemisionUrl = "@Url.Action("ExtraerDatosRemision", "Censo")";
+            const extraerDatosRemisionTextoUrl = "@Url.Action("ExtraerDatosRemisionTexto", "Censo")";
+            const abrirBtn = document.getElementById("abrirExtractorRemisionBtn");
+            const modalEl = document.getElementById("censoExtractorModal");
+            if (!abrirBtn || !modalEl) {
+                return;
+            }
+
+            const csrfTokenInput = document.querySelector("input[name='__RequestVerificationToken']");
+            const idlePanel = document.getElementById("extractorIdlePanel");
+            const loadingPanel = document.getElementById("extractorLoadingPanel");
+            const loadingStep = document.getElementById("extractorLoadingStep");
+            const resultPanel = document.getElementById("extractorResultPanel");
+            const fieldsContainer = document.getElementById("extractorFields");
+            const medsSection = document.getElementById("extractorMedsSection");
+            const medsContainer = document.getElementById("extractorMeds");
+            const dropzone = document.getElementById("extractorDropzone");
+            const fileInput = document.getElementById("extractorFileInput");
+            const fileSourcePanel = document.getElementById("extractorFileSourcePanel");
+            const textSourcePanel = document.getElementById("extractorTextSourcePanel");
+            const sourceTabs = document.querySelectorAll("[data-extractor-source]");
+            const textInput = document.getElementById("extractorTextInput");
+            const textCounter = document.getElementById("extractorTextCounter");
+            const procesarTextoBtn = document.getElementById("extractorProcesarTextoBtn");
+            const pdfFrame = document.getElementById("extractorPdfFrame");
+            const docViewer = document.getElementById("extractorDocViewer");
+            const docName = document.getElementById("extractorDocName");
+            const docViewerTitle = document.getElementById("extractorDocViewerTitle");
+            const filePreviewMessage = document.getElementById("extractorFilePreviewMessage");
+            const loadingStepsList = document.getElementById("extractorLoadingStepsList");
+            const errorBox = document.getElementById("extractorError");
+            const whatsappBtn = document.getElementById("extractorWhatsappBtn");
+            const whatsappBtnText = document.getElementById("extractorWhatsappBtnText");
+            const copiarCensoBtn = document.getElementById("extractorCopiarCensoBtn");
+            const reiniciarBtn = document.getElementById("extractorReiniciarBtn");
+
+            const unidadOptions = ["Miligramos", "Gramos", "Unidades", "Gotas", "Mililitros"];
+            const viaOptions = ["Intravenosa", "Intramuscular", "Subcutánea", "Nebulizada", "Oral"];
+            const frecuenciaOptions = ["INFUSION CONTINUA", "CADA 4 HORAS", "CADA 6 HORAS", "CADA 8 HORAS", "CADA 12 HORAS", "CADA 24 HORAS", "CADA 48 HORAS", "CADA 72 HORAS"];
+            const tipoDocumentoOptions = ["CC", "TI", "CE", "PA", "RC", "PE", "PPT"];
+
+            const sectionDefs = [
+                {
+                    id: "paciente",
+                    title: "Información del paciente",
+                    icon: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>'
+                },
+                {
+                    id: "remision",
+                    title: "Información de la remisión",
+                    icon: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M12 9v4"></path><path d="M10 11h4"></path></svg>'
+                },
+                {
+                    id: "contacto",
+                    title: "Contacto y cuidador",
+                    icon: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"></path></svg>'
+                }
+            ];
+
+            const fieldDefs = [
+                { key: "nombre", label: "Nombre del paciente", type: "text", col: "col-md-8", section: "paciente" },
+                { key: "tipo_documento", label: "Tipo de documento", type: "select", options: tipoDocumentoOptions, col: "col-md-4", section: "paciente" },
+                { key: "documento", label: "Documento", type: "text", col: "col-md-4", section: "paciente" },
+                { key: "fecha_nacimiento", label: "Fecha de nacimiento", type: "date", col: "col-md-4", section: "paciente" },
+                { key: "edad", label: "Edad", type: "number", col: "col-md-4", section: "paciente" },
+                { key: "diagnostico", label: "Diagnóstico", type: "text", col: "col-md-8", section: "paciente" },
+                { key: "cie10", label: "CIE10", type: "text", col: "col-md-4", section: "paciente" },
+                { key: "fecha_consulta", label: "Fecha de consulta", type: "date", col: "col-md-4", section: "remision" },
+                { key: "ips_remite", label: "IPS que remite", type: "text", col: "col-md-8", section: "remision" },
+                { key: "plan_salud", label: "Plan de salud", type: "text", col: "col-md-4", section: "remision" },
+                { key: "tipo_asegurador", label: "Tipo de asegurador", type: "text", col: "col-md-8", section: "remision" },
+                { key: "telefono1", label: "Teléfono 1", type: "text", col: "col-md-4", section: "contacto" },
+                { key: "telefono2", label: "Teléfono 2", type: "text", col: "col-md-4", section: "contacto" },
+                { key: "cuidador", label: "Cuidador", type: "text", col: "col-md-4", section: "contacto" },
+                { key: "direccion", label: "Dirección", type: "text", col: "col-12", section: "contacto" },
+                { key: "barrio", label: "Barrio", type: "text", col: "col-md-6", section: "contacto" },
+                { key: "ciudad", label: "Ciudad", type: "text", col: "col-md-6", section: "contacto" }
+            ];
+
+            const loadingSteps = [
+                "Leyendo la información…",
+                "Preparando el contenido…",
+                "Analizando con inteligencia artificial…",
+                "Estructurando los datos capturados…"
+            ];
+
+            let currentObjectUrl = null;
+            let currentMedsCount = 0;
+            let loadingTimer = null;
+            let isExtracting = false;
+
+            const getModal = () => window.bootstrap && window.bootstrap.Modal
+                ? window.bootstrap.Modal.getOrCreateInstance(modalEl)
+                : null;
+
+            const showError = (message) => {
+                if (!errorBox) return;
+                errorBox.textContent = message;
+                errorBox.classList.remove("d-none");
+            };
+
+            const clearError = () => {
+                if (!errorBox) return;
+                errorBox.textContent = "";
+                errorBox.classList.add("d-none");
+            };
+
+            const setLeftPanel = (panel) => {
+                [idlePanel, loadingPanel, resultPanel].forEach((el) => el && el.classList.add("d-none"));
+                if (panel) panel.classList.remove("d-none");
+            };
+
+            const renderLoadingSteps = (activeIndex) => {
+                if (!loadingStepsList) return;
+                loadingStepsList.innerHTML = "";
+                loadingSteps.forEach((step, index) => {
+                    const item = document.createElement("li");
+                    item.className = "censo-extractor-steps__item";
+                    if (index < activeIndex) item.classList.add("is-done");
+                    if (index === activeIndex) item.classList.add("is-active");
+
+                    const dot = document.createElement("span");
+                    dot.className = "censo-extractor-steps__dot";
+                    if (index < activeIndex) {
+                        dot.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>';
+                    }
+
+                    const text = document.createElement("span");
+                    text.textContent = step;
+
+                    item.appendChild(dot);
+                    item.appendChild(text);
+                    loadingStepsList.appendChild(item);
+                });
+            };
+
+            const startLoadingAnimation = () => {
+                let index = 0;
+                if (loadingStep) loadingStep.textContent = loadingSteps[0];
+                renderLoadingSteps(0);
+                loadingTimer = window.setInterval(() => {
+                    if (index < loadingSteps.length - 1) {
+                        index++;
+                    }
+                    if (loadingStep) loadingStep.textContent = loadingSteps[index];
+                    renderLoadingSteps(index);
+                }, 2100);
+            };
+
+            const stopLoadingAnimation = () => {
+                if (loadingTimer) {
+                    window.clearInterval(loadingTimer);
+                    loadingTimer = null;
+                }
+            };
+
+            const updateTextCounter = () => {
+                if (textCounter && textInput) {
+                    textCounter.textContent = `${textInput.value.length.toLocaleString("es-CO")} / 50.000 caracteres`;
+                }
+            };
+
+            const showSource = (source) => {
+                const isText = source === "text";
+                if (fileSourcePanel) fileSourcePanel.classList.toggle("d-none", isText);
+                if (textSourcePanel) textSourcePanel.classList.toggle("d-none", !isText);
+                sourceTabs.forEach((tab) => {
+                    const active = tab.dataset.extractorSource === source;
+                    tab.classList.toggle("is-active", active);
+                    tab.setAttribute("aria-selected", active ? "true" : "false");
+                });
+            };
+
+            const resetExtractor = () => {
+                stopLoadingAnimation();
+                clearError();
+                setLeftPanel(idlePanel);
+                if (fieldsContainer) fieldsContainer.innerHTML = "";
+                if (medsContainer) medsContainer.innerHTML = "";
+                if (medsSection) medsSection.classList.add("d-none");
+                currentMedsCount = 0;
+                if (whatsappBtn) whatsappBtn.classList.add("d-none");
+                if (copiarCensoBtn) copiarCensoBtn.classList.add("d-none");
+                if (pdfFrame) pdfFrame.removeAttribute("src");
+                if (pdfFrame) pdfFrame.classList.remove("d-none");
+                if (filePreviewMessage) filePreviewMessage.classList.add("d-none");
+                if (docViewer) docViewer.classList.add("d-none");
+                if (docName) docName.textContent = "";
+                if (docViewerTitle) docViewerTitle.textContent = "Vista del documento";
+                if (dropzone) dropzone.classList.remove("d-none");
+                if (fileInput) fileInput.value = "";
+                if (textInput) textInput.value = "";
+                updateTextCounter();
+                showSource("file");
+                if (currentObjectUrl) {
+                    URL.revokeObjectURL(currentObjectUrl);
+                    currentObjectUrl = null;
+                }
+            };
+
+            const valueOrEmpty = (value) => value === null || value === undefined ? "" : String(value);
+
+            const markMissing = (input) => {
+                const sync = () => input.classList.toggle("censo-extractor-field-missing", !input.value);
+                input.addEventListener("input", sync);
+                input.addEventListener("change", sync);
+                sync();
+            };
+
+            const buildFieldInput = (def, value) => {
+                let input;
+                if (def.type === "select") {
+                    input = document.createElement("select");
+                    input.className = "form-select form-select-sm";
+                    const emptyOption = document.createElement("option");
+                    emptyOption.value = "";
+                    emptyOption.textContent = "No encontrado";
+                    input.appendChild(emptyOption);
+                    def.options.forEach((option) => {
+                        const opt = document.createElement("option");
+                        opt.value = option;
+                        opt.textContent = option;
+                        input.appendChild(opt);
+                    });
+                    const normalized = valueOrEmpty(value).trim();
+                    const match = def.options.find((option) => option.toLowerCase() === normalized.toLowerCase());
+                    input.value = match ?? "";
+                } else {
+                    input = document.createElement("input");
+                    input.type = def.type;
+                    input.className = "form-control form-control-sm";
+                    input.placeholder = "No encontrado";
+                    input.value = valueOrEmpty(value);
+                }
+                markMissing(input);
+                return input;
+            };
+
+            const renderFields = (data) => {
+                if (!fieldsContainer) return;
+                fieldsContainer.innerHTML = "";
+                sectionDefs.forEach((section) => {
+                    const sectionFields = fieldDefs.filter((def) => def.section === section.id);
+                    if (sectionFields.length === 0) return;
+
+                    const group = document.createElement("div");
+                    group.className = "censo-extractor-group";
+
+                    const header = document.createElement("div");
+                    header.className = "censo-extractor-group__header";
+                    const icon = document.createElement("span");
+                    icon.className = "censo-extractor-group__icon";
+                    icon.setAttribute("aria-hidden", "true");
+                    icon.innerHTML = section.icon;
+                    const title = document.createElement("h6");
+                    title.className = "mb-0";
+                    title.textContent = section.title;
+                    header.appendChild(icon);
+                    header.appendChild(title);
+                    group.appendChild(header);
+
+                    const row = document.createElement("div");
+                    row.className = "row g-3";
+                    sectionFields.forEach((def) => {
+                        const col = document.createElement("div");
+                        col.className = def.col;
+                        const label = document.createElement("label");
+                        label.className = "form-label censo-extractor-label";
+                        label.textContent = def.label;
+                        label.htmlFor = `extractor_f_${def.key}`;
+                        const input = buildFieldInput(def, data[def.key]);
+                        input.id = `extractor_f_${def.key}`;
+                        col.appendChild(label);
+                        col.appendChild(input);
+                        row.appendChild(col);
+                    });
+                    group.appendChild(row);
+                    fieldsContainer.appendChild(group);
+                });
+            };
+
+            const buildMedSelect = (id, options, value) => {
+                const select = document.createElement("select");
+                select.id = id;
+                select.className = "form-select form-select-sm";
+                const emptyOption = document.createElement("option");
+                emptyOption.value = "";
+                emptyOption.textContent = "No encontrado";
+                select.appendChild(emptyOption);
+                options.forEach((option) => {
+                    const opt = document.createElement("option");
+                    opt.value = option;
+                    opt.textContent = option;
+                    select.appendChild(opt);
+                });
+                const normalized = valueOrEmpty(value).trim();
+                const match = options.find((option) => option.toLowerCase() === normalized.toLowerCase());
+                select.value = match ?? "";
+                markMissing(select);
+                return select;
+            };
+
+            const renderMeds = (medicamentos) => {
+                if (!medsContainer || !medsSection) return;
+                medsContainer.innerHTML = "";
+                currentMedsCount = medicamentos.length;
+                if (medicamentos.length === 0) {
+                    medsSection.classList.add("d-none");
+                    return;
+                }
+
+                medsSection.classList.remove("d-none");
+                medicamentos.forEach((med, index) => {
+                    const card = document.createElement("div");
+                    card.className = "censo-extractor-med-card";
+
+                    const header = document.createElement("button");
+                    header.type = "button";
+                    header.className = "censo-extractor-med-card__header";
+                    header.setAttribute("aria-expanded", "true");
+
+                    const dot = document.createElement("span");
+                    dot.className = "censo-extractor-med-card__dot";
+                    dot.setAttribute("aria-hidden", "true");
+                    header.appendChild(dot);
+
+                    const headerTitle = document.createElement("span");
+                    headerTitle.className = "censo-extractor-med-card__title";
+                    headerTitle.textContent = `Medicamento ${index + 1}`;
+                    header.appendChild(headerTitle);
+
+                    if (med.duracion_texto) {
+                        const chip = document.createElement("span");
+                        chip.className = "censo-extractor-chip censo-extractor-chip--soft";
+                        chip.textContent = `Duración en documento: ${med.duracion_texto}`;
+                        header.appendChild(chip);
+                    }
+
+                    const chevron = document.createElement("span");
+                    chevron.className = "censo-extractor-med-card__chevron";
+                    chevron.setAttribute("aria-hidden", "true");
+                    chevron.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>';
+                    header.appendChild(chevron);
+
+                    header.addEventListener("click", () => {
+                        const collapsed = card.classList.toggle("is-collapsed");
+                        header.setAttribute("aria-expanded", collapsed ? "false" : "true");
+                    });
+                    card.appendChild(header);
+
+                    const body = document.createElement("div");
+                    body.className = "censo-extractor-med-card__body";
+
+                    const row = document.createElement("div");
+                    row.className = "row g-2";
+
+                    const addCol = (colClass, labelText, control) => {
+                        const col = document.createElement("div");
+                        col.className = colClass;
+                        const label = document.createElement("label");
+                        label.className = "form-label censo-extractor-label";
+                        label.textContent = labelText;
+                        label.htmlFor = control.id;
+                        col.appendChild(label);
+                        col.appendChild(control);
+                        row.appendChild(col);
+                    };
+
+                    const nombreInput = document.createElement("input");
+                    nombreInput.type = "text";
+                    nombreInput.id = `extractor_m_${index}_nombre`;
+                    nombreInput.className = "form-control form-control-sm";
+                    nombreInput.placeholder = "No encontrado";
+                    nombreInput.value = valueOrEmpty(med.nombre);
+                    markMissing(nombreInput);
+                    addCol("col-12", "Nombre", nombreInput);
+
+                    const dosisInput = document.createElement("input");
+                    dosisInput.type = "number";
+                    dosisInput.step = "0.01";
+                    dosisInput.min = "0";
+                    dosisInput.id = `extractor_m_${index}_dosis`;
+                    dosisInput.className = "form-control form-control-sm";
+                    dosisInput.placeholder = "No encontrado";
+                    dosisInput.value = valueOrEmpty(med.dosis);
+                    markMissing(dosisInput);
+                    addCol("col-md-3", "Dosis", dosisInput);
+
+                    addCol("col-md-3", "Medida", buildMedSelect(`extractor_m_${index}_unidad`, unidadOptions, med.unidad));
+                    addCol("col-md-3", "Vía", buildMedSelect(`extractor_m_${index}_via`, viaOptions, med.via));
+                    addCol("col-md-3", "Frecuencia", buildMedSelect(`extractor_m_${index}_frecuencia`, frecuenciaOptions, med.frecuencia));
+
+                    const diasInput = document.createElement("input");
+                    diasInput.type = "number";
+                    diasInput.step = "1";
+                    diasInput.min = "1";
+                    diasInput.id = `extractor_m_${index}_dias`;
+                    diasInput.className = "form-control form-control-sm";
+                    diasInput.placeholder = "No encontrado";
+                    diasInput.value = valueOrEmpty(med.duracion_dias);
+                    markMissing(diasInput);
+                    addCol("col-md-3", "Duración (días)", diasInput);
+
+                    body.appendChild(row);
+                    card.appendChild(body);
+                    medsContainer.appendChild(card);
+                });
+            };
+
+            const inputValueOrNull = (id) => {
+                const el = document.getElementById(id);
+                if (!el) return null;
+                const value = el.value.trim();
+                return value === "" ? null : value;
+            };
+
+            const collectData = () => {
+                const data = {};
+                fieldDefs.forEach((def) => {
+                    data[def.key] = inputValueOrNull(`extractor_f_${def.key}`);
+                });
+                data.medicamentos = [];
+                for (let index = 0; index < currentMedsCount; index++) {
+                    data.medicamentos.push({
+                        nombre: inputValueOrNull(`extractor_m_${index}_nombre`),
+                        dosis: inputValueOrNull(`extractor_m_${index}_dosis`),
+                        unidad: inputValueOrNull(`extractor_m_${index}_unidad`),
+                        via: inputValueOrNull(`extractor_m_${index}_via`),
+                        frecuencia: inputValueOrNull(`extractor_m_${index}_frecuencia`),
+                        duracion_dias: inputValueOrNull(`extractor_m_${index}_dias`)
+                    });
+                }
+                data.medicamentos = data.medicamentos.filter((med) => med.nombre);
+                return data;
+            };
+
+            const showResults = (data) => {
+                renderFields(data);
+                renderMeds(Array.isArray(data.medicamentos) ? data.medicamentos : []);
+                setLeftPanel(resultPanel);
+                if (whatsappBtn) whatsappBtn.classList.remove("d-none");
+                if (copiarCensoBtn) copiarCensoBtn.classList.remove("d-none");
+            };
+
+            const restoreFileSource = () => {
+                if (docViewer) docViewer.classList.add("d-none");
+                if (fileSourcePanel) fileSourcePanel.classList.remove("d-none");
+                if (dropzone) dropzone.classList.remove("d-none");
+            };
+
+            const extractFromFile = async (file) => {
+                if (isExtracting) return;
+                clearError();
+
+                const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+                const isExcel = /\.(xls|xlsx|xlsm|xlsb|xlt|xltx|xltm|ods)$/i.test(file.name);
+                if (!isPdf && !isExcel) {
+                    showError("Solo se permiten archivos PDF o hojas de cálculo Excel y ODS.");
+                    return;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                    showError("El archivo no puede superar 10 MB.");
+                    return;
+                }
+
+                if (currentObjectUrl) {
+                    URL.revokeObjectURL(currentObjectUrl);
+                    currentObjectUrl = null;
+                }
+                if (isPdf) {
+                    currentObjectUrl = URL.createObjectURL(file);
+                    if (pdfFrame) {
+                        pdfFrame.src = currentObjectUrl;
+                        pdfFrame.classList.remove("d-none");
+                    }
+                    if (filePreviewMessage) filePreviewMessage.classList.add("d-none");
+                    if (docViewerTitle) docViewerTitle.textContent = "Vista del documento";
+                } else {
+                    if (pdfFrame) {
+                        pdfFrame.removeAttribute("src");
+                        pdfFrame.classList.add("d-none");
+                    }
+                    if (filePreviewMessage) filePreviewMessage.classList.remove("d-none");
+                    if (docViewerTitle) docViewerTitle.textContent = "Archivo a analizar";
+                }
+                if (docViewer) docViewer.classList.remove("d-none");
+                if (docName) docName.textContent = file.name;
+                if (fileSourcePanel) fileSourcePanel.classList.add("d-none");
+                if (whatsappBtn) whatsappBtn.classList.add("d-none");
+                if (copiarCensoBtn) copiarCensoBtn.classList.add("d-none");
+
+                isExtracting = true;
+                setLeftPanel(loadingPanel);
+                startLoadingAnimation();
+
+                try {
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    const response = await fetch(extraerDatosRemisionUrl, {
+                        method: "POST",
+                        body: formData,
+                        headers: csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {}
+                    });
+
+                    let result = null;
+                    try {
+                        result = await response.json();
+                    } catch {
+                        result = null;
+                    }
+
+                    if (!response.ok || !result || !result.success) {
+                        showError(result?.message ?? "No fue posible extraer los datos del documento. Intenta nuevamente.");
+                        setLeftPanel(idlePanel);
+                        restoreFileSource();
+                        return;
+                    }
+
+                    showResults(result.data ?? {});
+                } catch {
+                    showError("Error de conexión al extraer los datos. Intenta nuevamente.");
+                    setLeftPanel(idlePanel);
+                    restoreFileSource();
+                } finally {
+                    stopLoadingAnimation();
+                    isExtracting = false;
+                }
+            };
+
+            const extractFromText = async () => {
+                if (isExtracting) return;
+                const text = textInput?.value.trim() ?? "";
+                clearError();
+
+                if (!text) {
+                    showError("Pega el contenido del correo o la remisión antes de procesarlo.");
+                    textInput?.focus();
+                    return;
+                }
+
+                if (text.length > 50000) {
+                    showError("El texto pegado es demasiado largo. Usa máximo 50.000 caracteres.");
+                    return;
+                }
+
+                if (whatsappBtn) whatsappBtn.classList.add("d-none");
+                if (copiarCensoBtn) copiarCensoBtn.classList.add("d-none");
+                isExtracting = true;
+                setLeftPanel(loadingPanel);
+                startLoadingAnimation();
+
+                try {
+                    const response = await fetch(extraerDatosRemisionTextoUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            ...(csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {})
+                        },
+                        body: JSON.stringify({ text })
+                    });
+
+                    let result = null;
+                    try {
+                        result = await response.json();
+                    } catch {
+                        result = null;
+                    }
+
+                    if (!response.ok || !result || !result.success) {
+                        showError(result?.message ?? "No fue posible extraer los datos del texto. Intenta nuevamente.");
+                        setLeftPanel(idlePanel);
+                        return;
+                    }
+
+                    showResults(result.data ?? {});
+                } catch {
+                    showError("Error de conexión al extraer los datos. Intenta nuevamente.");
+                    setLeftPanel(idlePanel);
+                } finally {
+                    stopLoadingAnimation();
+                    isExtracting = false;
+                }
+            };
+
+            // ── Copiar para WhatsApp ──
+            const unidadAbbr = { "Miligramos": "MG", "Gramos": "G", "Unidades": "UI", "Gotas": "GOTAS", "Mililitros": "ML" };
+            const viaAbbr = { "Intravenosa": "IV", "Intramuscular": "IM", "Subcutánea": "SC", "Nebulizada": "NEB", "Oral": "VO" };
+
+            const computeAge = (birthDateText) => {
+                if (!birthDateText || !/^\d{4}-\d{2}-\d{2}$/.test(birthDateText)) return null;
+                const birthDate = new Date(`${birthDateText}T00:00:00`);
+                if (Number.isNaN(birthDate.getTime())) return null;
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                return age >= 0 && age <= 130 ? age : null;
+            };
+
+            const buildWhatsappMessage = (data) => {
+                const lines = [];
+                lines.push("🏥 *NUEVO PACIENTE — Especialistas En Casa*");
+                lines.push("");
+
+                const identityParts = [`*${data.nombre ?? "Paciente sin nombre"}*`];
+                const edad = data.edad ?? computeAge(data.fecha_nacimiento);
+                if (edad !== null && edad !== undefined && edad !== "") {
+                    identityParts.push(`${edad} años`);
+                }
+                if (data.documento) {
+                    identityParts.push(`${data.tipo_documento ?? "CC"} ${data.documento}`);
+                }
+                lines.push(`👤 ${identityParts.join(" | ")}`);
+
+                const phones = [data.telefono1, data.telefono2].filter(Boolean);
+                if (phones.length > 0) {
+                    lines.push(`📞 ${phones.join(" · ")}`);
+                }
+
+                const addressParts = [data.direccion, data.barrio, data.ciudad].filter(Boolean);
+                if (addressParts.length > 0) {
+                    lines.push(`📍 ${addressParts.join(", ")}`);
+                }
+
+                if (data.cuidador) {
+                    lines.push(`👨‍👩‍👧 Cuidador: ${data.cuidador}`);
+                }
+
+                if (data.medicamentos.length > 0) {
+                    lines.push("");
+                    lines.push("💉 *Medicamentos parenterales:*");
+                    data.medicamentos.forEach((med) => {
+                        let line = `  • ${med.nombre}`;
+                        if (med.dosis) {
+                            line += ` ${med.dosis} ${unidadAbbr[med.unidad] ?? med.unidad ?? ""}`.trimEnd();
+                        }
+                        if (med.via) {
+                            line += ` ${viaAbbr[med.via] ?? med.via}`;
+                        }
+                        if (med.frecuencia) {
+                            line += ` — ${med.frecuencia.toLowerCase()} 🟡`;
+                        }
+                        if (med.duracion_dias) {
+                            line += `, por ${med.duracion_dias} día${Number(med.duracion_dias) === 1 ? "" : "s"}`;
+                        }
+                        lines.push(line);
+                    });
+                }
+
+                if (data.cie10 || data.diagnostico) {
+                    lines.push("");
+                    lines.push(`🩺 ${data.cie10 ?? data.diagnostico}`);
+                }
+
+                if (data.ips_remite) {
+                    lines.push("");
+                    lines.push(`_Remitido por: ${data.ips_remite}_`);
+                }
+
+                return lines.join("\n");
+            };
+
+            const copyToClipboard = async (text) => {
+                if (navigator.clipboard && window.isSecureContext) {
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        return true;
+                    } catch {
+                        // Se intenta el mecanismo alterno.
+                    }
+                }
+
+                const textarea = document.createElement("textarea");
+                textarea.value = text;
+                textarea.style.position = "fixed";
+                textarea.style.opacity = "0";
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                let copied = false;
+                try {
+                    copied = document.execCommand("copy");
+                } catch {
+                    copied = false;
+                }
+                document.body.removeChild(textarea);
+                return copied;
+            };
+
+            // ── Copiar datos al censo ──
+            const dispatchValue = (element, value) => {
+                if (!element || value === null || value === undefined || value === "") return false;
+                element.value = value;
+                element.dispatchEvent(new Event("input", { bubbles: true }));
+                element.dispatchEvent(new Event("change", { bubbles: true }));
+                return true;
+            };
+
+            const dispatchSelect = (element, value) => {
+                if (!element || !value) return false;
+                const match = Array.from(element.options)
+                    .find((option) => option.value !== "" && option.value.toLowerCase() === String(value).toLowerCase());
+                if (!match) return false;
+                element.value = match.value;
+                element.dispatchEvent(new Event("change", { bubbles: true }));
+                return true;
+            };
+
+            const cleanPhone = (value) => {
+                if (!value) return null;
+                const digits = String(value).replace(/\D/g, "").slice(0, 10);
+                return digits || null;
+            };
+
+            const medTargets = [
+                { nombre: "nombreMedicamentoPrincipalInput", dosis: "dosisMedicamentoPrincipalInput", medida: "medidaMedicamentoPrincipalSelect", via: "viaAdministracionMedicamentoPrincipalSelect", frecuencia: "frecuenciaAdministracionMxPrincipalSelect", dias: "diasMedicamentoPrincipalInput", toggle: null },
+                { nombre: "nombreMedicamento2Input", dosis: "dosisMedicamento2Input", medida: "medidaMedicamento2Select", via: "viaAdministracionMedicamento2Select", frecuencia: "frecuenciaMedicamento2Select", dias: "diasMedicamento2Input", toggle: "medicamento2Toggle" },
+                { nombre: "nombreMedicamento3Input", dosis: "dosisMedicamento3Input", medida: "medidaMedicamento3Select", via: "viaAdministracionMedicamento3Select", frecuencia: "frecuenciaMedicamento3Select", dias: "diasMedicamento3Input", toggle: "medicamento3Toggle" },
+                { nombre: "nombreMedicamento4Input", dosis: "dosisMedicamento4Input", medida: "medidaMedicamento4Select", via: "viaAdministracionMedicamento4Select", frecuencia: "frecuenciaMedicamento4Select", dias: "diasMedicamento4Input", toggle: "medicamento4Toggle" },
+                { nombre: "nombreMedicamento5Input", dosis: "dosisMedicamento5Input", medida: "medidaMedicamento5Select", via: "viaAdministracionMedicamento5Select", frecuencia: "frecuenciaMedicamento5Select", dias: "diasMedicamento5Input", toggle: "medicamento5Toggle" },
+                { nombre: "nombreMedicamento6Input", dosis: "dosisMedicamento6Input", medida: "medidaMedicamento6Select", via: "viaAdministracionMedicamento6Select", frecuencia: "frecuenciaMedicamento6Select", dias: "diasMedicamento6Input", toggle: "medicamento6Toggle" }
+            ];
+
+            // Los campos que llena el extractor se capturan ahora en el maestro de paciente. Se
+            // busca primero ahi; el identificador antiguo queda como respaldo.
+            const campo = (...identificadores) => {
+                for (const id of identificadores) {
+                    const el = document.getElementById(id);
+                    if (el) return el;
+                }
+                return null;
+            };
+
+            // ----- Medicamentos en espera del programa agudos -----
+            // Se guardan por documento en el propio navegador: no son datos clinicos confirmados,
+            // solo el resultado de una extraccion que aun no tiene donde aterrizar.
+            const documentoActual = () =>
+                (campo("numeroIdentificacionMaestroInput", "NumeroIdentificacion")?.value || "").trim();
+
+            const claveMedicamentos = () => `censo:medicamentos-extraidos:${documentoActual()}`;
+
+            const guardarMedicamentosPendientes = (meds) => {
+                try {
+                    if (documentoActual()) sessionStorage.setItem(claveMedicamentos(), JSON.stringify(meds));
+                } catch { /* si el navegador no deja guardar, solo se pierde la comodidad */ }
+            };
+
+            const aplicarMedicamentos = (meds) => {
+                dispatchSelect(document.getElementById("administracionMedicamentosSelect"), "Si");
+                meds.slice(0, medTargets.length).forEach((med, index) => {
+                    const target = medTargets[index];
+                    if (target.toggle) {
+                        const toggle = document.getElementById(target.toggle);
+                        if (toggle && !toggle.checked) {
+                            toggle.checked = true;
+                            toggle.dispatchEvent(new Event("change", { bubbles: true }));
+                        }
+                    }
+                    dispatchValue(document.getElementById(target.nombre), med.nombre);
+                    dispatchValue(document.getElementById(target.dosis), med.dosis);
+                    dispatchSelect(document.getElementById(target.medida), med.unidad);
+                    dispatchSelect(document.getElementById(target.via), med.via);
+                    dispatchSelect(document.getElementById(target.frecuencia), med.frecuencia);
+                    dispatchValue(document.getElementById(target.dias), med.duracion_dias);
+                });
+            };
+
+            const applyToCenso = (data) => {
+                const filled = [];
+                const pending = [];
+                const track = (label, ok, hasValue) => {
+                    if (ok) {
+                        filled.push(label);
+                    } else if (hasValue) {
+                        pending.push(label);
+                    }
+                };
+
+                track("Nombre del paciente", dispatchValue(campo("Paciente_NombrePaciente", "NombrePaciente"), data.nombre), !!data.nombre);
+                track("Tipo de identificación", dispatchSelect(campo("tipoIdentificacionInput", "TipoIdentificacion"), data.tipo_documento), !!data.tipo_documento);
+                const documentoLimpio = data.documento ? String(data.documento).replace(/[\s.]/g, "") : null;
+                track("Número de identificación", dispatchValue(campo("numeroIdentificacionMaestroInput", "NumeroIdentificacion"), documentoLimpio), !!documentoLimpio);
+
+                const fechaNacimiento = data.fecha_nacimiento && /^\d{4}-\d{2}-\d{2}$/.test(data.fecha_nacimiento) ? data.fecha_nacimiento : null;
+                track("Fecha de nacimiento", dispatchValue(campo("fechaNacimientoMaestroInput", "fechaNacimientoInput"), fechaNacimiento), !!data.fecha_nacimiento);
+
+                track("Código CIE10", dispatchValue(campo("codigoCie10MaestroInput", "codigoCie10Input"), data.cie10), !!data.cie10);
+                track("Dirección", dispatchValue(campo("direccionMaestroInput", "direccionInput"), data.direccion), !!data.direccion);
+                track("IPS que remite", dispatchValue(campo("Paciente_IpsQueRemite", "ipsQueRemiteInput"), data.ips_remite), !!data.ips_remite);
+                track("Teléfono 1", dispatchValue(campo("Paciente_Telefono1", "telefono1Input"), cleanPhone(data.telefono1)), !!data.telefono1);
+
+                const telefono2 = cleanPhone(data.telefono2);
+                if (telefono2) {
+                    const telefono2Container = document.getElementById("telefono2Container");
+                    if (telefono2Container) telefono2Container.classList.remove("d-none");
+                }
+                track("Teléfono 2", dispatchValue(campo("Paciente_Telefono2", "telefono2Input"), telefono2), !!data.telefono2);
+
+                const meds = data.medicamentos.slice(0, medTargets.length);
+
+                // Los medicamentos pertenecen al plan de manejo del programa agudos. Si el paciente
+                // todavia no lo tiene agregado, esos campos no existen en la pagina: en vez de
+                // perderlos en silencio se guardan y se aplican solos al agregar el programa.
+                const hayAgudos = !!document.getElementById("nombreMedicamentoPrincipalInput");
+                if (meds.length > 0 && !hayAgudos) {
+                    guardarMedicamentosPendientes(meds);
+                    pending.push(
+                        `${meds.length} medicamento(s): agrega el programa agudos y se cargaran solos en el plan de manejo`);
+                    return { filled, pending };
+                }
+
+                if (meds.length > 0) {
+                    dispatchSelect(document.getElementById("administracionMedicamentosSelect"), "Si");
+                    meds.forEach((med, index) => {
+                        const target = medTargets[index];
+                        if (target.toggle) {
+                            const toggle = document.getElementById(target.toggle);
+                            if (toggle && !toggle.checked) {
+                                toggle.checked = true;
+                                toggle.dispatchEvent(new Event("change", { bubbles: true }));
+                            }
+                        }
+                        const label = `Medicamento ${index + 1}`;
+                        const nombreOk = dispatchValue(document.getElementById(target.nombre), med.nombre);
+                        dispatchValue(document.getElementById(target.dosis), med.dosis);
+                        dispatchSelect(document.getElementById(target.medida), med.unidad);
+                        dispatchSelect(document.getElementById(target.via), med.via);
+                        dispatchSelect(document.getElementById(target.frecuencia), med.frecuencia);
+                        dispatchValue(document.getElementById(target.dias), med.duracion_dias);
+                        track(label, nombreOk, true);
+                    });
+                }
+
+                if (data.medicamentos.length > medTargets.length) {
+                    pending.push(`Hay ${data.medicamentos.length - medTargets.length} medicamento(s) adicional(es) que no caben en el censo`);
+                }
+
+                return { filled, pending };
+            };
+
+            const showCopySummary = (summary) => {
+                const feedbackModalEl = document.getElementById("censoFeedbackModal");
+                const feedbackTitle = document.getElementById("censoFeedbackModalTitle");
+                const feedbackBody = document.getElementById("censoFeedbackModalBody");
+                if (!feedbackModalEl || !feedbackTitle || !feedbackBody || !window.bootstrap?.Modal) return;
+
+                feedbackTitle.textContent = "Datos copiados al censo";
+                const escapeHtml = (value) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                let html = "";
+                if (summary.filled.length > 0) {
+                    html += `<p class="mb-2">Se llenaron automáticamente:</p><ul class="mb-0">${summary.filled.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+                }
+                if (summary.pending.length > 0) {
+                    html += `<p class="mb-2 mt-3">Revisa manualmente (no se pudieron aplicar):</p><ul class="mb-0">${summary.pending.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+                }
+                html += `<p class="text-muted small mt-3 mb-0">Los campos restantes del censo (municipio, barrio, zona, asegurador, etc.) deben diligenciarse manualmente. Recuerda validar la dirección.</p>`;
+                feedbackBody.innerHTML = html;
+                window.bootstrap.Modal.getOrCreateInstance(feedbackModalEl).show();
+            };
+
+            // ── Eventos ──
+            abrirBtn.addEventListener("click", () => {
+                getModal()?.show();
+            });
+
+            sourceTabs.forEach((tab) => {
+                tab.addEventListener("click", () => {
+                    if (isExtracting) return;
+                    resetExtractor();
+                    showSource(tab.dataset.extractorSource ?? "file");
+                    if (tab.dataset.extractorSource === "text") textInput?.focus();
+                });
+            });
+
+            if (textInput) {
+                textInput.addEventListener("input", updateTextCounter);
+                textInput.addEventListener("keydown", (event) => {
+                    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                        event.preventDefault();
+                        extractFromText();
+                    }
+                });
+                updateTextCounter();
+            }
+
+            if (procesarTextoBtn) {
+                procesarTextoBtn.addEventListener("click", extractFromText);
+            }
+
+            if (dropzone && fileInput) {
+                dropzone.addEventListener("click", () => fileInput.click());
+                dropzone.addEventListener("keydown", (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        fileInput.click();
+                    }
+                });
+                ["dragenter", "dragover"].forEach((eventName) => {
+                    dropzone.addEventListener(eventName, (event) => {
+                        event.preventDefault();
+                        dropzone.classList.add("is-dragover");
+                    });
+                });
+                ["dragleave", "drop"].forEach((eventName) => {
+                    dropzone.addEventListener(eventName, (event) => {
+                        event.preventDefault();
+                        dropzone.classList.remove("is-dragover");
+                    });
+                });
+                dropzone.addEventListener("drop", (event) => {
+                    const file = event.dataTransfer?.files?.[0];
+                    if (file) extractFromFile(file);
+                });
+                fileInput.addEventListener("change", () => {
+                    const file = fileInput.files?.[0];
+                    if (file) extractFromFile(file);
+                });
+            }
+
+            if (reiniciarBtn) {
+                reiniciarBtn.addEventListener("click", resetExtractor);
+            }
+
+            if (whatsappBtn) {
+                whatsappBtn.addEventListener("click", async () => {
+                    const copied = await copyToClipboard(buildWhatsappMessage(collectData()));
+                    if (!copied) {
+                        showError("No fue posible copiar al portapapeles.");
+                        return;
+                    }
+                    clearError();
+                    if (whatsappBtnText) {
+                        whatsappBtnText.textContent = "¡Copiado!";
+                        window.setTimeout(() => {
+                            whatsappBtnText.textContent = "Copiar para WhatsApp";
+                        }, 2000);
+                    }
+                });
+            }
+
+            if (copiarCensoBtn) {
+                copiarCensoBtn.addEventListener("click", () => {
+                    const summary = applyToCenso(collectData());
+                    getModal()?.hide();
+                    const datosBasicosTabLink = document.querySelector('[data-censo-tab="tab-paciente-datos-basicos"]');
+                    if (datosBasicosTabLink) datosBasicosTabLink.click();
+                    showCopySummary(summary);
+                });
+            }
+
+            modalEl.addEventListener("hidden.bs.modal", () => {
+                stopLoadingAnimation();
+            });
+
+            // Si quedaron medicamentos esperando y ahora si esta el plan de manejo, se aplican.
+            (() => {
+                if (!document.getElementById("nombreMedicamentoPrincipalInput") || !documentoActual()) return;
+                let guardados = null;
+                try {
+                    guardados = JSON.parse(sessionStorage.getItem(claveMedicamentos()) || "null");
+                } catch { return; }
+                if (!Array.isArray(guardados) || guardados.length === 0) return;
+                aplicarMedicamentos(guardados);
+                try { sessionStorage.removeItem(claveMedicamentos()); } catch { /* nada que limpiar */ }
+                console.info(`Censo: se cargaron ${guardados.length} medicamento(s) extraidos de la remision.`);
+            })();
+
+        })();
+    </script>

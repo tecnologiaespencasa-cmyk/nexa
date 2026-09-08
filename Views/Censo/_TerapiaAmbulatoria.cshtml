@@ -1,0 +1,621 @@
+﻿@model CensoTerapiaAmbulatoriaViewModel
+@*
+    Formulario del programa dentro de la pantalla unica de censo.
+
+    Es el mismo marcado que tenia la pantalla independiente y envia a la misma accion, para
+    que kardex, requisiciones, farmacia y prorrogas sigan funcionando igual. Los cambios son
+    dos: los identificadores de panel llevan el prefijo del programa, porque los cinco
+    conviven ahora en un mismo documento, y los campos que subieron al maestro de paciente
+    viajan ocultos, para que la validacion de este censo siga recibiendo el modelo completo.
+*@
+@using Nexa.Data.Entities
+
+
+@{
+    ViewData["Title"] = "Terapia Ambulatoria";
+    var successMessage = TempData["SuccessMessage"] as string;
+    var errorMessage = TempData["ErrorMessage"] as string;
+    var hasFisioterapeutas = Model.FisioterapeutaOptions.Any();
+    var estadoGestionInicial = string.IsNullOrWhiteSpace(Model.EstadoGestion)
+        ? "Pendiente confirmar datos"
+        : Model.EstadoGestion;
+    var showCurrentPatientBar = Model.EditingRecordId.HasValue
+        && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
+    var gestionSummaryCards = new[]
+    {
+        new
+        {
+            Estado = "Pendiente confirmar datos",
+            Titulo = "Casos pendientes por confirmar datos",
+            Conteo = Model.PendientesConfirmarDatosCount,
+            Css = "is-pending"
+        },
+        new
+        {
+            Estado = "Datos confirmados",
+            Titulo = "Casos datos confirmados",
+            Conteo = Model.DatosConfirmadosCount,
+            Css = "is-confirmed"
+        },
+        new
+        {
+            Estado = "Gestión completa",
+            Titulo = "Casos gestión completa",
+            Conteo = Model.GestionCompletaCount,
+            Css = "is-complete"
+        }
+    };
+}
+
+@functions {
+    private static Microsoft.AspNetCore.Html.IHtmlContent RequiredMark() =>
+        new Microsoft.AspNetCore.Html.HtmlString("<span class=\"text-danger ms-1\" aria-hidden=\"true\">*</span><span class=\"visually-hidden\">obligatorio</span>");
+}
+
+        <form asp-action="TerapiaAmbulatoria" method="post" enctype="multipart/form-data" id="terapiaAmbulatoriaForm" class="censo-form-shell">
+            <input asp-for="EditingRecordId" type="hidden" />
+            <input asp-for="CedulaFiltro" type="hidden" />
+            <input asp-for="EstadoGestionFiltro" type="hidden" />
+            <input asp-for="DireccionEsValida" type="hidden" id="terapiaDireccionEsValidaInput" />
+            <input asp-for="EstadoGestion" type="hidden" id="estadoGestionInput" />
+
+            <section class="censo-gestion-progress is-pending" id="gestionProgress" aria-live="polite">
+                <div class="censo-gestion-progress__summary">
+                    <span>Estado de gestión</span>
+                    <strong id="gestionProgressLabel">@estadoGestionInicial</strong>
+                </div>
+                <div class="censo-gestion-progress__track" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1">
+                    <span class="censo-gestion-progress__step" data-step="1">
+                        <span>Pendiente</span>
+                    </span>
+                    <span class="censo-gestion-progress__step" data-step="2">
+                        <span>Confirmado</span>
+                    </span>
+                    <span class="censo-gestion-progress__step" data-step="3">
+                        <span>Completa</span>
+                    </span>
+                </div>
+                <div class="censo-gestion-progress__meta" id="gestionProgressDetail">
+                    Pendiente confirmar datos
+                </div>
+            </section>
+
+            <div asp-validation-summary="All" class="alert alert-danger censo-validation-summary mb-4" role="alert"></div>
+
+            <div class="tab-content">
+                <div class="tab-pane fade" id="tab-terapia-datos-especificos" role="tabpanel" aria-labelledby="tab-terapia-datos-especificos-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Terapia Ambulatoria</span>
+                                <h2 class="h5 mb-0">Datos específicos</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!hasFisioterapeutas)
+                            {
+                                <div class="alert alert-warning">
+                                    No hay auxiliares OPS activos para asignar. Puedes guardar el registro y asignarlo después.
+                                </div>
+                            }
+
+                                    <input asp-for="NombrePaciente" type="hidden" />
+                                    <input asp-for="TipoIdentificacion" type="hidden" />
+                                    <input asp-for="NumeroIdentificacion" type="hidden" />
+                                    <input asp-for="FechaNacimiento" type="hidden" />
+                                    <input asp-for="Edad" type="hidden" />
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M4 19V5"></path>
+                                            <path d="M4 19h16"></path>
+                                            <path d="M8 15l3-3 3 2 5-7"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Tratamiento</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-12">
+                                        <label class="form-label">Tipo de terapia @RequiredMark()</label>
+                                        <div class="censo-check-grid">
+                                            @for (var index = 0; index < Model.TipoTerapiaOptions.Count; index++)
+                                            {
+                                                var option = Model.TipoTerapiaOptions[index];
+                                                var inputId = $"tipoTerapia_{index}";
+                                                <div class="form-check">
+                                                    <input class="form-check-input"
+                                                           type="checkbox"
+                                                           id="@inputId"
+                                                           name="TiposTerapiaSeleccionados"
+                                                           value="@option.Value"
+                                                           checked="@Model.TiposTerapiaSeleccionados.Contains(option.Value, StringComparer.OrdinalIgnoreCase)" />
+                                                    <label class="form-check-label" for="@inputId">@option.Text</label>
+                                                </div>
+                                            }
+                                        </div>
+                                        <span asp-validation-for="TiposTerapiaSeleccionados" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label asp-for="Cantidad" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="Cantidad" class="form-control" type="number" min="1" step="1" />
+                                        <span asp-validation-for="Cantidad" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-5">
+                                        <label asp-for="FrecuenciaTerapia" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="FrecuenciaTerapia" asp-items="Model.FrecuenciaTerapiaOptions" class="form-select">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="FrecuenciaTerapia" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-check form-switch censo-switch-field">
+                                            <input asp-for="TieneSegundoTratamiento" class="form-check-input" type="checkbox" role="switch" id="tieneSegundoTratamientoSwitch" />
+                                            <label class="form-check-label" for="tieneSegundoTratamientoSwitch">Tiene segundo tratamiento</label>
+                                        </div>
+                                        <span asp-validation-for="TieneSegundoTratamiento" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12 @(Model.TieneSegundoTratamiento ? "" : "d-none")" id="segundoTratamientoContainer">
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label class="form-label">Tipo de terapia segundo tratamiento @RequiredMark()</label>
+                                                <div class="censo-check-grid">
+                                                    @for (var index = 0; index < Model.TipoTerapiaOptions.Count; index++)
+                                                    {
+                                                        var option = Model.TipoTerapiaOptions[index];
+                                                        var inputId = $"segundoTipoTerapia_{index}";
+                                                        <div class="form-check">
+                                                            <input class="form-check-input js-segundo-tratamiento-field"
+                                                                   type="checkbox"
+                                                                   id="@inputId"
+                                                                   name="SegundoTratamientoTiposTerapiaSeleccionados"
+                                                                   value="@option.Value"
+                                                                   checked="@Model.SegundoTratamientoTiposTerapiaSeleccionados.Contains(option.Value, StringComparer.OrdinalIgnoreCase)" />
+                                                            <label class="form-check-label" for="@inputId">@option.Text</label>
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <span asp-validation-for="SegundoTratamientoTiposTerapiaSeleccionados" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <label asp-for="SegundoTratamientoCantidad" class="form-label"></label>@RequiredMark()
+                                                <input asp-for="SegundoTratamientoCantidad" class="form-control js-segundo-tratamiento-field" type="number" min="1" step="1" />
+                                                <span asp-validation-for="SegundoTratamientoCantidad" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-8">
+                                                <label asp-for="SegundoTratamientoFrecuenciaTerapia" class="form-label"></label>@RequiredMark()
+                                                <select asp-for="SegundoTratamientoFrecuenciaTerapia" asp-items="Model.FrecuenciaTerapiaOptions" class="form-select js-segundo-tratamiento-field">
+                                                    <option value="" disabled hidden>Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="SegundoTratamientoFrecuenciaTerapia" class="text-danger"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 @(Model.TieneSegundoTratamiento ? "" : "d-none")" id="tercerTratamientoSwitchContainer">
+                                        <div class="form-check form-switch censo-switch-field">
+                                            <input asp-for="TieneTercerTratamiento" class="form-check-input" type="checkbox" role="switch" id="tieneTercerTratamientoSwitch" />
+                                            <label class="form-check-label" for="tieneTercerTratamientoSwitch">Tiene tercer tratamiento</label>
+                                        </div>
+                                        <span asp-validation-for="TieneTercerTratamiento" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-12 @(Model.TieneTercerTratamiento ? "" : "d-none")" id="tercerTratamientoContainer">
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label class="form-label">Tipo de terapia tercer tratamiento @RequiredMark()</label>
+                                                <div class="censo-check-grid">
+                                                    @for (var index = 0; index < Model.TipoTerapiaOptions.Count; index++)
+                                                    {
+                                                        var option = Model.TipoTerapiaOptions[index];
+                                                        var inputId = $"tercerTipoTerapia_{index}";
+                                                        <div class="form-check">
+                                                            <input class="form-check-input js-tercer-tratamiento-field"
+                                                                   type="checkbox"
+                                                                   id="@inputId"
+                                                                   name="TercerTratamientoTiposTerapiaSeleccionados"
+                                                                   value="@option.Value"
+                                                                   checked="@Model.TercerTratamientoTiposTerapiaSeleccionados.Contains(option.Value, StringComparer.OrdinalIgnoreCase)" />
+                                                            <label class="form-check-label" for="@inputId">@option.Text</label>
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <span asp-validation-for="TercerTratamientoTiposTerapiaSeleccionados" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <label asp-for="TercerTratamientoCantidad" class="form-label"></label>@RequiredMark()
+                                                <input asp-for="TercerTratamientoCantidad" class="form-control js-tercer-tratamiento-field" type="number" min="1" step="1" />
+                                                <span asp-validation-for="TercerTratamientoCantidad" class="text-danger"></span>
+                                            </div>
+                                            <div class="col-lg-8">
+                                                <label asp-for="TercerTratamientoFrecuenciaTerapia" class="form-label"></label>@RequiredMark()
+                                                <select asp-for="TercerTratamientoFrecuenciaTerapia" asp-items="Model.FrecuenciaTerapiaOptions" class="form-select js-tercer-tratamiento-field">
+                                                    <option value="" disabled hidden>Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="TercerTratamientoFrecuenciaTerapia" class="text-danger"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input asp-for="CodigoCie10" type="hidden" id="terapiaCodigoCie10Input" />
+                                    <input asp-for="DiagnosticoDescriptivo" type="hidden" id="terapiaDiagnosticoInput" />
+                                    <div class="col-lg-3">
+                                        <label asp-for="NumeroAutorizacion" class="form-label"></label>
+                                        <input asp-for="NumeroAutorizacion" class="form-control" maxlength="100" autocomplete="off" />
+                                        <span asp-validation-for="NumeroAutorizacion" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M12 21s7-4.7 7-11a7 7 0 1 0-14 0c0 6.3 7 11 7 11Z"></path>
+                                            <circle cx="12" cy="10" r="2.5"></circle>
+                                        </svg>
+                                    </span>
+                                    <h3>Información administrativa</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <input asp-for="Direccion" type="hidden" />
+                                    <input asp-for="AsumirDireccionErrada" type="hidden" />
+                                    <input asp-for="DetalleDireccion" type="hidden" />
+                                    <input asp-for="ClasificacionZonaSura" type="hidden" />
+                                    <input asp-for="MunicipioResidencia" type="hidden" />
+                                    <input asp-for="Barrio" type="hidden" />
+                                    <input asp-for="ZonaDireccionSegunMunicipio" type="hidden" />
+                                    <input asp-for="Area" type="hidden" />
+                                    <input asp-for="IpsQueRemite" type="hidden" />
+                                    <input asp-for="CorreoElectronico" type="hidden" />
+                                    <input asp-for="TelefonoPrincipal" type="hidden" />
+                                    <input asp-for="TelefonoAdicional1" type="hidden" />
+                                    <input asp-for="TelefonoAdicional2" type="hidden" />
+                                    <div class="col-lg-4">
+                                        <label asp-for="Fisioterapeuta" class="form-label"></label>
+                                        <input asp-for="Fisioterapeuta" class="form-control" maxlength="120" id="fisioterapeutaInput" list="fisioterapeutaOptions" autocomplete="off" placeholder="Buscar fisioterapeuta" />
+                                        <datalist id="fisioterapeutaOptions">
+                                            @foreach (var assistant in Model.FisioterapeutaOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                            {
+                                                <option value="@assistant.Value">@assistant.Text</option>
+                                            }
+                                        </datalist>
+                                        <div class="form-text">Selecciona un fisioterapeuta activo</div>
+                                        <span asp-validation-for="Fisioterapeuta" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="GestionEnSistema" class="form-label"></label>
+                                        <div class="form-check form-switch censo-switch-field">
+                                            <input asp-for="GestionEnSistema" class="form-check-input" type="checkbox" role="switch" id="gestionSistemaSwitch" />
+                                            <label class="form-check-label" for="gestionSistemaSwitch">Gestionado en sistema</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                            <path d="M8 3v4"></path>
+                                            <path d="M16 3v4"></path>
+                                            <path d="M4 10h16"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Estado del paciente</h3>
+                                </div>
+                                <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-lg-4">
+                                        <label asp-for="EstadoPaciente" class="form-label"></label>@RequiredMark()
+                                        <select asp-for="EstadoPaciente" asp-items="Model.EstadoPacienteOptions" class="form-select" id="estadoPacienteSelect">
+                                            <option value="" disabled hidden>Selecciona...</option>
+                                        </select>
+                                        <span asp-validation-for="EstadoPaciente" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaIngreso" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="FechaIngreso" type="date" class="form-control" />
+                                        <span asp-validation-for="FechaIngreso" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaInicio" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="FechaInicio" type="date" class="form-control" id="fechaInicioInput" />
+                                        <span asp-validation-for="FechaInicio" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label asp-for="FechaFin" class="form-label"></label>
+                                        <input asp-for="FechaFin" type="date" class="form-control" id="fechaFinInput" readonly />
+                                        <span asp-validation-for="FechaFin" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="censo-field-section censo-sharepoint-documents">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                            <path d="M14 3v5h5"></path>
+                                            <path d="M12 12v6"></path>
+                                            <path d="m9 15 3-3 3 3"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Documentos adjuntos</h3>
+                                </div>
+
+                                @if (!Model.EditingRecordId.HasValue)
+                                {
+                                    <div class="alert alert-info mb-0">
+                                        Guarda primero el paciente para crear su carpeta y adjuntar documentos en SharePoint.
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="censo-sharepoint-documents__upload">
+                                        <div>
+                                            <label for="terapiaAdjuntosInput" class="form-label">Adjuntar documentos</label>
+                                            <input class="form-control"
+                                                   type="file"
+                                                   id="terapiaAdjuntosInput"
+                                                   name="terapiaAdjuntos"
+                                                   multiple
+                                                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+                                            <div class="form-text">Los archivos se guardarán en SharePoint dentro de la carpeta del paciente.</div>
+                                        </div>
+                                        <button type="submit"
+                                                class="btn btn-outline-primary censo-sharepoint-documents__button"
+                                                formaction="@Url.Action("SubirTerapiaAmbulatoriaAdjuntos", "Censo")"
+                                                formmethod="post"
+                                                formenctype="multipart/form-data"
+                                                formnovalidate>
+                                            <span>Subir adjuntos</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M12 3v12"></path>
+                                                <path d="m7 8 5-5 5 5"></path>
+                                                <path d="M5 21h14"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    @if (!string.IsNullOrWhiteSpace(Model.AdjuntosTerapiaError))
+                                    {
+                                        <div class="alert alert-warning mt-3 mb-0">@Model.AdjuntosTerapiaError</div>
+                                    }
+                                    else if (!Model.AdjuntosTerapia.Any())
+                                    {
+                                        <div class="censo-sharepoint-documents__empty">
+                                            No hay documentos adjuntos para este paciente.
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="censo-sharepoint-documents__list">
+                                            @foreach (var adjunto in Model.AdjuntosTerapia)
+                                            {
+                                                <a class="censo-sharepoint-documents__item" href="@adjunto.WebUrl" target="_blank" rel="noopener">
+                                                    <span class="censo-sharepoint-documents__file-icon" aria-hidden="true">
+                                                        <svg viewBox="0 0 24 24" focusable="false">
+                                                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                            <path d="M14 3v5h5"></path>
+                                                        </svg>
+                                                    </span>
+                                                    <span class="censo-sharepoint-documents__file-copy">
+                                                        <strong>@adjunto.Name</strong>
+                                                        <small>
+                                                            @($"{Math.Max(1, (int)Math.Ceiling(adjunto.Size / 1024d))} KB")
+                                                            @if (adjunto.LastModifiedAt.HasValue)
+                                                            {
+                                                                <span> · @adjunto.LastModifiedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                                            }
+                                                        </small>
+                                                    </span>
+                                                </a>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </section>
+
+                            <div class="censo-form-actions">
+                                <button type="submit" class="btn btn-primary censo-save-button">
+                                    <span>@(Model.EditingRecordId.HasValue ? "Actualizar registro" : "Guardar registro")</span>
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                        <path d="M5 12h14"></path>
+                                        <path d="m13 6 6 6-6 6"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-terapia-prorroga" role="tabpanel" aria-labelledby="tab-terapia-prorroga-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Terapia Ambulatoria</span>
+                                <h2 class="h5 mb-0">Prórroga</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda o abre un paciente desde el historial para registrar prórrogas asociadas.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                                <path d="M8 3v4"></path>
+                                                <path d="M16 3v4"></path>
+                                                <path d="M4 10h16"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Datos de prórroga</h3>
+                                    </div>
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-12">
+                                            <label class="form-label">Tipo de terapia @RequiredMark()</label>
+                                            <div class="censo-check-grid">
+                                                @for (var index = 0; index < Model.TipoTerapiaOptions.Count; index++)
+                                                {
+                                                    var option = Model.TipoTerapiaOptions[index];
+                                                    var inputId = $"prorrogaTipoTerapia_{index}";
+                                                    <div class="form-check">
+                                                        <input class="form-check-input"
+                                                               type="checkbox"
+                                                               id="@inputId"
+                                                               name="ProrrogaTiposTerapiaSeleccionados"
+                                                               value="@option.Value"
+                                                               checked="@Model.ProrrogaTiposTerapiaSeleccionados.Contains(option.Value, StringComparer.OrdinalIgnoreCase)" />
+                                                        <label class="form-check-label" for="@inputId">@option.Text</label>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <span asp-validation-for="ProrrogaTiposTerapiaSeleccionados" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaFechaSolicitud" class="form-label"></label>@RequiredMark()
+                                            <input asp-for="ProrrogaFechaSolicitud" type="date" class="form-control" />
+                                            <span asp-validation-for="ProrrogaFechaSolicitud" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaFechaSolicitudAsegurador" class="form-label"></label>@RequiredMark()
+                                            <input asp-for="ProrrogaFechaSolicitudAsegurador" type="date" class="form-control" />
+                                            <span asp-validation-for="ProrrogaFechaSolicitudAsegurador" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaFechaEntregaAutorizacion" class="form-label"></label>@RequiredMark()
+                                            <input asp-for="ProrrogaFechaEntregaAutorizacion" type="date" class="form-control" />
+                                            <span asp-validation-for="ProrrogaFechaEntregaAutorizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaCodigoAutorizacion" class="form-label"></label>@RequiredMark()
+                                            <input asp-for="ProrrogaCodigoAutorizacion" class="form-control" maxlength="100" autocomplete="off" />
+                                            <span asp-validation-for="ProrrogaCodigoAutorizacion" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaFrecuencia" class="form-label"></label>@RequiredMark()
+                                            <input asp-for="ProrrogaFrecuencia" class="form-control" type="number" min="1" step="1" />
+                                            <span asp-validation-for="ProrrogaFrecuencia" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <label asp-for="ProrrogaCantidad" class="form-label"></label>@RequiredMark()
+                                            <input asp-for="ProrrogaCantidad" class="form-control" maxlength="100" autocomplete="off" />
+                                            <span asp-validation-for="ProrrogaCantidad" class="text-danger"></span>
+                                        </div>
+                                    </div>
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarTerapiaAmbulatoriaProrroga", "Censo")" formmethod="post" formnovalidate>
+                                            <span>@(Model.ProrrogasTerapia.Any() ? "Actualizar prórroga" : "Guardar prórroga")</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-terapia-gestion-alta" role="tabpanel" aria-labelledby="tab-terapia-gestion-alta-link">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="censo-card-heading">
+                                <span class="censo-card-heading__eyebrow">Terapia Ambulatoria</span>
+                                <h2 class="h5 mb-0">Gestión Alta</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!Model.EditingRecordId.HasValue)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    Guarda o abre un paciente desde el historial para gestionar el alta.
+                                </div>
+                            }
+                            else
+                            {
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                                <path d="M8 3v4"></path>
+                                                <path d="M16 3v4"></path>
+                                                <path d="M4 10h16"></path>
+                                                <path d="m9 15 2 2 4-5"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Datos de alta</h3>
+                                    </div>
+
+                                    <div class="row g-3 censo-field-section__grid">
+                                        <div class="col-lg-4">
+                                            <label asp-for="FechaAlta" class="form-label"></label>@RequiredMark()
+                                            <input asp-for="FechaAlta" type="date" class="form-control" />
+                                            <span asp-validation-for="FechaAlta" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">Motivo alta @RequiredMark()</label>
+                                            <div class="censo-check-grid">
+                                                @for (var index = 0; index < Model.MotivoAltaOptions.Count; index++)
+                                                {
+                                                    var option = Model.MotivoAltaOptions[index];
+                                                    var inputId = $"motivoAlta_{index}";
+                                                    <div class="form-check">
+                                                        <input class="form-check-input"
+                                                               type="radio"
+                                                               id="@inputId"
+                                                               name="MotivoAlta"
+                                                               value="@option.Value"
+                                                               checked="@string.Equals(Model.MotivoAlta, option.Value, StringComparison.OrdinalIgnoreCase)" />
+                                                        <label class="form-check-label" for="@inputId">@option.Text</label>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <span asp-validation-for="MotivoAlta" class="text-danger"></span>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">Estado del alta @RequiredMark()</label>
+                                            <div class="censo-check-grid">
+                                                @for (var index = 0; index < Model.EstadoAltaOptions.Count; index++)
+                                                {
+                                                    var option = Model.EstadoAltaOptions[index];
+                                                    var inputId = $"estadoAlta_{index}";
+                                                    <div class="form-check">
+                                                        <input class="form-check-input"
+                                                               type="radio"
+                                                               id="@inputId"
+                                                               name="EstadoAlta"
+                                                               value="@option.Value"
+                                                               checked="@string.Equals(Model.EstadoAlta, option.Value, StringComparison.OrdinalIgnoreCase)" />
+                                                        <label class="form-check-label" for="@inputId">@option.Text</label>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <span asp-validation-for="EstadoAlta" class="text-danger"></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="censo-form-actions censo-form-actions--inline">
+                                        <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarTerapiaAmbulatoriaGestionAlta", "Censo")" formmethod="post" formnovalidate>
+                                            <span>Actualizar gestión alta</span>
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M5 12h14"></path>
+                                                <path d="m13 6 6 6-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </section>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net;
 using System.Security.Claims;
 using System.Text;
@@ -121,40 +121,14 @@ public partial class CensoController
         long? recordId,
         CancellationToken cancellationToken)
     {
-        var model = BuildDefaultCronicoModel();
-        model.CedulaFiltro = NormalizeCedulaFilter(cedulaPaciente);
-
-        if (recordId.HasValue)
+        // La pantalla suelta de este censo se retiro: todo se administra desde la
+        // pantalla unica. La ruta se conserva para que los enlaces antiguos sigan llegando.
+        await Task.CompletedTask;
+        return RedirectToAction(nameof(Index), new
         {
-            var record = await _context.CensoCronicos
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == recordId.Value, cancellationToken);
-            if (record is not null)
-            {
-                ApplyCronicoRecordToModel(model, record);
-                model.CedulaFiltro = string.IsNullOrWhiteSpace(model.CedulaFiltro)
-                    ? record.NumeroIdentificacion
-                    : model.CedulaFiltro;
-            }
-        }
-        else if (!string.IsNullOrWhiteSpace(model.CedulaFiltro))
-        {
-            var record = await _context.CensoCronicos
-                .AsNoTracking()
-                .Where(x => x.NumeroIdentificacion == model.CedulaFiltro)
-                .OrderByDescending(x => x.CreatedAtUtc)
-                .ThenByDescending(x => x.Id)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (record is not null)
-            {
-                ApplyCronicoRecordToModel(model, record);
-                model.CedulaFiltro = record.NumeroIdentificacion;
-            }
-        }
-
-        await PopulateCronicoDropdownsAsync(model, cancellationToken);
-        return View("ProgramaCronicos", model);
+            cedulaPaciente,
+            programa = CensoProgramas.Cronicos
+        });
     }
 
     [HttpPost]
@@ -183,7 +157,8 @@ public partial class CensoController
         if (!ModelState.IsValid)
         {
             await PopulateCronicoLatestRecordsAsync(model, cancellationToken);
-            return View("ProgramaCronicos", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.Cronicos, model, model.CedulaFiltro, cancellationToken);
         }
 
         CensoCronicoRecord record;
@@ -227,7 +202,7 @@ public partial class CensoController
         TempData["SuccessMessage"] = model.EditingRecordId.HasValue
             ? "Registro de programa crónicos actualizado correctamente."
             : "Registro de programa crónicos guardado correctamente.";
-        return RedirectToAction(nameof(ProgramaCronicos), new { cedulaPaciente = record.NumeroIdentificacion });
+        return RedirectToAction(nameof(Index), new { cedulaPaciente = record.NumeroIdentificacion, programa = CensoProgramas.Cronicos });
     }
 
     [HttpPost]
@@ -312,7 +287,8 @@ public partial class CensoController
 
         if (!ModelState.IsValid || record is null)
         {
-            return View("ProgramaCronicos", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.Cronicos, model, model.CedulaFiltro, cancellationToken);
         }
 
         applySectionToRecord(record, model);
@@ -326,7 +302,7 @@ public partial class CensoController
             auditUserId, auditIp, cancellationToken);
 
         TempData["SuccessMessage"] = successMessage;
-        return RedirectToAction(nameof(ProgramaCronicos), new { recordId = record.Id, cedulaPaciente = record.NumeroIdentificacion });
+        return RedirectToAction(nameof(Index), new { cedulaPaciente = record.NumeroIdentificacion, programa = CensoProgramas.Cronicos });
     }
 
     [HttpGet]

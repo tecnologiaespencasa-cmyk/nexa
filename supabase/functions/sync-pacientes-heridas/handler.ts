@@ -24,6 +24,18 @@ export interface UpsertResult {
   unicos: number;
   insertados: number;
   actualizados: number;
+  /** Ingresos al programa escritos. Ausente si la base aun no tiene la tabla. */
+  ingresos?: number;
+}
+
+/**
+ * Un ingreso del paciente al programa: numero de orden y si sigue abierto.
+ * No lleva fechas ni nada clinico; solo lo que el portal necesita para saber
+ * si puede registrar seguimientos y sobre cual ingreso.
+ */
+export interface IngresoPuente {
+  n: number;
+  s: "activo" | "cerrado";
 }
 
 /** Fila que se persiste: HMAC del documento, HMAC del nombre y nombre cifrado. */
@@ -31,6 +43,8 @@ export interface FilaPuente {
   d: string;
   n: string;
   e: string;
+  /** Lista completa de ingresos. Ausente si la intranet aun no los envia. */
+  i?: IngresoPuente[];
 }
 
 export interface HandlerDependencies {
@@ -76,6 +90,74 @@ function fail(status: number, error: string, message: string): Response {
 interface PayloadPaciente {
   document?: unknown;
   name?: unknown;
+  admissions?: unknown;
+}
+
+const MAX_ADMISSIONS_PER_PATIENT = 100;
+const ESTADOS_INGRESO = new Set(["activo", "cerrado"]);
+
+/**
+ * Valida los ingresos de un paciente. Devuelve la lista normalizada, o un
+ * codigo de error si el formato no cumple. Se es estricto a proposito: esta
+ * funcion es el borde del sistema y la tabla tiene CHECK equivalentes, asi que
+ * un dato mal formado debe rechazarse aqui con un mensaje util y no morir en
+ * la base con un error de restriccion.
+ */
+function parseAdmissions(
+  valor: unknown,
+): { ok: true; ingresos?: IngresoPuente[] } | { ok: false; error: string; message: string } {
+  if (valor === undefined || valor === null) {
+    return { ok: true };
+  }
+  if (!Array.isArray(valor)) {
+    return { ok: false, error: "invalid_admissions", message: "admissions debe ser un arreglo." };
+  }
+  if (valor.length > MAX_ADMISSIONS_PER_PATIENT) {
+    return {
+      ok: false,
+      error: "too_many_admissions",
+      message: `admissions admite maximo ${MAX_ADMISSIONS_PER_PATIENT} ingresos por paciente.`,
+    };
+  }
+
+  const ingresos: IngresoPuente[] = [];
+  const vistos = new Set<number>();
+
+  for (const item of valor) {
+    if (typeof item !== "object" || item === null) {
+      return { ok: false, error: "invalid_admissions", message: "Cada ingreso debe ser un objeto." };
+    }
+
+    const numero = (item as { number?: unknown }).number;
+    const estado = (item as { state?: unknown }).state;
+
+    if (typeof numero !== "number" || !Number.isInteger(numero) || numero < 1 || numero > 999) {
+      return {
+        ok: false,
+        error: "invalid_admission_number",
+        message: "El numero de ingreso debe ser un entero entre 1 y 999.",
+      };
+    }
+    if (typeof estado !== "string" || !ESTADOS_INGRESO.has(estado)) {
+      return {
+        ok: false,
+        error: "invalid_admission_state",
+        message: "El estado del ingreso debe ser activo o cerrado.",
+      };
+    }
+    if (vistos.has(numero)) {
+      return {
+        ok: false,
+        error: "duplicate_admission",
+        message: "Un mismo ingreso llego dos veces para el mismo paciente.",
+      };
+    }
+
+    vistos.add(numero);
+    ingresos.push({ n: numero, s: estado as "activo" | "cerrado" });
+  }
+
+  return { ok: true, ingresos };
 }
 
 export async function handleRequest(
@@ -207,12 +289,23 @@ export async function handleRequest(
       return fail(422, "empty_name", `El nombre esta vacio en la posicion ${i}.`);
     }
 
+    const ingresos = parseAdmissions(item.admissions);
+    if (!ingresos.ok) {
+      return fail(422, ingresos.error, `${ingresos.message} (posicion ${i})`);
+    }
+
     const documentoHmac = await hmacHex(hmacKey, documento);
     const nombreHmac = await hmacHex(hmacKey, nombre);
     // El AAD ata el ciphertext a su fila: no se puede mover a otro paciente.
     const nombreEncrypted = await encryptName(encryptionKey, nombreOriginal, documentoHmac);
 
-    filas.push({ d: documentoHmac, n: nombreHmac, e: nombreEncrypted });
+    const fila: FilaPuente = { d: documentoHmac, n: nombreHmac, e: nombreEncrypted };
+    // Solo se envia la clave cuando la intranet mando ingresos: sin ella, la
+    // funcion de base de datos no reconcilia y no borra los que ya existan.
+    if (ingresos.ingresos !== undefined) {
+      fila.i = ingresos.ingresos;
+    }
+    filas.push(fila);
   }
 
   // 9. Escritura ----------------------------------------------------------
@@ -231,6 +324,7 @@ export async function handleRequest(
     unicos: resultado.unicos,
     insertados: resultado.insertados,
     actualizados: resultado.actualizados,
+    ingresos: resultado.ingresos ?? 0,
     elapsedMs,
   });
 
@@ -239,6 +333,7 @@ export async function handleRequest(
     processed: resultado.unicos,
     inserted: resultado.insertados,
     updated: resultado.actualizados,
+    admissions: resultado.ingresos ?? 0,
     requestId: requestIdHeader,
   });
 }

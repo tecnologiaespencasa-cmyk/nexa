@@ -232,6 +232,11 @@ public class CensoCronicoRecord
 
     public DateTime? FechaEgreso { get; set; }
 
+    // Vinculo con el maestro de paciente (censo_paciente). Nullable porque las filas historicas
+    // se vinculan por backfill y porque el registro puede existir sin maestro si algo falla: la
+    // operacion del programa no depende de este campo.
+    public long? CensoPacienteId { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
 
     public DateTime? UpdatedAtUtc { get; set; }

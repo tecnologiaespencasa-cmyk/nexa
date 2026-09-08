@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net;
 using System.Security.Claims;
 using System.Text;
@@ -59,41 +59,14 @@ public partial class CensoController
         long? recordId,
         CancellationToken cancellationToken)
     {
-        var model = BuildDefaultTerapiaAmbulatoriaModel();
-        model.CedulaFiltro = NormalizeCedulaFilter(cedulaPaciente);
-        model.EstadoGestionFiltro = NormalizeTerapiaAmbulatoriaEstadoGestionFiltro(estadoGestion);
-
-        if (recordId.HasValue)
+        // La pantalla suelta de este censo se retiro: todo se administra desde la
+        // pantalla unica. La ruta se conserva para que los enlaces antiguos sigan llegando.
+        await Task.CompletedTask;
+        return RedirectToAction(nameof(Index), new
         {
-            var record = await _context.CensoTerapiasAmbulatorias
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == recordId.Value, cancellationToken);
-            if (record is not null)
-            {
-                ApplyTerapiaAmbulatoriaRecordToModel(model, record);
-                model.CedulaFiltro = string.IsNullOrWhiteSpace(model.CedulaFiltro)
-                    ? record.NumeroIdentificacion
-                    : model.CedulaFiltro;
-            }
-        }
-        else if (!string.IsNullOrWhiteSpace(model.CedulaFiltro))
-        {
-            var record = await _context.CensoTerapiasAmbulatorias
-                .AsNoTracking()
-                .Where(x => x.NumeroIdentificacion == model.CedulaFiltro)
-                .OrderByDescending(x => x.CreatedAtUtc)
-                .ThenByDescending(x => x.Id)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (record is not null)
-            {
-                ApplyTerapiaAmbulatoriaRecordToModel(model, record);
-                model.CedulaFiltro = record.NumeroIdentificacion;
-            }
-        }
-
-        await PopulateTerapiaAmbulatoriaDropdownsAsync(model, cancellationToken);
-        return View("TerapiaAmbulatoria", model);
+            cedulaPaciente,
+            programa = CensoProgramas.TerapiaAmbulatoria
+        });
     }
 
     [HttpPost]
@@ -125,7 +98,8 @@ public partial class CensoController
         if (!ModelState.IsValid)
         {
             await PopulateTerapiaAmbulatoriaLatestRecordsAsync(model, cancellationToken);
-            return View("TerapiaAmbulatoria", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.TerapiaAmbulatoria, model, model.CedulaFiltro, cancellationToken);
         }
 
         CensoTerapiaAmbulatoriaRecord record;
@@ -161,7 +135,7 @@ public partial class CensoController
         TempData["SuccessMessage"] = model.EditingRecordId.HasValue
             ? "Registro de terapia ambulatoria actualizado correctamente."
             : "Registro de terapia ambulatoria guardado correctamente.";
-        return RedirectToAction(nameof(TerapiaAmbulatoria), new { cedulaPaciente = record.NumeroIdentificacion });
+        return RedirectToAction(nameof(Index), new { cedulaPaciente = record.NumeroIdentificacion, programa = CensoProgramas.TerapiaAmbulatoria });
     }
 
     [HttpPost]
@@ -216,7 +190,8 @@ public partial class CensoController
 
         if (!ModelState.IsValid)
         {
-            return View("TerapiaAmbulatoria", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.TerapiaAmbulatoria, model, model.CedulaFiltro, cancellationToken);
         }
 
         var terapiaRecord = record!;
@@ -260,7 +235,7 @@ public partial class CensoController
         TempData["SuccessMessage"] = isNewProrroga
             ? "Prórroga de terapia ambulatoria guardada correctamente."
             : "Prórroga de terapia ambulatoria actualizada correctamente.";
-        return RedirectToAction(nameof(TerapiaAmbulatoria), new { recordId = terapiaRecord.Id, cedulaPaciente = terapiaRecord.NumeroIdentificacion });
+        return RedirectToAction(nameof(Index), new { cedulaPaciente = terapiaRecord.NumeroIdentificacion, programa = CensoProgramas.TerapiaAmbulatoria });
     }
 
     [HttpPost]
@@ -302,7 +277,8 @@ public partial class CensoController
 
         if (!ModelState.IsValid)
         {
-            return View("TerapiaAmbulatoria", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.TerapiaAmbulatoria, model, model.CedulaFiltro, cancellationToken);
         }
 
         var terapiaRecord = record!;
@@ -345,7 +321,7 @@ public partial class CensoController
             TempData["ErrorMessage"] = notificationWarning;
         }
 
-        return RedirectToAction(nameof(TerapiaAmbulatoria), new { recordId = terapiaRecord.Id, cedulaPaciente = terapiaRecord.NumeroIdentificacion });
+        return RedirectToAction(nameof(Index), new { cedulaPaciente = terapiaRecord.NumeroIdentificacion, programa = CensoProgramas.TerapiaAmbulatoria });
     }
 
     [HttpPost]
@@ -367,7 +343,8 @@ public partial class CensoController
         {
             ModelState.AddModelError(string.Empty, "Primero guarda o abre un paciente para adjuntar documentos.");
             await PopulateTerapiaAmbulatoriaDropdownsAsync(model, cancellationToken);
-            return View("TerapiaAmbulatoria", model);
+            return await VistaUnificadaConProgramaAsync(
+                CensoProgramas.TerapiaAmbulatoria, model, model.CedulaFiltro, cancellationToken);
         }
 
         var result = await _sharePointDocumentService.UploadTerapiaAmbulatoriaDocumentsAsync(
@@ -385,7 +362,7 @@ public partial class CensoController
             TempData["ErrorMessage"] = result.ErrorMessage ?? "No fue posible guardar los adjuntos en SharePoint.";
         }
 
-        return RedirectToAction(nameof(TerapiaAmbulatoria), new { recordId = record.Id, cedulaPaciente = record.NumeroIdentificacion });
+        return RedirectToAction(nameof(Index), new { cedulaPaciente = record.NumeroIdentificacion, programa = CensoProgramas.TerapiaAmbulatoria });
     }
 
 
@@ -439,7 +416,8 @@ public partial class CensoController
         model.MunicipioResidenciaOptions = BuildOptions(MunicipiosResidenciaValues);
         model.ZonaDireccionOptions = BuildOptions(ZonaDireccionValues);
         model.AreaOptions = BuildOptions(AreaValues);
-        model.FisioterapeutaOptions = await GetOpsAssistantOptionsAsync(cancellationToken);
+        // Este campo asigna un fisioterapeuta, no un auxiliar: no aplica el filtro de enfermeria.
+        model.FisioterapeutaOptions = await GetOpsDirectoryOptionsAsync(cancellationToken);
         model.EstadoPacienteOptions = BuildOptions(TerapiaAmbulatoriaEstadoPacienteValues);
         model.FrecuenciaTerapiaOptions = BuildOptions(TerapiaAmbulatoriaFrecuenciaTerapiaValues);
         model.TipoTerapiaOptions = BuildOptions(TerapiaAmbulatoriaTipoTerapiaValues);
@@ -1037,10 +1015,6 @@ public partial class CensoController
         return !string.IsNullOrWhiteSpace(model.Direccion);
     }
 
-    private static bool IsTerapiaSinDireccion(CensoTerapiaAmbulatoriaViewModel model)
-    {
-        return string.Equals(model.EstadoGestion, "Sin direccion", StringComparison.OrdinalIgnoreCase);
-    }
 
     private static string CalculateTerapiaAmbulatoriaEstadoGestion(CensoTerapiaAmbulatoriaViewModel model)
     {
@@ -1116,18 +1090,6 @@ public partial class CensoController
         }
     }
 
-    private void ApplyTerapiaAddressDefaultsForMissingAddress(CensoTerapiaAmbulatoriaViewModel model)
-    {
-        model.Direccion = string.IsNullOrWhiteSpace(model.Direccion) ? "SIN DIRECCION" : model.Direccion;
-        model.ClasificacionZonaSura = string.IsNullOrWhiteSpace(model.ClasificacionZonaSura) ? InferClasificacionZonaSura(MunicipioNoParametrizado) : model.ClasificacionZonaSura;
-        model.MunicipioResidencia = string.IsNullOrWhiteSpace(model.MunicipioResidencia) ? MunicipioNoParametrizado : model.MunicipioResidencia;
-        model.Barrio = string.IsNullOrWhiteSpace(model.Barrio) ? "NO PARAMETRIZADO" : model.Barrio;
-        model.ZonaDireccionSegunMunicipio = string.IsNullOrWhiteSpace(model.ZonaDireccionSegunMunicipio) ? InferZonaDireccionSegunMunicipio(MunicipioNoParametrizado) : model.ZonaDireccionSegunMunicipio;
-        model.Area = string.IsNullOrWhiteSpace(model.Area) ? AreaValues[0] : model.Area;
-        model.DireccionEsValida = false;
-        model.AsumirDireccionErrada = true;
-        model.DireccionMensajeValidacion = "Registro guardado con estado Sin direccion.";
-    }
 
     private void ApplyTerapiaAddressValidationResult(
         CensoTerapiaAmbulatoriaViewModel model,
@@ -1509,152 +1471,6 @@ public partial class CensoController
         }
 
         return ExcelWorkbookWriter.BuildTableWorkbook("Terapias Ambulatorias", headers, rows, DateTime.UtcNow);
-    }
-
-    private static string BuildTerapiaAmbulatoriaExcelXml(IReadOnlyList<CensoTerapiaAmbulatoriaRecord> records)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("<?xml version=\"1.0\"?>");
-        sb.AppendLine("<?mso-application progid=\"Excel.Sheet\"?>");
-        sb.AppendLine("<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\"");
-        sb.AppendLine(" xmlns:o=\"urn:schemas-microsoft-com:office:office\"");
-        sb.AppendLine(" xmlns:x=\"urn:schemas-microsoft-com:office:excel\"");
-        sb.AppendLine(" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">");
-        sb.AppendLine(" <Worksheet ss:Name=\"Terapias Ambulatorias\">");
-        sb.AppendLine("  <Table>");
-
-        sb.AppendLine("   <Row>");
-        AppendHeaderCell(sb, "Id");
-        AppendHeaderCell(sb, "NombrePaciente");
-        AppendHeaderCell(sb, "TipoIdentificacion");
-        AppendHeaderCell(sb, "NumeroIdentificacion");
-        AppendHeaderCell(sb, "FechaNacimiento");
-        AppendHeaderCell(sb, "Edad");
-        AppendHeaderCell(sb, "CorreoElectronico");
-        AppendHeaderCell(sb, "Cantidad");
-        AppendHeaderCell(sb, "FrecuenciaTerapia");
-        AppendHeaderCell(sb, "TipoTerapia");
-        AppendHeaderCell(sb, "TieneSegundoTratamiento");
-        AppendHeaderCell(sb, "SegundoTratamientoCantidad");
-        AppendHeaderCell(sb, "SegundoTratamientoFrecuenciaTerapia");
-        AppendHeaderCell(sb, "SegundoTratamientoTipoTerapia");
-        AppendHeaderCell(sb, "TieneTercerTratamiento");
-        AppendHeaderCell(sb, "TercerTratamientoCantidad");
-        AppendHeaderCell(sb, "TercerTratamientoFrecuenciaTerapia");
-        AppendHeaderCell(sb, "TercerTratamientoTipoTerapia");
-        AppendHeaderCell(sb, "CodigoCie10");
-        AppendHeaderCell(sb, "DiagnosticoDescriptivo");
-        AppendHeaderCell(sb, "NumeroAutorizacion");
-        AppendHeaderCell(sb, "Direccion");
-        AppendHeaderCell(sb, "DireccionValidada");
-        AppendHeaderCell(sb, "AsumirDireccionErrada");
-        AppendHeaderCell(sb, "DetalleDireccion");
-        AppendHeaderCell(sb, "ClasificacionZonaSura");
-        AppendHeaderCell(sb, "MunicipioResidencia");
-        AppendHeaderCell(sb, "Barrio");
-        AppendHeaderCell(sb, "ZonaDireccionSegunMunicipio");
-        AppendHeaderCell(sb, "Area");
-        AppendHeaderCell(sb, "IpsQueRemite");
-        AppendHeaderCell(sb, "TelefonoPrincipal");
-        AppendHeaderCell(sb, "TelefonoAdicional1");
-        AppendHeaderCell(sb, "TelefonoAdicional2");
-        AppendHeaderCell(sb, "Fisioterapeuta");
-        AppendHeaderCell(sb, "GestionEnSistema");
-        AppendHeaderCell(sb, "EstadoGestion");
-        AppendHeaderCell(sb, "EstadoPaciente");
-        AppendHeaderCell(sb, "FechaIngreso");
-        AppendHeaderCell(sb, "FechaInicio");
-        AppendHeaderCell(sb, "FechaFin");
-        AppendHeaderCell(sb, "FechaAlta");
-        AppendHeaderCell(sb, "MotivoAlta");
-        AppendHeaderCell(sb, "EstadoAlta");
-        AppendHeaderCell(sb, "AltaNotificacionEnviadaAtUtc");
-        AppendHeaderCell(sb, "CreatedAtUtc");
-        AppendHeaderCell(sb, "UpdatedAtUtc");
-        AppendHeaderCell(sb, "Prorroga_Id");
-        AppendHeaderCell(sb, "Prorroga_TipoTerapia");
-        AppendHeaderCell(sb, "Prorroga_FechaSolicitudProrroga");
-        AppendHeaderCell(sb, "Prorroga_FechaSolicitudAsegurador");
-        AppendHeaderCell(sb, "Prorroga_FechaEntregaAutorizacion");
-        AppendHeaderCell(sb, "Prorroga_CodigoAutorizacion");
-        AppendHeaderCell(sb, "Prorroga_Frecuencia");
-        AppendHeaderCell(sb, "Prorroga_Cantidad");
-        AppendHeaderCell(sb, "Prorroga_CreatedAtUtc");
-        sb.AppendLine("   </Row>");
-
-        foreach (var item in records)
-        {
-            var prorrogas = item.Prorrogas.Count > 0
-                ? item.Prorrogas.OrderBy(x => x.Id).Cast<CensoTerapiaAmbulatoriaProrroga?>()
-                : [null];
-
-            foreach (var prorroga in prorrogas)
-            {
-                sb.AppendLine("   <Row>");
-                AppendDataCell(sb, item.Id.ToString(CultureInfo.InvariantCulture));
-                AppendDataCell(sb, item.NombrePaciente);
-                AppendDataCell(sb, item.TipoIdentificacion);
-                AppendDataCell(sb, item.NumeroIdentificacion);
-                AppendDataCell(sb, item.FechaNacimiento.ToString("yyyy-MM-dd"));
-                AppendDataCell(sb, item.Edad.ToString(CultureInfo.InvariantCulture));
-                AppendDataCell(sb, item.CorreoElectronico);
-                AppendDataCell(sb, item.Cantidad.ToString(CultureInfo.InvariantCulture));
-                AppendDataCell(sb, item.FrecuenciaTerapia);
-                AppendDataCell(sb, item.TipoTerapia);
-                AppendDataCell(sb, item.TieneSegundoTratamiento ? "Sí" : "No");
-                AppendDataCell(sb, item.SegundoTratamientoCantidad?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
-                AppendDataCell(sb, item.SegundoTratamientoFrecuenciaTerapia ?? string.Empty);
-                AppendDataCell(sb, item.SegundoTratamientoTipoTerapia ?? string.Empty);
-                AppendDataCell(sb, item.TieneTercerTratamiento ? "Sí" : "No");
-                AppendDataCell(sb, item.TercerTratamientoCantidad?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
-                AppendDataCell(sb, item.TercerTratamientoFrecuenciaTerapia ?? string.Empty);
-                AppendDataCell(sb, item.TercerTratamientoTipoTerapia ?? string.Empty);
-                AppendDataCell(sb, item.CodigoCie10);
-                AppendDataCell(sb, item.DiagnosticoDescriptivo);
-                AppendDataCell(sb, item.NumeroAutorizacion);
-                AppendDataCell(sb, item.Direccion ?? string.Empty);
-                AppendDataCell(sb, item.DireccionValidada ? "Sí" : "No");
-                AppendDataCell(sb, item.AsumirDireccionErrada ? "Sí" : "No");
-                AppendDataCell(sb, item.DetalleDireccion ?? string.Empty);
-                AppendDataCell(sb, item.ClasificacionZonaSura ?? string.Empty);
-                AppendDataCell(sb, item.MunicipioResidencia ?? string.Empty);
-                AppendDataCell(sb, item.Barrio ?? string.Empty);
-                AppendDataCell(sb, item.ZonaDireccionSegunMunicipio ?? string.Empty);
-                AppendDataCell(sb, item.Area ?? string.Empty);
-                AppendDataCell(sb, item.IpsQueRemite);
-                AppendDataCell(sb, item.TelefonoPrincipal);
-                AppendDataCell(sb, item.TelefonoAdicional1 ?? string.Empty);
-                AppendDataCell(sb, item.TelefonoAdicional2 ?? string.Empty);
-                AppendDataCell(sb, item.Fisioterapeuta);
-                AppendDataCell(sb, item.GestionEnSistema ? "Sí" : "No");
-                AppendDataCell(sb, item.EstadoGestion);
-                AppendDataCell(sb, item.EstadoPaciente);
-                AppendDataCell(sb, item.FechaIngreso.ToString("yyyy-MM-dd"));
-                AppendDataCell(sb, item.FechaInicio.ToString("yyyy-MM-dd"));
-                AppendDataCell(sb, FormatNullableDate(item.FechaFin));
-                AppendDataCell(sb, FormatNullableDate(item.FechaAlta));
-                AppendDataCell(sb, item.MotivoAlta ?? string.Empty);
-                AppendDataCell(sb, item.EstadoAlta);
-                AppendDataCell(sb, item.AltaNotificacionEnviadaAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty);
-                AppendDataCell(sb, item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"));
-                AppendDataCell(sb, item.UpdatedAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty);
-                AppendDataCell(sb, prorroga?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
-                AppendDataCell(sb, prorroga?.TipoTerapia ?? string.Empty);
-                AppendDataCell(sb, prorroga?.FechaSolicitudProrroga.ToString("yyyy-MM-dd") ?? string.Empty);
-                AppendDataCell(sb, prorroga?.FechaSolicitudAsegurador.ToString("yyyy-MM-dd") ?? string.Empty);
-                AppendDataCell(sb, prorroga?.FechaEntregaAutorizacion.ToString("yyyy-MM-dd") ?? string.Empty);
-                AppendDataCell(sb, prorroga?.CodigoAutorizacion ?? string.Empty);
-                AppendDataCell(sb, prorroga?.Frecuencia.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
-                AppendDataCell(sb, prorroga?.Cantidad ?? string.Empty);
-                AppendDataCell(sb, prorroga?.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty);
-                sb.AppendLine("   </Row>");
-            }
-        }
-
-        sb.AppendLine("  </Table>");
-        sb.AppendLine(" </Worksheet>");
-        sb.AppendLine("</Workbook>");
-        return sb.ToString();
     }
 
 

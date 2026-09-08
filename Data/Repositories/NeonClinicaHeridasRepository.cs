@@ -38,6 +38,7 @@ public class NeonClinicaHeridasRepository : INeonClinicaHeridasRepository
                 select
                     s.id,
                     s.numero,
+                    s.ingreso,
                     s."createdAt",
                     s.origen,
                     s.ubicacion,
@@ -73,6 +74,7 @@ public class NeonClinicaHeridasRepository : INeonClinicaHeridasRepository
                 {
                     Id = GetString(reader, "id"),
                     Numero = reader.GetInt32(reader.GetOrdinal("numero")),
+                    Ingreso = reader.GetInt16(reader.GetOrdinal("ingreso")),
                     CreatedAtUtc = DateTime.SpecifyKind(
                         reader.GetDateTime(reader.GetOrdinal("createdAt")),
                         DateTimeKind.Utc),

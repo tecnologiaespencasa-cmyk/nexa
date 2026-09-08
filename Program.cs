@@ -50,6 +50,8 @@ builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddScoped<ICurrentUserPermissionService, CurrentUserPermissionService>();
+builder.Services.AddScoped<ICensoPacienteService, CensoPacienteService>();
+builder.Services.AddScoped<ICensoTabuladoService, CensoTabuladoService>();
 builder.Services.AddScoped<IFarmaciaDispatchNotificationService, FarmaciaDispatchNotificationService>();
 builder.Services.AddScoped<IEspacioCorporativoNotificationService, EspacioCorporativoNotificationService>();
 builder.Services.AddHostedService<EmpacadoNotificationHostedService>();

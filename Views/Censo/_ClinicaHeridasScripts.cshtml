@@ -1,0 +1,1831 @@
+﻿@model CensoClinicaHeridasViewModel
+@* Scripts del programa, dentro del @section Scripts de la pantalla unica. *@
+@using System.Globalization
+@using Nexa.Data.Entities
+
+
+@{
+    ViewData["Title"] = "Clinica de heridas";
+    var successMessage = TempData["SuccessMessage"] as string;
+    var errorMessage = TempData["ErrorMessage"] as string;
+    var hasAuxiliares = Model.AuxiliarEnfermeriaOptions.Any();
+    var showCurrentPatientBar = Model.EditingRecordId.HasValue
+        && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
+    var vacActivo = string.Equals(Model.Vac, "Si", StringComparison.OrdinalIgnoreCase);
+    var historial = Model.Historial;
+    var mostrarApositos = string.Equals(Model.Vac, "Si", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(Model.ManejoHerida, "Si", StringComparison.OrdinalIgnoreCase);
+}
+
+@functions {
+    private static Microsoft.AspNetCore.Html.IHtmlContent RequiredMark() =>
+        new Microsoft.AspNetCore.Html.HtmlString("<span class=\"text-danger ms-1\" aria-hidden=\"true\">*</span><span class=\"visually-hidden\">obligatorio</span>");
+
+    // Las medidas llegan como double: se muestran sin decimales cuando son enteras (2 cm, no 2,0 cm).
+    private static string FormatCm(double value) =>
+        value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string Valor(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value;
+}
+
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            // Plan de requisiciones que se esta consultando: null cuando es el vigente. Lo comparten
+            // la barra de navegacion y el modal del kardex, que viven en bloques distintos.
+            let planClinicaHeridasActual = null;
+
+            // Id del registro abierto: sin el no hay requisiciones que pedir.
+            const recordIdActual = @(Model.EditingRecordId?.ToString() ?? "null");
+            const validarDireccionUrl = "@Url.Action("ValidarDireccion", "Censo")";
+            const buscarBarriosUrl = "@Url.Action("BuscarBarrios", "Censo")";
+            const defaultsMunicipioUrl = "@Url.Action("ObtenerDefaultsMunicipio", "Censo")";
+            const buscarDiagnosticoCie10Url = "@Url.Action("BuscarDiagnosticoCie10", "Censo")";
+            const buscarPacienteOtrosCensosUrl = "@Url.Action("BuscarPacienteOtrosCensos", "Censo")";
+            const form = document.getElementById("clinicaHeridasForm");
+            const csrfTokenInput = form?.querySelector("input[name='__RequestVerificationToken']");
+            const direccionInput = document.getElementById("direccionInput");
+            const validarDireccionBtn = document.getElementById("validarDireccionBtn");
+            const limpiarDireccionBtn = document.getElementById("limpiarDireccionBtn");
+            const asumirDireccionCheck = document.getElementById("asumirDireccionErradaCheck");
+            const direccionEsValidaInput = document.getElementById("heridasDireccionEsValidaInput");
+            const direccionMessage = document.getElementById("direccionValidacionMensaje");
+            const direccionServerMessage = document.getElementById("direccionValidacionServerMensaje");
+            const usarSugerenciaServerBtn = document.getElementById("usarSugerenciaDireccionBtnServer");
+            const municipioSelect = document.getElementById("municipioResidenciaSelect");
+            const clasificacionSelect = document.getElementById("clasificacionZonaSuraSelect");
+            const barrioSelect = document.getElementById("barrioSelect");
+            const zonaSelect = document.getElementById("zonaDireccionSelect");
+            const codigoCie10Input = document.getElementById("heridasCodigoCie10Input");
+            const diagnosticoInput = document.getElementById("heridasDiagnosticoInput");
+            const tipoIdentificacionSelect = document.getElementById("tipoIdentificacionSelect");
+            const numeroIdentificacionInput = document.getElementById("numeroIdentificacionInput");
+            const cedulaHeridasFiltroInput = document.getElementById("cedulaHeridasFiltroInput");
+            const cambiarHeridasPacienteDocumentoInput = document.getElementById("cambiarHeridasPacienteDocumento");
+            const fechaNacimientoInput = document.getElementById("fechaNacimientoInput");
+            const edadInput = document.getElementById("edadInput");
+            const nombrePacienteInput = document.getElementById("NombrePaciente");
+            const auxiliarEnfermeriaInput = document.getElementById("heridasAuxiliarEnfermeriaInput");
+            const telefonoAdicional2Toggle = document.getElementById("telefonoAdicional2Toggle");
+            const telefonoAdicional2Container = document.getElementById("telefonoAdicional2Container");
+            const telefonoAdicional2Input = document.getElementById("TelefonoAdicional2");
+            const auxiliarEnfermeriaOptions = Array.from(document.querySelectorAll("#heridasAuxiliarEnfermeriaOptions option"))
+                .map((option) => option.value || "")
+                .filter((value) => value.trim());
+            const ipsIntramuralInput = document.getElementById("ipsIntramuralInput");
+            const ipsIntramuralOptions = Array.from(document.querySelectorAll("#ipsIntramuralOptions option"))
+                .map((option) => ({
+                    value: String(option.value || "").trim(),
+                    text: String(option.textContent || "").trim()
+                }))
+                .filter((option) => option.value.length > 0);
+            let direccionValidada = @Model.DireccionEsValida.ToString().ToLowerInvariant();
+            let latestAddressCandidates = [];
+            let barriosLoaded = barrioSelect
+                ? Array.from(barrioSelect.options).map((option) => (option.value || "").trim()).filter((value) => !!value)
+                : [];
+            let lastValidationDistrict = "";
+
+            const escapeHtml = (value) => String(value || "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+
+            const shouldUppercaseControl = (control) => {
+                if (!control || control.disabled || control.readOnly) {
+                    return false;
+                }
+
+                if (control.matches("textarea")) {
+                    return true;
+                }
+
+                if (!control.matches("input")) {
+                    return false;
+                }
+
+                const type = String(control.getAttribute("type") || "text").toLowerCase();
+                return ["text", "search", "email", "tel", "url"].includes(type);
+            };
+
+            const uppercaseControlValue = (control) => {
+                if (!shouldUppercaseControl(control)) {
+                    return;
+                }
+
+                const currentValue = control.value || "";
+                const uppercaseValue = currentValue.toLocaleUpperCase("es-CO");
+                if (currentValue === uppercaseValue) {
+                    return;
+                }
+
+                const selectionStart = control.selectionStart;
+                const selectionEnd = control.selectionEnd;
+                control.value = uppercaseValue;
+
+                if (selectionStart !== null && selectionEnd !== null) {
+                    try {
+                        control.setSelectionRange(selectionStart, selectionEnd);
+                    } catch {
+                    }
+                }
+            };
+
+            document.addEventListener("input", (event) => {
+                const control = event.target;
+                if (!(control instanceof HTMLElement)
+                    || !control.closest("#clinicaHeridasForm, .censo-filter-panel, .censo-current-patient__search")) {
+                    return;
+                }
+
+                uppercaseControlValue(control);
+            });
+
+            const uppercaseAllHeridasTextFields = () => {
+                document
+                    .querySelectorAll("#clinicaHeridasForm input, #clinicaHeridasForm textarea, .censo-filter-panel input, .censo-current-patient__search input")
+                    .forEach((control) => uppercaseControlValue(control));
+            };
+
+            const normalizeCie10 = (value) => String(value || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 4);
+            const alphanumericIdentificationTypes = new Set(["PA", "CE"]);
+            const normalizeDocumentValue = (value) => String(value || "")
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, "")
+                .trim();
+            const allowsAlphaNumericIdentification = (value) =>
+                alphanumericIdentificationTypes.has(String(value || "").trim().toUpperCase());
+            const syncNumeroIdentificacionMode = () => {
+                if (!numeroIdentificacionInput) return;
+
+                const allowAlphaNumeric = allowsAlphaNumericIdentification(tipoIdentificacionSelect ? tipoIdentificacionSelect.value : "");
+                numeroIdentificacionInput.setAttribute("inputmode", allowAlphaNumeric ? "text" : "numeric");
+                numeroIdentificacionInput.title = allowAlphaNumeric
+                    ? "Permite letras y números para PA o CE."
+                    : "Solo permite dígitos para este tipo de identificación.";
+
+                const currentValue = String(numeroIdentificacionInput.value || "").toUpperCase();
+                numeroIdentificacionInput.value = allowAlphaNumeric
+                    ? currentValue.replace(/[^A-Z0-9]/g, "").slice(0, 20)
+                    : currentValue.replace(/\D/g, "").slice(0, 20);
+            };
+
+            const getAuxiliarValidationMessage = () =>
+                document.querySelector("[data-valmsg-for='AuxiliarEnfermeriaAsignado']");
+
+            const getCanonicalAuxiliarValue = (value) => {
+                const normalized = String(value || "").trim().toLocaleUpperCase("es-CO");
+                if (!normalized) return "";
+                return auxiliarEnfermeriaOptions.find((item) =>
+                    item.trim().toLocaleUpperCase("es-CO") === normalized) || "";
+            };
+
+            const syncAuxiliarValidation = (showInvalidMessage = false) => {
+                if (!auxiliarEnfermeriaInput) return true;
+
+                const value = String(auxiliarEnfermeriaInput.value || "").trim();
+                const canonicalValue = getCanonicalAuxiliarValue(value);
+                const messageElement = getAuxiliarValidationMessage();
+
+                if (canonicalValue) {
+                    auxiliarEnfermeriaInput.value = canonicalValue;
+                    if (messageElement) messageElement.textContent = "";
+                    return true;
+                }
+
+                if (!value) {
+                    if (messageElement) messageElement.textContent = "";
+                    return true;
+                }
+
+                if (showInvalidMessage && messageElement) {
+                    messageElement.textContent = auxiliarEnfermeriaOptions.length === 0
+                        ? "No hay auxiliares OPS activos para asignar."
+                        : "Selecciona un auxiliar OPS válido.";
+                }
+
+                return false;
+            };
+
+            const getIpsIntramuralValidationMessage = () =>
+                document.querySelector("[data-valmsg-for='IpsIntramural']");
+
+            const getCanonicalIpsIntramuralValue = (value) => {
+                const normalized = String(value || "").trim().toLocaleUpperCase("es-CO");
+                if (!normalized) return "";
+                const option = ipsIntramuralOptions.find((item) =>
+                    item.value.toLocaleUpperCase("es-CO") === normalized
+                    || item.text.toLocaleUpperCase("es-CO") === normalized);
+                return option ? option.value : "";
+            };
+
+            const syncIpsIntramuralValidation = (showInvalidMessage = false) => {
+                if (!ipsIntramuralInput) return true;
+
+                const value = String(ipsIntramuralInput.value || "").trim();
+                const canonicalValue = getCanonicalIpsIntramuralValue(value);
+                const messageElement = getIpsIntramuralValidationMessage();
+
+                if (canonicalValue) {
+                    ipsIntramuralInput.value = canonicalValue;
+                    if (messageElement) messageElement.textContent = "";
+                    return true;
+                }
+
+                if (!value) {
+                    if (messageElement) messageElement.textContent = "";
+                    return true;
+                }
+
+                if (showInvalidMessage && messageElement) {
+                    messageElement.textContent = "Selecciona una IPS intramural válida.";
+                }
+
+                return false;
+            };
+
+            const setDireccionValidada = (value) => {
+                direccionValidada = value;
+                if (direccionEsValidaInput) direccionEsValidaInput.value = value ? "true" : "false";
+            };
+
+            const clearServerDireccionMessage = () => {
+                if (direccionServerMessage) direccionServerMessage.remove();
+            };
+
+            const setDireccionMessage = (type, html) => {
+                if (!direccionMessage) return;
+                direccionMessage.className = `alert alert-${type} mt-2`;
+                direccionMessage.innerHTML = html;
+                direccionMessage.classList.remove("d-none");
+            };
+
+            const clearDireccionMessage = () => {
+                if (!direccionMessage) return;
+                direccionMessage.className = "alert d-none mt-2";
+                direccionMessage.innerHTML = "";
+            };
+
+            const syncSelectPlaceholderState = (select) => {
+                if (!select) return;
+                select.classList.toggle("is-placeholder", !select.value);
+            };
+
+            const setSelectValue = (select, value) => {
+                if (!select) return;
+                const normalizedValue = String(value || "").trim();
+                if (!normalizedValue) {
+                    select.value = "";
+                    syncSelectPlaceholderState(select);
+                    return;
+                }
+
+                const existing = Array.from(select.options).some((option) => option.value === normalizedValue);
+                if (!existing) {
+                    select.appendChild(new Option(normalizedValue, normalizedValue));
+                }
+                select.value = normalizedValue;
+                syncSelectPlaceholderState(select);
+            };
+
+            const setBarrioOptions = (options, selectedValue, preserveCurrentSelection = true) => {
+                if (!barrioSelect) return;
+
+                const currentValue = preserveCurrentSelection ? (barrioSelect.value || "") : "";
+                const targetValue = String(selectedValue ?? currentValue ?? "").trim();
+                const uniqueOptions = Array.from(new Set((options || [])
+                    .map((x) => (x || "").trim())
+                    .filter((x) => x)));
+
+                barrioSelect.innerHTML = "";
+                const placeholder = document.createElement("option");
+                placeholder.value = "";
+                placeholder.textContent = "Selecciona barrio...";
+                placeholder.disabled = true;
+                placeholder.hidden = true;
+                barrioSelect.appendChild(placeholder);
+
+                uniqueOptions.forEach((opt) => {
+                    const option = document.createElement("option");
+                    option.value = opt;
+                    option.textContent = opt;
+                    barrioSelect.appendChild(option);
+                });
+
+                if (targetValue) {
+                    const hasTarget = uniqueOptions.some((opt) => opt.toLowerCase() === targetValue.toLowerCase());
+                    if (!hasTarget) {
+                        barrioSelect.appendChild(new Option(targetValue, targetValue));
+                    }
+                    barrioSelect.value = targetValue;
+                }
+
+                syncSelectPlaceholderState(barrioSelect);
+            };
+
+            const applyMunicipalityDefaults = async (municipio, barrio, district) => {
+                if (!municipio) return;
+
+                try {
+                    const url = new URL(defaultsMunicipioUrl, window.location.origin);
+                    url.searchParams.set("municipio", municipio);
+                    if (barrio) url.searchParams.set("barrio", barrio);
+                    if (district) url.searchParams.set("district", district);
+                    if (direccionInput?.value) url.searchParams.set("direccion", direccionInput.value);
+
+                    const response = await fetch(url);
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    setSelectValue(clasificacionSelect, data.clasificacionZonaSura);
+                    setSelectValue(zonaSelect, data.zonaDireccionSegunMunicipio);
+                } catch {
+                }
+            };
+
+            const loadBarriosByMunicipio = async (municipio, term, selectedBarrio, preserveCurrentSelection = true) => {
+                if (!municipio) {
+                    barriosLoaded = [];
+                    setBarrioOptions([], "", false);
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${buscarBarriosUrl}?municipio=${encodeURIComponent(municipio)}&term=${encodeURIComponent(term || "a")}`);
+                    if (!response.ok) {
+                        barriosLoaded = [];
+                        setBarrioOptions([], "", false);
+                        return;
+                    }
+
+                    const data = await response.json();
+                    barriosLoaded = (data.neighborhoods || []).filter((x) => !!x);
+                    setBarrioOptions(barriosLoaded, selectedBarrio, preserveCurrentSelection);
+                } catch {
+                    barriosLoaded = [];
+                    setBarrioOptions([], "", false);
+                }
+            };
+
+            const clearAddressDerivedFields = () => {
+                lastValidationDistrict = "";
+                barriosLoaded = [];
+                setBarrioOptions([], "", false);
+                setSelectValue(clasificacionSelect, "");
+                setSelectValue(municipioSelect, "");
+                setSelectValue(zonaSelect, "");
+                if (asumirDireccionCheck) asumirDireccionCheck.checked = false;
+            };
+
+            const clearAllAddressData = () => {
+                if (direccionInput) direccionInput.value = "";
+                setDireccionValidada(false);
+                latestAddressCandidates = [];
+                clearAddressDerivedFields();
+                clearDireccionMessage();
+                clearServerDireccionMessage();
+            };
+
+            const applyAddressCandidate = async (candidate) => {
+                if (!candidate) return;
+
+                const selectedMunicipality = candidate.municipality || "";
+                const selectedNeighborhood = (candidate.neighborhood || candidate.district || "").trim();
+                lastValidationDistrict = candidate.district || "";
+
+                if (direccionInput && candidate.formattedAddress && !asumirDireccionCheck?.checked) {
+                    direccionInput.value = candidate.formattedAddress;
+                }
+
+                if (municipioSelect) {
+                    const hasOption = selectedMunicipality
+                        ? Array.from(municipioSelect.options).some((x) => x.value === selectedMunicipality)
+                        : false;
+                    municipioSelect.value = hasOption ? selectedMunicipality : "";
+                }
+
+                await applyMunicipalityDefaults(selectedMunicipality, selectedNeighborhood, lastValidationDistrict);
+                await loadBarriosByMunicipio(selectedMunicipality, selectedNeighborhood || "a", selectedNeighborhood, false);
+
+                if (barrioSelect) {
+                    setBarrioOptions(barriosLoaded, selectedNeighborhood, false);
+                }
+
+                setSelectValue(zonaSelect, candidate.zonaDireccionSegunMunicipio);
+                setSelectValue(clasificacionSelect, candidate.clasificacionZonaSura);
+
+                setDireccionValidada(true);
+                latestAddressCandidates = [];
+                setDireccionMessage("success", "Direccion seleccionada correctamente desde las coincidencias de Google.");
+            };
+
+            const renderAddressCandidates = (candidates, message) => {
+                const safeCandidates = (candidates || []).filter((x) => !!x && !!x.formattedAddress);
+                latestAddressCandidates = safeCandidates;
+
+                if (safeCandidates.length === 0) return false;
+
+                const optionsHtml = safeCandidates
+                    .map((candidate, index) => {
+                        const municipio = candidate.municipality ? ` (${escapeHtml(candidate.municipality)})` : "";
+                        return `<button type="button" class="btn btn-sm btn-outline-secondary d-block text-start w-100 mb-1 js-direccion-candidate" data-index="${index}">${escapeHtml(candidate.formattedAddress)}${municipio}</button>`;
+                    })
+                    .join("");
+
+                setDireccionMessage(
+                    "warning",
+                    `${escapeHtml(message || "Selecciona la direccion correcta antes de continuar:")}<div class="mt-2">${optionsHtml}</div>`);
+
+                document.querySelectorAll(".js-direccion-candidate").forEach((button) => {
+                    button.addEventListener("click", async () => {
+                        const index = Number(button.getAttribute("data-index"));
+                        if (!Number.isFinite(index) || index < 0 || index >= latestAddressCandidates.length) return;
+                        await applyAddressCandidate(latestAddressCandidates[index]);
+                    });
+                });
+
+                return true;
+            };
+
+            if (validarDireccionBtn && direccionInput && csrfTokenInput) {
+                validarDireccionBtn.addEventListener("click", async () => {
+                    if (!direccionInput.value.trim()) {
+                        setDireccionMessage("warning", "Debes escribir una dirección para validarla.");
+                        return;
+                    }
+
+                    validarDireccionBtn.disabled = true;
+                    clearDireccionMessage();
+                    clearServerDireccionMessage();
+                    try {
+                        const response = await fetch(validarDireccionUrl, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "RequestVerificationToken": csrfTokenInput.value
+                            },
+                            body: JSON.stringify({ direccion: direccionInput.value.trim() })
+                        });
+                        if (!response.ok) {
+                            throw new Error("No se pudo validar la dirección.");
+                        }
+
+                        const data = await response.json();
+                        setDireccionValidada(data.isValid === true);
+                        latestAddressCandidates = [];
+
+                        const shouldClearDerivedData = data.outcome === "invalid" || data.outcome === "unavailable";
+                        const hasAddressCandidates = data.requiresSelection === true
+                            && Array.isArray(data.candidates)
+                            && data.candidates.length > 0;
+                        const suggestedBarrio = (data.neighborhood || data.district || "").trim();
+
+                        if (shouldClearDerivedData) {
+                            clearAddressDerivedFields();
+                        }
+
+                        if (!shouldClearDerivedData && hasAddressCandidates) {
+                            clearAddressDerivedFields();
+                            setDireccionValidada(false);
+                            renderAddressCandidates(data.candidates, data.message);
+                            return;
+                        }
+
+                        if (!shouldClearDerivedData && municipioSelect && data.municipality) {
+                            const hasOption = Array.from(municipioSelect.options).some((x) => x.value === data.municipality);
+                            if (hasOption) {
+                                if (barrioSelect) barrioSelect.value = "";
+                                municipioSelect.value = data.municipality;
+                                syncSelectPlaceholderState(municipioSelect);
+                                lastValidationDistrict = data.district || "";
+                                await applyMunicipalityDefaults(data.municipality, suggestedBarrio, lastValidationDistrict);
+                                await loadBarriosByMunicipio(data.municipality, suggestedBarrio || "a", suggestedBarrio, false);
+                            }
+                        }
+
+                        if (!shouldClearDerivedData && barrioSelect) {
+                            setBarrioOptions(barriosLoaded, suggestedBarrio, false);
+                        }
+
+                        if (!shouldClearDerivedData && zonaSelect && data.zonaDireccionSegunMunicipio) {
+                            zonaSelect.value = data.zonaDireccionSegunMunicipio;
+                            syncSelectPlaceholderState(zonaSelect);
+                        }
+
+                        if (!shouldClearDerivedData && clasificacionSelect && data.clasificacionZonaSura) {
+                            clasificacionSelect.value = data.clasificacionZonaSura;
+                            syncSelectPlaceholderState(clasificacionSelect);
+                        }
+
+                        if (data.isValid) {
+                            if (data.formattedAddress && !asumirDireccionCheck?.checked) {
+                                direccionInput.value = data.formattedAddress;
+                            }
+                            setDireccionMessage("success", data.message || "Direccion validada correctamente.");
+                            return;
+                        }
+
+                        let html = data.message || "La dirección no pudo ser validada.";
+                        if (data.suggestedAddress) {
+                            html += `<br/>Sugerencia: <strong>${escapeHtml(data.suggestedAddress)}</strong> <button type="button" class="btn btn-sm btn-link p-0 ms-2" id="usarSugerenciaDireccionBtnClient">Usar sugerencia</button>`;
+                        }
+                        setDireccionMessage("warning", html);
+                        document.getElementById("usarSugerenciaDireccionBtnClient")?.addEventListener("click", (event) => {
+                            event.preventDefault();
+                            direccionInput.value = data.suggestedAddress || "";
+                            setDireccionValidada(false);
+                        });
+                    } catch {
+                        clearAddressDerivedFields();
+                        setDireccionMessage("danger", "No fue posible validar la dirección. Intenta nuevamente o marca 'Asumir dirección errada y continuar'.");
+                        setDireccionValidada(false);
+                    } finally {
+                        validarDireccionBtn.disabled = false;
+                    }
+                });
+            }
+
+            if (direccionInput) {
+                direccionInput.addEventListener("input", () => {
+                    setDireccionValidada(false);
+                    clearServerDireccionMessage();
+                });
+            }
+
+            if (limpiarDireccionBtn && direccionInput) {
+                limpiarDireccionBtn.addEventListener("click", () => {
+                    clearAllAddressData();
+                });
+            }
+
+            usarSugerenciaServerBtn?.addEventListener("click", () => {
+                const suggested = usarSugerenciaServerBtn.previousElementSibling?.textContent || "";
+                if (direccionInput && suggested) {
+                    direccionInput.value = suggested.trim();
+                    setDireccionValidada(false);
+                }
+            });
+
+            municipioSelect?.addEventListener("change", async () => {
+                const municipio = municipioSelect.value || "";
+                lastValidationDistrict = "";
+                if (barrioSelect) barrioSelect.value = "";
+                await applyMunicipalityDefaults(municipio, "", "");
+                await loadBarriosByMunicipio(municipio, "a", "");
+            });
+
+            barrioSelect?.addEventListener("change", async () => {
+                const municipio = municipioSelect ? municipioSelect.value : "";
+                const barrio = barrioSelect.value || "";
+                await applyMunicipalityDefaults(municipio, barrio, lastValidationDistrict);
+            });
+
+            // El código y el diagnóstico son dos campos: aquí sólo se escribe el código y el
+            // descriptivo lo pone el listado de heridas, que viaja completo en el datalist. Son
+            // códigos fijos del programa, así que no hace falta consultarle nada al servidor.
+            const heridasCie10Catalogo = new Map(
+                [...(document.getElementById("heridasCie10Opciones")?.options ?? [])]
+                    .map((opcion) => [opcion.value.trim().toUpperCase(), (opcion.label || "").trim()])
+                    // Los códigos que el registro trae de antes y ya no están en el listado se
+                    // ofrecen con un texto entre paréntesis; ese texto no es un diagnóstico.
+                    .filter(([codigo, texto]) => codigo && !texto.startsWith("(")));
+
+            // Un registro guardado puede tener un código anterior al listado actual. El servidor lo
+            // respeta, y aquí también: se conserva el diagnóstico con el que vino.
+            const cie10Heredado = (codigoCie10Input?.value || "").trim().toUpperCase();
+            const diagnosticoHeredado = (diagnosticoInput?.value || "").trim();
+
+            const sincronizarCie10 = (avisar) => {
+                if (!codigoCie10Input) { return; }
+                const codigo = normalizeCie10(codigoCie10Input.value);
+                codigoCie10Input.value = codigo;
+
+                let diagnostico = heridasCie10Catalogo.get(codigo) || "";
+                if (!diagnostico && codigo && codigo === cie10Heredado) { diagnostico = diagnosticoHeredado; }
+                if (diagnosticoInput) { diagnosticoInput.value = diagnostico; }
+
+                if (!avisar) { return; }
+                if (!codigo || diagnostico) {
+                    codigoCie10Input.setCustomValidity("");
+                    return;
+                }
+                codigoCie10Input.setCustomValidity("Ese código no está en el listado de clínica de heridas.");
+                codigoCie10Input.reportValidity();
+            };
+
+            codigoCie10Input?.addEventListener("input", () => sincronizarCie10(false));
+            codigoCie10Input?.addEventListener("change", () => sincronizarCie10(true));
+            codigoCie10Input?.addEventListener("blur", () => sincronizarCie10(true));
+            codigoCie10Input?.addEventListener("focus", () => codigoCie10Input.setCustomValidity(""));
+
+            document.querySelectorAll(".heridas-phone-input").forEach((input) => {
+                input.addEventListener("input", () => {
+                    input.value = input.value.replace(/\D/g, "").slice(0, 10);
+                });
+            });
+
+            const syncTelefonoAdicional2Visibility = () => {
+                if (!telefonoAdicional2Toggle || !telefonoAdicional2Container) return;
+                const shouldShow = telefonoAdicional2Toggle.checked;
+                telefonoAdicional2Container.classList.toggle("d-none", !shouldShow);
+                if (!shouldShow && telefonoAdicional2Input) {
+                    telefonoAdicional2Input.value = "";
+                }
+            };
+
+            if (telefonoAdicional2Toggle && telefonoAdicional2Input?.value) {
+                telefonoAdicional2Toggle.checked = true;
+            }
+            telefonoAdicional2Toggle?.addEventListener("change", syncTelefonoAdicional2Visibility);
+            syncTelefonoAdicional2Visibility();
+
+            auxiliarEnfermeriaInput?.addEventListener("input", () => syncAuxiliarValidation(false));
+            auxiliarEnfermeriaInput?.addEventListener("change", () => syncAuxiliarValidation(true));
+            auxiliarEnfermeriaInput?.addEventListener("blur", () => syncAuxiliarValidation(true));
+            ipsIntramuralInput?.addEventListener("input", () => syncIpsIntramuralValidation(false));
+            ipsIntramuralInput?.addEventListener("change", () => syncIpsIntramuralValidation(true));
+            ipsIntramuralInput?.addEventListener("blur", () => syncIpsIntramuralValidation(true));
+
+            numeroIdentificacionInput?.addEventListener("input", syncNumeroIdentificacionMode);
+            tipoIdentificacionSelect?.addEventListener("change", syncNumeroIdentificacionMode);
+            syncNumeroIdentificacionMode();
+
+            const sanitizeNombrePaciente = () => {
+                if (!nombrePacienteInput) return;
+                const currentValue = nombrePacienteInput.value || "";
+                const sanitizedValue = currentValue.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, "");
+                if (currentValue !== sanitizedValue) {
+                    nombrePacienteInput.value = sanitizedValue;
+                }
+            };
+
+            nombrePacienteInput?.addEventListener("input", sanitizeNombrePaciente);
+            sanitizeNombrePaciente();
+
+            const vacSelect = document.getElementById("Vac");
+            const activoFijoFieldset = document.getElementById("activoFijoFieldset");
+            const activoFijoBloqueadoAlert = document.getElementById("activoFijoBloqueadoAlert");
+            const activoFijoNavDescription = document.getElementById("activoFijoNavDescription");
+
+            const syncActivoFijoState = () => {
+                const vacActivo = String(vacSelect?.value || "").trim().toUpperCase() === "SI";
+                if (activoFijoFieldset) activoFijoFieldset.disabled = !vacActivo;
+                activoFijoBloqueadoAlert?.classList.toggle("d-none", vacActivo);
+                if (activoFijoNavDescription) {
+                    activoFijoNavDescription.textContent = vacActivo
+                        ? "Equipos en comodato asignados al paciente."
+                        : "Se habilita cuando VAC está en Si.";
+                }
+            };
+
+            vacSelect?.addEventListener("change", syncActivoFijoState);
+            syncActivoFijoState();
+
+            // Guarda solo el VAC, sin pasar por el guardado completo de la sección: así el cambio
+            // llega al informe aunque el usuario no pulse "Actualizar registro". Si el registro
+            // todavía no existe no hay nada que actualizar y el valor viajará con el guardado normal.
+            const guardarVacUrl = "@Url.Action("GuardarClinicaHeridasVac", "Censo")";
+
+            const guardarVacConfirmado = async (valor) => {
+                const registroId = document.getElementById("heridasEditingRecordId")?.value;
+                if (!registroId) { return true; }
+
+                const cuerpo = new FormData();
+                cuerpo.append("recordId", registroId);
+                cuerpo.append("vac", valor);
+                cuerpo.append("__RequestVerificationToken",
+                    document.querySelector('input[name="__RequestVerificationToken"]')?.value || "");
+
+                try {
+                    const respuesta = await fetch(guardarVacUrl, { method: "POST", body: cuerpo });
+                    if (respuesta.ok) { return true; }
+                    const datos = await respuesta.json().catch(() => null);
+                    await avisar("No se pudo guardar VAC",
+                        datos?.message || "Intenta de nuevo o guarda la sección con su botón.");
+                } catch {
+                    await avisar("No se pudo guardar VAC",
+                        "Revisa la conexión e intenta de nuevo, o guarda la sección con su botón.");
+                }
+                return false;
+            };
+
+            // ----- Confirmar el cambio de VAC -----
+            // VAC decide con qué jerarquía sale el paciente en el informe de activos (pesa más que
+            // clínica de heridas), así que se pregunta tanto al activarlo como al retirarlo. Si se
+            // cancela, el campo vuelve a su valor anterior y se vuelve a emitir el change para que
+            // la sección Activo fijo quede coherente.
+            if (vacSelect) {
+                let vacConfirmado = vacSelect.value;
+                vacSelect.addEventListener("change", async () => {
+                    const elegido = vacSelect.value;
+                    if (elegido === vacConfirmado) { return; }
+
+                    const activa = String(elegido).trim().toUpperCase() === "SI";
+                    const teniaVac = String(vacConfirmado).trim().toUpperCase() === "SI";
+
+                    // Pasar de "sin diligenciar" a No no retira nada: no habia VAC que retirar.
+                    // En un ingreso nuevo los dispositivos arrancan sin valor, asi que elegir No
+                    // sacaba el aviso de "Retirar VAC" como si el paciente viniera con VAC del
+                    // ingreso anterior. Solo se pregunta en las transiciones de verdad: activarlo,
+                    // o quitarselo a quien si lo tenia.
+                    if (!activa && !teniaVac) {
+                        vacConfirmado = elegido;
+                        return;
+                    }
+
+                    const paciente = window.censoNombrePaciente?.() || "este paciente";
+                    const preguntar = window.censoConfirmar
+                        ?? (({ titulo, mensaje, textoConfirmar, tono }) =>
+                            abrirDialogo({ titulo, mensaje, textoConfirmar, tono }));
+
+                    const confirmado = await preguntar(activa
+                        ? {
+                            titulo: "Activar VAC",
+                            mensaje: `¿Estás seguro de agregarle al paciente ${paciente} el siguiente `
+                                + "programa: VAC? Pasará a reportarse como VAC en el informe de pacientes activos.",
+                            textoConfirmar: "Confirmar"
+                        }
+                        : {
+                            titulo: "Retirar VAC",
+                            mensaje: `¿Estás seguro de retirarle el VAC al paciente ${paciente}? `
+                                + "Volverá a reportarse como clínica de heridas en el informe de pacientes activos.",
+                            textoConfirmar: "Retirar VAC",
+                            tono: "advertencia"
+                        });
+
+                    if (!confirmado) {
+                        vacSelect.value = vacConfirmado;
+                        vacSelect.dispatchEvent(new Event("change", { bubbles: true }));
+                        return;
+                    }
+
+                    // El informe de pacientes activos lee el VAC guardado, así que el cambio se
+                    // persiste al confirmarlo y no espera al botón de la sección. Si no se pudo
+                    // guardar, el campo vuelve atrás: es preferible a dejar creer que quedó.
+                    const guardado = await guardarVacConfirmado(elegido);
+                    if (guardado) {
+                        vacConfirmado = elegido;
+                        return;
+                    }
+
+                    vacSelect.value = vacConfirmado;
+                    vacSelect.dispatchEvent(new Event("change", { bubbles: true }));
+                });
+            }
+
+            [cedulaHeridasFiltroInput, cambiarHeridasPacienteDocumentoInput].forEach((input) => {
+                if (!input) return;
+                input.value = normalizeDocumentValue(input.value);
+                input.addEventListener("input", () => {
+                    input.value = normalizeDocumentValue(input.value);
+                });
+            });
+            uppercaseAllHeridasTextFields();
+
+            const updateEdad = () => {
+                if (!fechaNacimientoInput || !edadInput) return;
+
+                const today = new Date();
+                const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                if (!fechaNacimientoInput.value || fechaNacimientoInput.value >= todayValue) {
+                    fechaNacimientoInput.setCustomValidity("La fecha de nacimiento debe ser anterior a la fecha actual.");
+                } else {
+                    fechaNacimientoInput.setCustomValidity("");
+                }
+
+                if (!fechaNacimientoInput.value) {
+                    edadInput.value = "0";
+                    return;
+                }
+
+                const birth = new Date(`${fechaNacimientoInput.value}T00:00:00`);
+                let age = today.getFullYear() - birth.getFullYear();
+                const monthDiff = today.getMonth() - birth.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                    age -= 1;
+                }
+                edadInput.value = Math.max(age, 0).toString();
+            };
+
+            fechaNacimientoInput?.addEventListener("change", updateEdad);
+            fechaNacimientoInput?.addEventListener("input", updateEdad);
+            updateEdad();
+
+            // Precarga de datos básicos desde los censos de agudos y crónicos. Solo se tocan los campos
+            // vacíos y los que precargó una búsqueda anterior, para no pisar lo que el usuario escribió
+            // y para poder reemplazarlos si corrige el documento por el de otro paciente.
+            const editingRecordIdInput = document.getElementById("heridasEditingRecordId");
+            const prefillAlert = document.getElementById("prefillPacienteAlert");
+            const aseguradorSelect = document.getElementById("Asegurador");
+            const generoSelect = document.getElementById("Genero");
+            const detalleDireccionInput = document.getElementById("DetalleDireccion");
+            const telefonoPrincipalInput = document.getElementById("TelefonoPrincipal");
+            const telefonoAdicional1Input = document.getElementById("TelefonoAdicional1");
+            const llamadaBienvenidaSelect = document.getElementById("LlamadaBienvenida");
+            const telefonoContactoInput = document.getElementById("TelefonoContacto");
+
+            const prefilledKeys = new Set();
+            let lastPrefillDocument = "";
+
+            // La fecha de nacimiento arranca en la fecha de hoy (valor por defecto del formulario),
+            // así que para la precarga ese valor cuenta como campo vacío.
+            const getTodayIsoDate = () => {
+                const today = new Date();
+                return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+            };
+
+            const prefillFields = [
+                { key: "asegurador", control: aseguradorSelect, kind: "select" },
+                { key: "tipoIdentificacion", control: tipoIdentificacionSelect, kind: "select" },
+                { key: "nombrePaciente", control: nombrePacienteInput, kind: "text" },
+                {
+                    key: "fechaNacimiento",
+                    control: fechaNacimientoInput,
+                    kind: "text",
+                    isEmpty: (control) => {
+                        const value = String(control.value || "").trim();
+                        return !value || value === getTodayIsoDate();
+                    }
+                },
+                { key: "genero", control: generoSelect, kind: "select" },
+                { key: "direccion", control: direccionInput, kind: "text" },
+                { key: "detalleDireccion", control: detalleDireccionInput, kind: "text" },
+                { key: "clasificacionZonaSura", control: clasificacionSelect, kind: "select" },
+                { key: "municipioResidencia", control: municipioSelect, kind: "select" },
+                { key: "barrio", control: barrioSelect, kind: "select" },
+                { key: "zonaDireccionSegunMunicipio", control: zonaSelect, kind: "select" },
+                { key: "telefonoPrincipal", control: telefonoPrincipalInput, kind: "phone" },
+                { key: "telefonoAdicional1", control: telefonoAdicional1Input, kind: "phone" },
+                { key: "telefonoAdicional2", control: telefonoAdicional2Input, kind: "phone" },
+                { key: "llamadaBienvenida", control: llamadaBienvenidaSelect, kind: "select" },
+                { key: "telefonoContacto", control: telefonoContactoInput, kind: "phone" }
+            ];
+
+            const setPrefillControlValue = (field, value) => {
+                if (field.kind === "select") {
+                    setSelectValue(field.control, value);
+                    return;
+                }
+
+                field.control.value = field.kind === "phone"
+                    ? String(value || "").replace(/\D/g, "").slice(0, 10)
+                    : value;
+            };
+
+            const isPrefillControlEmpty = (field) => field.isEmpty
+                ? field.isEmpty(field.control)
+                : !String(field.control.value || "").trim();
+
+            const applyPrefillField = (field, value) => {
+                if (!field?.control) return false;
+
+                const yaPrecargado = prefilledKeys.has(field.key);
+                if (!yaPrecargado && !isPrefillControlEmpty(field)) {
+                    return false;
+                }
+
+                const normalized = String(value ?? "").trim();
+                if (!normalized) {
+                    if (yaPrecargado) {
+                        setPrefillControlValue(field, "");
+                        prefilledKeys.delete(field.key);
+                    }
+                    return false;
+                }
+
+                setPrefillControlValue(field, normalized);
+                prefilledKeys.add(field.key);
+                return true;
+            };
+
+            const clearPrefilledFields = () => {
+                if (prefilledKeys.size === 0) return;
+
+                const teniaTelefonoAdicional2 = prefilledKeys.has("telefonoAdicional2");
+                prefillFields.forEach((field) => {
+                    if (!field.control || !prefilledKeys.has(field.key)) return;
+                    setPrefillControlValue(field, "");
+                });
+                prefilledKeys.clear();
+
+                if (asumirDireccionCheck?.checked) {
+                    asumirDireccionCheck.checked = false;
+                }
+                setDireccionValidada(false);
+                updateEdad();
+
+                if (teniaTelefonoAdicional2 && telefonoAdicional2Toggle && !telefonoAdicional2Input?.value) {
+                    telefonoAdicional2Toggle.checked = false;
+                }
+                syncTelefonoAdicional2Visibility();
+            };
+
+            const hidePrefillAlert = () => {
+                if (!prefillAlert) return;
+                prefillAlert.textContent = "";
+                prefillAlert.classList.add("d-none");
+            };
+
+            const showPrefillAlert = (message) => {
+                if (!prefillAlert) return;
+                prefillAlert.textContent = message;
+                prefillAlert.classList.remove("d-none");
+            };
+
+            const applyPrefillData = async (data) => {
+                const municipioAplicado = applyPrefillField(
+                    prefillFields.find((field) => field.key === "municipioResidencia"),
+                    data.municipioResidencia);
+
+                const camposAplicados = prefillFields
+                    .filter((field) => field.key !== "municipioResidencia")
+                    .map((field) => applyPrefillField(field, data[field.key]))
+                    .filter(Boolean).length + (municipioAplicado ? 1 : 0);
+
+                if (municipioAplicado) {
+                    const barrio = barrioSelect && prefilledKeys.has("barrio") ? barrioSelect.value : "";
+                    lastValidationDistrict = "";
+                    await loadBarriosByMunicipio(municipioSelect.value, barrio || "a", barrio, false);
+                }
+
+                if (prefilledKeys.has("direccion")) {
+                    if (asumirDireccionCheck) asumirDireccionCheck.checked = data.asumirDireccionErrada === true;
+                    setDireccionValidada(data.direccionValidada === true);
+                    clearDireccionMessage();
+                    clearServerDireccionMessage();
+                }
+
+                if (telefonoAdicional2Toggle && telefonoAdicional2Input?.value) {
+                    telefonoAdicional2Toggle.checked = true;
+                }
+                syncTelefonoAdicional2Visibility();
+                updateEdad();
+                uppercaseAllHeridasTextFields();
+
+                return camposAplicados;
+            };
+
+            const buscarPacienteEnOtrosCensos = async () => {
+                if (!numeroIdentificacionInput) return;
+                if (editingRecordIdInput && String(editingRecordIdInput.value || "").trim()) return;
+
+                const documento = normalizeDocumentValue(numeroIdentificacionInput.value);
+                if (documento === lastPrefillDocument) return;
+                lastPrefillDocument = documento;
+
+                if (documento.length < 4) {
+                    clearPrefilledFields();
+                    hidePrefillAlert();
+                    return;
+                }
+
+                let data = null;
+                try {
+                    const response = await fetch(`${buscarPacienteOtrosCensosUrl}?numeroDocumento=${encodeURIComponent(documento)}`);
+                    if (!response.ok) {
+                        lastPrefillDocument = "";
+                        return;
+                    }
+                    data = await response.json();
+                } catch {
+                    lastPrefillDocument = "";
+                    return;
+                }
+
+                if (documento !== normalizeDocumentValue(numeroIdentificacionInput.value)) return;
+
+                if (!data || data.found !== true) {
+                    clearPrefilledFields();
+                    hidePrefillAlert();
+                    return;
+                }
+
+                const camposAplicados = await applyPrefillData(data.datos || {});
+                if (camposAplicados === 0) {
+                    hidePrefillAlert();
+                    return;
+                }
+
+                showPrefillAlert(`Datos básicos precargados desde ${data.origen}. Verifica la información antes de guardar.`);
+            };
+
+            numeroIdentificacionInput?.addEventListener("change", buscarPacienteEnOtrosCensos);
+            numeroIdentificacionInput?.addEventListener("blur", buscarPacienteEnOtrosCensos);
+
+            // ---------------------------------------------------------------- Requisiciones de insumos
+            // El documento se pide al servidor ya armado (insumos y columnas dependen del tipo de
+            // atencion, la duracion y la frecuencia). Aqui solo se pinta, se edita y se devuelve.
+            const kardexModalEl = document.getElementById("heridaKardexModal");
+            if (kardexModalEl && recordIdActual) {
+                const kardexModal = new bootstrap.Modal(kardexModalEl);
+                const kardexUrl = "@Url.Action("KardexClinicaHeridas", "Censo")";
+                const kardexGuardarUrl = "@Url.Action("GuardarKardexClinicaHeridas", "Censo")";
+                const kardexEnviarUrl = "@Url.Action("EnviarKardexClinicaHeridasAFarmacia", "Censo")";
+                const kardexAdjuntoUrl = "@Url.Action("SubirAdjuntoKardexClinicaHeridas", "Censo")";
+                const kardexAdjuntoEliminarUrl = "@Url.Action("EliminarAdjuntoKardexClinicaHeridas", "Censo")";
+                const kardexAdjuntoDescargaUrl = "@Url.Action("DescargarAdjuntoKardexClinicaHeridas", "Censo")";
+                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || "";
+
+                const cabecera = document.getElementById("kardexTablaCabecera");
+                const cuerpo = document.getElementById("kardexTablaCuerpo");
+                const cerradoBanner = document.getElementById("kardexCerradoBanner");
+                const errorBanner = document.getElementById("kardexErrorBanner");
+                const estadoNota = document.getElementById("kardexEstadoNota");
+                const guardarBtn = document.getElementById("kardexGuardarBtn");
+                const enviarBtn = document.getElementById("kardexEnviarBtn");
+                const agregarInsumoBtn = document.getElementById("kardexAgregarInsumo");
+                const adjuntosLista = document.getElementById("kardexAdjuntosLista");
+                const adjuntoInput = document.getElementById("kardexAdjuntoInput");
+                const adjuntoEstado = document.getElementById("kardexAdjuntoEstado");
+
+                let tipoActual = null;
+                let cerradoActual = false;
+
+                const campo = (nombre) => kardexModalEl.querySelector(`[data-kardex-field="${nombre}"]`);
+
+                const mostrarError = (mensaje) => {
+                    errorBanner.textContent = mensaje || "";
+                    errorBanner.classList.toggle("d-none", !mensaje);
+                };
+
+                const setSoloLectura = (cerrado) => {
+                    cerradoActual = cerrado;
+                    cerradoBanner.classList.toggle("d-none", !cerrado);
+                    kardexModalEl.querySelectorAll("#kardexSheet input, #kardexSheet textarea")
+                        .forEach((el) => { el.readOnly = cerrado; });
+                    guardarBtn.classList.toggle("d-none", cerrado);
+                    enviarBtn.classList.toggle("d-none", cerrado);
+                    agregarInsumoBtn.classList.toggle("d-none", cerrado);
+                    document.getElementById("kardexSubirAdjuntoBtn").classList.toggle("d-none", cerrado);
+                    kardexModalEl.querySelectorAll(".herida-kardex-table__quitar")
+                        .forEach((celda) => celda.classList.toggle("d-none", cerrado));
+                };
+
+                const filaInsumo = (insumo, aplicaciones) => {
+                    const tr = document.createElement("tr");
+                    tr.dataset.kardexInsumo = "";
+
+                    const tdItem = document.createElement("td");
+                    tdItem.className = "herida-kardex-table__item";
+                    tdItem.textContent = insumo.item ?? "";
+                    tr.appendChild(tdItem);
+
+                    const tdDesc = document.createElement("td");
+                    const desc = document.createElement("input");
+                    desc.dataset.kardexInsumoField = "descripcion";
+                    desc.value = insumo.descripcion || "";
+                    tdDesc.appendChild(desc);
+                    tr.appendChild(tdDesc);
+
+                    for (let i = 0; i < aplicaciones; i++) {
+                        const td = document.createElement("td");
+                        const input = document.createElement("input");
+                        input.dataset.kardexCantidad = String(i);
+                        input.className = "herida-kardex-table__cantidad";
+                        input.inputMode = "numeric";
+                        input.value = insumo.cantidades?.[i] ?? 0;
+                        input.addEventListener("input", recalcularTotales);
+                        td.appendChild(input);
+                        tr.appendChild(td);
+                    }
+
+                    const tdTotal = document.createElement("td");
+                    tdTotal.className = "herida-kardex-table__total";
+                    tdTotal.dataset.kardexTotal = "";
+                    tr.appendChild(tdTotal);
+
+                    const tdQuitar = document.createElement("td");
+                    tdQuitar.className = "herida-kardex-table__quitar";
+                    const quitar = document.createElement("button");
+                    quitar.type = "button";
+                    quitar.className = "btn btn-link p-0";
+                    quitar.textContent = "Quitar";
+                    quitar.addEventListener("click", () => {
+                        tr.remove();
+                        renumerarItems();
+                        recalcularTotales();
+                    });
+                    tdQuitar.appendChild(quitar);
+                    tr.appendChild(tdQuitar);
+
+                    return tr;
+                };
+
+                const renumerarItems = () => {
+                    [...cuerpo.querySelectorAll("[data-kardex-insumo]")].forEach((tr, indice) => {
+                        tr.querySelector(".herida-kardex-table__item").textContent = indice + 1;
+                    });
+                };
+
+                function recalcularTotales() {
+                    [...cuerpo.querySelectorAll("[data-kardex-insumo]")].forEach((tr) => {
+                        const total = [...tr.querySelectorAll("[data-kardex-cantidad]")]
+                            .reduce((suma, input) => suma + (parseInt(input.value, 10) || 0), 0);
+                        tr.querySelector("[data-kardex-total]").textContent = total;
+                    });
+                }
+
+                const pintarDocumento = (documento) => {
+                    document.getElementById("kardexTitulo").textContent = documento.titulo || "";
+                    document.getElementById("kardexSubtitulo").textContent = `Atención: ${documento.tipoNombre || ""}`;
+                    document.getElementById("heridaKardexModalTitulo").textContent =
+                        `Requisición · ${documento.tipoNombre || ""}`;
+
+                    ["codigoFormato", "versionFormato", "paginaFormato", "fechaFormato", "paciente", "documento",
+                     "asegurador", "edad", "direccion", "telefonos", "codigoCie10", "diagnostico", "duracionDias",
+                     "frecuencia", "aplicaciones", "fechaSolicitud", "auxiliarAsignado", "elaboradoPor",
+                     "observaciones"].forEach((nombre) => {
+                        const el = campo(nombre);
+                        if (el) { el.value = documento[nombre] ?? ""; }
+                    });
+
+                    const aplicaciones = Math.max(1, parseInt(documento.aplicaciones, 10) || 1);
+
+                    cabecera.innerHTML = "";
+                    const th = (texto, clase) => {
+                        const el = document.createElement("th");
+                        el.textContent = texto;
+                        if (clase) { el.className = clase; }
+                        cabecera.appendChild(el);
+                        return el;
+                    };
+                    th("Item");
+                    th("Descripción del insumo");
+
+                    // Los titulos de las columnas son editables: el usuario suele reemplazarlos por
+                    // la fecha real de cada visita.
+                    const encabezados = documento.encabezados || [];
+                    for (let i = 0; i < aplicaciones; i++) {
+                        const celda = th("", "herida-kardex-table__aplicacion");
+                        const input = document.createElement("input");
+                        input.dataset.kardexEncabezado = String(i);
+                        input.className = "herida-kardex-table__encabezado";
+                        input.value = encabezados[i] || `Aplicación ${i + 1}`;
+                        input.setAttribute("aria-label", `Título de la columna ${i + 1}`);
+                        celda.appendChild(input);
+                    }
+
+                    th("Total");
+                    th("");
+
+                    cuerpo.innerHTML = "";
+                    (documento.insumos || []).forEach((insumo) => {
+                        cuerpo.appendChild(filaInsumo(insumo, aplicaciones));
+                    });
+                    renumerarItems();
+                    recalcularTotales();
+                };
+
+                const pintarAdjuntos = (adjuntos) => {
+                    adjuntosLista.innerHTML = "";
+                    if (!adjuntos || adjuntos.length === 0) {
+                        const vacio = document.createElement("li");
+                        vacio.className = "herida-kardex-adjuntos__vacio";
+                        vacio.textContent = "Sin adjuntos.";
+                        adjuntosLista.appendChild(vacio);
+                        return;
+                    }
+
+                    adjuntos.forEach((adjunto) => {
+                        const li = document.createElement("li");
+                        const enlace = document.createElement("a");
+                        enlace.href = `${kardexAdjuntoDescargaUrl}?adjuntoId=${adjunto.id}`;
+                        enlace.textContent = adjunto.nombre;
+                        enlace.target = "_blank";
+                        enlace.rel = "noopener";
+                        li.appendChild(enlace);
+
+                        if (!cerradoActual) {
+                            const quitar = document.createElement("button");
+                            quitar.type = "button";
+                            quitar.className = "btn btn-link p-0 ms-2";
+                            quitar.textContent = "Eliminar";
+                            quitar.addEventListener("click", async () => {
+                                const cuerpoForm = new FormData();
+                                cuerpoForm.append("adjuntoId", adjunto.id);
+                                cuerpoForm.append("__RequestVerificationToken", token);
+                                const respuesta = await fetch(kardexAdjuntoEliminarUrl, { method: "POST", body: cuerpoForm });
+                                if (respuesta.ok) { await cargarKardex(tipoActual); }
+                            });
+                            li.appendChild(quitar);
+                        }
+
+                        adjuntosLista.appendChild(li);
+                    });
+                };
+
+                const serializarDocumento = () => {
+                    const documento = {};
+                    ["codigoFormato", "versionFormato", "paginaFormato", "fechaFormato", "paciente", "documento",
+                     "asegurador", "edad", "direccion", "telefonos", "codigoCie10", "diagnostico", "frecuencia",
+                     "fechaSolicitud", "auxiliarAsignado", "elaboradoPor", "observaciones"].forEach((nombre) => {
+                        documento[nombre] = campo(nombre)?.value ?? "";
+                    });
+                    documento.duracionDias = parseInt(campo("duracionDias")?.value, 10) || 0;
+                    documento.aplicaciones = parseInt(campo("aplicaciones")?.value, 10) || 1;
+                    documento.tipo = tipoActual;
+                    documento.encabezados = [...cabecera.querySelectorAll("[data-kardex-encabezado]")]
+                        .map((input) => input.value.trim());
+                    documento.insumos = [...cuerpo.querySelectorAll("[data-kardex-insumo]")].map((tr, indice) => ({
+                        item: indice + 1,
+                        descripcion: tr.querySelector('[data-kardex-insumo-field="descripcion"]').value,
+                        cantidades: [...tr.querySelectorAll("[data-kardex-cantidad]")]
+                            .map((input) => parseInt(input.value, 10) || 0)
+                    }));
+                    return documento;
+                };
+
+                async function cargarKardex(tipo) {
+                    mostrarError("");
+                    tipoActual = tipo;
+                    const planParam = planClinicaHeridasActual ? `&planId=${planClinicaHeridasActual}` : "";
+                    const respuesta = await fetch(`${kardexUrl}?recordId=${recordIdActual}&tipo=${encodeURIComponent(tipo)}${planParam}`);
+                    const datos = await respuesta.json();
+
+                    if (!respuesta.ok) {
+                        mostrarError(datos?.message || "No fue posible abrir la requisición.");
+                        return;
+                    }
+
+                    // El orden importa: la tabla se dibuja primero y despues se aplica el modo lectura,
+                    // porque sus inputs no existen hasta que se pinta el documento.
+                    pintarDocumento(datos.documento || {});
+                    setSoloLectura(!!datos.estado?.cerrado);
+                    pintarAdjuntos(datos.adjuntos || []);
+
+                    // El bloqueo tiene dos motivos posibles y conviene decir cual es.
+                    if (datos.estado?.planCerrado) {
+                        cerradoBanner.innerHTML =
+                            `<strong>Plan ${datos.plan?.numero} cerrado.</strong> Esta requisición pertenece a un plan anterior: queda solo para consulta.`;
+                    } else if (datos.estado?.cerradoPorFarmacia) {
+                        cerradoBanner.innerHTML =
+                            "<strong>Kardex cerrado.</strong> Farmacia ya aprobó esta requisición: queda solo para consulta.";
+                    }
+
+                    estadoNota.textContent = datos.estado?.planCerrado
+                        ? `Plan ${datos.plan?.numero} · cerrado.`
+                        : datos.estado?.cerradoPorFarmacia
+                            ? "Cerrado por farmacia."
+                            : datos.estado?.enviadoAtUtc
+                                ? "Enviado a farmacia. Puedes seguir editando hasta que le den OK."
+                                : "Sin enviar a farmacia.";
+                }
+
+                const enviarDocumento = async (url, mensajeExito) => {
+                    mostrarError("");
+                    const cuerpoForm = new FormData();
+                    cuerpoForm.append("recordId", recordIdActual);
+                    cuerpoForm.append("tipo", tipoActual);
+                    cuerpoForm.append("kardexJson", JSON.stringify(serializarDocumento()));
+                    cuerpoForm.append("__RequestVerificationToken", token);
+
+                    const respuesta = await fetch(url, { method: "POST", body: cuerpoForm });
+                    const datos = await respuesta.json().catch(() => null);
+                    if (!respuesta.ok) {
+                        mostrarError(datos?.message || "No fue posible completar la operación.");
+                        return false;
+                    }
+
+                    estadoNota.textContent = datos?.message || mensajeExito;
+                    return true;
+                };
+
+                // Las tarjetas se repintan al navegar entre planes, asi que la apertura se expone en
+                // vez de engancharse a los botones que existen al cargar la pagina.
+                window.abrirKardexClinicaHeridas = async (tipo) => {
+                    await cargarKardex(tipo);
+                    kardexModal.show();
+                };
+
+                document.querySelectorAll("[data-kardex-abrir]").forEach((boton) => {
+                    boton.addEventListener("click", () => window.abrirKardexClinicaHeridas(boton.dataset.kardexAbrir));
+                });
+
+                agregarInsumoBtn.addEventListener("click", () => {
+                    const aplicaciones = Math.max(1, parseInt(campo("aplicaciones")?.value, 10) || 1);
+                    cuerpo.appendChild(filaInsumo({ descripcion: "", cantidades: Array(aplicaciones).fill(1) }, aplicaciones));
+                    renumerarItems();
+                    recalcularTotales();
+                });
+
+                guardarBtn.addEventListener("click", () => enviarDocumento(kardexGuardarUrl, "Requisición guardada."));
+                enviarBtn.addEventListener("click", async () => {
+                    if (await enviarDocumento(kardexEnviarUrl, "Enviado a farmacia.")) {
+                        await cargarKardex(tipoActual);
+                    }
+                });
+
+                document.getElementById("kardexSubirAdjuntoBtn").addEventListener("click", () => adjuntoInput.click());
+                adjuntoInput.addEventListener("change", async () => {
+                    const archivo = adjuntoInput.files?.[0];
+                    if (!archivo) { return; }
+
+                    adjuntoEstado.textContent = "Subiendo...";
+                    const cuerpoForm = new FormData();
+                    cuerpoForm.append("recordId", recordIdActual);
+                    cuerpoForm.append("tipo", tipoActual);
+                    cuerpoForm.append("archivo", archivo);
+                    cuerpoForm.append("__RequestVerificationToken", token);
+
+                    const respuesta = await fetch(kardexAdjuntoUrl, { method: "POST", body: cuerpoForm });
+                    const datos = await respuesta.json().catch(() => null);
+                    adjuntoInput.value = "";
+                    if (!respuesta.ok) {
+                        adjuntoEstado.textContent = datos?.message || "No fue posible subir el archivo.";
+                        return;
+                    }
+
+                    adjuntoEstado.textContent = "Archivo subido.";
+                    await cargarKardex(tipoActual);
+                });
+            }
+
+            // ---------------------------------------------------------------- Diálogos
+            // Un solo modal sirve para confirmar y para avisar; devuelve una promesa con la decisión
+            // para poder usarlo donde antes iba confirm() o alert().
+            const dialogoEl = document.getElementById("heridaDialogo");
+            const dialogo = dialogoEl ? new bootstrap.Modal(dialogoEl) : null;
+
+            const abrirDialogo = ({
+                titulo,
+                mensaje,
+                detalles = [],
+                textoConfirmar = "Continuar",
+                tono = "aviso",
+                soloAviso = false
+            }) => new Promise((resolver) => {
+                if (!dialogo) {
+                    resolver(soloAviso ? true : window.confirm(mensaje));
+                    return;
+                }
+
+                const cancelarBtn = document.getElementById("heridaDialogoCancelar");
+                const confirmarBtn = document.getElementById("heridaDialogoConfirmar");
+                const listaDetalles = document.getElementById("heridaDialogoDetalles");
+
+                document.getElementById("heridaDialogoTitulo").textContent = titulo;
+                document.getElementById("heridaDialogoMensaje").textContent = mensaje;
+                dialogoEl.dataset.tono = tono;
+
+                listaDetalles.innerHTML = "";
+                listaDetalles.classList.toggle("d-none", detalles.length === 0);
+                detalles.forEach((texto) => {
+                    const li = document.createElement("li");
+                    li.textContent = texto;
+                    listaDetalles.appendChild(li);
+                });
+
+                cancelarBtn.classList.toggle("d-none", soloAviso);
+                confirmarBtn.textContent = soloAviso ? "Entendido" : textoConfirmar;
+                confirmarBtn.className = tono === "peligro"
+                    ? "btn btn-danger"
+                    : tono === "advertencia" ? "btn btn-warning" : "btn btn-primary";
+
+                // La promesa se resuelve cuando el modal termina de ocultarse, no al pulsar el botón:
+                // si se resolviera antes, quien encadene otro diálogo lo abriría a mitad de la
+                // animación de cierre y Bootstrap lo descartaría.
+                let confirmado = false;
+                let resuelto = false;
+
+                function alConfirmar() {
+                    confirmado = true;
+                    dialogo.hide();
+                }
+
+                function alOcultar() {
+                    if (resuelto) { return; }
+                    resuelto = true;
+                    confirmarBtn.removeEventListener("click", alConfirmar);
+                    dialogoEl.removeEventListener("hidden.bs.modal", alOcultar);
+                    resolver(confirmado);
+                }
+
+                confirmarBtn.addEventListener("click", alConfirmar);
+                dialogoEl.addEventListener("hidden.bs.modal", alOcultar);
+                dialogo.show();
+            });
+
+            const avisar = (titulo, mensaje) =>
+                abrirDialogo({ titulo, mensaje, soloAviso: true, tono: "peligro" });
+
+            // ---------------------------------------------------------------- Planes de requisiciones
+            // Un plan agrupa las requisiciones de todas las atenciones del paciente. Solo el mas
+            // reciente esta abierto; navegar a uno anterior deja todo en consulta, incluidos los
+            // apositos con los que se armo.
+            const planesContenedor = document.getElementById("heridaPlanes");
+            if (planesContenedor && recordIdActual) {
+                const planUrl = "@Url.Action("PlanClinicaHeridas", "Censo")";
+                const planNuevoUrl = "@Url.Action("AbrirPlanClinicaHeridas", "Censo")";
+                const tokenPlan = document.querySelector('input[name="__RequestVerificationToken"]')?.value || "";
+                const chips = [...planesContenedor.querySelectorAll("[data-plan-id]")];
+                const meta = document.getElementById("heridaPlanMeta");
+                const grid = document.getElementById("heridaKardexGrid");
+                const apositosBloqueEditable = document.getElementById("apositosBloque");
+                const apositosBloqueAviso = document.getElementById("apositosBloqueado");
+                const apositosHistorico = document.getElementById("apositosHistorico");
+                const apositosHistoricoPlan = document.getElementById("apositosHistoricoPlan");
+                const apositosHistoricoLista = document.getElementById("apositosHistoricoLista");
+                const planNuevoBtn = document.getElementById("heridaPlanNuevo");
+
+                const formatoFecha = (iso) => {
+                    if (!iso) { return ""; }
+                    const f = new Date(iso);
+                    return f.toLocaleDateString("es-CO") + " " + f.toLocaleTimeString("es-CO", {hour: "2-digit", minute: "2-digit"});
+                };
+
+                const pintarTarjetas = (plan, kardex) => {
+                    if (!grid) { return; }
+                    grid.innerHTML = "";
+
+                    if (!kardex || kardex.length === 0) {
+                        const vacio = document.createElement("div");
+                        vacio.className = "herida-kardex__vacio";
+                        vacio.textContent = plan.vigente
+                            ? "Ninguna atención está en Sí todavía."
+                            : `El plan ${plan.numero} no generó requisiciones.`;
+                        grid.appendChild(vacio);
+                        return;
+                    }
+
+                    kardex.forEach((item) => {
+                        const card = document.createElement("article");
+                        card.className = "herida-kardex__card"
+                            + (item.cerrado || !plan.vigente ? " is-cerrado" : item.enviado ? " is-enviado" : "");
+
+                        const estadoTexto = !plan.vigente
+                            ? `Plan ${plan.numero}`
+                            : item.cerrado ? "Cerrado por farmacia" : item.enviado ? "En farmacia" : "Sin enviar";
+                        const estadoClase = !plan.vigente || item.cerrado
+                            ? " herida-kardex__estado--cerrado"
+                            : item.enviado ? " herida-kardex__estado--enviado" : "";
+
+                        card.innerHTML = `
+                            <header>
+                                <span class="herida-kardex__tipo"></span>
+                                <span class="herida-kardex__estado${estadoClase}"></span>
+                            </header>
+                            <dl class="herida-kardex__datos">
+                                <div><dt>Insumos</dt><dd>${item.insumos}</dd></div>
+                                <div><dt>Aplicaciones</dt><dd>${item.aplicaciones}</dd></div>
+                                <div><dt>Adjuntos</dt><dd>${item.adjuntos}</dd></div>
+                            </dl>
+                            <button type="button" class="btn btn-outline-primary herida-kardex__abrir">
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                    <path d="M14 3v5h5"></path>
+                                </svg>
+                                <span>${plan.vigente && !item.cerrado ? "Abrir requisición" : "Ver requisición"}</span>
+                            </button>`;
+
+                        // Los nombres van por textContent para no inyectar marcado.
+                        card.querySelector(".herida-kardex__tipo").textContent = item.nombre;
+                        card.querySelector(".herida-kardex__estado").textContent = estadoTexto;
+                        card.querySelector("button").addEventListener("click", () => {
+                            window.abrirKardexClinicaHeridas?.(item.tipo);
+                        });
+
+                        grid.appendChild(card);
+                    });
+                };
+
+                const pintarApositos = (plan) => {
+                    if (plan.vigente) {
+                        apositosHistorico?.classList.add("d-none");
+                        // Se devuelve el control a los campos editables segun las atenciones actuales.
+                        window.syncApositosPorAtencion?.();
+                        return;
+                    }
+
+                    apositosBloqueEditable?.classList.add("d-none");
+                    apositosBloqueAviso?.classList.add("d-none");
+                    apositosHistorico?.classList.remove("d-none");
+                    apositosHistoricoPlan.textContent = `Plan ${plan.numero} · cerrado`;
+                    apositosHistoricoLista.innerHTML = "";
+
+                    const apositos = plan.apositos || [];
+                    if (apositos.length === 0) {
+                        const li = document.createElement("li");
+                        li.className = "herida-apositos-historico__vacio";
+                        li.textContent = "Este plan no llevó apósitos ni medicamentos.";
+                        apositosHistoricoLista.appendChild(li);
+                        return;
+                    }
+
+                    apositos.forEach((nombre) => {
+                        const li = document.createElement("li");
+                        li.textContent = nombre;
+                        apositosHistoricoLista.appendChild(li);
+                    });
+                };
+
+                const seleccionarPlan = async (planId) => {
+                    const respuesta = await fetch(`${planUrl}?recordId=${recordIdActual}&planId=${planId}`);
+                    const datos = await respuesta.json();
+                    if (!respuesta.ok) { return; }
+
+                    planClinicaHeridasActual = datos.plan.vigente ? null : datos.plan.id;
+
+                    chips.forEach((chip) => {
+                        const activo = chip.dataset.planId === String(planId);
+                        chip.classList.toggle("is-activo", activo);
+                        chip.setAttribute("aria-selected", activo ? "true" : "false");
+                    });
+
+                    const creado = `Abierto el ${formatoFecha(datos.plan.creadoAtUtc)} por ${datos.plan.creadoPor || "—"}`;
+                    meta.textContent = datos.plan.vigente
+                        ? `${creado} · plan vigente`
+                        : `${creado} · cerrado el ${formatoFecha(datos.plan.cerradoAtUtc)} por ${datos.plan.cerradoPor || "—"}`;
+
+                    pintarTarjetas(datos.plan, datos.kardex);
+                    pintarApositos(datos.plan);
+                };
+
+                chips.forEach((chip) => {
+                    chip.addEventListener("click", () => seleccionarPlan(chip.dataset.planId));
+                });
+
+                planNuevoBtn?.addEventListener("click", async () => {
+                    const vigente = chips.find((c) => c.dataset.planVigente === "true");
+                    const numero = vigente ? vigente.dataset.planNumero : null;
+
+                    const confirmado = await abrirDialogo(numero
+                        ? {
+                            titulo: `Abrir el plan ${Number(numero) + 1}`,
+                            mensaje: `El plan ${numero} se cerrará y quedará solo para consulta.`,
+                            detalles: [
+                                "Sus requisiciones y apósitos se conservan tal como están.",
+                                "Los apósitos y medicamentos quedan en blanco para capturar los del plan nuevo.",
+                                "Las requisiciones del plan nuevo se generan al abrirlas."
+                            ],
+                            textoConfirmar: "Cerrar y abrir plan nuevo",
+                            tono: "advertencia"
+                        }
+                        : {
+                            titulo: "Abrir el primer plan",
+                            mensaje: "Se abrirá el plan 1 de requisiciones para este paciente.",
+                            textoConfirmar: "Abrir plan"
+                        });
+
+                    if (!confirmado) { return; }
+
+                    planNuevoBtn.disabled = true;
+                    const cuerpo = new FormData();
+                    cuerpo.append("recordId", recordIdActual);
+                    cuerpo.append("__RequestVerificationToken", tokenPlan);
+                    const respuesta = await fetch(planNuevoUrl, { method: "POST", body: cuerpo });
+                    const datos = await respuesta.json().catch(() => null);
+                    planNuevoBtn.disabled = false;
+
+                    if (!respuesta.ok) {
+                        await avisar("No fue posible abrir el plan", datos?.message || "Intenta de nuevo.");
+                        return;
+                    }
+
+                    // Se recarga para que la sección vuelva con los apósitos en blanco y la barra al día.
+                    window.location.reload();
+                });
+
+                // Estado inicial: el plan vigente, o el más reciente si ya no hay ninguno abierto.
+                const inicial = chips.find((c) => c.dataset.planVigente === "true") || chips[0];
+                if (inicial) { seleccionarPlan(inicial.dataset.planId); }
+            }
+
+            // Los apositos solo aplican a manejo de la herida y VAC; y como las tarjetas de kardex se
+            // arman con lo ya guardado, se avisa cuando la seleccion en pantalla dejo de coincidir.
+            const kardexTriggers = [...document.querySelectorAll("[data-kardex-trigger]")];
+            if (kardexTriggers.length > 0) {
+                const apositosBloque = document.getElementById("apositosBloque");
+                const apositosBloqueado = document.getElementById("apositosBloqueado");
+                const desactualizadoAviso = document.getElementById("kardexDesactualizadoAviso");
+                const inicial = kardexTriggers.map((select) => select.value).join("|");
+
+                const syncKardexTriggers = () => {
+                    const manejo = document.getElementById("ManejoHerida")?.value === "Si";
+                    const vac = document.getElementById("Vac")?.value === "Si";
+                    const usaApositos = manejo || vac;
+                    apositosBloque?.classList.toggle("d-none", !usaApositos);
+                    apositosBloqueado?.classList.toggle("d-none", usaApositos);
+                    desactualizadoAviso?.classList.toggle(
+                        "d-none",
+                        kardexTriggers.map((select) => select.value).join("|") === inicial);
+                };
+
+                // La navegación de planes la usa para volver del histórico al plan vigente.
+                window.syncApositosPorAtencion = syncKardexTriggers;
+
+                kardexTriggers.forEach((select) => select.addEventListener("change", syncKardexTriggers));
+                syncKardexTriggers();
+            }
+
+            // La frecuencia de visita es de seleccion unica y opcional. Un radio ya marcado no se puede
+            // desmarcar por si solo, asi que se ofrece un boton para dejar el campo sin valor.
+            const frecuenciaRadios = [...document.querySelectorAll("[data-frecuencia-visita]")];
+            const frecuenciaLimpiar = document.getElementById("frecuenciaVisitaLimpiar");
+            if (frecuenciaRadios.length > 0 && frecuenciaLimpiar) {
+                const syncFrecuenciaLimpiar = () => {
+                    frecuenciaLimpiar.classList.toggle("d-none", !frecuenciaRadios.some((radio) => radio.checked));
+                };
+
+                frecuenciaRadios.forEach((radio) => radio.addEventListener("change", syncFrecuenciaLimpiar));
+                frecuenciaLimpiar.addEventListener("click", () => {
+                    frecuenciaRadios.forEach((radio) => { radio.checked = false; });
+                    syncFrecuenciaLimpiar();
+                });
+
+                syncFrecuenciaLimpiar();
+            }
+
+            // Seccion 3: lista de apositos/medicamentos. Hay cuatro ranuras fijas en el DOM; se
+            // muestran de forma progresiva y al retirar una las siguientes suben para que no queden
+            // huecos (el servidor tambien compacta, pero asi el formulario se ve consistente).
+            const apositosContainer = document.getElementById("apositosContainer");
+            if (apositosContainer) {
+                const apositoLimite = document.getElementById("apositoLimite");
+                const apositoAgregar = document.getElementById("apositoAgregar");
+                const apositoSlots = [...apositosContainer.querySelectorAll("[data-aposito-slot]")];
+                const maximoApositos = apositoSlots.length;
+                const apositoOptions = [...document.querySelectorAll("#apositoMedicamentoOptions option")]
+                    .map((option) => option.value);
+                const apositoNoListadoMessage = "Selecciona un apósito o medicamento del listado.";
+
+                const slotInput = (slot) => slot.querySelector("[data-aposito-input]");
+                const slotMensaje = (slot) => slot.querySelector("[data-valmsg-for]");
+                const slotVisible = (slot) => !slot.classList.contains("d-none");
+
+                const visibles = () => apositoSlots.filter(slotVisible).length;
+
+                const setApositoMensaje = (slot, texto) => {
+                    const mensaje = slotMensaje(slot);
+                    if (!mensaje) {
+                        return;
+                    }
+
+                    mensaje.textContent = texto;
+                    mensaje.classList.toggle("field-validation-error", !!texto);
+                    mensaje.classList.toggle("field-validation-valid", !texto);
+                };
+
+                const getCanonicalAposito = (value) => {
+                    const buscado = String(value || "").trim().toLocaleUpperCase("es-CO");
+                    if (!buscado) {
+                        return "";
+                    }
+
+                    return apositoOptions.find((option) => option.toLocaleUpperCase("es-CO") === buscado) || "";
+                };
+
+                const syncAgregarState = () => {
+                    const total = visibles();
+                    const lleno = total >= maximoApositos;
+                    apositoAgregar?.classList.toggle("d-none", lleno);
+                    apositoLimite?.classList.toggle("d-none", !lleno);
+                };
+
+                const validarAposito = (slot) => {
+                    const input = slotInput(slot);
+                    if (!input || !slotVisible(slot)) {
+                        setApositoMensaje(slot, "");
+                        return true;
+                    }
+
+                    const valor = String(input.value || "").trim();
+                    if (!valor) {
+                        setApositoMensaje(slot, "");
+                        return true;
+                    }
+
+                    const canonico = getCanonicalAposito(valor);
+                    if (!canonico) {
+                        setApositoMensaje(slot, apositoNoListadoMessage);
+                        return false;
+                    }
+
+                    input.value = canonico;
+                    setApositoMensaje(slot, "");
+                    return true;
+                };
+
+                // Al retirar una ranura, los valores de las siguientes se corren un puesto.
+                const compactar = () => {
+                    const valores = apositoSlots
+                        .filter(slotVisible)
+                        .map((slot) => String(slotInput(slot)?.value || "").trim())
+                        .filter((valor) => valor.length > 0);
+
+                    apositoSlots.forEach((slot, indice) => {
+                        const input = slotInput(slot);
+                        if (input) {
+                            input.value = valores[indice] || "";
+                        }
+
+                        setApositoMensaje(slot, "");
+                        // La primera ranura siempre queda a la vista, aunque este vacia.
+                        const debeVerse = indice === 0 || indice < valores.length;
+                        slot.classList.toggle("d-none", !debeVerse);
+                    });
+
+                    syncAgregarState();
+                };
+
+                apositoAgregar?.addEventListener("click", () => {
+                    const siguiente = apositoSlots.find((slot) => !slotVisible(slot));
+                    if (!siguiente) {
+                        return;
+                    }
+
+                    siguiente.classList.remove("d-none");
+                    syncAgregarState();
+                    slotInput(siguiente)?.focus();
+                });
+
+                apositoSlots.forEach((slot) => {
+                    const input = slotInput(slot);
+                    input?.addEventListener("change", () => validarAposito(slot));
+                    input?.addEventListener("blur", () => validarAposito(slot));
+                    input?.addEventListener("input", () => setApositoMensaje(slot, ""));
+
+                    slot.querySelector("[data-aposito-quitar]")?.addEventListener("click", () => {
+                        const input = slotInput(slot);
+                        if (input) {
+                            input.value = "";
+                        }
+
+                        slot.classList.add("d-none");
+                        compactar();
+                    });
+                });
+
+                syncAgregarState();
+
+                form?.addEventListener("submit", (event) => {
+                    const submitAction = event.submitter?.getAttribute("formaction") || "";
+                    if (!submitAction.includes("GuardarClinicaHeridasManejoHerida")) {
+                        return;
+                    }
+
+                    const invalido = apositoSlots.filter(slotVisible).find((slot) => !validarAposito(slot));
+                    if (invalido) {
+                        event.preventDefault();
+                        slotInput(invalido)?.focus();
+                    }
+                });
+            }
+
+            // Visor de fotos de los seguimientos: la miniatura de la tarjeta abre el original.
+            const visor = document.getElementById("heridaFotoVisor");
+            if (visor) {
+                const visorImagen = visor.querySelector("[data-herida-visor-imagen]");
+                const visorTitulo = visor.querySelector("[data-herida-visor-titulo]");
+                const modalVisor = new bootstrap.Modal(visor);
+
+                document.querySelectorAll("[data-herida-foto]").forEach((boton) => {
+                    boton.addEventListener("click", () => {
+                        visorImagen.src = boton.dataset.heridaFoto;
+                        visorImagen.alt = boton.dataset.heridaFotoTitulo || "Foto de la herida";
+                        visorTitulo.textContent = boton.dataset.heridaFotoTitulo || "Foto de la herida";
+                        modalVisor.show();
+                    });
+                });
+
+                visor.addEventListener("hidden.bs.modal", () => {
+                    visorImagen.removeAttribute("src");
+                });
+            }
+
+            form?.addEventListener("submit", (event) => {
+                const submitAction = event.submitter?.getAttribute("formaction") || "";
+
+                if (submitAction.includes("GuardarClinicaHeridasSeguimientoHospitalizado")) {
+                    if (!syncIpsIntramuralValidation(true)) {
+                        event.preventDefault();
+                        ipsIntramuralInput?.focus();
+                    }
+                    return;
+                }
+
+                if (submitAction.includes("GuardarClinicaHeridasManejoHerida")
+                    || submitAction.includes("GuardarClinicaHeridasActivoFijo")
+                    || submitAction.includes("GuardarClinicaHeridasDevolucionProductos")
+                    || submitAction.includes("GuardarClinicaHeridasAltaPrograma")) {
+                    return;
+                }
+
+                sanitizeNombrePaciente();
+
+                if (!syncAuxiliarValidation(true)) {
+                    event.preventDefault();
+                    auxiliarEnfermeriaInput?.focus();
+                    return;
+                }
+
+                if (direccionInput?.value.trim() && !direccionValidada && !asumirDireccionCheck?.checked) {
+                    event.preventDefault();
+                    setDireccionMessage("warning", "Debes validar la dirección o marcar 'Asumir dirección errada y continuar'.");
+                    direccionInput?.focus();
+                }
+            });
+        })();
+    </script>

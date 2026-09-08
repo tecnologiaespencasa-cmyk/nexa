@@ -1,0 +1,610 @@
+@model CensoReceptionViewModel
+@*
+    Modales de este programa (kardex, requisicion, confirmaciones).
+
+    Se renderizan fuera de .censo-page a proposito: esa capa declara isolation: isolate, que
+    crea su propio contexto de apilamiento. Un modal declarado dentro queda atrapado en el,
+    mientras Bootstrap cuelga el fondo oscuro del body, y el fondo termina tapando al modal:
+    la pantalla se ve negra y no se puede interactuar ni cerrar.
+*@
+@*
+    Formulario del programa dentro de la pantalla unica de censo.
+
+    Es el mismo marcado que tenia la pantalla independiente y envia a la misma accion, para
+    que kardex, requisiciones, farmacia y prorrogas sigan funcionando igual. Los cambios son
+    dos: los identificadores de panel llevan el prefijo del programa, porque los cinco
+    conviven ahora en un mismo documento, y los campos que subieron al maestro de paciente
+    viajan ocultos, para que la validacion de este censo siga recibiendo el modelo completo.
+*@
+@using Nexa.Data.Entities
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Programa Agudos";
+    var hasNursingAssistants = Model.NursingAssistantOptions.Any();
+    var successMessage = TempData["SuccessMessage"] as string;
+    var saveErrorMessages = ViewData.ModelState.Values
+        .SelectMany(x => x.Errors)
+        .Select(x => x.ErrorMessage?.Trim())
+        .Where(x => !string.IsNullOrWhiteSpace(x))
+        .Cast<string>()
+        .Distinct()
+        .ToList();
+    var missingMandatorySections = ViewData["MissingMandatorySections"] as IReadOnlyList<string> ?? Array.Empty<string>();
+    var shouldShowSaveErrorModal = ViewData["ShowSaveErrorModal"] is true && saveErrorMessages.Count > 0;
+    var showCurrentPatientBar = !string.IsNullOrWhiteSpace(Model.CedulaFiltro) && Model.EditingRecordId.HasValue;
+    var currentPatientAdmissionAt = Model.FechaIngreso.Date + Model.HoraIngreso;
+    var kardexTelefonos = string.Join(" / ", new[] { Model.Telefono1, Model.Telefono2, Model.Telefono3 }
+        .Where(x => !string.IsNullOrWhiteSpace(x)));
+    var kardexDocumento = string.Join(" ", new[] { Model.TipoIdentificacion, Model.NumeroIdentificacion }
+        .Where(x => !string.IsNullOrWhiteSpace(x)));
+    var kardexTiempoTratamiento = !string.IsNullOrWhiteSpace(Model.DiasTratamientoIv)
+        ? Model.DiasTratamientoIv
+        : Model.DiasMedicamentoPrincipal?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+    var kardexFechaInicio = Model.FechaInicioTratamiento?.ToString("dd/MM/yyyy") ?? string.Empty;
+    var kardexFechaFin = Model.FechaFinTratamiento?.ToString("dd/MM/yyyy") ?? string.Empty;
+    var medicamentoCatalogJson = JsonSerializer.Serialize(Model.MedicamentoCatalog);
+    var censoColumnOrder = new[]
+    {
+        nameof(CensoRecord.Id),
+        nameof(CensoRecord.Asegurador),
+        nameof(CensoRecord.EsProrroga),
+        nameof(CensoRecord.FechaIngreso),
+        nameof(CensoRecord.HoraIngreso),
+        nameof(CensoRecord.FechaRespuesta),
+        nameof(CensoRecord.HoraRespuesta),
+        nameof(CensoRecord.FechaGestionFarmacia),
+        nameof(CensoRecord.HoraGestionFarmacia),
+        nameof(CensoRecord.GestionCompletaPendiente),
+        nameof(CensoRecord.IndicadorTiempoRespuestaMinutos),
+        nameof(CensoRecord.IndicadorTiempoGestionMinutos),
+        nameof(CensoRecord.NombrePerfilGestionaCaso),
+        nameof(CensoRecord.NombreRecepcionaCaso),
+        nameof(CensoRecord.NombreRealizaKardex),
+        nameof(CensoRecord.NombrePaciente),
+        nameof(CensoRecord.TipoIdentificacion),
+        nameof(CensoRecord.NumeroIdentificacion),
+        nameof(CensoRecord.CodigoCie10),
+        nameof(CensoRecord.DiagnosticoDescriptivo),
+        nameof(CensoRecord.FechaNacimiento),
+        nameof(CensoRecord.Edad),
+        nameof(CensoRecord.CorreoElectronico),
+        nameof(CensoRecord.Direccion),
+        nameof(CensoRecord.ClasificacionZonaSura),
+        nameof(CensoRecord.MunicipioResidencia),
+        nameof(CensoRecord.Barrio),
+        nameof(CensoRecord.ZonaDireccionSegunMunicipio),
+        nameof(CensoRecord.Area),
+        nameof(CensoRecord.IpsQueRemite),
+        nameof(CensoRecord.VistoBuenoRangoFueraAnexo),
+        nameof(CensoRecord.Telefono1),
+        nameof(CensoRecord.Telefono2),
+        nameof(CensoRecord.Telefono3),
+        nameof(CensoRecord.ClasificacionRiesgo),
+        nameof(CensoRecord.AdministracionMedicamentos),
+        nameof(CensoRecord.NombreMedicamentoPrincipalTratante),
+        nameof(CensoRecord.DosisMedicamentoPrincipal),
+        nameof(CensoRecord.MedidaMedicamentoPrincipal),
+        nameof(CensoRecord.ViaAdministracionMedicamentoPrincipal),
+        nameof(CensoRecord.FrecuenciaAdministracionMxPrincipal),
+        nameof(CensoRecord.DiasMedicamentoPrincipal),
+        nameof(CensoRecord.NumeroDosisDiaMedicamentoPrincipal),
+        nameof(CensoRecord.NombreMedicamentoNumero2),
+        nameof(CensoRecord.DosisMedicamento2),
+        nameof(CensoRecord.MedidaMedicamento2),
+        nameof(CensoRecord.ViaAdministracionMedicamento2),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento2),
+        nameof(CensoRecord.DiasMedicamento2),
+        nameof(CensoRecord.NumeroDosisMedicamento2),
+        nameof(CensoRecord.NombreMedicamentoNumero3),
+        nameof(CensoRecord.DosisMedicamento3),
+        nameof(CensoRecord.MedidaMedicamento3),
+        nameof(CensoRecord.ViaAdministracionMedicamento3),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento3),
+        nameof(CensoRecord.DiasMedicamento3),
+        nameof(CensoRecord.NumeroDosisMedicamento3),
+        nameof(CensoRecord.NombreMedicamentoNumero4),
+        nameof(CensoRecord.DosisMedicamento4),
+        nameof(CensoRecord.MedidaMedicamento4),
+        nameof(CensoRecord.ViaAdministracionMedicamento4),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento4),
+        nameof(CensoRecord.DiasMedicamento4),
+        nameof(CensoRecord.NumeroDosisMedicamento4),
+        nameof(CensoRecord.NombreMedicamentoNumero5),
+        nameof(CensoRecord.DosisMedicamento5),
+        nameof(CensoRecord.MedidaMedicamento5),
+        nameof(CensoRecord.ViaAdministracionMedicamento5),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento5),
+        nameof(CensoRecord.DiasMedicamento5),
+        nameof(CensoRecord.NumeroDosisMedicamento5),
+        nameof(CensoRecord.NombreMedicamentoNumero6),
+        nameof(CensoRecord.DosisMedicamento6),
+        nameof(CensoRecord.MedidaMedicamento6),
+        nameof(CensoRecord.ViaAdministracionMedicamento6),
+        nameof(CensoRecord.FrecuenciaAdministracionMedicamento6),
+        nameof(CensoRecord.DiasMedicamento6),
+        nameof(CensoRecord.NumeroDosisMedicamento6),
+        nameof(CensoRecord.AplicacionesTotales),
+        nameof(CensoRecord.DiasTratamientoIv),
+        nameof(CensoRecord.CambioFrecuenciaAdministracionTto),
+        nameof(CensoRecord.FrecuenciaAjustada),
+        nameof(CensoRecord.MedicamentoFrecuenciaAjustada),
+        nameof(CensoRecord.FechaInicioTratamiento),
+        nameof(CensoRecord.FechaFinTratamiento),
+        nameof(CensoRecord.FechaPromesaInicioTto),
+        nameof(CensoRecord.HoraPromesaInicioTto),
+        nameof(CensoRecord.AuxiliarAsignado),
+        nameof(CensoRecord.Estado),
+        nameof(CensoRecord.AutorizacionEvento),
+        nameof(CensoRecord.ResponsableLlamadaBienvenida),
+        nameof(CensoRecord.EstadoLlamadaBienvenida),
+        nameof(CensoRecord.ObservacionesPlanManejo),
+        nameof(CensoRecord.NumeroTelefonoLlamadaBienvenida),
+        nameof(CensoRecord.NumeroDiasAutorizado),
+        nameof(CensoRecord.RequiereServiciosComplementarios),
+        nameof(CensoRecord.Programa),
+        nameof(CensoRecord.ServicioComplementario),
+        nameof(CensoRecord.PacienteGestante),
+        nameof(CensoRecord.Nebulizaciones),
+        nameof(CensoRecord.SistemasPresionNegativaVac),
+        nameof(CensoRecord.NutricionParenteral),
+        nameof(CensoRecord.NutricionEnteral),
+        nameof(CensoRecord.PacienteAnticoagulado),
+        nameof(CensoRecord.LaboratorioClinicoProcedimiento),
+        nameof(CensoRecord.ClinicaHeridas),
+        nameof(CensoRecord.Aislamiento),
+        nameof(CensoRecord.TipoAislamiento),
+        nameof(CensoRecord.CateterismoOSv),
+        nameof(CensoRecord.CateterPicc),
+        nameof(CensoRecord.NumeroCalibreSonda),
+        nameof(CensoRecord.FechaUltimoCambioSonda),
+        nameof(CensoRecord.AuxiliarAsignadoCateterismo),
+        nameof(CensoRecord.FechaProximoCambioSonda),
+        nameof(CensoRecord.FechaUltimaCuracionPicc),
+        nameof(CensoRecord.FechaAlta),
+        nameof(CensoRecord.NombreQuienGestionaAlta),
+        nameof(CensoRecord.AltaTardia),
+        nameof(CensoRecord.FechaPrimerSeguimiento24Horas),
+        nameof(CensoRecord.FechaSegundoSeguimiento48Horas),
+        nameof(CensoRecord.FechaTercerSeguimiento72Horas),
+        nameof(CensoRecord.ObservacionAltaTardia),
+        nameof(CensoRecord.NombreQuienRealizaSeguimientoAltaTardia),
+        nameof(CensoRecord.PacienteRehospitalizado),
+        nameof(CensoRecord.FechaRegistroReporteRehospitalizacion),
+        nameof(CensoRecord.FechaRehospitalizacion),
+        nameof(CensoRecord.MotivoRehospitalizacion),
+        nameof(CensoRecord.AmpliacionMotivoRehospitalizacion),
+        nameof(CensoRecord.RemitidoPorRehospitalizacion),
+        nameof(CensoRecord.IpsIntramuralRehospitalizacion),
+        nameof(CensoRecord.FechaPrimerSeguimientoRehospitalizacion),
+        nameof(CensoRecord.FechaSegundoSeguimientoRehospitalizacion),
+        nameof(CensoRecord.FechaTercerSeguimientoRehospitalizacion),
+        nameof(CensoRecord.FechaAltaHospitalizacion),
+        nameof(CensoRecord.ObservacionRehospitalizacion),
+        nameof(CensoRecord.FechaNovedadDevolucionProductos),
+        nameof(CensoRecord.MotivoNovedadDevolucionProductos),
+        nameof(CensoRecord.NotificacionAuxiliarDevolucionProductos),
+        nameof(CensoRecord.FechaMaximaDevolucionProductos),
+        nameof(CensoRecord.EstadoDevolucionServicioFarmaceutico),
+        nameof(CensoRecord.CreatedAtUtc)
+    };
+    var hiddenCensoTableColumns = new HashSet<string>
+    {
+        nameof(CensoRecord.KardexEdicionJson),
+        nameof(CensoRecord.RequisicionFarmaciaJson),
+        nameof(CensoRecord.ProrrogaKardexEdicionJson),
+        nameof(CensoRecord.ProrrogaRequisicionFarmaciaJson),
+        nameof(CensoRecord.ProrrogaJson),
+        nameof(CensoRecord.DireccionValidada),
+        nameof(CensoRecord.AsumirDireccionErrada),
+        nameof(CensoRecord.FarmaciaEnviadoAtUtc),
+        nameof(CensoRecord.FarmaciaKardexVistoAtUtc),
+        nameof(CensoRecord.FarmaciaRequisicionVistoAtUtc),
+        nameof(CensoRecord.FarmaciaNombreRecibe),
+        nameof(CensoRecord.FarmaciaFirmaEntregaDataUrl),
+        nameof(CensoRecord.FarmaciaFirmaRecibeDataUrl),
+        nameof(CensoRecord.FarmaciaFechaHoraRecepcionUtc),
+        nameof(CensoRecord.FarmaciaFirmaActualizadaAtUtc),
+        nameof(CensoRecord.Adjuntos),
+        nameof(CensoRecord.Prorrogas)
+    };
+    var censoTableColumns = typeof(CensoRecord).GetProperties()
+        .Where(property => !hiddenCensoTableColumns.Contains(property.Name))
+        .Select((property, index) => new
+        {
+            Property = property,
+            OriginalIndex = index,
+            PriorityIndex = Array.IndexOf(censoColumnOrder, property.Name)
+        })
+        .OrderBy(item => item.PriorityIndex >= 0 ? item.PriorityIndex : int.MaxValue)
+        .ThenBy(item => item.OriginalIndex)
+        .Select(item => item.Property)
+        .ToArray();
+    var censoColumnTitleOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        [nameof(CensoRecord.Id)] = "Número de registro",
+        [nameof(CensoRecord.CreatedAtUtc)] = "Fecha de creación",
+        [nameof(CensoRecord.EsProrroga)] = "Tiene prórroga",
+        [nameof(CensoRecord.KardexCerradoAtUtc)] = "Fecha de cierre del Kardex",
+        [nameof(CensoRecord.KardexCerradoPorFarmaciaId)] = "Registro de Farmacia que cerró el Kardex",
+        [nameof(CensoRecord.ProrrogaCerradaAtUtc)] = "Fecha de cierre de la prórroga",
+        [nameof(CensoRecord.ProrrogaCerradaPorFarmaciaId)] = "Registro de Farmacia que cerró la prórroga",
+        [nameof(CensoRecord.FechaGestionFarmacia)] = "Fecha de envío a Farmacia",
+        [nameof(CensoRecord.HoraGestionFarmacia)] = "Hora de envío a Farmacia",
+        [nameof(CensoRecord.IndicadorTiempoRespuestaMinutos)] = "Tiempo de respuesta (minutos)",
+        [nameof(CensoRecord.IndicadorTiempoGestionMinutos)] = "Tiempo de gestión en Farmacia (minutos)"
+    };
+    Func<string, string> humanizeColumnTitle = name =>
+    {
+        var title = System.Text.RegularExpressions.Regex.Replace(name, "([a-z0-9])([A-Z])", "$1 $2");
+        return title
+            .Replace(" Utc", " UTC", StringComparison.OrdinalIgnoreCase)
+            .Replace(" Id", " ID", StringComparison.OrdinalIgnoreCase)
+            .Replace("Cie 10", "CIE10", StringComparison.OrdinalIgnoreCase)
+            .Replace("Ips", "IPS", StringComparison.OrdinalIgnoreCase)
+            .Replace("Tto", "TTO", StringComparison.OrdinalIgnoreCase)
+            .Replace("Mx", "MX", StringComparison.OrdinalIgnoreCase);
+    };
+    Func<string, string> getCensoColumnTitle = name => censoColumnTitleOverrides.TryGetValue(name, out var title)
+        ? title
+        : humanizeColumnTitle(name);
+    var prorrogaColumnTitleOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Prorroga_Numero"] = "Número de prórroga",
+        ["Prorroga_Cerrada"] = "Prórroga cerrada",
+        ["Prorroga_TipoProrroga"] = "Tipo de prórroga",
+        ["Prorroga_SeguimientoMedico"] = "Seguimiento médico"
+    };
+    Func<string, string> getProrrogaColumnTitle = name => prorrogaColumnTitleOverrides.TryGetValue(name, out var title)
+        ? title
+        : $"Prórroga - {humanizeColumnTitle(name.Replace("Prorroga_", string.Empty, StringComparison.OrdinalIgnoreCase))}";
+}
+
+<div class="modal fade censo-kardex-modal" id="censoKardexModal" tabindex="-1" aria-labelledby="censoKardexModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header censo-document-header">
+                <div class="censo-document-header__title">
+                    <span class="censo-card-heading__eyebrow">Gesti&oacute;n</span>
+                    <h5 class="modal-title" id="censoKardexModalTitle">Gestionar kardex y requisici&oacute;n</h5>
+                    <span class="censo-document-context-badge" id="censoDocumentContextBadge" aria-live="polite"></span>
+                </div>
+                <div class="censo-document-switch censo-document-switch--header" role="tablist" aria-label="Seleccionar documento">
+                    <button type="button" class="censo-document-switch__button active" id="censoKardexTabButton" data-censo-document-target="kardex" role="tab" aria-selected="true" aria-controls="censoKardexPane">Kardex</button>
+                    <button type="button" class="censo-document-switch__button" id="censoRequisicionTabButton" data-censo-document-target="requisicion" role="tab" aria-selected="false" aria-controls="censoRequisicionPane">Requisici&oacute;n</button>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning d-none censo-document-closed-banner" id="censoDocumentClosedBanner" role="alert">
+                    <strong>Kardex cerrado.</strong> Este kardex y su requisici&oacute;n ya fueron aprobados por farmacia y quedan solo para consulta.
+                </div>
+                <section class="censo-document-pane active" id="censoKardexPane" data-censo-document-pane="kardex" role="tabpanel" aria-labelledby="censoKardexTabButton">
+                <div class="censo-kardex-sheet" aria-label="Kardex aplicaci&oacute;n de medicamentos">
+                    <div class="censo-kardex-sheet__head">
+                        <div class="censo-kardex-sheet__logo">
+                            <img src="~/images/logo.png" asp-append-version="true" alt="Especialistas En Casa" />
+                        </div>
+                        <div class="censo-kardex-sheet__title">KARDEX APLICACI&Oacute;N DE MEDICAMENTOS</div>
+                        <div class="censo-kardex-sheet__meta">
+                            <label>C&oacute;digo:<input data-kardex-field="codigoFormato" value="FO-SEF-07" /></label>
+                            <label>Versi&oacute;n:<input data-kardex-field="versionFormato" value="04" /></label>
+                            <label>pagina:<input data-kardex-field="paginaFormato" value="1 de 1" /></label>
+                            <label>Fecha:<input data-kardex-field="fechaFormato" value="01/05/2026" /></label>
+                        </div>
+                    </div>
+
+                    <div class="censo-kardex-patient-table">
+                        <div class="censo-kardex-section-title censo-kardex-section-title--patient">Datos del paciente</div>
+                        <div class="censo-kardex-section-title censo-kardex-section-title--payer">Asegurador</div>
+                        <div class="censo-kardex-section-title censo-kardex-section-title--diagnosis">Diagn&oacute;stico descriptivo</div>
+
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Paciente:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="paciente" value="@Model.NombrePaciente" />
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Asegurador:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="asegurador" value="@Model.Asegurador" />
+                        <textarea class="censo-kardex-patient-table__cell censo-kardex-patient-table__diagnosis" data-kardex-field="diagnostico" aria-label="Diagn&oacute;stico descriptivo">@Model.DiagnosticoDescriptivo</textarea>
+
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Documento de identidad:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="documento" value="@kardexDocumento" />
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Peso:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="peso" />
+
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Direccion:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="direccion" value="@Model.Direccion" />
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">Edad:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="edad" value="@Model.Edad" />
+
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">telefonos:</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="telefonos" value="@kardexTelefonos" />
+                        <label class="censo-kardex-patient-table__cell censo-kardex-patient-table__label">CIE10</label>
+                        <input class="censo-kardex-patient-table__cell" data-kardex-field="cie10" value="@Model.CodigoCie10" />
+                    </div>
+
+                    <div class="censo-kardex-section-title censo-kardex-section-title--full">Registro de aplicaci&oacute;n de medicamentos</div>
+                    <div class="censo-kardex-med-table" role="table" aria-label="Medicamentos kardex">
+                        <div class="censo-kardex-med-table__header" role="row">
+                            <span>PRESENTACION<br />MEDICAMENTOS</span>
+                            <span>DOSIS Y FRECUENCIA</span>
+                            <span>VEHICULO DE RECONSTITUCION</span>
+                            <span>VOLUMEN DE DILUCI&Oacute;N</span>
+                            <span>TIEMPO DE INFUSI&Oacute;N</span>
+                            <span>ES FOTOSENSIBLE</span>
+                            <span>CADENA DE FRIO</span>
+                            <span>Aislamiento</span>
+                            <span>ESTABILIDAD</span>
+                            <span>BOMBA DE INFUSI&Oacute;N</span>
+                            <span>FECHA INICIO</span>
+                            <span>FECHA FIN</span>
+                        </div>
+                        @for (var kardexRow = 1; kardexRow <= 6; kardexRow++)
+                        {
+                            <div class="censo-kardex-med-table__row @(kardexRow > 1 ? "d-none" : "")" role="row" data-kardex-med-row="@kardexRow">
+                                <textarea aria-label="Presentaci&oacute;n medicamentos @kardexRow" data-kardex-med-field="presentacion">Medicamento @kardexRow</textarea>
+                                <textarea aria-label="Dosis y frecuencia @kardexRow" data-kardex-med-field="dosisFrecuencia"></textarea>
+                                <textarea aria-label="Veh&iacute;culo de reconstituci&oacute;n @kardexRow" data-kardex-med-field="vehiculoReconstitucion"></textarea>
+                                <input aria-label="Volumen de diluci&oacute;n @kardexRow" data-kardex-med-field="volumenDilucion" />
+                                <input aria-label="Tiempo de infusi&oacute;n @kardexRow" data-kardex-med-field="tiempoInfusion" />
+                                <input aria-label="Es fotosensible @kardexRow" data-kardex-med-field="fotosensible" />
+                                <input aria-label="Cadena de frio @kardexRow" data-kardex-med-field="cadenaFrio" />
+                                <input aria-label="Aislamiento @kardexRow" data-kardex-med-field="aislamiento" />
+                                <input aria-label="Estabilidad @kardexRow" data-kardex-med-field="estabilidad" />
+                                <input aria-label="Bomba de infusi&oacute;n @kardexRow" data-kardex-med-field="bombaInfusion" />
+                                <input aria-label="Fecha inicio @kardexRow" data-kardex-med-field="fechaInicio" />
+                                <input aria-label="Fecha fin @kardexRow" data-kardex-med-field="fechaFin" />
+                            </div>
+                        }
+                    </div>
+
+                    <div class="censo-kardex-footer-table">
+                        <label>OBSERVACI&Oacute;N:</label>
+                        <textarea data-kardex-field="observaciones"></textarea>
+                        <label>Cambio de equipo:</label>
+                        <input data-kardex-field="cambioEquipo" value="CADA 3 DIAS" />
+                        <label>MEDICO TRATANTE</label>
+                        <input data-kardex-field="medicoTratante" />
+                        <label>PROGRAMADOR:</label>
+                        <input data-kardex-field="programador" value="@Model.ResponsableLlamadaBienvenida" />
+                        <label>AUXILIAR ASIGNADO</label>
+                        <input data-kardex-field="auxiliarAsignado" value="@Model.AuxiliarAsignado" />
+                    </div>
+                </div>
+                </section>
+                <section class="censo-document-pane" id="censoRequisicionPane" data-censo-document-pane="requisicion" role="tabpanel" aria-labelledby="censoRequisicionTabButton">
+                    <div class="censo-requisition-sheet" aria-label="Requisici&oacute;n aplicaci&oacute;n de medicamentos">
+                        <div class="censo-requisition-sheet__head">
+                            <div class="censo-requisition-sheet__logo">
+                                <img src="~/images/logo.png" asp-append-version="true" alt="Especialistas En Casa" />
+                            </div>
+                            <div class="censo-requisition-sheet__title">REQUISICI&Oacute;N APLICACI&Oacute;N DE MEDICAMENTOS</div>
+                            <div class="censo-requisition-sheet__meta">
+                                <label>C&oacute;digo:<input data-requisition-field="codigoFormato" value="FO-SEF-07" /></label>
+                                <label>Versi&oacute;n:<input data-requisition-field="versionFormato" value="03" /></label>
+                                <label>pagina:<input data-requisition-field="paginaFormato" value="1 de 1" /></label>
+                                <label>Fecha:<input data-requisition-field="fechaFormato" value="01/05/2026" /></label>
+                            </div>
+                        </div>
+
+                        <div class="censo-requisition-section-title">RESPONSABLES</div>
+                        <div class="censo-requisition-responsibles">
+                            <label>AUXILIAR ENCARGADO</label>
+                            <input data-requisition-field="auxiliarEncargado" value="@Model.AuxiliarAsignado" />
+                            <label>REALIZADO POR</label>
+                            <input data-requisition-field="realizadoPor" value="@Model.NombreRealizaKardex" />
+                        </div>
+
+                        <div class="censo-requisition-section-title">DATOS DEL PACIENTE</div>
+                        <div class="censo-requisition-patient">
+                            <label>Paciente:</label>
+                            <input data-requisition-field="paciente" value="@Model.NombrePaciente" />
+                            <label>AUTORIZACION</label>
+                            <input data-requisition-field="autorizacion" value="@Model.AutorizacionEvento" />
+
+                            <label>Documento identidad:</label>
+                            <input data-requisition-field="documento" value="@Model.NumeroIdentificacion" />
+                            <label>Fecha de solicitud:</label>
+                            <input data-requisition-field="fechaSolicitud" />
+
+                            <label>Direccion:</label>
+                            <input data-requisition-field="direccion" value="@Model.Direccion" />
+                            <label>telefonos:</label>
+                            <input data-requisition-field="telefonos" value="@kardexTelefonos" />
+
+                            <label>Diagnostico</label>
+                            <input class="censo-requisition-patient__diagnosis" data-requisition-field="diagnostico" value="@($"{Model.CodigoCie10} {Model.DiagnosticoDescriptivo}".Trim())" />
+                        </div>
+
+                        <div class="censo-requisition-section-title censo-requisition-section-title--center">DETALLE DE LA REQUISICI&Oacute;N</div>
+                        <div class="censo-requisition-detail" role="table" aria-label="Detalle de la requisici&oacute;n">
+                            <div class="censo-requisition-detail__header" role="row">
+                                <span>Item</span>
+                                <span>DESCRIPCION</span>
+                                <span>DETALLE</span>
+                                <span>CANTIDAD</span>
+                                <span>Fecha de inicio</span>
+                                <span>Fecha de finalizaci&oacute;n</span>
+                            </div>
+                            @for (var requisicionRow = 1; requisicionRow <= 16; requisicionRow++)
+                            {
+                                <div class="censo-requisition-detail__row" role="row" data-requisition-row="@requisicionRow">
+                                    <input aria-label="Item @requisicionRow" data-requisition-item-field="item" value="@requisicionRow" />
+                                    <input aria-label="Descripci&oacute;n @requisicionRow" data-requisition-item-field="descripcion" />
+                                    <input aria-label="Detalle @requisicionRow" data-requisition-item-field="detalle" />
+                                    <input aria-label="Cantidad @requisicionRow" data-requisition-item-field="cantidad" />
+                                    <input aria-label="Fecha de inicio @requisicionRow" data-requisition-item-field="fechaInicio" />
+                                    <input aria-label="Fecha de finalizaci&oacute;n @requisicionRow" data-requisition-item-field="fechaFin" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <div class="censo-adjuntos-panel px-3 pb-2 border-top pt-2">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <strong class="small">Adjuntos</strong>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="subirAdjuntoBtn" title="Subir PDF o archivo de hoja de cálculo">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Subir archivo
+                    </button>
+                    <input type="file" id="adjuntoFileInput" accept=".pdf,.xls,.xlsx,.xlsm,.xlsb,.xlt,.xltx,.xltm,.ods,application/pdf" class="d-none" aria-label="Seleccionar PDF o archivo de hoja de cálculo" />
+                    <span id="adjuntoUploadStatus" class="small text-muted"></span>
+                </div>
+                <ul class="list-group list-group-flush censo-adjuntos-list" id="adjuntosList" style="max-height:140px;overflow-y:auto;"></ul>
+            </div>
+            <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="serviciosCargadosSwitch" />
+                    <label class="form-check-label fw-semibold" for="serviciosCargadosSwitch">Servicios cargados</label>
+                </div>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <span id="reaperturaStatusNote" class="small text-warning-emphasis fw-semibold d-none" aria-live="polite"></span>
+                    <button type="button" class="btn btn-outline-warning d-none" id="solicitarReaperturaBtn" title="Solicitar reapertura de kardex">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>
+                        <span>Solicitar reapertura de kardex</span>
+                    </button>
+                    <button type="button" class="btn btn-success d-none" id="aprobarReaperturaBtn" title="Aprobar reapertura de kardex">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Aprobar reapertura</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger d-none" id="rechazarReaperturaBtn" title="Rechazar reapertura de kardex">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <span>Rechazar</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-outline-success" id="guardarDocumentosBtn">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle;margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <span>Guardar</span>
+                    </button>
+                    <div id="enviarFarmaciaKardexBtnWrapper" style="display:inline-block;">
+                        <button type="button" class="btn btn-primary censo-kardex-send-button" id="enviarFarmaciaKardexBtn" disabled>
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path d="M21 3L3 10.2l6.7 2.6 2.7 8.2 3.2-5.1 5.4 4.1L21 3z"></path>
+                                <path d="M9.7 12.8L21 3"></path>
+                            </svg>
+                            <span>Enviar a farmacia</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="censoReaperturaModal" tabindex="-1" aria-labelledby="censoReaperturaModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="censoReaperturaModalTitle">Solicitar reapertura de kardex</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Selecciona el motivo de la reapertura. La solicitud se enviar&aacute; a gerencia y requiere la aprobaci&oacute;n de un supervisor.</p>
+                <div id="reaperturaMotivosContainer">
+                    @for (var motivoIndex = 0; motivoIndex < Model.ReaperturaMotivos.Count; motivoIndex++)
+                    {
+                        var motivo = Model.ReaperturaMotivos[motivoIndex];
+                        var motivoId = $"reaperturaMotivo_{motivoIndex}";
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="reaperturaMotivo" id="@motivoId" value="@motivo" />
+                            <label class="form-check-label" for="@motivoId">@motivo</label>
+                        </div>
+                    }
+                </div>
+                <div id="reaperturaMotivoError" class="text-danger small mt-2 d-none">Selecciona un motivo.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="confirmarReaperturaBtn">Enviar solicitud</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="censoFeedbackModal" tabindex="-1" aria-labelledby="censoFeedbackModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" id="censoFeedbackModalHeader">
+                <h5 class="modal-title" id="censoFeedbackModalTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="censoFeedbackModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="censoAltaConfirmModal" tabindex="-1" aria-labelledby="censoAltaConfirmModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="censoAltaConfirmModalTitle">Cerrar atenci&oacute;n</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar" id="censoAltaCancelarBtnClose"></button>
+            </div>
+            <div class="modal-body">
+                <p id="censoAltaConfirmModalMessage">La atenci&oacute;n de este paciente ser&aacute; cerrada. &iquest;Est&aacute;s seguro que deseas continuar?</p>
+                <p class="text-muted small mb-0" id="censoAltaConfirmModalDetail">Las secciones 1, 2 y 3 quedar&aacute;n bloqueadas en modo de solo lectura.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="censoAltaCancelarBtn" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="censoAltaConfirmarBtn">S&iacute;, cerrar atenci&oacute;n</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="censoNuevoIngresoConflictModal" tabindex="-1" aria-labelledby="censoNuevoIngresoConflictModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="censoNuevoIngresoConflictModalTitle">Atenci&oacute;n anterior abierta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">&iquest;Est&aacute;s seguro de que esta atenci&oacute;n es un evento nuevo?</p>
+                <p class="text-muted small mb-0" id="censoNuevoIngresoConflictDetail"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="censoNuevoIngresoNoBtn">No</button>
+                <button type="button" class="btn btn-primary" id="censoNuevoIngresoSiBtn">S&iacute;</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="censoNuevoIngresoGuidanceModal" tabindex="-1" aria-labelledby="censoNuevoIngresoGuidanceModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="censoNuevoIngresoGuidanceModalTitle">Atenci&oacute;n anterior abierta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0" id="censoNuevoIngresoGuidanceMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="censoAdicionalProrrogaConfirmModal" tabindex="-1" aria-labelledby="censoAdicionalProrrogaConfirmModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="censoAdicionalProrrogaConfirmModalTitle">Crear pr&oacute;rroga adicional</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Se abrir&aacute; un formulario nuevo para registrar otra pr&oacute;rroga del paciente.</p>
+                <p class="text-muted small mb-0">La informaci&oacute;n de las pr&oacute;rrogas anteriores se conservar&aacute; solo para consulta.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmarAdicionalProrrogaBtn">Aceptar</button>
+            </div>
+        </div>
+    </div>
+</div>
+

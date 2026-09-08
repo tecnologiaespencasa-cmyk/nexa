@@ -366,6 +366,37 @@ intranet guarda el mismo resumen técnico bajo las acciones
 
 ---
 
+## 9 bis. Estado de los ingresos al programa (2026-09-07)
+
+El puente publica además, por paciente, **una fila por ingreso al programa** en
+`bridge.ingresos_heridas`: su número de orden (1 = primera atención) y si sigue abierto
+(`activo` / `cerrado`). Nada más: ni fechas, ni motivos de egreso, ni datos clínicos.
+
+Sirve para que el Portal Administrativo sepa **si puede seguir registrando seguimientos**
+—no debe hacerlo si el paciente recibió el alta— y **sobre cuál ingreso cargarlos** cuando
+el paciente reingresa al mismo programa.
+
+- **Escritura:** va dentro de la misma función `public.bridge_sync_pacientes_heridas`, en
+  la clave opcional `"i"` de cada paciente. Se hizo así, y no con una función aparte,
+  porque la Edge Function atiende una sola petición firmada y el anti-replay consume el
+  `requestId` una única vez; además todo el cambio entra en una transacción.
+- **Lectura:** nueva Edge Function `estado-paciente-heridas`, que recibe el documento,
+  calcula el HMAC dentro de Supabase y devuelve el estado. Es la consulta que anticipaba
+  §2 para la fase 2, aplicada al estado en lugar de al nombre.
+- **Compatibilidad:** `"i"` es opcional en los dos sentidos. Una intranet que no lo envíe
+  funciona igual y no se le borra nada; una función desplegada que no lo entienda ignora
+  el campo.
+- **Numeración:** el número de ingreso es la posición de la fila en
+  `censo_clinica_heridas` entre las del mismo documento, ordenadas por fecha de ingreso al
+  programa. Es estable porque en el censo las filas no se borran.
+
+Migración: `supabase/migrations/20260907170000_bridge_ingresos_heridas.sql`.
+Instrucciones para el equipo del portal: `docs/portal-seguimientos-por-ingreso.md`.
+
+Esto **relaja a propósito** la regla original de "nunca se almacena estado" (§4). El
+mínimo publicado —un ordinal y activo/cerrado, atado a un HMAC— es lo que el portal
+necesita para no registrar sobre un programa cerrado.
+
 ## 10. Riesgos y decisiones pendientes
 
 - **PII en tránsito hacia Supabase.** Documento y nombre reales viajan por HTTPS y se
