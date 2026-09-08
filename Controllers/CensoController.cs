@@ -156,16 +156,14 @@ public partial class CensoController : Controller
         [nameof(CensoReceptionViewModel.ObservacionesPlanManejo)] = 3,
         [nameof(CensoReceptionViewModel.NumeroDiasAutorizado)] = 3,
         [nameof(CensoReceptionViewModel.RequiereServiciosComplementarios)] = 3,
-        [nameof(CensoReceptionViewModel.Programa)] = 3,
+        [nameof(CensoReceptionViewModel.RequiereCuidador)] = 3,
         [nameof(CensoReceptionViewModel.ServicioComplementario)] = 3,
         [nameof(CensoReceptionViewModel.PacienteGestante)] = 3,
         [nameof(CensoReceptionViewModel.Nebulizaciones)] = 3,
-        [nameof(CensoReceptionViewModel.SistemasPresionNegativaVac)] = 3,
         [nameof(CensoReceptionViewModel.NutricionParenteral)] = 3,
         [nameof(CensoReceptionViewModel.NutricionEnteral)] = 3,
         [nameof(CensoReceptionViewModel.PacienteAnticoagulado)] = 3,
         [nameof(CensoReceptionViewModel.LaboratorioClinicoProcedimiento)] = 3,
-        [nameof(CensoReceptionViewModel.ClinicaHeridas)] = 3,
         [nameof(CensoReceptionViewModel.Aislamiento)] = 3,
         [nameof(CensoReceptionViewModel.TipoAislamiento)] = 3,
         [nameof(CensoReceptionViewModel.CateterismoOSv)] = 3,
@@ -287,7 +285,6 @@ public partial class CensoController : Controller
     ];
     private static readonly string[] ClasificacionRiesgoValues = ["Bajo", "Medio", "Alto"];
     private static readonly string[] AdministracionMedicamentosValues = ["Si", "No"];
-    private static readonly string[] ProgramaValues = ["Agudo", "Cronico"];
     private static readonly string[] CambioFrecuenciaAdministracionTtoValues = ["Si", "No"];
     private static readonly string[] ServicioComplementarioValues =
     [
@@ -779,16 +776,14 @@ public partial class CensoController : Controller
         model.NumeroTelefonoLlamadaBienvenida = model.NumeroTelefonoLlamadaBienvenida?.Trim();
         model.NumeroDiasAutorizado = model.NumeroDiasAutorizado?.Trim();
         model.RequiereServiciosComplementarios = model.RequiereServiciosComplementarios?.Trim();
-        model.Programa = model.Programa?.Trim();
+        model.RequiereCuidador = model.RequiereCuidador?.Trim();
         model.ServicioComplementario = NormalizeServiciosComplementarios(model.ServicioComplementario);
         model.PacienteGestante = model.PacienteGestante?.Trim();
         model.Nebulizaciones = model.Nebulizaciones?.Trim();
-        model.SistemasPresionNegativaVac = model.SistemasPresionNegativaVac?.Trim();
         model.NutricionParenteral = model.NutricionParenteral?.Trim();
         model.NutricionEnteral = model.NutricionEnteral?.Trim();
         model.PacienteAnticoagulado = model.PacienteAnticoagulado?.Trim();
         model.LaboratorioClinicoProcedimiento = model.LaboratorioClinicoProcedimiento?.Trim();
-        model.ClinicaHeridas = model.ClinicaHeridas?.Trim();
         model.Aislamiento = model.Aislamiento?.Trim();
         model.TipoAislamiento = model.TipoAislamiento?.Trim();
         model.CateterismoOSv = model.CateterismoOSv?.Trim();
@@ -3273,16 +3268,14 @@ public partial class CensoController : Controller
         model.NumeroTelefonoLlamadaBienvenida = record.NumeroTelefonoLlamadaBienvenida;
         model.NumeroDiasAutorizado = record.NumeroDiasAutorizado;
         model.RequiereServiciosComplementarios = record.RequiereServiciosComplementarios;
-        model.Programa = record.Programa;
+        model.RequiereCuidador = record.RequiereCuidador;
         model.ServicioComplementario = record.ServicioComplementario;
         model.PacienteGestante = record.PacienteGestante;
         model.Nebulizaciones = record.Nebulizaciones;
-        model.SistemasPresionNegativaVac = record.SistemasPresionNegativaVac;
         model.NutricionParenteral = record.NutricionParenteral;
         model.NutricionEnteral = record.NutricionEnteral;
         model.PacienteAnticoagulado = record.PacienteAnticoagulado;
         model.LaboratorioClinicoProcedimiento = record.LaboratorioClinicoProcedimiento;
-        model.ClinicaHeridas = record.ClinicaHeridas;
         model.Aislamiento = record.Aislamiento;
         model.TipoAislamiento = record.TipoAislamiento;
         model.CateterismoOSv = record.CateterismoOSv;
@@ -3467,16 +3460,14 @@ public partial class CensoController : Controller
             censoRecord.ObservacionesPlanManejo = string.IsNullOrWhiteSpace(model.ObservacionesPlanManejo) ? null : model.ObservacionesPlanManejo;
             censoRecord.NumeroTelefonoLlamadaBienvenida = string.IsNullOrWhiteSpace(model.NumeroTelefonoLlamadaBienvenida) ? null : model.NumeroTelefonoLlamadaBienvenida;
             censoRecord.RequiereServiciosComplementarios = string.IsNullOrWhiteSpace(model.RequiereServiciosComplementarios) ? null : model.RequiereServiciosComplementarios;
-            censoRecord.Programa = string.IsNullOrWhiteSpace(model.Programa) ? null : model.Programa;
+            censoRecord.RequiereCuidador = string.IsNullOrWhiteSpace(model.RequiereCuidador) ? null : model.RequiereCuidador;
             censoRecord.ServicioComplementario = string.IsNullOrWhiteSpace(model.ServicioComplementario) ? null : model.ServicioComplementario;
             censoRecord.PacienteGestante = string.IsNullOrWhiteSpace(model.PacienteGestante) ? null : model.PacienteGestante;
             censoRecord.Nebulizaciones = string.IsNullOrWhiteSpace(model.Nebulizaciones) ? null : model.Nebulizaciones;
-            censoRecord.SistemasPresionNegativaVac = string.IsNullOrWhiteSpace(model.SistemasPresionNegativaVac) ? null : model.SistemasPresionNegativaVac;
             censoRecord.NutricionParenteral = string.IsNullOrWhiteSpace(model.NutricionParenteral) ? null : model.NutricionParenteral;
             censoRecord.NutricionEnteral = string.IsNullOrWhiteSpace(model.NutricionEnteral) ? null : model.NutricionEnteral;
             censoRecord.PacienteAnticoagulado = string.IsNullOrWhiteSpace(model.PacienteAnticoagulado) ? null : model.PacienteAnticoagulado;
             censoRecord.LaboratorioClinicoProcedimiento = string.IsNullOrWhiteSpace(model.LaboratorioClinicoProcedimiento) ? null : model.LaboratorioClinicoProcedimiento;
-            censoRecord.ClinicaHeridas = string.IsNullOrWhiteSpace(model.ClinicaHeridas) ? null : model.ClinicaHeridas;
             censoRecord.Aislamiento = string.IsNullOrWhiteSpace(model.Aislamiento) ? null : model.Aislamiento;
             censoRecord.TipoAislamiento = string.IsNullOrWhiteSpace(model.TipoAislamiento) ? null : model.TipoAislamiento;
             censoRecord.CateterismoOSv = string.IsNullOrWhiteSpace(model.CateterismoOSv) ? null : model.CateterismoOSv;
@@ -3628,7 +3619,6 @@ public partial class CensoController : Controller
         model.CambioFrecuenciaAdministracionTtoOptions = BuildOptions(CambioFrecuenciaAdministracionTtoValues);
         model.FrecuenciaAjustadaOptions = BuildOptions(FrecuenciaAjustadaValues);
         model.SiNoOptions = BuildOptions(AdministracionMedicamentosValues);
-        model.ProgramaOptions = BuildOptions(ProgramaValues);
         model.TipoAislamientoOptions = BuildOptions(TipoAislamientoValues);
         model.ServicioComplementarioOptions = BuildOptions(ServicioComplementarioValues);
         model.EstadoOptions = BuildOptions(EstadoValues);
@@ -3986,14 +3976,13 @@ public partial class CensoController : Controller
         {
             AddRequiredFieldErrorIfBlank(model.ServicioComplementario, nameof(model.ServicioComplementario), "Selecciona el servicio complementario.");
         }
+        AddRequiredFieldErrorIfBlank(model.RequiereCuidador, nameof(model.RequiereCuidador), "Selecciona si el paciente requiere cuidador.");
         AddRequiredFieldErrorIfBlank(model.PacienteGestante, nameof(model.PacienteGestante), "Selecciona si el paciente es gestante.");
         AddRequiredFieldErrorIfBlank(model.Nebulizaciones, nameof(model.Nebulizaciones), "Selecciona si tiene nebulizaciones.");
-        AddRequiredFieldErrorIfBlank(model.SistemasPresionNegativaVac, nameof(model.SistemasPresionNegativaVac), "Selecciona si tiene sistemas de presion negativa VAC.");
         AddRequiredFieldErrorIfBlank(model.NutricionParenteral, nameof(model.NutricionParenteral), "Selecciona si tiene nutricion parenteral.");
         AddRequiredFieldErrorIfBlank(model.NutricionEnteral, nameof(model.NutricionEnteral), "Selecciona si tiene nutricion enteral.");
         AddRequiredFieldErrorIfBlank(model.PacienteAnticoagulado, nameof(model.PacienteAnticoagulado), "Selecciona si el paciente esta anticoagulado.");
         AddRequiredFieldErrorIfBlank(model.LaboratorioClinicoProcedimiento, nameof(model.LaboratorioClinicoProcedimiento), "Selecciona si tiene laboratorio clinico/procedimiento.");
-        AddRequiredFieldErrorIfBlank(model.ClinicaHeridas, nameof(model.ClinicaHeridas), "Selecciona si tiene clinica de heridas.");
         AddRequiredFieldErrorIfBlank(model.Aislamiento, nameof(model.Aislamiento), "Selecciona si requiere aislamiento.");
         if (string.Equals(model.Aislamiento, "Si", StringComparison.OrdinalIgnoreCase))
         {
@@ -4340,7 +4329,7 @@ public partial class CensoController : Controller
 
         ValidateHoraPromesaInicioTto(model);
         ValidateSiNoField(model.RequiereServiciosComplementarios, nameof(model.RequiereServiciosComplementarios), "requiere servicios complementarios");
-        ValidateOptionField(model.Programa, ProgramaValues, nameof(model.Programa), "un programa válido");
+        ValidateSiNoField(model.RequiereCuidador, nameof(model.RequiereCuidador), "requiere cuidador");
         if (string.Equals(model.RequiereServiciosComplementarios, "Si", StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(model.ServicioComplementario))
@@ -4363,12 +4352,10 @@ public partial class CensoController : Controller
         }
         ValidateSiNoField(model.PacienteGestante, nameof(model.PacienteGestante), "paciente gestante");
         ValidateSiNoField(model.Nebulizaciones, nameof(model.Nebulizaciones), "nebulizaciones");
-        ValidateSiNoField(model.SistemasPresionNegativaVac, nameof(model.SistemasPresionNegativaVac), "sistemas de presion negativa VAC");
         ValidateSiNoField(model.NutricionParenteral, nameof(model.NutricionParenteral), "nutricion parenteral");
         ValidateSiNoField(model.NutricionEnteral, nameof(model.NutricionEnteral), "nutricion enteral");
         ValidateSiNoField(model.PacienteAnticoagulado, nameof(model.PacienteAnticoagulado), "paciente anticoagulado");
         ValidateSiNoField(model.LaboratorioClinicoProcedimiento, nameof(model.LaboratorioClinicoProcedimiento), "laboratorio clinico/procedimiento");
-        ValidateSiNoField(model.ClinicaHeridas, nameof(model.ClinicaHeridas), "clinica de heridas");
         ValidateSiNoField(model.Aislamiento, nameof(model.Aislamiento), "aislamiento");
         if (string.Equals(model.Aislamiento, "Si", StringComparison.OrdinalIgnoreCase))
         {
@@ -4679,14 +4666,13 @@ public partial class CensoController : Controller
         {
             model.ServicioComplementario = null;
         }
+        model.RequiereCuidador = NormalizeSiNoDefault(model.RequiereCuidador);
         model.PacienteGestante = NormalizeSiNoDefault(model.PacienteGestante);
         model.Nebulizaciones = NormalizeSiNoDefault(model.Nebulizaciones);
-        model.SistemasPresionNegativaVac = NormalizeSiNoDefault(model.SistemasPresionNegativaVac);
         model.NutricionParenteral = NormalizeSiNoDefault(model.NutricionParenteral);
         model.NutricionEnteral = NormalizeSiNoDefault(model.NutricionEnteral);
         model.PacienteAnticoagulado = NormalizeSiNoDefault(model.PacienteAnticoagulado);
         model.LaboratorioClinicoProcedimiento = NormalizeSiNoDefault(model.LaboratorioClinicoProcedimiento);
-        model.ClinicaHeridas = NormalizeSiNoDefault(model.ClinicaHeridas);
         model.Aislamiento = NormalizeSiNoDefault(model.Aislamiento);
         if (!string.Equals(model.Aislamiento, "Si", StringComparison.OrdinalIgnoreCase))
         {
@@ -5506,16 +5492,14 @@ public partial class CensoController : Controller
         AppendHeaderCell(sb, "NumeroTelefonoLlamadaBienvenida");
         AppendHeaderCell(sb, "NumeroDiasAutorizado");
         AppendHeaderCell(sb, "RequiereServiciosComplementarios");
-        AppendHeaderCell(sb, "Programa");
+        AppendHeaderCell(sb, "RequiereCuidador");
         AppendHeaderCell(sb, "ServicioComplementario");
         AppendHeaderCell(sb, "PacienteGestante");
         AppendHeaderCell(sb, "Nebulizaciones");
-        AppendHeaderCell(sb, "SistemasPresionNegativaVac");
         AppendHeaderCell(sb, "NutricionParenteral");
         AppendHeaderCell(sb, "NutricionEnteral");
         AppendHeaderCell(sb, "PacienteAnticoagulado");
         AppendHeaderCell(sb, "LaboratorioClinicoProcedimiento");
-        AppendHeaderCell(sb, "ClinicaHeridas");
         AppendHeaderCell(sb, "Aislamiento");
         AppendHeaderCell(sb, "TipoAislamiento");
         AppendHeaderCell(sb, "CateterismoOSv");
@@ -5710,16 +5694,14 @@ public partial class CensoController : Controller
             AppendDataCell(sb, item.NumeroTelefonoLlamadaBienvenida ?? string.Empty);
             AppendDataCell(sb, item.NumeroDiasAutorizado ?? string.Empty);
             AppendDataCell(sb, item.RequiereServiciosComplementarios ?? string.Empty);
-            AppendDataCell(sb, item.Programa ?? string.Empty);
+            AppendDataCell(sb, item.RequiereCuidador ?? string.Empty);
             AppendDataCell(sb, item.ServicioComplementario ?? string.Empty);
             AppendDataCell(sb, item.PacienteGestante ?? string.Empty);
             AppendDataCell(sb, item.Nebulizaciones ?? string.Empty);
-            AppendDataCell(sb, item.SistemasPresionNegativaVac ?? string.Empty);
             AppendDataCell(sb, item.NutricionParenteral ?? string.Empty);
             AppendDataCell(sb, item.NutricionEnteral ?? string.Empty);
             AppendDataCell(sb, item.PacienteAnticoagulado ?? string.Empty);
             AppendDataCell(sb, item.LaboratorioClinicoProcedimiento ?? string.Empty);
-            AppendDataCell(sb, item.ClinicaHeridas ?? string.Empty);
             AppendDataCell(sb, item.Aislamiento ?? string.Empty);
             AppendDataCell(sb, item.TipoAislamiento ?? string.Empty);
             AppendDataCell(sb, item.CateterismoOSv ?? string.Empty);

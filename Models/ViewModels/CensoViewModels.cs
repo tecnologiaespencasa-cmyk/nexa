@@ -361,9 +361,8 @@ public class CensoReceptionViewModel
     [Display(Name = "Requiere servicios complementarios")]
     public string? RequiereServiciosComplementarios { get; set; }
 
-    [StringLength(10, ErrorMessage = "El programa no puede superar 10 caracteres.")]
-    [Display(Name = "Programa")]
-    public string? Programa { get; set; }
+    [Display(Name = "Requiere cuidador")]
+    public string? RequiereCuidador { get; set; }
 
     [StringLength(500, ErrorMessage = "Los servicios complementarios no pueden superar 500 caracteres.")]
     [Display(Name = "Servicio complementario")]
@@ -374,9 +373,6 @@ public class CensoReceptionViewModel
 
     [Display(Name = "Nebulizaciones")]
     public string? Nebulizaciones { get; set; }
-
-    [Display(Name = "Sistemas de presión negativa VAC")]
-    public string? SistemasPresionNegativaVac { get; set; }
 
     [Display(Name = "Nutrición parenteral")]
     public string? NutricionParenteral { get; set; }
@@ -389,9 +385,6 @@ public class CensoReceptionViewModel
 
     [Display(Name = "Laboratorio clínico/Procedimiento")]
     public string? LaboratorioClinicoProcedimiento { get; set; }
-
-    [Display(Name = "Clínica de heridas")]
-    public string? ClinicaHeridas { get; set; }
 
     [Display(Name = "Aislamiento")]
     public string? Aislamiento { get; set; }
@@ -636,7 +629,6 @@ public class CensoReceptionViewModel
     public IReadOnlyList<SelectListItem> CambioFrecuenciaAdministracionTtoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> FrecuenciaAjustadaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> SiNoOptions { get; set; } = [];
-    public IReadOnlyList<SelectListItem> ProgramaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> TipoAislamientoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> ServicioComplementarioOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoOptions { get; set; } = [];

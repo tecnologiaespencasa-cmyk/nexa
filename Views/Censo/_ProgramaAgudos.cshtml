@@ -133,16 +133,14 @@
         nameof(CensoRecord.NumeroTelefonoLlamadaBienvenida),
         nameof(CensoRecord.NumeroDiasAutorizado),
         nameof(CensoRecord.RequiereServiciosComplementarios),
-        nameof(CensoRecord.Programa),
+        nameof(CensoRecord.RequiereCuidador),
         nameof(CensoRecord.ServicioComplementario),
         nameof(CensoRecord.PacienteGestante),
         nameof(CensoRecord.Nebulizaciones),
-        nameof(CensoRecord.SistemasPresionNegativaVac),
         nameof(CensoRecord.NutricionParenteral),
         nameof(CensoRecord.NutricionEnteral),
         nameof(CensoRecord.PacienteAnticoagulado),
         nameof(CensoRecord.LaboratorioClinicoProcedimiento),
-        nameof(CensoRecord.ClinicaHeridas),
         nameof(CensoRecord.Aislamiento),
         nameof(CensoRecord.TipoAislamiento),
         nameof(CensoRecord.CateterismoOSv),
@@ -1182,11 +1180,9 @@
                                         <span asp-validation-for="RequiereServiciosComplementarios" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="Programa" class="form-label"></label>
-                                        <select asp-for="Programa" asp-items="Model.ProgramaOptions" class="form-select">
-                                            <option value="">Selecciona...</option>
-                                        </select>
-                                        <span asp-validation-for="Programa" class="text-danger"></span>
+                                        <label asp-for="RequiereCuidador" class="form-label"></label>
+                                        <select asp-for="RequiereCuidador" asp-items="Model.SiNoOptions" class="form-select"></select>
+                                        <span asp-validation-for="RequiereCuidador" class="text-danger"></span>
                                     </div>
                                     <div class="col-12 d-none" id="servicioComplementarioContainer">
                                         <label class="form-label">Servicio complementario</label>
@@ -1217,11 +1213,6 @@
                                         <span asp-validation-for="Nebulizaciones" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="SistemasPresionNegativaVac" class="form-label"></label>
-                                        <select asp-for="SistemasPresionNegativaVac" asp-items="Model.SiNoOptions" class="form-select"></select>
-                                        <span asp-validation-for="SistemasPresionNegativaVac" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-4">
                                         <label asp-for="NutricionParenteral" class="form-label"></label>
                                         <select asp-for="NutricionParenteral" asp-items="Model.SiNoOptions" class="form-select"></select>
                                         <span asp-validation-for="NutricionParenteral" class="text-danger"></span>
@@ -1240,11 +1231,6 @@
                                         <label asp-for="LaboratorioClinicoProcedimiento" class="form-label"></label>
                                         <select asp-for="LaboratorioClinicoProcedimiento" asp-items="Model.SiNoOptions" class="form-select"></select>
                                         <span asp-validation-for="LaboratorioClinicoProcedimiento" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-4">
-                                        <label asp-for="ClinicaHeridas" class="form-label"></label>
-                                        <select asp-for="ClinicaHeridas" asp-items="Model.SiNoOptions" class="form-select"></select>
-                                        <span asp-validation-for="ClinicaHeridas" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="Aislamiento" class="form-label"></label>

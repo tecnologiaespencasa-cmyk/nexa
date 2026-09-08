@@ -299,16 +299,14 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.NumeroTelefonoLlamadaBienvenida).HasMaxLength(20);
             entity.Property(x => x.NumeroDiasAutorizado).HasMaxLength(50);
             entity.Property(x => x.RequiereServiciosComplementarios).HasMaxLength(2);
-            entity.Property(x => x.Programa).HasMaxLength(10);
+            entity.Property(x => x.RequiereCuidador).HasMaxLength(2);
             entity.Property(x => x.ServicioComplementario).HasMaxLength(80);
             entity.Property(x => x.PacienteGestante).HasMaxLength(2);
             entity.Property(x => x.Nebulizaciones).HasMaxLength(2);
-            entity.Property(x => x.SistemasPresionNegativaVac).HasMaxLength(2);
             entity.Property(x => x.NutricionParenteral).HasMaxLength(2);
             entity.Property(x => x.NutricionEnteral).HasMaxLength(2);
             entity.Property(x => x.PacienteAnticoagulado).HasMaxLength(2);
             entity.Property(x => x.LaboratorioClinicoProcedimiento).HasMaxLength(2);
-            entity.Property(x => x.ClinicaHeridas).HasMaxLength(2);
             entity.Property(x => x.Aislamiento).HasMaxLength(2);
             entity.Property(x => x.TipoAislamiento).HasMaxLength(20);
             entity.Property(x => x.CateterismoOSv).HasMaxLength(2);

@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Nexa.Data.Entities;
 
@@ -304,8 +304,8 @@ public class CensoRecord
     [StringLength(2)]
     public string? RequiereServiciosComplementarios { get; set; }
 
-    [StringLength(10)]
-    public string? Programa { get; set; }
+    [StringLength(2)]
+    public string? RequiereCuidador { get; set; }
 
     [StringLength(500)]
     public string? ServicioComplementario { get; set; }
@@ -315,9 +315,6 @@ public class CensoRecord
 
     [StringLength(2)]
     public string? Nebulizaciones { get; set; }
-
-    [StringLength(2)]
-    public string? SistemasPresionNegativaVac { get; set; }
 
     [StringLength(2)]
     public string? NutricionParenteral { get; set; }
@@ -330,9 +327,6 @@ public class CensoRecord
 
     [StringLength(2)]
     public string? LaboratorioClinicoProcedimiento { get; set; }
-
-    [StringLength(2)]
-    public string? ClinicaHeridas { get; set; }
 
     [StringLength(2)]
     public string? Aislamiento { get; set; }
