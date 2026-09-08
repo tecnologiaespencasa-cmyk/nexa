@@ -8,9 +8,6 @@
     ViewData["Title"] = "Programa Cronicos";
     var successMessage = TempData["SuccessMessage"] as string;
     var errorMessage = TempData["ErrorMessage"] as string;
-    var hasAuxiliares = Model.AuxiliarEnfermeriaOptions.Any();
-    var clinicaHeridasActiva = string.Equals(Model.ClinicaHeridas, "Si", StringComparison.OrdinalIgnoreCase);
-    var programaNutricionActiva = string.Equals(Model.ProgramaNutricion, "Si", StringComparison.OrdinalIgnoreCase);
     var sondaVesicalActiva = string.Equals(Model.SondaVesical, "Si", StringComparison.OrdinalIgnoreCase);
     var mipresPanalesActivo = string.Equals(Model.MipresPanales, "Si", StringComparison.OrdinalIgnoreCase);
     var mipresNutricionActivo = string.Equals(Model.MipresNutricion, "Si", StringComparison.OrdinalIgnoreCase);
@@ -62,12 +59,6 @@
             const riesgoLesionPielInput = document.getElementById("riesgoLesionPielInput");
             const escalaMorseInput = document.getElementById("escalaMorseInput");
             const riesgoCaidaInput = document.getElementById("riesgoCaidaInput");
-            const clinicaHeridasSelect = document.getElementById("clinicaHeridasSelect");
-            const estadoClinicaHeridasSelect = document.getElementById("estadoClinicaHeridasSelect");
-            const auxiliarNutricionInput = document.getElementById("auxiliarNutricionInput");
-            const auxiliarNutricionOptions = Array.from(document.querySelectorAll("#auxiliarNutricionOptions option"))
-                .map((option) => option.value || "")
-                .filter((value) => value.trim());
             let direccionValidada = @Model.DireccionEsValida.ToString().ToLowerInvariant();
             let latestAddressCandidates = [];
             let barriosLoaded = barrioSelect
@@ -133,33 +124,6 @@
                     : currentValue.replace(/\D/g, "").slice(0, 20);
             };
 
-            const getAuxiliarValidationMessage = () =>
-                document.querySelector("[data-valmsg-for='AuxiliarAsignadoNutricion']");
-            const getCanonicalAuxiliarValue = (value) => {
-                const normalized = String(value || "").trim().toLocaleUpperCase("es-CO");
-                if (!normalized) return "";
-                return auxiliarNutricionOptions.find((item) => item.trim().toLocaleUpperCase("es-CO") === normalized) || "";
-            };
-            const syncAuxiliarValidation = (showInvalidMessage = false) => {
-                if (!auxiliarNutricionInput) return true;
-                const value = String(auxiliarNutricionInput.value || "").trim();
-                const canonicalValue = getCanonicalAuxiliarValue(value);
-                const messageElement = getAuxiliarValidationMessage();
-                if (canonicalValue) {
-                    auxiliarNutricionInput.value = canonicalValue;
-                    if (messageElement) messageElement.textContent = "";
-                    return true;
-                }
-                if (!value) {
-                    if (messageElement) messageElement.textContent = "";
-                    return true;
-                }
-                if (showInvalidMessage && messageElement) {
-                    messageElement.textContent = auxiliarNutricionOptions.length === 0
-                        ? "No hay auxiliares OPS activos para asignar."
-                        : "Selecciona un auxiliar OPS válido.";
-                }
-                return false;
             };
 
             const setDireccionValidada = (value) => {
@@ -452,34 +416,6 @@
             escalaMorseInput?.addEventListener("input", calcularRiesgoCaida);
             calcularRiesgoCaida();
 
-            const syncEstadoClinicaHeridas = () => {
-                if (!clinicaHeridasSelect || !estadoClinicaHeridasSelect) return;
-                const activo = String(clinicaHeridasSelect.value || "").trim().toUpperCase() === "SI";
-                estadoClinicaHeridasSelect.disabled = !activo;
-                if (!activo) estadoClinicaHeridasSelect.value = "";
-            };
-            clinicaHeridasSelect?.addEventListener("change", syncEstadoClinicaHeridas);
-            syncEstadoClinicaHeridas();
-
-            const programaNutricionSelect = document.getElementById("programaNutricionSelect");
-            const programaNutricionFields = document.getElementById("programaNutricionFields");
-            const syncProgramaNutricion = () => {
-                if (!programaNutricionFields) return;
-                const activo = String(programaNutricionSelect?.value || "").trim().toUpperCase() === "SI";
-                programaNutricionFields.classList.toggle("d-none", !activo);
-                if (!activo) {
-                    const fechaInicio = document.getElementById("FechaInicioNutricion");
-                    const fechaFin = document.getElementById("FechaFinNutricion");
-                    if (fechaInicio) fechaInicio.value = "";
-                    if (fechaFin) fechaFin.value = "";
-                    if (auxiliarNutricionInput) auxiliarNutricionInput.value = "";
-                    const auxMsg = getAuxiliarValidationMessage();
-                    if (auxMsg) auxMsg.textContent = "";
-                }
-            };
-            programaNutricionSelect?.addEventListener("change", syncProgramaNutricion);
-            syncProgramaNutricion();
-
             const sondaVesicalSelect = document.getElementById("sondaVesicalSelect");
             const sondaVesicalFields = document.getElementById("sondaVesicalFields");
             const frecuenciaCambioSondaVesicalInput = document.getElementById("frecuenciaCambioSondaVesicalInput");
@@ -557,10 +493,6 @@
             };
             mipresNutricionSelect?.addEventListener("change", syncMipresNutricion);
             syncMipresNutricion();
-
-            auxiliarNutricionInput?.addEventListener("input", () => syncAuxiliarValidation(false));
-            auxiliarNutricionInput?.addEventListener("change", () => syncAuxiliarValidation(true));
-            auxiliarNutricionInput?.addEventListener("blur", () => syncAuxiliarValidation(true));
 
             numeroIdentificacionInput?.addEventListener("input", syncNumeroIdentificacionMode);
             tipoIdentificacionSelect?.addEventListener("change", syncNumeroIdentificacionMode);

@@ -16,9 +16,6 @@
     ViewData["Title"] = "Programa Cronicos";
     var successMessage = TempData["SuccessMessage"] as string;
     var errorMessage = TempData["ErrorMessage"] as string;
-    var hasAuxiliares = Model.AuxiliarEnfermeriaOptions.Any();
-    var clinicaHeridasActiva = string.Equals(Model.ClinicaHeridas, "Si", StringComparison.OrdinalIgnoreCase);
-    var programaNutricionActiva = string.Equals(Model.ProgramaNutricion, "Si", StringComparison.OrdinalIgnoreCase);
     var sondaVesicalActiva = string.Equals(Model.SondaVesical, "Si", StringComparison.OrdinalIgnoreCase);
     var mipresPanalesActivo = string.Equals(Model.MipresPanales, "Si", StringComparison.OrdinalIgnoreCase);
     var mipresNutricionActivo = string.Equals(Model.MipresNutricion, "Si", StringComparison.OrdinalIgnoreCase);
@@ -264,58 +261,16 @@
                                     </div>
                                     <div class="row g-3 censo-field-section__grid">
                                         <div class="col-lg-3">
-                                            <label asp-for="ClinicaHeridas" class="form-label"></label>
-                                            <select asp-for="ClinicaHeridas" asp-items="Model.SiNoOptions" class="form-select" id="clinicaHeridasSelect">
-                                            </select>
-                                            <span asp-validation-for="ClinicaHeridas" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="EstadoClinicaHeridas" class="form-label"></label>
-                                            <select asp-for="EstadoClinicaHeridas" asp-items="Model.EstadoClinicaHeridasOptions" class="form-select" id="estadoClinicaHeridasSelect" disabled="@(clinicaHeridasActiva ? null : "disabled")">
-                                                <option value=""></option>
-                                            </select>
-                                            <span asp-validation-for="EstadoClinicaHeridas" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="ProgramaNutricion" class="form-label"></label>
-                                            <select asp-for="ProgramaNutricion" asp-items="Model.SiNoOptions" class="form-select" id="programaNutricionSelect">
-                                            </select>
-                                            <span asp-validation-for="ProgramaNutricion" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-3">
                                             <label asp-for="EducacionPlanCuidados" class="form-label"></label>
                                             <select asp-for="EducacionPlanCuidados" asp-items="Model.SiNoOptions" class="form-select">
                                             </select>
                                             <span asp-validation-for="EducacionPlanCuidados" class="text-danger"></span>
                                         </div>
-                                        <div class="col-12 @(programaNutricionActiva ? null : "d-none")" id="programaNutricionFields">
-                                            <div class="row g-3">
-                                                <div class="col-lg-4">
-                                                    <label asp-for="FechaInicioNutricion" class="form-label"></label>
-                                                    <input asp-for="FechaInicioNutricion" type="date" class="form-control" />
-                                                    <span asp-validation-for="FechaInicioNutricion" class="text-danger"></span>
-                                                </div>
-                                                <div class="col-lg-4">
-                                                    <label asp-for="AuxiliarAsignadoNutricion" class="form-label"></label>
-                                                    <input asp-for="AuxiliarAsignadoNutricion" class="form-control" maxlength="120" id="auxiliarNutricionInput" list="auxiliarNutricionOptions" autocomplete="off" placeholder="Buscar auxiliar asignado" />
-                                                    <datalist id="auxiliarNutricionOptions">
-                                                        @foreach (var assistant in Model.AuxiliarEnfermeriaOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
-                                                        {
-                                                            <option value="@assistant.Value">@assistant.Text</option>
-                                                        }
-                                                    </datalist>
-                                                    @if (!hasAuxiliares)
-                                                    {
-                                                        <div class="form-text">No hay auxiliares OPS activos para asignar.</div>
-                                                    }
-                                                    <span asp-validation-for="AuxiliarAsignadoNutricion" class="text-danger"></span>
-                                                </div>
-                                                <div class="col-lg-4">
-                                                    <label asp-for="FechaFinNutricion" class="form-label"></label>
-                                                    <input asp-for="FechaFinNutricion" type="date" class="form-control" />
-                                                    <span asp-validation-for="FechaFinNutricion" class="text-danger"></span>
-                                                </div>
-                                            </div>
+                                        <div class="col-lg-3">
+                                            <label asp-for="RequiereCuidador" class="form-label"></label>
+                                            <select asp-for="RequiereCuidador" asp-items="Model.SiNoOptions" class="form-select">
+                                            </select>
+                                            <span asp-validation-for="RequiereCuidador" class="text-danger"></span>
                                         </div>
                                     </div>
                                 </section>

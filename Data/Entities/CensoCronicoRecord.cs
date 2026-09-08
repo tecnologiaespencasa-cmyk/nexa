@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Nexa.Data.Entities;
 
@@ -116,23 +116,10 @@ public class CensoCronicoRecord
 
     // ----- Sección 3: Validaciones -----
     [StringLength(2)]
-    public string? ClinicaHeridas { get; set; }
-
-    [StringLength(20)]
-    public string? EstadoClinicaHeridas { get; set; }
-
-    [StringLength(2)]
-    public string? ProgramaNutricion { get; set; }
-
-    public DateTime? FechaInicioNutricion { get; set; }
-
-    [StringLength(120)]
-    public string? AuxiliarAsignadoNutricion { get; set; }
-
-    public DateTime? FechaFinNutricion { get; set; }
-
-    [StringLength(2)]
     public string? EducacionPlanCuidados { get; set; }
+
+    [StringLength(2)]
+    public string? RequiereCuidador { get; set; }
 
     [StringLength(2)]
     public string? TerapiaFisica { get; set; }

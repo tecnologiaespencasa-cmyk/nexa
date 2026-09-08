@@ -640,13 +640,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.Nyha).HasMaxLength(50);
             entity.Property(x => x.RiesgoLesionPiel).HasMaxLength(50);
             entity.Property(x => x.RiesgoCaida).HasMaxLength(50);
-            entity.Property(x => x.ClinicaHeridas).HasMaxLength(2);
-            entity.Property(x => x.EstadoClinicaHeridas).HasMaxLength(20);
-            entity.Property(x => x.ProgramaNutricion).HasMaxLength(2);
-            entity.Property(x => x.FechaInicioNutricion).HasColumnType("date");
-            entity.Property(x => x.AuxiliarAsignadoNutricion).HasMaxLength(120);
-            entity.Property(x => x.FechaFinNutricion).HasColumnType("date");
             entity.Property(x => x.EducacionPlanCuidados).HasMaxLength(2);
+            entity.Property(x => x.RequiereCuidador).HasMaxLength(2);
             entity.Property(x => x.TerapiaFisica).HasMaxLength(2);
             entity.Property(x => x.TerapiaRespiratoria).HasMaxLength(2);
             entity.Property(x => x.TerapiaOcupacional).HasMaxLength(2);

@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Nexa.Data.Entities;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
@@ -147,29 +147,11 @@ public class CensoCronicoViewModel
     public string? RiesgoCaida { get; set; }
 
     // ----- Sección 3: Validaciones -----
-    [Display(Name = "Clínica de heridas")]
-    public string? ClinicaHeridas { get; set; }
-
-    [Display(Name = "Estado en clínica de heridas")]
-    public string? EstadoClinicaHeridas { get; set; }
-
-    [Display(Name = "Programa de nutrición (NE/NPT)")]
-    public string? ProgramaNutricion { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha de inicio")]
-    public DateTime? FechaInicioNutricion { get; set; }
-
-    [StringLength(120, ErrorMessage = "El auxiliar asignado no puede superar 120 caracteres.")]
-    [Display(Name = "Auxiliar asignado")]
-    public string? AuxiliarAsignadoNutricion { get; set; }
-
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha fin nutrición")]
-    public DateTime? FechaFinNutricion { get; set; }
-
     [Display(Name = "Educación y plan de cuidados / enfermería")]
     public string? EducacionPlanCuidados { get; set; }
+
+    [Display(Name = "Requiere cuidador")]
+    public string? RequiereCuidador { get; set; }
 
     [Display(Name = "Terapia física")]
     public string? TerapiaFisica { get; set; }
@@ -316,7 +298,6 @@ public class CensoCronicoViewModel
     public IReadOnlyList<SelectListItem> DisneaMmrcOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> NyhaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> SiNoOptions { get; set; } = [];
-    public IReadOnlyList<SelectListItem> EstadoClinicaHeridasOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> CalibreSondaVesicalOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> CalibreSondaNasogastricaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AuxiliarEnfermeriaOptions { get; set; } = [];

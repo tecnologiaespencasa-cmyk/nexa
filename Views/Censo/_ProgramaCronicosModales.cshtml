@@ -1,4 +1,4 @@
-@model CensoCronicoViewModel
+﻿@model CensoCronicoViewModel
 @*
     Modales de este programa (kardex, requisicion, confirmaciones).
 
@@ -24,9 +24,6 @@
     ViewData["Title"] = "Programa Cronicos";
     var successMessage = TempData["SuccessMessage"] as string;
     var errorMessage = TempData["ErrorMessage"] as string;
-    var hasAuxiliares = Model.AuxiliarEnfermeriaOptions.Any();
-    var clinicaHeridasActiva = string.Equals(Model.ClinicaHeridas, "Si", StringComparison.OrdinalIgnoreCase);
-    var programaNutricionActiva = string.Equals(Model.ProgramaNutricion, "Si", StringComparison.OrdinalIgnoreCase);
     var sondaVesicalActiva = string.Equals(Model.SondaVesical, "Si", StringComparison.OrdinalIgnoreCase);
     var mipresPanalesActivo = string.Equals(Model.MipresPanales, "Si", StringComparison.OrdinalIgnoreCase);
     var mipresNutricionActivo = string.Equals(Model.MipresNutricion, "Si", StringComparison.OrdinalIgnoreCase);

@@ -33,7 +33,6 @@ public partial class CensoController
     private static readonly string[] CronicoDisneaMmrcValues = ["0", "1", "2", "3", "4"];
     private static readonly string[] CronicoNyhaValues = ["I", "II", "III", "IV"];
     private static readonly string[] CronicoSiNoValues = ["Si", "No"];
-    private static readonly string[] CronicoEstadoClinicaHeridasValues = ["Activo", "Inactivo"];
     private static readonly string[] CronicoCalibreSondaVesicalValues = ["12FR", "14FR", "16FR", "18FR", "20FR", "22FR"];
     private static readonly string[] CronicoCalibreSondaNasogastricaValues = ["6FR", "8FR", "10FR", "12FR", "14FR", "16FR", "18FR"];
     private static readonly string[] CronicoTallaValues = ["S", "M", "L", "XL"];
@@ -603,13 +602,8 @@ public partial class CensoController
             ("Riesgo de lesión de piel", r => r.RiesgoLesionPiel ?? string.Empty),
             ("Escala Morse", r => r.EscalaMorse.HasValue ? r.EscalaMorse.Value.ToString(CultureInfo.InvariantCulture) : string.Empty),
             ("Riesgo de caída", r => r.RiesgoCaida ?? string.Empty),
-            ("Clínica de heridas", r => r.ClinicaHeridas ?? string.Empty),
-            ("Estado en clínica de heridas", r => r.EstadoClinicaHeridas ?? string.Empty),
-            ("Programa de nutrición (NE/NPT)", r => r.ProgramaNutricion ?? string.Empty),
-            ("Fecha de inicio nutrición", r => F(r.FechaInicioNutricion)),
-            ("Auxiliar asignado nutrición", r => r.AuxiliarAsignadoNutricion ?? string.Empty),
-            ("Fecha fin nutrición", r => F(r.FechaFinNutricion)),
             ("Educación y plan de cuidados", r => r.EducacionPlanCuidados ?? string.Empty),
+            ("Requiere cuidador", r => r.RequiereCuidador ?? string.Empty),
             ("Terapia física", r => r.TerapiaFisica ?? string.Empty),
             ("Terapia respiratoria", r => r.TerapiaRespiratoria ?? string.Empty),
             ("Terapia ocupacional", r => r.TerapiaOcupacional ?? string.Empty),
@@ -679,9 +673,8 @@ public partial class CensoController
             FechaNacimiento = GetColombiaNow().Date,
             DireccionEsValida = false,
             EstadoPaciente = CronicoEstadoActivo,
-            ClinicaHeridas = "No",
-            ProgramaNutricion = "No",
             EducacionPlanCuidados = "No",
+            RequiereCuidador = "No",
             TerapiaFisica = "No",
             TerapiaRespiratoria = "No",
             TerapiaOcupacional = "No",
@@ -721,7 +714,6 @@ public partial class CensoController
         model.DisneaMmrcOptions = BuildOptions(CronicoDisneaMmrcValues);
         model.NyhaOptions = BuildOptions(CronicoNyhaValues);
         model.SiNoOptions = BuildOptions(CronicoSiNoValues);
-        model.EstadoClinicaHeridasOptions = BuildOptions(CronicoEstadoClinicaHeridasValues);
         model.CalibreSondaVesicalOptions = BuildOptions(CronicoCalibreSondaVesicalValues);
         model.CalibreSondaNasogastricaOptions = BuildOptions(CronicoCalibreSondaNasogastricaValues);
 
@@ -946,11 +938,8 @@ public partial class CensoController
 
     private void NormalizeCronicoServiciosFields(CensoCronicoViewModel model)
     {
-        model.ClinicaHeridas = NormalizeOptionalSelect(model.ClinicaHeridas);
-        model.EstadoClinicaHeridas = NormalizeOptionalSelect(model.EstadoClinicaHeridas);
-        model.ProgramaNutricion = NormalizeOptionalSelect(model.ProgramaNutricion);
-        model.AuxiliarAsignadoNutricion = NormalizeOptionalCronicoText(model.AuxiliarAsignadoNutricion);
         model.EducacionPlanCuidados = NormalizeOptionalSelect(model.EducacionPlanCuidados);
+        model.RequiereCuidador = NormalizeOptionalSelect(model.RequiereCuidador);
         model.TerapiaFisica = NormalizeOptionalSelect(model.TerapiaFisica);
         model.TerapiaRespiratoria = NormalizeOptionalSelect(model.TerapiaRespiratoria);
         model.TerapiaOcupacional = NormalizeOptionalSelect(model.TerapiaOcupacional);
@@ -975,19 +964,6 @@ public partial class CensoController
         model.EstadoMipresPanales = NormalizeOptionalSelect(model.EstadoMipresPanales);
         model.MipresNutricion = NormalizeOptionalSelect(model.MipresNutricion);
         model.EstadoMipresNutricion = NormalizeOptionalSelect(model.EstadoMipresNutricion);
-
-        if (!string.Equals(model.ClinicaHeridas, "Si", StringComparison.OrdinalIgnoreCase))
-        {
-            model.EstadoClinicaHeridas = null;
-        }
-
-        // Los campos del programa de nutrición solo aplican cuando está en "Si".
-        if (!string.Equals(model.ProgramaNutricion, "Si", StringComparison.OrdinalIgnoreCase))
-        {
-            model.FechaInicioNutricion = null;
-            model.AuxiliarAsignadoNutricion = null;
-            model.FechaFinNutricion = null;
-        }
 
         // Los campos de la sonda vesical solo aplican cuando está en "Si".
         if (!string.Equals(model.SondaVesical, "Si", StringComparison.OrdinalIgnoreCase))
@@ -1155,9 +1131,8 @@ public partial class CensoController
 
     private void ValidateCronicoServicios(CensoCronicoViewModel model)
     {
-        ValidateCronicoSiNo(model.ClinicaHeridas, nameof(model.ClinicaHeridas), "clínica de heridas");
-        ValidateCronicoSiNo(model.ProgramaNutricion, nameof(model.ProgramaNutricion), "programa de nutrición");
         ValidateCronicoSiNo(model.EducacionPlanCuidados, nameof(model.EducacionPlanCuidados), "educación y plan de cuidados");
+        ValidateCronicoSiNo(model.RequiereCuidador, nameof(model.RequiereCuidador), "requiere cuidador");
         ValidateCronicoSiNo(model.TerapiaFisica, nameof(model.TerapiaFisica), "terapia física");
         ValidateCronicoSiNo(model.TerapiaRespiratoria, nameof(model.TerapiaRespiratoria), "terapia respiratoria");
         ValidateCronicoSiNo(model.TerapiaOcupacional, nameof(model.TerapiaOcupacional), "terapia ocupacional");
@@ -1174,12 +1149,6 @@ public partial class CensoController
         ValidateCronicoSiNo(model.FormulaControl, nameof(model.FormulaControl), "fórmula de control");
         ValidateCronicoSiNo(model.MipresPanales, nameof(model.MipresPanales), "Mipres pañales");
         ValidateCronicoSiNo(model.MipresNutricion, nameof(model.MipresNutricion), "Mipres nutrición");
-
-        if (!string.IsNullOrWhiteSpace(model.EstadoClinicaHeridas)
-            && !CronicoEstadoClinicaHeridasValues.Contains(model.EstadoClinicaHeridas, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.EstadoClinicaHeridas), "Selecciona un estado en clínica de heridas válido.");
-        }
 
         if (!string.IsNullOrWhiteSpace(model.CalibreSondaVesical)
             && !CronicoCalibreSondaVesicalValues.Contains(model.CalibreSondaVesical, StringComparer.OrdinalIgnoreCase))
@@ -1211,27 +1180,6 @@ public partial class CensoController
             ModelState.AddModelError(nameof(model.EstadoMipresNutricion), "Selecciona un estado Mipres válido para nutrición.");
         }
 
-        if (!string.IsNullOrWhiteSpace(model.AuxiliarAsignadoNutricion))
-        {
-            var canonical = model.AuxiliarEnfermeriaOptions
-                .Select(x => x.Value)
-                .FirstOrDefault(x => string.Equals(x, model.AuxiliarAsignadoNutricion, StringComparison.OrdinalIgnoreCase));
-            if (string.IsNullOrWhiteSpace(canonical))
-            {
-                ModelState.AddModelError(nameof(model.AuxiliarAsignadoNutricion), "Selecciona un auxiliar OPS válido.");
-            }
-            else
-            {
-                model.AuxiliarAsignadoNutricion = canonical;
-            }
-        }
-
-        if (model.FechaFinNutricion.HasValue
-            && model.FechaInicioNutricion.HasValue
-            && model.FechaFinNutricion.Value.Date < model.FechaInicioNutricion.Value.Date)
-        {
-            ModelState.AddModelError(nameof(model.FechaFinNutricion), "La fecha fin de nutrición no puede ser anterior a la fecha de inicio.");
-        }
     }
 
     private void ValidateCronicoSiNo(string? value, string fieldName, string displayName)
@@ -1427,15 +1375,8 @@ public partial class CensoController
 
     private static void ApplyServiciosToRecord(CensoCronicoRecord record, CensoCronicoViewModel model)
     {
-        record.ClinicaHeridas = model.ClinicaHeridas;
-        record.EstadoClinicaHeridas = string.Equals(model.ClinicaHeridas, "Si", StringComparison.OrdinalIgnoreCase)
-            ? model.EstadoClinicaHeridas
-            : null;
-        record.ProgramaNutricion = model.ProgramaNutricion;
-        record.FechaInicioNutricion = model.FechaInicioNutricion?.Date;
-        record.AuxiliarAsignadoNutricion = model.AuxiliarAsignadoNutricion;
-        record.FechaFinNutricion = model.FechaFinNutricion?.Date;
         record.EducacionPlanCuidados = model.EducacionPlanCuidados;
+        record.RequiereCuidador = model.RequiereCuidador;
         record.TerapiaFisica = model.TerapiaFisica;
         record.TerapiaRespiratoria = model.TerapiaRespiratoria;
         record.TerapiaOcupacional = model.TerapiaOcupacional;
@@ -1510,13 +1451,8 @@ public partial class CensoController
         model.EscalaMorse = record.EscalaMorse;
         model.RiesgoCaida = record.RiesgoCaida;
 
-        model.ClinicaHeridas = SiNoOrNo(record.ClinicaHeridas);
-        model.EstadoClinicaHeridas = record.EstadoClinicaHeridas;
-        model.ProgramaNutricion = SiNoOrNo(record.ProgramaNutricion);
-        model.FechaInicioNutricion = record.FechaInicioNutricion?.Date;
-        model.AuxiliarAsignadoNutricion = record.AuxiliarAsignadoNutricion;
-        model.FechaFinNutricion = record.FechaFinNutricion?.Date;
         model.EducacionPlanCuidados = SiNoOrNo(record.EducacionPlanCuidados);
+        model.RequiereCuidador = SiNoOrNo(record.RequiereCuidador);
         model.TerapiaFisica = SiNoOrNo(record.TerapiaFisica);
         model.TerapiaRespiratoria = SiNoOrNo(record.TerapiaRespiratoria);
         model.TerapiaOcupacional = SiNoOrNo(record.TerapiaOcupacional);
