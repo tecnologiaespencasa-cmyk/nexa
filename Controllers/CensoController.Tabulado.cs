@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nexa.Data;
@@ -78,7 +78,7 @@ public partial class CensoController
         CancellationToken cancellationToken)
     {
         var model = new CensoUnificadoViewModel { CedulaFiltro = NormalizeCedulaFilter(cedulaPaciente) };
-        await _censoTabuladoService.ConstruirAsync(model, cancellationToken);
+        await _censoTabuladoService.ConstruirAsync(model, sinRecorte: true, cancellationToken);
 
         string[] headers =
         [

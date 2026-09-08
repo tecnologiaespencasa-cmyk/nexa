@@ -9,6 +9,13 @@
         : Model.SePuedeAgregar
             ? "Agregar"
             : Model.MotivoBloqueo ?? "No disponible";
+
+    // Un programa dado de alta desaparece del carril, y la tarjeta queda igual que la de un
+    // paciente que nunca lo tuvo. El conteo de episodios cerrados distingue los dos casos sin
+    // cambiar nada: sigue diciendo "Agregar" y no reabre el programa.
+    var cerrados = Model.EpisodiosCerrados > 0
+        ? $" · {Model.EpisodiosCerrados} cerrado{(Model.EpisodiosCerrados == 1 ? string.Empty : "s")}"
+        : string.Empty;
 }
 
 @if (Model.Agregado)
@@ -50,7 +57,7 @@ else if (Model.SePuedeAgregar && pacienteId.HasValue)
         <button type="submit" class="censo-programa censo-programa--agregable" data-programa="@Model.Programa">
             <span class="censo-programa__punto" aria-hidden="true"></span>
             <span class="censo-programa__nombre">@Model.Nombre</span>
-            <span class="censo-programa__estado">@estado</span>
+            <span class="censo-programa__estado">@estado@cerrados</span>
             <svg class="censo-programa__mas" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 5v14"></path>
                 <path d="M5 12h14"></path>

@@ -3031,11 +3031,15 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   opacity: 0.82;
 }
 
-#tab-prorroga.is-prorroga-closed {
+/* Los ids de seccion llevan prefijo de programa desde el censo unificado
+   (tab-prorroga -> tab-agudos-prorroga, tab-plan-manejo -> tab-agudos-plan-manejo).
+   Estas reglas se quedaron con el nombre viejo y dejaron de aplicar: la marca de
+   agua y el atenuado del kardex cerrado no salian. */
+#tab-agudos-prorroga.is-prorroga-closed {
   position: relative;
 }
 
-#tab-prorroga.is-prorroga-closed::after {
+#tab-agudos-prorroga.is-prorroga-closed::after {
   color: rgba(180, 35, 24, 0.11);
   content: "KARDEX CERRADO";
   font-size: clamp(2.2rem, 7vw, 5.5rem);
@@ -3052,7 +3056,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   z-index: 3;
 }
 
-#tab-prorroga.is-prorroga-closed .card-body {
+#tab-agudos-prorroga.is-prorroga-closed .card-body {
   position: relative;
 }
 
@@ -3069,11 +3073,11 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   width: fit-content;
 }
 
-#tab-plan-manejo.is-plan-manejo-closed {
+#tab-agudos-plan-manejo.is-plan-manejo-closed {
   position: relative;
 }
 
-#tab-plan-manejo.is-plan-manejo-closed::after {
+#tab-agudos-plan-manejo.is-plan-manejo-closed::after {
   color: rgba(180, 35, 24, 0.11);
   content: "KARDEX CERRADO";
   font-size: clamp(2.2rem, 7vw, 5.5rem);
@@ -3090,13 +3094,13 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   z-index: 3;
 }
 
-#tab-plan-manejo.is-plan-manejo-closed .card {
+#tab-agudos-plan-manejo.is-plan-manejo-closed .card {
   opacity: 0.82;
 }
 
-#tab-plan-manejo.is-plan-manejo-closed input:not(#autorizacionEventoInput):not(#numeroDiasAutorizadoInput),
-#tab-plan-manejo.is-plan-manejo-closed select:not(#estadoSelect),
-#tab-plan-manejo.is-plan-manejo-closed textarea {
+#tab-agudos-plan-manejo.is-plan-manejo-closed input:not(#autorizacionEventoInput):not(#numeroDiasAutorizadoInput),
+#tab-agudos-plan-manejo.is-plan-manejo-closed select:not(#estadoSelect),
+#tab-agudos-plan-manejo.is-plan-manejo-closed textarea {
   cursor: not-allowed;
 }
 

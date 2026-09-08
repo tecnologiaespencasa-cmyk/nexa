@@ -89,7 +89,7 @@ public class ReportesController : Controller
             FechaIngresoFiltroDesde = tabuladoDesde?.Date,
             FechaIngresoFiltroHasta = tabuladoHasta?.Date
         };
-        await _censoTabuladoService.ConstruirAsync(tabulado, cancellationToken);
+        await _censoTabuladoService.ConstruirAsync(tabulado, sinRecorte: false, cancellationToken);
 
         var normalizedFilters = NormalizeFilters(filters);
         var censoRows = ShouldIncludeAgudos(normalizedFilters.Programa)

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Nexa.Data;
 using Nexa.Data.Entities;
 using Nexa.Helpers;
@@ -33,7 +33,7 @@ public class CensoTabuladoService : ICensoTabuladoService
     private static string NormalizarDocumento(string? valor) =>
         (valor ?? string.Empty).Trim().ToUpperInvariant();
 
-    public async Task ConstruirAsync(CensoUnificadoViewModel model, CancellationToken ct)
+    public async Task ConstruirAsync(CensoUnificadoViewModel model, bool sinRecorte, CancellationToken ct)
     {
         var doc = NormalizarDocumento(model.CedulaFiltro);
         var desde = model.FechaIngresoFiltroDesde?.Date;
@@ -221,9 +221,12 @@ public class CensoTabuladoService : ICensoTabuladoService
             .ThenBy(x => CensoProgramas.Jerarquia(x.Programa))
             .ThenByDescending(x => x.RegistroId);
 
-        model.Filas = string.IsNullOrWhiteSpace(doc)
-            ? ordenadas.Take(model.LimiteFilas).ToList()
-            : ordenadas.ToList();
+        // El tope es de la pantalla, no de los datos: al filtrar por documento ya se traian
+        // todas, y el exportable pide lo mismo. Sin esto el Excel de "todos los programas" bajaba
+        // solo las 100 filas visibles, justo lo contrario de lo que la propia pantalla promete.
+        model.Filas = sinRecorte || !string.IsNullOrWhiteSpace(doc)
+            ? ordenadas.ToList()
+            : ordenadas.Take(model.LimiteFilas).ToList();
 
         model.IngresosHoyCount = await ContarIngresosHoyAsync(ct);
 

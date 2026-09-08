@@ -1,4 +1,4 @@
-using Nexa.Models.ViewModels;
+﻿using Nexa.Models.ViewModels;
 
 namespace Nexa.Services.Interfaces;
 
@@ -8,5 +8,12 @@ namespace Nexa.Services.Interfaces;
 /// </summary>
 public interface ICensoTabuladoService
 {
-    Task ConstruirAsync(CensoUnificadoViewModel model, CancellationToken cancellationToken);
+    /// <param name="sinRecorte">
+    /// true para traer todas las filas, sin el tope que existe para que la tabla en pantalla sea
+    /// legible. Lo usa el exportable: un Excel recortado a 100 filas no sirve para nada.
+    /// </param>
+    Task ConstruirAsync(
+        CensoUnificadoViewModel model,
+        bool sinRecorte,
+        CancellationToken cancellationToken);
 }
