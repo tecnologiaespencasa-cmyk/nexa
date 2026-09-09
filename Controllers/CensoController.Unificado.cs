@@ -417,7 +417,10 @@ public partial class CensoController
                 agudos,
                 ct,
                 loadLatestRecordIntoForm: true,
-                selectedRecordId: idAgudos);
+                selectedRecordId: idAgudos,
+                // El episodio manda: si no tiene registro, la atención es nueva y el formulario
+                // arranca en blanco, como en los otros cuatro programas.
+                permitirUltimaAtencion: false);
             await PopulateDropdownsAsync(agudos, ct);
             PreserveInactiveNursingAssistantSelections(agudos);
             AplicarMaestroAModeloAgudos(agudos, paciente);

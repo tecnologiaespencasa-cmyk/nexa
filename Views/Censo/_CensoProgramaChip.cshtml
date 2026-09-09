@@ -4,8 +4,15 @@
     // enlace a sus secciones; cuando no lo está es el botón que lo agrega.
     var pacienteId = ViewData["PacienteId"] as long?;
     var cedula = ViewData["CedulaFiltro"] as string;
+
+    // Un episodio abierto sin registro es un programa que alguien agregó y nadie ha diligenciado.
+    // Decía "Activo" con la marca de verificación, igual que una atención en curso, y eso hacía
+    // leer como activo a un paciente que acababa de ser dado de alta y a quien le habían vuelto a
+    // pulsar "Agregar". No hay nada que corregir en los datos: falta decir en qué estado está.
+    var sinDiligenciar = Model.Agregado && !Model.RegistroId.HasValue;
+
     var estado = Model.Agregado
-        ? "Activo"
+        ? sinDiligenciar ? "Sin diligenciar" : "Activo"
         : Model.SePuedeAgregar
             ? "Agregar"
             : Model.MotivoBloqueo ?? "No disponible";
@@ -20,12 +27,21 @@
 
 @if (Model.Agregado)
 {
-    <div class="censo-programa censo-programa--agregado" data-programa="@Model.Programa">
+    <div class="censo-programa censo-programa--agregado @(sinDiligenciar ? "censo-programa--sin-diligenciar" : null)"
+         data-programa="@Model.Programa"
+         title="@(sinDiligenciar ? $"{Model.Nombre} está asignado al paciente y todavía no tiene información guardada." : null)">
         <span class="censo-programa__punto" aria-hidden="true"></span>
         <span class="censo-programa__nombre">@Model.Nombre</span>
-        <svg class="censo-programa__check" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m20 6-11 11-5-5"></path>
-        </svg>
+        @if (!sinDiligenciar)
+        {
+            @* La marca de verificación dice que la atención ya tiene contenido, así que en un
+               programa sin diligenciar no va ninguna: su casilla queda vacía a propósito, y el
+               punto hueco de la izquierda es el que lleva el estado. Esa casilla es además donde
+               se posa el botón de quitar, que solo existe mientras el programa está vacío. *@
+            <svg class="censo-programa__check" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m20 6-11 11-5-5"></path>
+            </svg>
+        }
         <span class="censo-programa__estado">
             @estado
             @if (Model.EpisodiosCerrados > 0)

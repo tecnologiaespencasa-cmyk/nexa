@@ -2802,7 +2802,8 @@ public partial class CensoController : Controller
         CensoReceptionViewModel model,
         CancellationToken cancellationToken,
         bool loadLatestRecordIntoForm,
-        long? selectedRecordId = null)
+        long? selectedRecordId = null,
+        bool permitirUltimaAtencion = true)
     {
         var cedulaFiltro = NormalizeCedulaFilter(model.CedulaFiltro);
         model.CedulaFiltro = cedulaFiltro;
@@ -2946,9 +2947,10 @@ public partial class CensoController : Controller
             model.RecordIdsConAdjuntos = idsConAdjuntos;
         }
 
-        if (!loadLatestRecordIntoForm)
-        {
-        }
+        // OJO: loadLatestRecordIntoForm no tiene efecto. Su guarda quedó vacía en algún cambio
+        // anterior, así que los cinco llamados que pasan false igual reciben el registro aplicado
+        // sobre el modelo. Se deja anotado en vez de cambiarlo aquí: esos cinco son los rearmados
+        // tras un error de validación y arreglarlo cambia lo que ve quien está escribiendo.
 
         CensoRecord? latestRecord = null;
         if (selectedRecordId.HasValue)
@@ -2975,7 +2977,12 @@ public partial class CensoController : Controller
             }
         }
 
-        if (latestRecord is null && !string.IsNullOrWhiteSpace(cedulaFiltro))
+        // La última atención por cédula es el respaldo de la búsqueda suelta, donde nadie dice
+        // cuál abrir. En la pantalla unificada el carril sí lo dice, y un episodio sin registro
+        // significa atención NUEVA: traer ahí la anterior mostraba una atención ya dada de alta
+        // como si estuviera activa y, peor, al guardar la habría sobrescrito en vez de crear la
+        // siguiente. Es el mismo atajo que ya se había quitado de los otros cuatro programas.
+        if (latestRecord is null && permitirUltimaAtencion && !string.IsNullOrWhiteSpace(cedulaFiltro))
         {
             latestRecord = await query
                 .OrderByDescending(x => x.FechaIngreso)

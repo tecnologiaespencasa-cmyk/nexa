@@ -440,6 +440,22 @@
   color: var(--prog, var(--censo-accent));
 }
 
+/* Programa agregado que todavía no tiene formulario guardado. El punto se vacía —relleno
+   fuera, borde dentro— y la palabra baja al gris del texto secundario: la tarjeta sigue
+   agrupada con los programas del paciente, que es cierto, pero deja de leerse como una
+   atención en curso. La marca de verificación no se dibuja, y su casilla queda libre para
+   el botón de quitar, que solo aparece mientras el programa está vacío.
+   Los selectores encadenan las dos clases para ganarle a las reglas de --agregado sin
+   depender del orden en que queden en la hoja. */
+.censo-programa--agregado.censo-programa--sin-diligenciar .censo-programa__estado {
+  color: var(--censo-ink-soft);
+}
+
+.censo-programa--agregado.censo-programa--sin-diligenciar .censo-programa__punto {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--prog, var(--censo-accent));
+}
+
 button.censo-programa--agregable:hover,
 button.censo-programa--agregable:focus-visible {
   transform: translateY(-1px);
