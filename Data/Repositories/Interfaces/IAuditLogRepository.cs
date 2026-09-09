@@ -10,6 +10,7 @@ public interface IAuditLogRepository
         DateTime? fromUtc,
         DateTime? toUtc,
         string? username,
+        string? patientDocument,
         string? action,
         string? category,
         int skip,
@@ -20,6 +21,7 @@ public interface IAuditLogRepository
         DateTime? fromUtc,
         DateTime? toUtc,
         string? username,
+        string? patientDocument,
         string? action,
         string? category,
         CancellationToken cancellationToken = default);
@@ -28,6 +30,7 @@ public interface IAuditLogRepository
         DateTime? fromUtc,
         DateTime? toUtc,
         string? username,
+        string? patientDocument,
         string? action,
         CancellationToken cancellationToken = default);
 

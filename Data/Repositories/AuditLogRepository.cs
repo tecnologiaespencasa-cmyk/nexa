@@ -28,13 +28,14 @@ public class AuditLogRepository : IAuditLogRepository
         DateTime? fromUtc,
         DateTime? toUtc,
         string? username,
+        string? patientDocument,
         string? action,
         string? category,
         int skip,
         int take,
         CancellationToken cancellationToken = default)
     {
-        return await CreateFilteredQuery(fromUtc, toUtc, username, action, category)
+        return await CreateFilteredQuery(fromUtc, toUtc, username, patientDocument, action, category)
             .OrderByDescending(log => log.PerformedAtUtc)
             .Skip(Math.Max(skip, 0))
             .Take(Math.Clamp(take, 1, 1000))
@@ -57,19 +58,21 @@ public class AuditLogRepository : IAuditLogRepository
         DateTime? fromUtc,
         DateTime? toUtc,
         string? username,
+        string? patientDocument,
         string? action,
         string? category,
         CancellationToken cancellationToken = default) =>
-        CreateFilteredQuery(fromUtc, toUtc, username, action, category).CountAsync(cancellationToken);
+        CreateFilteredQuery(fromUtc, toUtc, username, patientDocument, action, category).CountAsync(cancellationToken);
 
     public async Task<IReadOnlyDictionary<string, int>> GetActionCountsAsync(
         DateTime? fromUtc,
         DateTime? toUtc,
         string? username,
+        string? patientDocument,
         string? action,
         CancellationToken cancellationToken = default)
     {
-        var counts = await CreateFilteredQuery(fromUtc, toUtc, username, action, category: null)
+        var counts = await CreateFilteredQuery(fromUtc, toUtc, username, patientDocument, action, category: null)
             .GroupBy(log => log.Action)
             .Select(group => new { Action = group.Key, Count = group.Count() })
             .ToListAsync(cancellationToken);
@@ -81,6 +84,7 @@ public class AuditLogRepository : IAuditLogRepository
         DateTime? fromUtc,
         DateTime? toUtc,
         string? username,
+        string? patientDocument,
         string? action,
         string? category)
     {
@@ -109,6 +113,18 @@ public class AuditLogRepository : IAuditLogRepository
                 log.PerformedByUser != null
                 && (log.PerformedByUser.Username.ToUpper().Contains(userFilter)
                     || log.PerformedByUser.FullName.ToUpper().Contains(userFilter)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(patientDocument))
+        {
+            // Los eventos de censo y farmacia guardan el documento en Details con el
+            // patrón "Doc: {numero}", siempre seguido de una coma o del fin del texto.
+            // Se agrega una coma final al comparar para no dejar que "Doc: 123" coincida
+            // con "Doc: 1234".
+            var documentToken = $"Doc: {patientDocument.Trim()},";
+            query = query.Where(log =>
+                log.Details != null
+                && (log.Details + ",").Contains(documentToken));
         }
 
         return ApplyCategory(query, category);

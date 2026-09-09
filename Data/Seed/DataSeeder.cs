@@ -143,15 +143,38 @@ public static class DataSeeder
             return;
         }
 
-        adminUser.PasswordHash = passwordService.HashPassword(adminPassword);
-        adminUser.IsActive = true;
+        // Solo se toca la cuenta cuando algo dejó de ser utilizable. Si la contraseña ya
+        // coincide, la cuenta está activa y conserva sus permisos de pantalla, no hay nada
+        // que recuperar: no se reescribe el hash ni se registra un evento de auditoría.
+        var recoveredChanges = new List<string>();
+
+        if (!passwordService.VerifyPassword(adminPassword, adminUser.PasswordHash))
+        {
+            adminUser.PasswordHash = passwordService.HashPassword(adminPassword);
+            recoveredChanges.Add("contraseña");
+        }
+
+        if (!adminUser.IsActive)
+        {
+            adminUser.IsActive = true;
+            recoveredChanges.Add("estado");
+        }
 
         if (!string.IsNullOrWhiteSpace(adminEmail))
         {
             var cleanEmail = adminEmail.Trim();
-            adminUser.Email = cleanEmail;
-            adminUser.NormalizedEmail = cleanEmail.ToUpperInvariant();
+            if (!string.Equals(adminUser.Email, cleanEmail, StringComparison.Ordinal))
+            {
+                adminUser.Email = cleanEmail;
+                adminUser.NormalizedEmail = cleanEmail.ToUpperInvariant();
+                recoveredChanges.Add("correo");
+            }
         }
+
+        var originalFirstName = adminUser.FirstName;
+        var originalLastName1 = adminUser.LastName1;
+        var originalLastName2 = adminUser.LastName2;
+        var originalNationalId = adminUser.NationalId;
 
         if (string.IsNullOrWhiteSpace(adminUser.FirstName))
         {
@@ -169,6 +192,14 @@ public static class DataSeeder
         {
             adminUser.NationalId = adminNationalId;
             adminUser.NormalizedNationalId = adminNationalId.ToUpperInvariant();
+        }
+
+        if (!string.Equals(originalFirstName, adminUser.FirstName, StringComparison.Ordinal)
+            || !string.Equals(originalLastName1, adminUser.LastName1, StringComparison.Ordinal)
+            || !string.Equals(originalLastName2, adminUser.LastName2, StringComparison.Ordinal)
+            || !string.Equals(originalNationalId, adminUser.NationalId, StringComparison.Ordinal))
+        {
+            recoveredChanges.Add("datos básicos");
         }
 
         var names = new[] { adminUser.FirstName, adminUser.LastName1, adminUser.LastName2 }
@@ -199,11 +230,21 @@ public static class DataSeeder
             });
         }
 
+        if (missingPermissionIds.Count > 0)
+        {
+            recoveredChanges.Add("permisos de pantalla");
+        }
+
+        if (recoveredChanges.Count == 0)
+        {
+            return;
+        }
+
         context.AuditLogs.Add(new AuditLog
         {
             Action = "BOOTSTRAP_ADMIN_PASSWORD_RESET",
             Entity = "User",
-            Details = $"Contrasena de bootstrap admin reiniciada para {adminUser.Username}.",
+            Details = $"Recuperación de la cuenta bootstrap {adminUser.Username}: {string.Join(", ", recoveredChanges)}.",
             PerformedByUserId = adminUser.Id,
             PerformedAtUtc = DateTime.UtcNow
         });

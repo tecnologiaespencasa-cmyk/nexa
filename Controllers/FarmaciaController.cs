@@ -38,6 +38,7 @@ public partial class FarmaciaController : Controller
     public async Task<IActionResult> Index(
         string? documento,
         int nuevosPagina = 1,
+        int nuevosHeridasPagina = 1,
         int recepcionadosPagina = 1,
         int facturadosPagina = 1,
         int empacadosPagina = 1,
@@ -76,18 +77,17 @@ public partial class FarmaciaController : Controller
         var totalPedidos = await query.CountAsync(cancellationToken)
             + await cronicosQuery.CountAsync(cancellationToken)
             + await heridasQuery.CountAsync(cancellationToken);
-        var pedidosNuevos = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
-            + await cronicosQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
-            + await heridasQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
 
         var model = new FarmaciaIndexViewModel
         {
             DocumentoFiltro = filtro,
             TotalPedidos = totalPedidos,
-            PedidosNuevos = pedidosNuevos,
             UltimoPedidoId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, heridasQuery, cancellationToken),
             PageSize = PageSize,
-            Nuevos = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Nuevo, nuevosPagina, cancellationToken),
+            // Los nuevos llegan separados en dos carriles: los ingresos base (agudos y
+            // agudizaciones de crónicos) y las requisiciones de clínica de heridas.
+            NuevosBase = await BuildMergedSectionPageAsync(query, cronicosQuery, null, FarmaciaEstados.Nuevo, nuevosPagina, cancellationToken),
+            NuevosHeridas = await BuildMergedSectionPageAsync(null, null, heridasQuery, FarmaciaEstados.Nuevo, nuevosHeridasPagina, cancellationToken),
             Recepcionados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Recepcionado, recepcionadosPagina, cancellationToken),
             Facturados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Facturado, facturadosPagina, cancellationToken),
             Empacados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Empacado, empacadosPagina, cancellationToken),
@@ -457,9 +457,13 @@ public partial class FarmaciaController : Controller
             .Where(x => x.IsActive)
             .ToListAsync(cancellationToken);
 
+        // Una prórroga se despacha como una copia nueva del censo, y esa copia nace sin
+        // adjuntos: los PDF se subieron al registro original.
+        var adjuntosSourceId = record.FarmaciaProrrogaDeId ?? record.Id;
         var adjuntos = await _context.CensoAdjuntos
             .AsNoTracking()
-            .Where(x => x.CensoRecordId == id)
+            .Where(x => x.CensoRecordId == adjuntosSourceId)
+            .OrderBy(x => x.UploadedAtUtc)
             .Select(x => new FarmaciaAdjuntoDto { Id = x.Id, FileName = x.FileName })
             .ToListAsync(cancellationToken);
 
@@ -474,10 +478,19 @@ public partial class FarmaciaController : Controller
         var adjunto = await _context.CensoAdjuntos
             .AsNoTracking()
             .Where(x => x.Id == adjuntoId)
-            .Select(x => new { x.FileData, x.FileName, x.CensoRecord.FarmaciaEnviadoAtUtc })
+            .Select(x => new
+            {
+                x.FileData,
+                x.FileName,
+                // El registro dueño del adjunto pudo llegar a farmacia por sí mismo o a través
+                // de una copia de despacho de prórroga, que es la que lleva la marca de envío.
+                EnviadoAFarmacia = x.CensoRecord.FarmaciaEnviadoAtUtc != null
+                    || _context.Censos.Any(d =>
+                        d.FarmaciaProrrogaDeId == x.CensoRecordId && d.FarmaciaEnviadoAtUtc != null)
+            })
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (adjunto is null || adjunto.FarmaciaEnviadoAtUtc is null)
+        if (adjunto is null || !adjunto.EnviadoAFarmacia)
         {
             return NotFound();
         }
@@ -505,12 +518,12 @@ public partial class FarmaciaController : Controller
             .AsNoTracking()
             .Where(x => x.FarmaciaEnviadoAtUtc != null);
 
-        var newCount = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
-            + await cronicosQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
-            + await heridasQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
+        var newCountBase = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
+            + await cronicosQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
+        var newCountHeridas = await heridasQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
         var lastId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, heridasQuery, cancellationToken);
 
-        return Json(new { newCount, lastId });
+        return Json(new { newCount = newCountBase + newCountHeridas, newCountBase, newCountHeridas, lastId });
     }
 
     [HttpGet]
@@ -971,53 +984,68 @@ public partial class FarmaciaController : Controller
     }
 
     /// <summary>
-    /// Une en una misma sección los pedidos de agudos (tabla censo) y las agudizaciones de
-    /// crónicos (tabla censo_cronico_agudizaciones) para el estado indicado, ordenados por
-    /// fecha de envío. Para paginar el resultado combinado se traen los primeros
-    /// página × tamaño de cada origen y se corta la página en memoria.
+    /// Une en una misma sección los pedidos de agudos (tabla censo), las agudizaciones de
+    /// crónicos (tabla censo_cronico_agudizaciones) y las requisiciones de clínica de heridas
+    /// para el estado indicado, ordenados por fecha de envío. Cada origen puede llegar en null
+    /// para armar una sección de un solo carril. Para paginar el resultado combinado se traen
+    /// los primeros página × tamaño de cada origen y se corta la página en memoria.
     /// </summary>
-    private static async Task<FarmaciaSectionPageViewModel> BuildMergedSectionPageAsync(
-        IQueryable<CensoRecord> censoQuery,
-        IQueryable<CensoCronicoAgudizacion> cronicosQuery,
-        IQueryable<CensoClinicaHeridasKardex> heridasQuery,
+    private async Task<FarmaciaSectionPageViewModel> BuildMergedSectionPageAsync(
+        IQueryable<CensoRecord>? censoQuery,
+        IQueryable<CensoCronicoAgudizacion>? cronicosQuery,
+        IQueryable<CensoClinicaHeridasKardex>? heridasQuery,
         string estado,
         int requestedPage,
         CancellationToken cancellationToken,
         int pageSize = PageSize)
     {
-        var censoEstado = censoQuery.Where(x => x.FarmaciaEstado == estado);
-        var cronicosEstado = cronicosQuery.Where(x => x.FarmaciaEstado == estado);
-        var heridasEstado = heridasQuery.Where(x => x.FarmaciaEstado == estado);
+        var censoEstado = censoQuery?.Where(x => x.FarmaciaEstado == estado);
+        var cronicosEstado = cronicosQuery?.Where(x => x.FarmaciaEstado == estado);
+        var heridasEstado = heridasQuery?.Where(x => x.FarmaciaEstado == estado);
 
-        var totalItems = await censoEstado.CountAsync(cancellationToken)
-            + await cronicosEstado.CountAsync(cancellationToken)
-            + await heridasEstado.CountAsync(cancellationToken);
+        var totalItems = (censoEstado is null ? 0 : await censoEstado.CountAsync(cancellationToken))
+            + (cronicosEstado is null ? 0 : await cronicosEstado.CountAsync(cancellationToken))
+            + (heridasEstado is null ? 0 : await heridasEstado.CountAsync(cancellationToken));
         var totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)pageSize));
         var currentPage = Math.Clamp(requestedPage, 1, totalPages);
         var take = currentPage * pageSize;
 
-        var censoItems = await censoEstado
-            .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
-            .ThenByDescending(x => x.Id)
-            .Take(take)
-            .Select(x => new { Record = x, TieneAdjuntos = x.Adjuntos.Any() })
-            .ToListAsync(cancellationToken);
+        var censoItems = censoEstado is null
+            ? []
+            : await censoEstado
+                .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
+                .ThenByDescending(x => x.Id)
+                .Take(take)
+                .Select(x => new { Record = x, TieneAdjuntos = x.Adjuntos.Any() })
+                .ToListAsync(cancellationToken);
 
-        var cronicoItems = await cronicosEstado
-            .Include(x => x.CensoCronicoRecord)
-            .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
-            .ThenByDescending(x => x.Id)
-            .Take(take)
-            .ToListAsync(cancellationToken);
+        var adjuntosHeredados = await GetProrrogaParentsConAdjuntosAsync(
+            censoItems.Where(x => !x.TieneAdjuntos).Select(x => x.Record),
+            cancellationToken);
 
-        var heridasItems = await heridasEstado
-            .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
-            .ThenByDescending(x => x.Id)
-            .Take(take)
-            .Select(x => new { Kardex = x, TieneAdjuntos = x.Adjuntos.Any() })
-            .ToListAsync(cancellationToken);
+        var cronicoItems = cronicosEstado is null
+            ? []
+            : await cronicosEstado
+                .Include(x => x.CensoCronicoRecord)
+                .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
+                .ThenByDescending(x => x.Id)
+                .Take(take)
+                .ToListAsync(cancellationToken);
 
-        var merged = censoItems.Select(x => MapPedido(x.Record, x.TieneAdjuntos))
+        var heridasItems = heridasEstado is null
+            ? []
+            : await heridasEstado
+                .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
+                .ThenByDescending(x => x.Id)
+                .Take(take)
+                .Select(x => new { Kardex = x, TieneAdjuntos = x.Adjuntos.Any() })
+                .ToListAsync(cancellationToken);
+
+        var merged = censoItems
+            .Select(x => MapPedido(
+                x.Record,
+                x.TieneAdjuntos
+                    || (x.Record.FarmaciaProrrogaDeId is long padre && adjuntosHeredados.Contains(padre))))
             .Concat(cronicoItems.Select(MapCronicoPedido))
             .Concat(heridasItems.Select(x => MapClinicaHeridasPedido(x.Kardex, x.TieneAdjuntos)))
             .OrderByDescending(x => x.FechaEnvioUtc)
@@ -1033,6 +1061,36 @@ public partial class FarmaciaController : Controller
             TotalPages = totalPages,
             Items = merged
         };
+    }
+
+    /// <summary>
+    /// Las copias de despacho de prórroga son registros de censo nuevos y nacen sin adjuntos:
+    /// los PDF quedaron en el registro original. Devuelve cuáles de esos originales sí los tienen,
+    /// para que farmacia vea el botón de adjuntos también en la prórroga.
+    /// </summary>
+    private async Task<HashSet<long>> GetProrrogaParentsConAdjuntosAsync(
+        IEnumerable<CensoRecord> despachos,
+        CancellationToken cancellationToken)
+    {
+        var parentIds = despachos
+            .Where(x => x.FarmaciaProrrogaDeId.HasValue)
+            .Select(x => x.FarmaciaProrrogaDeId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (parentIds.Count == 0)
+        {
+            return [];
+        }
+
+        var conAdjuntos = await _context.CensoAdjuntos
+            .AsNoTracking()
+            .Where(x => parentIds.Contains(x.CensoRecordId))
+            .Select(x => x.CensoRecordId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return [.. conAdjuntos];
     }
 
     private static FarmaciaDocumentViewModel BuildCronicoDocumentModel(

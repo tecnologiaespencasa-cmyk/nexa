@@ -5,6 +5,7 @@ public class AuditLogSearchRequest
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
     public string? Username { get; set; }
+    public string? PatientDocument { get; set; }
     public string? Action { get; set; }
     public string? Category { get; set; }
     public int Page { get; set; } = 1;

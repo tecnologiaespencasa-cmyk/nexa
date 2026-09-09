@@ -28,6 +28,10 @@ public class AuditFilterViewModel
     [StringLength(80)]
     public string? Username { get; set; }
 
+    [Display(Name = "Documento del paciente")]
+    [StringLength(30)]
+    public string? PatientDocument { get; set; }
+
     [Display(Name = "Acción")]
     [StringLength(100)]
     public string? Action { get; set; }

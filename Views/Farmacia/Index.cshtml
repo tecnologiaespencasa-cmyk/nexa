@@ -7,7 +7,8 @@
         return Url.Action("Index", "Farmacia", new
         {
             documento = Model.DocumentoFiltro,
-            nuevosPagina = sectionKey == "nuevos" ? targetPage : Model.Nuevos.CurrentPage,
+            nuevosPagina = sectionKey == "nuevos" ? targetPage : Model.NuevosBase.CurrentPage,
+            nuevosHeridasPagina = sectionKey == "nuevosHeridas" ? targetPage : Model.NuevosHeridas.CurrentPage,
             recepcionadosPagina = sectionKey == "recepcionados" ? targetPage : Model.Recepcionados.CurrentPage,
             facturadosPagina = sectionKey == "facturados" ? targetPage : Model.Facturados.CurrentPage,
             empacadosPagina = sectionKey == "empacados" ? targetPage : Model.Empacados.CurrentPage,
@@ -40,14 +41,29 @@
                 </a>
             </div>
         </form>
-        <div class="farmacia-hero__metrics" aria-label="Resumen de pedidos">
-            <div class="is-new"><span>Nuevos</span><strong id="farmaciaNewCount">@Model.PedidosNuevos</strong></div>
-            <div><span>Recepcionados</span><strong>@Model.Recepcionados.TotalItems</strong></div>
-            <div><span>Facturados</span><strong>@Model.Facturados.TotalItems</strong></div>
-            <div><span>Empacados</span><strong>@Model.Empacados.TotalItems</strong></div>
-            <div><span>Por desempacar</span><strong>@Model.PorDesempacar.TotalItems</strong></div>
-            <div><span>Despachados</span><strong>@Model.Despachados.TotalItems</strong></div>
-        </div>
+        <nav class="farmacia-hero__metrics" aria-label="Ir a una seccion de la bandeja">
+            <a class="farmacia-metric farmacia-metric--nuevos is-new" href="#seccion-nuevos" data-metric-lane="base">
+                <span>Nuevos &middot; ingresos base</span><strong data-lane-count="base">@Model.NuevosBase.TotalItems</strong>
+            </a>
+            <a class="farmacia-metric farmacia-metric--nuevos farmacia-metric--heridas is-new" href="#seccion-nuevos" data-metric-lane="heridas">
+                <span>Nuevos &middot; cl&iacute;nica de heridas</span><strong data-lane-count="heridas">@Model.NuevosHeridas.TotalItems</strong>
+            </a>
+            <a class="farmacia-metric farmacia-metric--recepcionado" href="#seccion-recepcionados">
+                <span>Recepcionados</span><strong>@Model.Recepcionados.TotalItems</strong>
+            </a>
+            <a class="farmacia-metric farmacia-metric--facturado" href="#seccion-facturados">
+                <span>Facturados</span><strong>@Model.Facturados.TotalItems</strong>
+            </a>
+            <a class="farmacia-metric farmacia-metric--empacado" href="#seccion-empacados">
+                <span>Empacados</span><strong>@Model.Empacados.TotalItems</strong>
+            </a>
+            <a class="farmacia-metric farmacia-metric--desempacar" href="#seccion-desempacar">
+                <span>Por desempacar</span><strong>@Model.PorDesempacar.TotalItems</strong>
+            </a>
+            <a class="farmacia-metric farmacia-metric--despachado" href="#seccion-despachados">
+                <span>Despachados</span><strong>@Model.Despachados.TotalItems</strong>
+            </a>
+        </nav>
     </header>
 
     @if (!Model.HasPedidos)
@@ -61,68 +77,122 @@
     {
         <div class="farmacia-sections">
 
-            @* ── NUEVOS ── *@
-            <section class="farmacia-section farmacia-section--new">
-                <div class="farmacia-section__header">
-                    <div><h2>Nuevos</h2><span>Pendientes de primera visualizacion</span></div>
-                    <strong>@Model.Nuevos.TotalItems</strong>
-                </div>
-                @if (Model.Nuevos.Items.Count == 0)
+            @* ── NUEVOS: dos carriles independientes sobre el mismo estado ── *@
+            @{
+                void RenderPedidoNuevo(FarmaciaPedidoViewModel item)
                 {
-                    <div class="farmacia-section__empty">Sin pedidos en esta seccion.</div>
+                    var accionDocumento = item.EsClinicaHeridas
+                        ? "DocumentoClinicaHeridas"
+                        : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento";
+                    var urlRequisicion = Url.Action(accionDocumento, new { id = item.Id, tipo = "requisicion", documento = Model.DocumentoFiltro });
+                    var urlKardex = Url.Action(accionDocumento, new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro });
+                    var urlAdjuntos = item.EsClinicaHeridas
+                        ? Url.Action("DocumentoClinicaHeridas", new { id = item.Id, documento = Model.DocumentoFiltro })
+                        : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro });
+
+                    <article class="farmacia-order is-new" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
+                        <div class="farmacia-order__identity">
+                            <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
+                            <div>
+                                <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
+                                <h3>@item.NombrePaciente</h3>
+                                @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
+                                @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
+                                @if (item.EsClinicaHeridas) { <span class="farmacia-heridas-badge">Cl&iacute;nica de heridas &middot; @item.TipoKardexClinicaHeridas</span> }
+                                <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
+                            </div>
+                            <div class="farmacia-order__actions">
+                                <a class="farmacia-doc-button farmacia-doc-button--req" href="@urlRequisicion">
+                                    <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
+                                </a>
+                                <a class="farmacia-doc-button farmacia-doc-button--kardex" href="@urlKardex">
+                                    <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                </a>
+                                @if (item.TieneAdjuntos)
+                                {
+                                    <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(urlAdjuntos)#farmacia-adjuntos">
+                                        <span>Adjuntos</span><small>PDF</small>
+                                    </a>
+                                }
+                                <button type="button" class="farmacia-doc-button farmacia-doc-button--ok-kardex"
+                                        data-action-button="ok-kardex" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
+                                    <span>OK Kardex</span><small>Recepcion</small>
+                                </button>
+                            </div>
+                            <span class="farmacia-status farmacia-status--new">Nuevo</span>
+                        </div>
+                    </article>
                 }
-                else
-                {
-                    <div class="farmacia-order-list">
-                        @foreach (var item in Model.Nuevos.Items)
-                        {
-                            <article class="farmacia-order is-new" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
-                                <div class="farmacia-order__identity">
-                                    <span class="farmacia-order__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><circle cx="11" cy="13" r="2"></circle><path d="M8 18a3 3 0 0 1 6 0"></path></svg></span>
-                                    <div>
-                                        <span class="farmacia-order__arrival">Pedido #@item.Id - @ColombiaTime.Convert(item.FechaEnvioUtc).ToString("dd/MM/yyyy HH:mm")</span>
-                                        <h3>@item.NombrePaciente</h3>
-                                        @if (item.EsProrrogaDispatch) { <span class="farmacia-prorroga-badge">Pr&oacute;rroga</span> }
-                                        @if (item.EsAgudizacionCronica) { <span class="farmacia-prorroga-badge">Cr&oacute;nicos &middot; Agudizaci&oacute;n #@item.NumeroAgudizacionCronica</span> }
-                                        @if (item.EsClinicaHeridas) { <span class="farmacia-heridas-badge">Cl&iacute;nica de heridas &middot; @item.TipoKardexClinicaHeridas</span> }
-                                        <p>@item.TipoIdentificacion @item.NumeroIdentificacion</p>
-                                    </div>
-                                    <div class="farmacia-order__actions">
-                                        <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
-                                            <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
-                                        </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@(item.EsClinicaHeridas ? "DocumentoClinicaHeridas" : item.EsAgudizacionCronica ? "DocumentoCronico" : "Documento")" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
-                                            <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
-                                        </a>
-                                        @if (item.TieneAdjuntos)
-                                        {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas ? Url.Action("DocumentoClinicaHeridas", new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
-                                                <span>Adjuntos</span><small>PDF</small>
-                                            </a>
-                                        }
-                                        <button type="button" class="farmacia-doc-button farmacia-doc-button--ok-kardex"
-                                                data-action-button="ok-kardex" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")">
-                                            <span>OK Kardex</span><small>Recepcion</small>
-                                        </button>
-                                    </div>
-                                    <span class="farmacia-status farmacia-status--new">Nuevo</span>
-                                </div>
-                            </article>
-                        }
+            }
+            <section class="farmacia-section farmacia-section--new" id="seccion-nuevos">
+                <div class="farmacia-section__header farmacia-section__header--lanes">
+                    <div>
+                        <h2>Nuevos</h2>
+                        <span data-lane-hint>Pendientes de primera visualizaci&oacute;n</span>
                     </div>
-                    @if (Model.Nuevos.TotalPages > 1)
+                    <div class="farmacia-lanes" role="tablist" aria-label="Origen de los pedidos nuevos">
+                        <button type="button" role="tab" id="nuevosTabBase" class="farmacia-lane is-active"
+                                data-lane-tab="base" aria-controls="nuevosPanelBase" aria-selected="true">
+                            Ingresos base<span class="farmacia-lane__count" data-lane-count="base">@Model.NuevosBase.TotalItems</span>
+                        </button>
+                        <button type="button" role="tab" id="nuevosTabHeridas" class="farmacia-lane farmacia-lane--heridas"
+                                data-lane-tab="heridas" aria-controls="nuevosPanelHeridas" aria-selected="false" tabindex="-1">
+                            Cl&iacute;nica de heridas<span class="farmacia-lane__count" data-lane-count="heridas">@Model.NuevosHeridas.TotalItems</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="nuevosPanelBase" role="tabpanel" aria-labelledby="nuevosTabBase" data-lane-panel="base">
+                    @if (Model.NuevosBase.Items.Count == 0)
                     {
-                        <nav class="farmacia-pagination" aria-label="Paginacion Nuevos">
-                            <a class="btn btn-outline-secondary @(Model.Nuevos.CurrentPage <= 1 ? "disabled" : null)" href="@BuildPageUrl("nuevos", Model.Nuevos.CurrentPage - 1)">Anterior</a>
-                            <span>Pagina @Model.Nuevos.CurrentPage de @Model.Nuevos.TotalPages</span>
-                            <a class="btn btn-outline-secondary @(Model.Nuevos.CurrentPage >= Model.Nuevos.TotalPages ? "disabled" : null)" href="@BuildPageUrl("nuevos", Model.Nuevos.CurrentPage + 1)">Siguiente</a>
-                        </nav>
+                        <div class="farmacia-section__empty">Sin ingresos base pendientes.</div>
                     }
-                }
+                    else
+                    {
+                        <div class="farmacia-order-list">
+                            @foreach (var item in Model.NuevosBase.Items)
+                            {
+                                RenderPedidoNuevo(item);
+                            }
+                        </div>
+                        @if (Model.NuevosBase.TotalPages > 1)
+                        {
+                            <nav class="farmacia-pagination" aria-label="Paginacion Nuevos - ingresos base">
+                                <a class="btn btn-outline-secondary @(Model.NuevosBase.CurrentPage <= 1 ? "disabled" : null)" href="@BuildPageUrl("nuevos", Model.NuevosBase.CurrentPage - 1)">Anterior</a>
+                                <span>Pagina @Model.NuevosBase.CurrentPage de @Model.NuevosBase.TotalPages</span>
+                                <a class="btn btn-outline-secondary @(Model.NuevosBase.CurrentPage >= Model.NuevosBase.TotalPages ? "disabled" : null)" href="@BuildPageUrl("nuevos", Model.NuevosBase.CurrentPage + 1)">Siguiente</a>
+                            </nav>
+                        }
+                    }
+                </div>
+
+                <div id="nuevosPanelHeridas" role="tabpanel" aria-labelledby="nuevosTabHeridas" data-lane-panel="heridas" hidden>
+                    @if (Model.NuevosHeridas.Items.Count == 0)
+                    {
+                        <div class="farmacia-section__empty">Sin requisiciones de cl&iacute;nica de heridas pendientes.</div>
+                    }
+                    else
+                    {
+                        <div class="farmacia-order-list">
+                            @foreach (var item in Model.NuevosHeridas.Items)
+                            {
+                                RenderPedidoNuevo(item);
+                            }
+                        </div>
+                        @if (Model.NuevosHeridas.TotalPages > 1)
+                        {
+                            <nav class="farmacia-pagination" aria-label="Paginacion Nuevos - clinica de heridas">
+                                <a class="btn btn-outline-secondary @(Model.NuevosHeridas.CurrentPage <= 1 ? "disabled" : null)" href="@BuildPageUrl("nuevosHeridas", Model.NuevosHeridas.CurrentPage - 1)">Anterior</a>
+                                <span>Pagina @Model.NuevosHeridas.CurrentPage de @Model.NuevosHeridas.TotalPages</span>
+                                <a class="btn btn-outline-secondary @(Model.NuevosHeridas.CurrentPage >= Model.NuevosHeridas.TotalPages ? "disabled" : null)" href="@BuildPageUrl("nuevosHeridas", Model.NuevosHeridas.CurrentPage + 1)">Siguiente</a>
+                            </nav>
+                        }
+                    }
+                </div>
             </section>
 
             @* ── RECEPCIONADOS ── *@
-            <section class="farmacia-section farmacia-section--recepcionado">
+            <section class="farmacia-section farmacia-section--recepcionado" id="seccion-recepcionados">
                 <div class="farmacia-section__header">
                     <div><h2>Recepcionado</h2><span>Kardex aprobado — configurar entrega</span></div>
                     <strong>@Model.Recepcionados.TotalItems</strong>
@@ -208,7 +278,7 @@
             </section>
 
             @* ── FACTURADOS ── *@
-            <section class="farmacia-section farmacia-section--facturado">
+            <section class="farmacia-section farmacia-section--facturado" id="seccion-facturados">
                 <div class="farmacia-section__header">
                     <div><h2>Facturado</h2><span>Pendiente de empacar</span></div>
                     <strong>@Model.Facturados.TotalItems</strong>
@@ -272,7 +342,7 @@
             </section>
 
             @* ── EMPACADOS ── *@
-            <section class="farmacia-section farmacia-section--empacado">
+            <section class="farmacia-section farmacia-section--empacado" id="seccion-empacados">
                 <div class="farmacia-section__header">
                     <div><h2>Empacado</h2><span>Listo para firma y despacho (72 h)</span></div>
                     <strong>@Model.Empacados.TotalItems</strong>
@@ -342,7 +412,7 @@
             @* ── POR DESEMPACAR ── *@
             @if (Model.PorDesempacar.TotalItems > 0)
             {
-                <section class="farmacia-section farmacia-section--desempacar">
+                <section class="farmacia-section farmacia-section--desempacar" id="seccion-desempacar">
                     <div class="farmacia-section__header">
                         <div><h2>Por desempacar</h2><span>Expiraron 72 h sin firma</span></div>
                         <strong>@Model.PorDesempacar.TotalItems</strong>
@@ -407,7 +477,7 @@
             }
 
             @* ── DESPACHADOS ── *@
-            <section class="farmacia-section farmacia-section--despachado">
+            <section class="farmacia-section farmacia-section--despachado" id="seccion-despachados">
                 <div class="farmacia-section__header">
                     <div><h2>Despachado</h2><span>Gestion completada</span></div>
                     <strong>@Model.Despachados.TotalItems</strong>
@@ -555,8 +625,15 @@
     <script>
         (() => {
             const SCROLL_POS_KEY = "farmacia-scroll-position";
+            const LANE_KEY = "farmacia-nuevos-carril";
             const page = document.querySelector(".farmacia-page");
-            const newCount = document.getElementById("farmaciaNewCount");
+            const laneTabs = Array.from(document.querySelectorAll("[data-lane-tab]"));
+            const lanePanels = Array.from(document.querySelectorAll("[data-lane-panel]"));
+            const laneHint = document.querySelector("[data-lane-hint]");
+            const laneHints = {
+                base: "Pendientes de primera visualizacion",
+                heridas: "Requisiciones de clinica de heridas pendientes"
+            };
             const snapshotUrl = "@Url.Action("PendientesSnapshot", "Farmacia")";
             const firmaUrl = "@Url.Action("Firma", "Farmacia")";
             const guardarFirmaUrl = "@Url.Action("GuardarFirma", "Farmacia")";
@@ -609,6 +686,71 @@
             const actionMsg = document.getElementById("farmaciaActionMsg");
             let lastPedidoId = Number(page?.dataset.lastPedidoId || "0") || 0;
             let audioContext = null;
+
+            // La seccion Nuevos se recorre en dos carriles: los ingresos base, que farmacia abre
+            // por defecto, y las requisiciones de clinica de heridas. Cada accion recarga la
+            // pagina, asi que el carril elegido se recuerda para no devolver al equipo al otro.
+            const setLaneCount = (lane, value) => {
+                if (value === undefined || value === null) return;
+                document.querySelectorAll(`[data-lane-count='${lane}']`).forEach(el => {
+                    el.textContent = String(value);
+                });
+            };
+
+            const setLane = (requested, persist = true) => {
+                const lane = requested === "heridas" ? "heridas" : "base";
+                laneTabs.forEach(tab => {
+                    const active = tab.dataset.laneTab === lane;
+                    tab.classList.toggle("is-active", active);
+                    tab.setAttribute("aria-selected", active ? "true" : "false");
+                    tab.tabIndex = active ? 0 : -1;
+                });
+                lanePanels.forEach(panel => {
+                    panel.hidden = panel.dataset.lanePanel !== lane;
+                });
+                if (laneHint) laneHint.textContent = laneHints[lane];
+                if (persist) {
+                    try { sessionStorage.setItem(LANE_KEY, lane); } catch { }
+                }
+                return lane;
+            };
+
+            laneTabs.forEach(tab => {
+                tab.addEventListener("click", () => setLane(tab.dataset.laneTab));
+            });
+
+            document.querySelector(".farmacia-lanes")?.addEventListener("keydown", (e) => {
+                if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+                const current = laneTabs.findIndex(t => t.classList.contains("is-active"));
+                const next = laneTabs[(current + (e.key === "ArrowRight" ? 1 : laneTabs.length - 1)) % laneTabs.length];
+                if (!next) return;
+                e.preventDefault();
+                setLane(next.dataset.laneTab);
+                next.focus();
+            });
+
+            if (laneTabs.length) {
+                let stored = null;
+                try { stored = sessionStorage.getItem(LANE_KEY); } catch { }
+                setLane(stored || "base", false);
+            }
+
+            // Cada tarjeta del resumen lleva a su seccion; las dos de nuevos abren su carril.
+            const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            document.querySelectorAll(".farmacia-metric").forEach(metric => {
+                metric.addEventListener("click", (e) => {
+                    const target = document.querySelector(metric.getAttribute("href") || "");
+                    if (!target) return;
+                    e.preventDefault();
+                    if (metric.dataset.metricLane) setLane(metric.dataset.metricLane);
+                    // La bandeja es muy larga y el sitio anima el scroll por CSS: animar un
+                    // salto de miles de pixeles se siente roto, asi que solo las secciones
+                    // cercanas se desplazan suavemente. "instant" gana al scroll-behavior.
+                    const distancia = Math.abs(target.getBoundingClientRect().top);
+                    const suave = !prefersReducedMotion && distancia < window.innerHeight * 2;
+                    target.scrollIntoView({ behavior: suave ? "smooth" : "instant", block: "start" });
+                });
+            });
 
             const restoreScrollPosition = () => {
                 const pos = sessionStorage.getItem(SCROLL_POS_KEY);
@@ -686,7 +828,8 @@
                     if (!response.ok) return;
                     const data = await response.json();
                     const nextLastId = Number(data.lastId || "0") || 0;
-                    if (newCount) newCount.textContent = String(data.newCount || 0);
+                    setLaneCount("base", data.newCountBase);
+                    setLaneCount("heridas", data.newCountHeridas);
                     if (lastPedidoId > 0 && nextLastId > lastPedidoId) playNotification();
                     lastPedidoId = Math.max(lastPedidoId, nextLastId);
                 } catch { }

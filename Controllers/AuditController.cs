@@ -42,6 +42,7 @@ public class AuditController : Controller
                     FromDate = filter.FromDate,
                     ToDate = filter.ToDate,
                     Username = filter.Username,
+                    PatientDocument = filter.PatientDocument,
                     Action = filter.Action,
                     Category = filter.Category,
                     Page = filter.Page,

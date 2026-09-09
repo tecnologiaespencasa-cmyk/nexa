@@ -247,19 +247,23 @@
             <input asp-for="Filter.Page" type="hidden" />
             <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
             <div class="row g-2 align-items-end">
-                <div class="col-sm-6 col-lg-3">
+                <div class="col-6 col-lg">
                     <label asp-for="Filter.FromDate" class="form-label small mb-1"></label>
                     <input asp-for="Filter.FromDate" type="date" min="@earliestAllowedDate" max="@latestAllowedDate" class="form-control form-control-sm" />
                 </div>
-                <div class="col-sm-6 col-lg-3">
+                <div class="col-6 col-lg">
                     <label asp-for="Filter.ToDate" class="form-label small mb-1"></label>
                     <input asp-for="Filter.ToDate" type="date" min="@earliestAllowedDate" max="@latestAllowedDate" class="form-control form-control-sm" />
                 </div>
-                <div class="col-sm-6 col-lg-3">
+                <div class="col-sm-6 col-lg">
                     <label asp-for="Filter.Username" class="form-label small mb-1">Usuario o nombre</label>
                     <input asp-for="Filter.Username" class="form-control form-control-sm" placeholder="Usuario o nombre completo" />
                 </div>
-                <div class="col-sm-6 col-lg-3">
+                <div class="col-sm-6 col-lg">
+                    <label asp-for="Filter.PatientDocument" class="form-label small mb-1"></label>
+                    <input asp-for="Filter.PatientDocument" inputmode="numeric" class="form-control form-control-sm" placeholder="Número de documento" />
+                </div>
+                <div class="col-sm-6 col-lg">
                     <label asp-for="Filter.Action" class="form-label small mb-1"></label>
                     <select asp-for="Filter.Action" class="form-select form-select-sm">
                         <option value="">Todas las acciones</option>
@@ -275,7 +279,7 @@
                 <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Limpiar</a>
                 <span class="ms-auto visible-count">Mostrando @firstVisibleRecord–@lastVisibleRecord de @Model.TotalCount registros</span>
             </div>
-            <p class="text-muted small mb-0 mt-2">Solo están disponibles los registros de los últimos @AuditRetentionPolicy.RetentionDays días.</p>
+            <p class="text-muted small mb-0 mt-2">Solo están disponibles los registros de los últimos @AuditRetentionPolicy.RetentionDays días. El documento del paciente busca dentro de los eventos de censo y farmacia.</p>
         </form>
     </div>
 </div>
@@ -356,6 +360,7 @@ else
         <input type="hidden" name="Filter.FromDate" value="@(Model.Filter.FromDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))" />
         <input type="hidden" name="Filter.ToDate" value="@(Model.Filter.ToDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))" />
         <input type="hidden" name="Filter.Username" value="@Model.Filter.Username" />
+        <input type="hidden" name="Filter.PatientDocument" value="@Model.Filter.PatientDocument" />
         <input type="hidden" name="Filter.Action" value="@Model.Filter.Action" />
         <input type="hidden" name="Filter.Category" value="@Model.Filter.Category" />
 

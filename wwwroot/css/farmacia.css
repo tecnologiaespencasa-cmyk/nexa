@@ -1,9 +1,10 @@
-.farmacia-page,
+﻿.farmacia-page,
 .farmacia-document-page {
   --farmacia-blue: #006be6;
   --farmacia-ink: #162033;
   --farmacia-soft: #647084;
   --farmacia-border: #dfe7f2;
+  --farmacia-heridas: #0b4ea2;
   background: #f0f4fa;
   color: var(--farmacia-ink);
   min-height: 100vh;
@@ -24,7 +25,7 @@
   align-items: start;
   display: grid;
   gap: 1rem;
-  grid-template-columns: max-content minmax(16rem, 1fr) auto;
+  grid-template-columns: max-content minmax(16rem, 24rem) 1fr;
   grid-template-rows: auto;
   margin-bottom: 1rem;
   padding: 1.1rem 1.25rem;
@@ -85,75 +86,99 @@
 
 .farmacia-hero__metrics {
   align-items: stretch;
-  display: flex;
+  display: grid;
   gap: 0.55rem;
-  justify-content: flex-end;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
-.farmacia-hero__metrics div {
-  background: #f7faff;
+.farmacia-metric {
+  background: var(--metric-bg, #f7faff);
   border: 1px solid #d9e7fb;
+  border-color: color-mix(in srgb, var(--metric-color, var(--farmacia-blue)) 28%, #d9e7fb);
   border-radius: 8px;
+  color: inherit;
+  display: flex;
   flex: 1 1 auto;
-  min-width: 4.5rem;
+  flex-direction: column;
+  gap: 0.28rem;
+  justify-content: space-between;
+  min-width: 0;
   padding: 0.6rem 0.75rem;
   text-align: center;
+  text-decoration: none;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.farmacia-hero__metrics div:nth-child(1) {
+.farmacia-metric:hover {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--metric-color, var(--farmacia-blue)) 24%, transparent);
+  color: inherit;
+  transform: translateY(-1px);
+}
+
+.farmacia-metric:focus-visible {
+  outline: 2px solid var(--metric-color, var(--farmacia-blue));
+  outline-offset: 2px;
+}
+
+.farmacia-metric--nuevos {
   --metric-color: #d97900;
   --metric-bg: #fff7e8;
 }
 
-.farmacia-hero__metrics div:nth-child(2) {
+/* Mismo estado que los ingresos base, otro carril: el filo marca el origen. */
+.farmacia-metric--heridas {
+  border-left: 3px solid var(--farmacia-heridas, #0b4ea2);
+}
+
+.farmacia-metric--recepcionado {
   --metric-color: #0b63ce;
   --metric-bg: #eef6ff;
 }
 
-.farmacia-hero__metrics div:nth-child(3) {
+.farmacia-metric--facturado {
   --metric-color: #6a29c8;
   --metric-bg: #f5efff;
 }
 
-.farmacia-hero__metrics div:nth-child(4) {
+.farmacia-metric--empacado {
   --metric-color: #087f5b;
   --metric-bg: #ebfff8;
 }
 
-.farmacia-hero__metrics div:nth-child(5) {
+.farmacia-metric--desempacar {
   --metric-color: #b42318;
   --metric-bg: #fff1f0;
 }
 
-.farmacia-hero__metrics div:nth-child(6) {
+.farmacia-metric--despachado {
   --metric-color: #0f766e;
   --metric-bg: #ecfdf9;
 }
 
-.farmacia-hero__metrics div {
-  background: var(--metric-bg, #f7faff);
-  border-color: color-mix(in srgb, var(--metric-color, var(--farmacia-blue)) 28%, #d9e7fb);
-}
-
-.farmacia-hero__metrics div.is-new {
+.farmacia-metric.is-new {
   background: var(--metric-bg);
   border-color: var(--metric-color);
 }
 
-.farmacia-hero__metrics span {
+.farmacia-metric.is-new.farmacia-metric--heridas {
+  border-left-color: var(--farmacia-heridas, #0b4ea2);
+}
+
+.farmacia-metric span {
   color: var(--farmacia-soft);
   display: block;
   font-size: 0.72rem;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.25;
 }
 
-.farmacia-hero__metrics div.is-new span {
+.farmacia-metric.is-new span {
   color: var(--farmacia-ink);
   font-weight: 900;
 }
 
-.farmacia-hero__metrics strong {
+.farmacia-metric strong {
   color: var(--metric-color, var(--farmacia-blue));
   display: block;
   font-size: 1.35rem;
@@ -161,7 +186,7 @@
   line-height: 1;
 }
 
-.farmacia-hero__metrics div.is-new strong {
+.farmacia-metric.is-new strong {
   font-weight: 900;
 }
 
@@ -252,6 +277,87 @@
   justify-content: center;
   min-width: 1.75rem;
   padding-inline: 0.5rem;
+}
+
+/* La seccion Nuevos cambia su contador unico por dos carriles conmutables. */
+.farmacia-section__header--lanes {
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+}
+
+.farmacia-lanes {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid color-mix(in srgb, var(--section-color) 32%, var(--farmacia-border));
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
+}
+
+.farmacia-lane {
+  --lane-accent: var(--section-ink);
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--farmacia-soft);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 0.45rem;
+  padding: 0.36rem 0.8rem;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.farmacia-lane::before {
+  background: currentColor;
+  border-radius: 999px;
+  content: "";
+  height: 0.55rem;
+  opacity: 0.45;
+  width: 0.55rem;
+}
+
+.farmacia-lane--heridas {
+  --lane-accent: var(--farmacia-heridas);
+}
+
+.farmacia-lane:hover {
+  color: var(--farmacia-ink);
+}
+
+.farmacia-lane.is-active {
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(31, 45, 75, 0.12), 0 4px 12px rgba(var(--section-rgb), 0.2);
+  color: var(--lane-accent);
+}
+
+.farmacia-lane.is-active::before {
+  background: var(--lane-accent);
+  opacity: 1;
+}
+
+.farmacia-lane:focus-visible {
+  outline: 2px solid var(--lane-accent);
+  outline-offset: 2px;
+}
+
+.farmacia-lane__count {
+  background: color-mix(in srgb, var(--farmacia-soft) 16%, transparent);
+  border-radius: 999px;
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.35rem;
+  min-width: 1.35rem;
+  padding-inline: 0.35rem;
+  text-align: center;
+}
+
+.farmacia-lane.is-active .farmacia-lane__count {
+  background: color-mix(in srgb, var(--lane-accent) 14%, transparent);
 }
 
 .farmacia-section--new {
@@ -1033,11 +1139,11 @@
   .farmacia-hero__metrics {
     display: grid;
     grid-column: 1 / -1;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     justify-content: unset;
   }
 
-  .farmacia-hero__metrics div {
+  .farmacia-metric {
     flex: unset;
     text-align: center;
   }
@@ -1090,7 +1196,16 @@
 
   .farmacia-hero__metrics {
     grid-column: 1;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .farmacia-lanes {
+    width: 100%;
+  }
+
+  .farmacia-lane {
+    flex: 1 1 0;
+    justify-content: center;
   }
 
   .farmacia-order__actions {

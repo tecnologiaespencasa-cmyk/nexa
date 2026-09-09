@@ -53,12 +53,14 @@ public class AuditQueryService : IAuditQueryService
             fromUtc,
             toUtc,
             request.Username,
+            request.PatientDocument,
             request.Action,
             cancellationToken);
         var totalCount = await _auditLogRepository.CountAsync(
             fromUtc,
             toUtc,
             request.Username,
+            request.PatientDocument,
             request.Action,
             request.Category,
             cancellationToken);
@@ -69,6 +71,7 @@ public class AuditQueryService : IAuditQueryService
             fromUtc: fromUtc,
             toUtc: toUtc,
             username: request.Username,
+            patientDocument: request.PatientDocument,
             action: request.Action,
             category: request.Category,
             skip: (currentPage - 1) * pageSize,

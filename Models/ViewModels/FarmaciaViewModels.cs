@@ -18,13 +18,18 @@ public class FarmaciaIndexViewModel
 
     public int TotalPedidos { get; set; }
 
-    public int PedidosNuevos { get; set; }
+    /// <summary>Nuevos de las dos carriles juntos: alimenta el aviso sonoro de llegada.</summary>
+    public int PedidosNuevos => NuevosBase.TotalItems + NuevosHeridas.TotalItems;
 
     public long? UltimoPedidoId { get; set; }
 
     public int PageSize { get; set; } = 25;
 
-    public FarmaciaSectionPageViewModel Nuevos { get; set; } = new();
+    /// <summary>Nuevos de agudos y de agudizaciones de crónicos: el carril que farmacia abre por defecto.</summary>
+    public FarmaciaSectionPageViewModel NuevosBase { get; set; } = new();
+
+    /// <summary>Nuevos de las requisiciones del censo de clínica de heridas, en su propio carril.</summary>
+    public FarmaciaSectionPageViewModel NuevosHeridas { get; set; } = new();
 
     public FarmaciaSectionPageViewModel Recepcionados { get; set; } = new();
 
@@ -37,7 +42,8 @@ public class FarmaciaIndexViewModel
     public FarmaciaSectionPageViewModel Despachados { get; set; } = new();
 
     public bool HasPedidos =>
-        Nuevos.TotalItems > 0 || Recepcionados.TotalItems > 0 || Facturados.TotalItems > 0
+        NuevosBase.TotalItems > 0 || NuevosHeridas.TotalItems > 0
+        || Recepcionados.TotalItems > 0 || Facturados.TotalItems > 0
         || Empacados.TotalItems > 0 || PorDesempacar.TotalItems > 0 || Despachados.TotalItems > 0;
 }
 
