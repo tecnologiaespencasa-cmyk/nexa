@@ -1,10 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Nexa.Data.Entities;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Nexa.Filters;
 
 namespace Nexa.Models.ViewModels;
 
-public class CensoReceptionViewModel
+public class CensoReceptionViewModel : ICensoRegistroEditable
 {
     [Required(ErrorMessage = "La fecha de ingreso es obligatoria.")]
     [DataType(DataType.Date)]
@@ -663,7 +664,7 @@ public class CensoTableRowViewModel
     public bool TieneProrroga => ProrrogaValues.Count > 0;
 }
 
-public class CensoTerapiaAmbulatoriaViewModel
+public class CensoTerapiaAmbulatoriaViewModel : ICensoRegistroEditable
 {
     public long? EditingRecordId { get; set; }
 

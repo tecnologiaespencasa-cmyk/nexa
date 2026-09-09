@@ -20,11 +20,15 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Nexa.Filters;
 using Npgsql;
 
 namespace Nexa.Controllers;
 
 [Authorize(Policy = SystemPermissions.Censo)]
+// Una atencion dada de alta se puede abrir para consultarla y para registrar lo que ocurre
+// despues del alta, pero no para reescribir sus datos clinicos. El filtro es quien lo impide.
+[TypeFilter(typeof(CensoAtencionCerradaFilter))]
 public partial class CensoController : Controller
 {
     private const string AseguradorSuraEpsLegacy = "Sura EPS";
@@ -1118,6 +1122,19 @@ public partial class CensoController : Controller
                 indicadorTiempoRespuestaMinutos,
                 existingRecord.IndicadorTiempoGestionMinutos,
                 aplicarGestionAnalistaAsistencial: puedeGestionAnalista);
+
+            // Si la atención ya está dada de alta, solo entran los campos posteriores al alta.
+            // Se hace antes de cualquier otra lectura del registro para que lo que sigue vea los
+            // valores que de verdad se van a guardar.
+            var huboCamposBloqueados =
+                await RevertirCamposBloqueadosDeAgudosAsync(existingRecord, cancellationToken);
+            if (huboCamposBloqueados)
+            {
+                TempData["ErrorMessage"] =
+                    "Esta atención está dada de alta: solo se guardaron el seguimiento de alta tardía, "
+                    + "el de hospitalización y la devolución de productos. Los demás campos quedaron "
+                    + "como estaban.";
+            }
 
             var auxiliarChanged = !string.Equals(
                 previousAuxiliarAsignado?.Trim(),

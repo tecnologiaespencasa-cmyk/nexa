@@ -998,3 +998,187 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
   justify-content: flex-end;
 }
 
+
+/* ==========================================================================
+   Atenciones de un programa
+   ==========================================================================
+   Un paciente puede ingresar varias veces al mismo programa. El selector usa
+   el mismo control segmentado del carril —un marco partido por lineas— porque
+   dice exactamente lo mismo: son alternativas de un unico control. En la base
+   hay como maximo tres atenciones en un programa, asi que caben sin plegarse.
+
+   No lleva ningun distintivo extra para lo cerrado: una atencion abierta
+   muestra una fecha y una cerrada muestra el tramo que duro. La forma del dato
+   ya lo dice, y anadir un icono seria repetirlo.
+   ========================================================================== */
+
+.censo-atenciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+  margin-block-end: 1rem;
+}
+
+.censo-atenciones__titulo {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--censo-ink-soft);
+}
+
+.censo-atenciones__segmento {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--censo-border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--sombra-suave);
+}
+
+.censo-atenciones__segmento > * + * {
+  border-inline-start: 1px solid var(--censo-border);
+}
+
+.censo-atencion {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 11rem;
+  padding: 0.6rem 0.9rem;
+  color: var(--censo-ink);
+  text-decoration: none;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.censo-atencion:hover,
+.censo-atencion:focus-visible {
+  background: var(--prog-soft, var(--censo-accent-soft));
+  color: var(--censo-ink);
+}
+
+.censo-atencion__numero {
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.censo-atencion__rango,
+.censo-atencion__estado {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--censo-ink-soft);
+}
+
+/* La seleccionada toma el matiz del programa, igual que una tarjeta agregada. */
+.censo-atencion--activa {
+  background: var(--prog-soft, var(--censo-accent-soft));
+}
+
+.censo-atencion--activa .censo-atencion__numero {
+  color: var(--prog, var(--censo-accent));
+}
+
+/* --------------------------------------------------------------------------
+   Franja de atencion cerrada
+   --------------------------------------------------------------------------
+   Va encima de las secciones, que es donde tiene consecuencias, y nombra lo
+   unico accionable: que si se puede seguir registrando.
+   -------------------------------------------------------------------------- */
+
+.censo-atencion-cerrada {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-block-end: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--censo-border);
+  border-inline-start: 3px solid var(--censo-ink-soft);
+  border-radius: 12px;
+  background: var(--censo-surface-muted, #fafafa);
+}
+
+.censo-atencion-cerrada__marca svg {
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: var(--censo-ink-soft);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.censo-atencion-cerrada__titulo {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--censo-ink);
+}
+
+.censo-atencion-cerrada__detalle {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: var(--censo-ink-soft);
+}
+
+/* --------------------------------------------------------------------------
+   Seccion que ya no se edita
+   --------------------------------------------------------------------------
+   Los campos siguen visibles y con su valor: una atencion cerrada se abre para
+   leerla. Lo que se apaga es la interaccion. No se usa disabled a proposito,
+   porque un campo deshabilitado no se envia y las acciones de seccion reciben
+   el modelo completo: apagarlos borraria del registro lo que nadie toco.
+   -------------------------------------------------------------------------- */
+
+.censo-seccion--cerrada input,
+.censo-seccion--cerrada select,
+.censo-seccion--cerrada textarea {
+  pointer-events: none;
+  background-color: var(--censo-surface-muted, #fafafa);
+  color: var(--censo-ink-soft);
+}
+
+.censo-seccion--cerrada label {
+  color: var(--censo-ink-soft);
+}
+
+@media (max-width: 47.99em) {
+  .censo-atenciones__segmento {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  /* Apilado, la linea divisoria pasa de vertical a horizontal en vez de
+     desaparecer: sigue siendo un solo control partido. */
+  .censo-atenciones__segmento > * + * {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--censo-border);
+  }
+}
+
+/* El grupo del navegador cuyo programa esta mostrando una atencion cerrada. La
+   cabecera ya lleva el matiz del programa, asi que la nota va en gris: no
+   compite con el nombre, solo lo matiza. */
+.censo-nav-grupo__nota {
+  flex: 0 0 auto;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--censo-surface-muted, #fafafa);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--censo-ink-soft);
+}
+
+/* El estado solo aparece en las cerradas, asi que es lo que las distingue de un
+   vistazo. Hizo falta porque muchas atenciones dadas de alta no tienen fecha de
+   alta guardada: el rango de fechas solo no las diferenciaba. */
+.censo-atencion__estado--cerrada {
+  justify-self: start;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--censo-surface-muted, #fafafa);
+  font-size: 0.68rem;
+}

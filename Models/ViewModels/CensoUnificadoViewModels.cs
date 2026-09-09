@@ -189,6 +189,55 @@ public class CensoProgramaChipViewModel
 
 }
 
+/// <summary>
+/// Una atención del paciente dentro de un programa: un episodio de
+/// <c>censo_paciente_programa</c> con lo justo para nombrarlo y navegar hasta él.
+///
+/// Existe porque un paciente puede ingresar varias veces al mismo programa y, hasta ahora, la
+/// pantalla solo sabía mostrar la que estuviera abierta: las anteriores quedaban fuera de
+/// alcance aunque siguiera habiendo trabajo pendiente sobre ellas, como la devolución de
+/// productos o del equipo en comodato, que ocurre días después del alta.
+/// </summary>
+public class CensoAtencionViewModel
+{
+    public long EpisodioId { get; set; }
+
+    public string Programa { get; set; } = string.Empty;
+
+    /// <summary>Orden cronológico dentro del programa, empezando en 1.</summary>
+    public int Numero { get; set; }
+
+    public long? RegistroId { get; set; }
+
+    /// <summary>Fecha de ingreso al programa; la del episodio mientras no haya registro.</summary>
+    public DateTime? Desde { get; set; }
+
+    /// <summary>Fecha del alta o egreso. Nula mientras la atención siga abierta.</summary>
+    public DateTime? Hasta { get; set; }
+
+    public bool Abierta { get; set; }
+
+    /// <summary>Estado o motivo con el que se cerró, tal como lo guardó su censo.</summary>
+    public string? Estado { get; set; }
+
+    public bool EsSeleccionada { get; set; }
+
+    /// <summary>Episodio sin registro: el programa se agregó y nadie ha diligenciado el formulario.</summary>
+    public bool SinDiligenciar => RegistroId is null;
+
+    /// <summary>
+    /// Rótulo del selector. Una atención abierta se nombra por su ingreso; una cerrada, por el
+    /// tramo que duró, que es lo que permite distinguirlas de un vistazo.
+    /// </summary>
+    public string Rango => (Desde, Hasta) switch
+    {
+        (null, null) => "Sin fecha",
+        ({ } d, null) => d.ToString("dd/MM/yyyy"),
+        (null, { } h) => $"hasta {h:dd/MM/yyyy}",
+        ({ } d, { } h) => $"{d:dd/MM/yyyy} → {h:dd/MM/yyyy}"
+    };
+}
+
 /// <summary>Fila del tabulado unificado, en su juego de columnas núcleo.</summary>
 public class CensoUnificadoTablaRowViewModel
 {
@@ -246,6 +295,34 @@ public class CensoUnificadoViewModel
 
     /// <summary>Programa cuya pestaña se abre al cargar.</summary>
     public string? ProgramaActivo { get; set; }
+
+    // ----- Atenciones de cada programa -----
+    // Un paciente puede haber ingresado varias veces al mismo programa. Aquí van todas, abiertas
+    // y cerradas, para que el panel pueda moverse entre ellas; el panel se arma con la que quedó
+    // seleccionada, que es la del parámetro "atencion" y, si no viene ninguno, la abierta o —si
+    // el programa no tiene ninguna abierta— la última que se cerró.
+
+    /// <summary>Atenciones por programa, de la más antigua a la más reciente.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<CensoAtencionViewModel>> Atenciones { get; set; } =
+        new Dictionary<string, IReadOnlyList<CensoAtencionViewModel>>(StringComparer.Ordinal);
+
+    /// <summary>Programas cuyo panel está mostrando una atención ya cerrada.</summary>
+    public IReadOnlySet<string> ProgramasEnSoloLectura { get; set; } =
+        new HashSet<string>(StringComparer.Ordinal);
+
+    public IReadOnlyList<CensoAtencionViewModel> AtencionesDe(string? programa) =>
+        programa is not null && Atenciones.TryGetValue(programa, out var lista) ? lista : [];
+
+    public CensoAtencionViewModel? AtencionSeleccionadaDe(string? programa) =>
+        AtencionesDe(programa).FirstOrDefault(x => x.EsSeleccionada);
+
+    /// <summary>
+    /// True cuando el panel de ese programa muestra una atención cerrada. La vista lo usa para
+    /// bloquear las secciones que ya no se editan; el permiso por sección lo decide
+    /// <see cref="Nexa.Helpers.CensoProgramaSecciones.SeEditaTrasElAlta"/>.
+    /// </summary>
+    public bool EsSoloLectura(string? programa) =>
+        programa is not null && ProgramasEnSoloLectura.Contains(programa);
 
     /// <summary>El paciente ya está guardado y por tanto se pueden agregar programas.</summary>
     public bool PacienteGuardado => Paciente.PacienteId.HasValue;

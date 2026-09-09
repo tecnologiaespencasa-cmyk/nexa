@@ -1,0 +1,48 @@
+@model CensoAtencionViewModel
+@using Nexa.Data.Entities
+@using Nexa.Helpers
+@{
+    // Franja de una atención cerrada. Va donde se decide —encima de las secciones del programa—
+    // y no como etiqueta permanente en otro sitio, igual que el aviso de terapia se dice en el
+    // diálogo de agregar.
+    //
+    // Dice tres cosas y ninguna más: qué atención es, que está cerrada, y qué sí se puede seguir
+    // registrando. Lo último es lo único accionable, así que es lo que se nombra.
+    if (Model is null || Model.Abierta)
+    {
+        return;
+    }
+
+    var editables = CensoProgramaSecciones.De(Model.Programa)
+        .Where(s => CensoProgramaSecciones.SeEditaTrasElAlta(s.Id))
+        .Select(s => s.Titulo)
+        .ToList();
+}
+
+<div class="censo-atencion-cerrada" role="note">
+    <div class="censo-atencion-cerrada__marca" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+            <rect x="4" y="11" width="16" height="9" rx="2"></rect>
+            <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+        </svg>
+    </div>
+    <div>
+        <p class="censo-atencion-cerrada__titulo">
+            Atención @Model.Numero, cerrada el @(Model.Hasta?.ToString("dd/MM/yyyy") ?? "—")
+            @if (!string.IsNullOrWhiteSpace(Model.Estado))
+            {
+                <text>· @Model.Estado</text>
+            }
+        </p>
+        <p class="censo-atencion-cerrada__detalle">
+            @if (editables.Count > 0)
+            {
+                <text>Sus datos clínicos quedan como quedaron. Se puede seguir diligenciando @string.Join(", ", editables).</text>
+            }
+            else
+            {
+                <text>Se puede consultar, pero ya no se modifica.</text>
+            }
+        </p>
+    </div>
+</div>

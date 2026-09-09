@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nexa.Data;
+using Nexa.Helpers;
 using Nexa.Data.Entities;
 using Nexa.Models.ViewModels;
 using Nexa.Services.Models;
@@ -35,9 +36,13 @@ public partial class CensoController
         string? cedulaPaciente,
         string? programa,
         string? seccion,
+        // Episodio que se quiere ver. Sin él, cada programa abre la atención que corresponde:
+        // la que tenga abierta y, si no tiene ninguna, la última que se cerró.
+        long? atencion,
         CancellationToken cancellationToken)
     {
-        var model = await ConstruirModeloUnificadoAsync(cedulaPaciente, programa, cancellationToken);
+        var model = await ConstruirModeloUnificadoAsync(
+            cedulaPaciente, programa, cancellationToken, atencionSolicitada: atencion);
         ViewData["SeccionInicial"] = seccion;
         return View(model);
     }
@@ -281,7 +286,8 @@ public partial class CensoController
         string? cedulaPaciente,
         string? programaSolicitado,
         CancellationToken cancellationToken,
-        CensoPacienteFormViewModel? formularioEnCurso = null)
+        CensoPacienteFormViewModel? formularioEnCurso = null,
+        long? atencionSolicitada = null)
     {
         var documento = NormalizeCedulaFilter(cedulaPaciente);
         var ahora = GetColombiaNow();
@@ -320,11 +326,32 @@ public partial class CensoController
             await _censoPacienteService.ReconciliarEpisodiosAsync(paciente.Id, cancellationToken);
         }
 
-        model.Programas = paciente is null
-            ? ConstruirChipsVacios()
-            : ConstruirChips(await _censoPacienteService.ObtenerProgramasAsync(paciente.Id, cancellationToken));
+        var episodios = paciente is null
+            ? []
+            : await _censoPacienteService.ObtenerProgramasAsync(paciente.Id, cancellationToken);
+
+        model.Programas = paciente is null ? ConstruirChipsVacios() : ConstruirChips(episodios);
+
+        // Todas las atenciones del paciente, abiertas y cerradas, con la seleccionada ya marcada.
+        // El carril sigue mostrando solo las abiertas —agregar un programa no es lo mismo que
+        // consultar su historia— pero los paneles se arman desde aquí.
+        model.Atenciones = paciente is null
+            ? new Dictionary<string, IReadOnlyList<CensoAtencionViewModel>>(StringComparer.Ordinal)
+            : await ConstruirAtencionesAsync(episodios, atencionSolicitada, cancellationToken);
 
         var abiertos = model.Programas.Where(x => x.Agregado).Select(x => x.Programa).ToList();
+
+        // Programas con panel: los abiertos y, además, aquellos cuya última atención está cerrada
+        // pero sigue siendo consultable.
+        var conPanel = model.Atenciones
+            .Where(par => par.Value.Any(a => a.EsSeleccionada))
+            .Select(par => par.Key)
+            .ToList();
+
+        model.ProgramasEnSoloLectura = model.Atenciones
+            .Where(par => par.Value.Any(a => a.EsSeleccionada && !a.Abierta))
+            .Select(par => par.Key)
+            .ToHashSet(StringComparer.Ordinal);
 
         // Combinaciones que hoy ya no se pueden crear pero que existen de antes: se avisan sin
         // estorbar, igual que se hacía con agudos y crónicos. Nunca se cierra nada por cuenta
@@ -336,9 +363,12 @@ public partial class CensoController
             .OrderBy(x => x, StringComparer.Ordinal)
             .ToList();
 
-        model.ProgramaActivo = CensoProgramas.EsValido(programaSolicitado) && abiertos.Contains(programaSolicitado!)
+        // Abre el programa pedido si tiene panel; si no, el abierto de mayor jerarquía, y solo
+        // cuando el paciente no tiene ninguno abierto se cae en el que quedó en consulta.
+        model.ProgramaActivo = CensoProgramas.EsValido(programaSolicitado) && conPanel.Contains(programaSolicitado!)
             ? programaSolicitado
-            : abiertos.OrderBy(CensoProgramas.Jerarquia).FirstOrDefault();
+            : abiertos.OrderBy(CensoProgramas.Jerarquia).FirstOrDefault()
+                ?? conPanel.OrderBy(CensoProgramas.Jerarquia).FirstOrDefault();
 
         await ConstruirModelosDeProgramaAsync(model, paciente, cancellationToken);
         await PoblarCatalogosUnificadosAsync(model, cancellationToken);
@@ -381,6 +411,171 @@ public partial class CensoController
     }
 
     /// <summary>
+    /// Arma la lista de atenciones de cada programa y marca cuál queda seleccionada.
+    ///
+    /// Las fechas no salen del episodio sino del registro de cada censo: el episodio guarda cuándo
+    /// se agregó el programa, que en los sembrados por la migración inicial es la fecha en que se
+    /// creó la fila, y puede diferir en días del ingreso real. Como el rótulo del selector es lo
+    /// que la persona compara con lo que ve en pantalla, se leen las fechas verdaderas.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, IReadOnlyList<CensoAtencionViewModel>>> ConstruirAtencionesAsync(
+        IReadOnlyList<CensoPacientePrograma> episodios,
+        long? atencionSolicitada,
+        CancellationToken ct)
+    {
+        var resultado = new Dictionary<string, IReadOnlyList<CensoAtencionViewModel>>(StringComparer.Ordinal);
+        if (episodios.Count == 0)
+        {
+            return resultado;
+        }
+
+        // Una consulta por programa, solo con las columnas del rótulo y solo para los registros
+        // que algún episodio referencia.
+        var datos = new Dictionary<(string Programa, long RegistroId), (DateTime? Desde, DateTime? Hasta, string? Estado)>();
+
+        async Task CargarAsync<T>(
+            string programa,
+            IQueryable<T> origen,
+            Func<T, long> id,
+            Func<T, DateTime?> desde,
+            Func<T, DateTime?> hasta,
+            Func<T, string?> estado) where T : class
+        {
+            var ids = episodios
+                .Where(e => e.Programa == programa && e.RegistroId.HasValue)
+                .Select(e => e.RegistroId!.Value)
+                .Distinct()
+                .ToList();
+            if (ids.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var fila in await origen.AsNoTracking()
+                         .Where(x => ids.Contains(EF.Property<long>(x, "Id")))
+                         .ToListAsync(ct))
+            {
+                datos[(programa, id(fila))] = (desde(fila), hasta(fila), estado(fila));
+            }
+        }
+
+        await CargarAsync(CensoProgramas.Agudos, _context.Censos,
+            x => x.Id, x => x.FechaIngreso, x => x.FechaAlta, x => x.Estado);
+        await CargarAsync(CensoProgramas.Cronicos, _context.CensoCronicos,
+            x => x.Id, x => x.FechaIngreso,
+            x => CensoVisibility.HayEgreso(x.FechaEgreso) ? x.FechaEgreso : null,
+            x => x.MotivoEgreso ?? x.EstadoPaciente);
+        await CargarAsync(CensoProgramas.ClinicaHeridas, _context.CensoClinicaHeridas,
+            x => x.Id, x => x.FechaIngresoPrograma,
+            x => CensoVisibility.HayEgreso(x.FechaEgreso) ? x.FechaEgreso : null,
+            x => x.MotivoEgreso ?? x.Estado);
+        await CargarAsync(CensoProgramas.Npt, _context.CensoNpt,
+            x => x.Id, x => x.FechaIngresoPrograma,
+            x => CensoVisibility.HayEgreso(x.FechaEgreso) ? x.FechaEgreso : null,
+            x => x.MotivoEgreso ?? x.Estado);
+        await CargarAsync(CensoProgramas.TerapiaAmbulatoria, _context.CensoTerapiasAmbulatorias,
+            x => x.Id, x => x.FechaInicio, x => x.FechaAlta,
+            x => x.MotivoAlta ?? x.EstadoPaciente);
+
+        foreach (var programa in CensoProgramas.Todos)
+        {
+            var delPrograma = episodios
+                .Where(e => string.Equals(e.Programa, programa, StringComparison.Ordinal))
+                .ToList();
+            if (delPrograma.Count == 0)
+            {
+                continue;
+            }
+
+            var atenciones = delPrograma
+                .Select(e =>
+                {
+                    var fila = e.RegistroId.HasValue
+                        && datos.TryGetValue((programa, e.RegistroId.Value), out var d)
+                            ? d
+                            : (Desde: (DateTime?)null, Hasta: (DateTime?)null, Estado: (string?)null);
+
+                    return new CensoAtencionViewModel
+                    {
+                        EpisodioId = e.Id,
+                        Programa = programa,
+                        RegistroId = e.RegistroId,
+                        // Sin registro todavía, la fecha que hay es la del día en que se agregó.
+                        Desde = fila.Desde ?? ColombiaTime.Convert(e.AgregadoAtUtc).Date,
+                        Hasta = fila.Hasta,
+                        Abierta = e.CerradoAtUtc is null,
+                        Estado = fila.Estado ?? e.MotivoCierre
+                    };
+                })
+                .OrderBy(a => a.Desde)
+                .ThenBy(a => a.EpisodioId)
+                .ToList();
+
+            for (var i = 0; i < atenciones.Count; i++)
+            {
+                atenciones[i].Numero = i + 1;
+            }
+
+            // La seleccionada: la pedida si es de este programa; si no, la abierta; y si el
+            // programa no tiene ninguna abierta, la última que se cerró, que es lo que deja
+            // seguir registrando lo que ocurre después del alta.
+            var seleccionada = atenciones.FirstOrDefault(a => a.EpisodioId == atencionSolicitada)
+                ?? atenciones.FirstOrDefault(a => a.Abierta)
+                ?? atenciones[^1];
+            seleccionada.EsSeleccionada = true;
+
+            resultado[programa] = atenciones;
+        }
+
+        return resultado;
+    }
+
+    /// <summary>
+    /// Sobre una atención de agudos ya cerrada deja entrar únicamente los campos de las secciones
+    /// posteriores al alta y devuelve todos los demás al valor que tienen guardado.
+    ///
+    /// Los otros cuatro programas guardan sección por sección, así que allí el filtro
+    /// <see cref="Nexa.Filters.CensoAtencionCerradaFilter"/> puede rechazar la acción entera.
+    /// Agudos manda su formulario completo en un solo POST: rechazarlo dejaría sin registrar la
+    /// devolución de productos y los seguimientos, que es justo lo que hay que poder hacer después
+    /// del alta. Se resuelve campo por campo, y quien decide qué es un cambio no es el modelo
+    /// enviado sino el registro de cambios de EF, que compara contra lo que hay en la base.
+    ///
+    /// Devuelve true si tuvo que revertir algo, para poder decírselo a quien guardó.
+    /// </summary>
+    private async Task<bool> RevertirCamposBloqueadosDeAgudosAsync(
+        CensoRecord registro,
+        CancellationToken ct)
+    {
+        var cerrada = await _context.CensoPacienteProgramas
+            .AsNoTracking()
+            .AnyAsync(e => e.Programa == CensoProgramas.Agudos
+                    && e.RegistroId == registro.Id
+                    && e.CerradoAtUtc != null,
+                ct);
+        if (!cerrada)
+        {
+            return false;
+        }
+
+        var revertidos = 0;
+        foreach (var propiedad in _context.Entry(registro).Properties)
+        {
+            if (!propiedad.IsModified
+                || CensoProgramaSecciones.CamposDeAgudosTrasElAlta.Contains(propiedad.Metadata.Name))
+            {
+                continue;
+            }
+
+            propiedad.CurrentValue = propiedad.OriginalValue;
+            propiedad.IsModified = false;
+            revertidos++;
+        }
+
+        return revertidos > 0;
+    }
+
+    /// <summary>
     /// Construye el formulario de cada programa que el paciente tiene abierto, reutilizando los
     /// mismos constructores de modelo que usaban las pantallas independientes. Así los formularios
     /// que se muestran dentro de la pantalla unificada son idénticos a los de siempre y siguen
@@ -397,11 +592,17 @@ public partial class CensoController
         }
 
         var doc = paciente.NumeroIdentificacion;
-        var abiertos = model.Programas
-            .Where(x => x.Agregado)
-            .ToDictionary(x => x.Programa, x => x.RegistroId, StringComparer.Ordinal);
 
-        if (abiertos.TryGetValue(CensoProgramas.Agudos, out var idAgudos))
+        // El panel se arma para la atención seleccionada de cada programa, esté abierta o
+        // cerrada. Antes solo se armaba para los episodios abiertos, y por eso una atención dada
+        // de alta quedaba fuera de alcance: no había forma de volver a ella ni para consultarla
+        // ni para registrar lo que ocurre después del alta.
+        var seleccionadas = model.Atenciones
+            .Select(par => par.Value.FirstOrDefault(a => a.EsSeleccionada))
+            .Where(a => a is not null)
+            .ToDictionary(a => a!.Programa, a => a!.RegistroId, StringComparer.Ordinal);
+
+        if (seleccionadas.TryGetValue(CensoProgramas.Agudos, out var idAgudos))
         {
             var agudos = new CensoReceptionViewModel
             {
@@ -427,7 +628,7 @@ public partial class CensoController
             model.Agudos = agudos;
         }
 
-        if (abiertos.TryGetValue(CensoProgramas.Cronicos, out var idCronicos))
+        if (seleccionadas.TryGetValue(CensoProgramas.Cronicos, out var idCronicos))
         {
             var cronicos = BuildDefaultCronicoModel();
             cronicos.CedulaFiltro = doc;
@@ -442,7 +643,7 @@ public partial class CensoController
             model.Cronicos = cronicos;
         }
 
-        if (abiertos.TryGetValue(CensoProgramas.ClinicaHeridas, out var idHeridas))
+        if (seleccionadas.TryGetValue(CensoProgramas.ClinicaHeridas, out var idHeridas))
         {
             var heridas = BuildDefaultClinicaHeridasModel();
             heridas.CedulaFiltro = doc;
@@ -456,12 +657,17 @@ public partial class CensoController
             await PopulateClinicaHeridasLatestRecordsAsync(heridas, ct);
             AplicarMaestroAModeloHeridas(heridas, paciente);
             // Solo al pintar el formulario: si el guardado falla, la vista se rearma con el modelo
-            // enviado y estas propuestas no llegan a pisar lo que la persona eligió.
-            ProponerDispositivosSinDiligenciar(heridas);
+            // enviado y estas propuestas no llegan a pisar lo que la persona eligió. Y solo en una
+            // atención abierta: proponer valores en una sección cerrada mostraría como diligenciado
+            // algo que nadie diligenció y que ya no se puede guardar.
+            if (!model.EsSoloLectura(CensoProgramas.ClinicaHeridas))
+            {
+                ProponerDispositivosSinDiligenciar(heridas);
+            }
             model.ClinicaHeridas = heridas;
         }
 
-        if (abiertos.TryGetValue(CensoProgramas.Npt, out var idNpt))
+        if (seleccionadas.TryGetValue(CensoProgramas.Npt, out var idNpt))
         {
             var npt = BuildDefaultNptModel();
             npt.CedulaFiltro = doc;
@@ -476,7 +682,7 @@ public partial class CensoController
             model.Npt = npt;
         }
 
-        if (abiertos.TryGetValue(CensoProgramas.TerapiaAmbulatoria, out var idTerapia))
+        if (seleccionadas.TryGetValue(CensoProgramas.TerapiaAmbulatoria, out var idTerapia))
         {
             var terapia = BuildDefaultTerapiaAmbulatoriaModel();
             terapia.CedulaFiltro = doc;

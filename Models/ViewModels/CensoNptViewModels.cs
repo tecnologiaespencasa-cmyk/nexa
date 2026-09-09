@@ -1,10 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using Nexa.Data.Entities;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Nexa.Filters;
 
 namespace Nexa.Models.ViewModels;
 
-public class CensoNptViewModel
+public class CensoNptViewModel : ICensoRegistroEditable
 {
     public long? EditingRecordId { get; set; }
 

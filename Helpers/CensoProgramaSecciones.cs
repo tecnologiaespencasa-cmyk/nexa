@@ -117,4 +117,98 @@ public static class CensoProgramaSecciones
 
     /// <summary>Primera sección del programa: la que se abre al entrar en él.</summary>
     public static string? PrimeraSeccion(string? programa) => De(programa).FirstOrDefault()?.Id;
+
+    // ==========================================================================================
+    // Qué se puede seguir diligenciando después del alta
+    //
+    // Una atención cerrada se puede abrir para consultarla, pero sus datos clínicos ya no se
+    // editan: reescribirlos sin querer fue el error que se corrigió el 2026-09-09. Lo que sí
+    // sigue vivo son las secciones cuyo trabajo ocurre, por diseño, DESPUÉS del alta: al
+    // paciente se le recogen los productos y el equipo en comodato días más tarde, y si
+    // reingresa a un hospital hay que registrarlo contra la atención que lo generó.
+    //
+    // Esta lista es el candado. Lo aplican tanto la vista —que no dibuja el formulario ni el
+    // botón de guardar de una sección bloqueada— como el servidor, en
+    // CensoController.Unificado.AtencionCerradaBloquea.
+    // ==========================================================================================
+    private static readonly HashSet<string> EditablesTrasElAlta = new(StringComparer.Ordinal)
+    {
+        // Agudos
+        "tab-agudos-seguimiento-alta-tardia",   // el seguimiento a 24/48/72 horas es posterior al alta
+        "tab-agudos-seguimiento-hospitalizacion",
+        "tab-agudos-devolucion-productos",
+
+        // Crónicos
+        "tab-cronicos-hospitalizacion",
+
+        // Clínica de heridas
+        "tab-heridas-activo-fijo",              // la devolución del equipo en comodato se registra aquí
+        "tab-heridas-seguimiento-hospitalizado",
+        "tab-heridas-devolucion-productos",
+
+        // NPT
+        "tab-npt-activo-fijo",
+        "tab-npt-seguimiento-hospitalizado",
+        "tab-npt-devolucion-productos"
+
+        // Terapia ambulatoria no tiene ninguna: sus tres secciones son la atención misma.
+    };
+
+    /// <summary>
+    /// True si la sección se puede seguir diligenciando cuando la atención ya está cerrada.
+    /// Todo lo demás queda de solo lectura, incluida la gestión del alta: cambiarla cambiaría
+    /// el estado por el que la atención está cerrada, y eso es reabrirla, no editarla.
+    /// </summary>
+    public static bool SeEditaTrasElAlta(string? seccionId) =>
+        seccionId is not null && EditablesTrasElAlta.Contains(seccionId);
+
+    /// <summary>
+    /// Campos de agudos que pertenecen a las tres secciones posteriores al alta.
+    ///
+    /// Los otros cuatro programas guardan sección por sección —cada botón lleva su propio
+    /// formaction y la acción escribe únicamente sus campos—, así que allí basta con dejar pasar
+    /// o no la acción entera. Agudos no: su formulario entero viaja en un solo POST a
+    /// ProgramaAgudos, de modo que sobre una atención cerrada hay que dejar entrar estos campos y
+    /// devolver todos los demás a su valor guardado. Lo hace
+    /// CensoController.RevertirCamposBloqueadosDeAgudos, comparando contra lo que EF tiene como
+    /// valor original.
+    ///
+    /// Si algún día se agrega un campo a "Seguimiento alta tardía", "Seguimiento hospitalización"
+    /// o "Devolución de productos", tiene que aparecer aquí o quedará congelado tras el alta.
+    /// </summary>
+    public static readonly IReadOnlySet<string> CamposDeAgudosTrasElAlta = new HashSet<string>(StringComparer.Ordinal)
+    {
+        // Seguimiento alta tardía
+        "AltaTardia",
+        "NombreQuienRealizaSeguimientoAltaTardia",
+        "FechaPrimerSeguimiento24Horas",
+        "FechaSegundoSeguimiento48Horas",
+        "FechaTercerSeguimiento72Horas",
+        "ObservacionAltaTardia",
+
+        // Seguimiento hospitalización
+        "PacienteRehospitalizado",
+        "FechaRehospitalizacion",
+        "MotivoRehospitalizacion",
+        "AmpliacionMotivoRehospitalizacion",
+        "IpsIntramuralRehospitalizacion",
+        "RemitidoPorRehospitalizacion",
+        "FechaRegistroReporteRehospitalizacion",
+        "FechaAltaHospitalizacion",
+        "FechaPrimerSeguimientoRehospitalizacion",
+        "FechaSegundoSeguimientoRehospitalizacion",
+        "FechaTercerSeguimientoRehospitalizacion",
+        "ObservacionRehospitalizacion",
+
+        // Devolución de productos
+        "FechaNovedadDevolucionProductos",
+        "MotivoNovedadDevolucionProductos",
+        "NotificacionAuxiliarDevolucionProductos",
+        "FechaMaximaDevolucionProductos",
+        "EstadoDevolucionServicioFarmaceutico"
+
+        // No lleva marca de auditoría: censo_paciente no tiene columna de última actualización,
+        // a diferencia de las tablas de los otros programas. Quién guardó y cuándo queda en la
+        // bitácora que escribe _auditService.
+    };
 }

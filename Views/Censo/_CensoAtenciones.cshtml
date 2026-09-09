@@ -1,0 +1,54 @@
+@model IReadOnlyList<CensoAtencionViewModel>
+@using Nexa.Data.Entities
+@{
+    // Selector de atenciones de un programa. Un paciente puede ingresar varias veces al mismo, y
+    // hasta ahora solo se podía ver la que estuviera abierta.
+    //
+    // Es el mismo control segmentado del carril de programas —un marco partido por líneas— porque
+    // dice lo mismo: son alternativas de un único control, se elige una. En la base hay como
+    // máximo tres atenciones en un programa, así que caben sin plegarse.
+    //
+    // No hace falta ningún distintivo extra para saber cuál está cerrada: una atención abierta
+    // muestra una fecha y una cerrada muestra el tramo que duró. La forma del dato lo dice.
+    if (Model is null || Model.Count <= 1)
+    {
+        // Con una sola atención no hay nada entre lo que elegir. El aviso de que está cerrada lo
+        // da la franja de abajo, que sí se muestra siempre.
+        return;
+    }
+
+    var cedula = ViewData["CedulaFiltro"] as string;
+    var programa = Model[0].Programa;
+}
+
+<nav class="censo-atenciones" aria-label="Atenciones de @CensoProgramas.Nombre(programa)">
+    <span class="censo-atenciones__titulo">Atenciones</span>
+    <div class="censo-atenciones__segmento" role="group">
+        @foreach (var atencion in Model)
+        {
+            <a class="censo-atencion @(atencion.EsSeleccionada ? "censo-atencion--activa" : null)"
+               asp-action="Index"
+               asp-route-cedulaPaciente="@cedula"
+               asp-route-programa="@programa"
+               asp-route-atencion="@atencion.EpisodioId"
+               aria-current="@(atencion.EsSeleccionada ? "true" : null)">
+                <span class="censo-atencion__numero">Atención @atencion.Numero</span>
+                <span class="censo-atencion__rango">@atencion.Rango</span>
+                @* Una atención cerrada dice siempre su estado y una abierta nunca, así que esta
+                   línea es la que las distingue. Hacía falta: se comprobó contra la base que
+                   muchas atenciones dadas de alta no tienen fecha de alta guardada, de modo que
+                   el rango de fechas solo no bastaba para diferenciarlas. *@
+                @if (!atencion.Abierta)
+                {
+                    <span class="censo-atencion__estado censo-atencion__estado--cerrada">
+                        @(string.IsNullOrWhiteSpace(atencion.Estado) ? "Cerrada" : atencion.Estado)
+                    </span>
+                }
+                else if (atencion.SinDiligenciar)
+                {
+                    <span class="censo-atencion__estado">Sin diligenciar</span>
+                }
+            </a>
+        }
+    </div>
+</nav>

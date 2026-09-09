@@ -12,8 +12,17 @@
     var errorMessage = TempData["ErrorMessage"] as string;
     var seccionInicial = ViewData["SeccionInicial"] as string;
     var p = Model.Paciente;
-    var agregados = Model.Programas.Where(x => x.Agregado).ToList();
-    var terapiaActiva = agregados.Any(x => x.Programa == CensoProgramas.TerapiaAmbulatoria);
+    var abiertos = Model.Programas.Where(x => x.Agregado).ToList();
+
+    // El navegador lateral lista los programas que tienen panel: los abiertos y, ademas,
+    // aquellos cuya ultima atencion esta cerrada. Sin esto el panel de una atencion cerrada se
+    // renderizaba pero no habia por donde llegar a el.
+    var agregados = Model.Programas
+        .Where(x => x.Agregado || Model.AtencionSeleccionadaDe(x.Programa) is not null)
+        .ToList();
+
+    // La exclusividad la marca lo que esta ABIERTO. Un programa cerrado no bloquea nada.
+    var terapiaActiva = abiertos.Any(x => x.Programa == CensoProgramas.TerapiaAmbulatoria);
 
     // "A, B y C": con tres o mas, comas y una sola conjuncion al final.
     var conflictos = Model.ProgramasEnConflicto.Count switch
@@ -91,6 +100,10 @@
                                 aria-controls="censo-grupo-@chip.Programa">
                             <span class="censo-nav-grupo__punto" aria-hidden="true"></span>
                             <span class="censo-nav-grupo__titulo">@chip.Nombre</span>
+    @if (Model.EsSoloLectura(chip.Programa))
+    {
+                            <span class="censo-nav-grupo__nota">Cerrada</span>
+    }
                             <svg class="censo-nav-grupo__chevron" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="m9 6 6 6-6 6"></path>
                             </svg>
@@ -146,7 +159,7 @@
                 <div class="censo-identidad__meta">
                     <span class="censo-identidad__label">Programas activos</span>
                     <span class="censo-identidad__valor">
-                        @(agregados.Count == 0 ? "Ninguno" : string.Join(" · ", agregados.Select(x => x.NombreCorto)))
+                        @(abiertos.Count == 0 ? "Ninguno" : string.Join(" · ", abiertos.Select(x => x.NombreCorto)))
                     </span>
                 </div>
             </div>
@@ -547,7 +560,7 @@ else
                 </div>
             </div>
 
-@if (agregados.Count == 0 && Model.PacienteGuardado)
+@if (abiertos.Count == 0 && Model.PacienteGuardado)
 {
             <p class="censo-carril__aviso">
                 El paciente todavía no tiene programas. Agrega al menos uno para registrar su atención.
@@ -561,31 +574,51 @@ else
         <div class="censo-programa-panes">
 @if (Model.Agudos is not null)
 {
-            <div data-programa="@CensoProgramas.Agudos">
+            <div data-programa="@CensoProgramas.Agudos"
+                 data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.Agudos) ? "true" : null)">
+                <partial name="_CensoAtenciones" model="Model.AtencionesDe(CensoProgramas.Agudos)"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro } })" />
+                <partial name="_CensoAtencionCerrada" model="Model.AtencionSeleccionadaDe(CensoProgramas.Agudos)" />
                 <partial name="_ProgramaAgudos" model="Model.Agudos" />
             </div>
 }
 @if (Model.Cronicos is not null)
 {
-            <div data-programa="@CensoProgramas.Cronicos">
+            <div data-programa="@CensoProgramas.Cronicos"
+                 data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.Cronicos) ? "true" : null)">
+                <partial name="_CensoAtenciones" model="Model.AtencionesDe(CensoProgramas.Cronicos)"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro } })" />
+                <partial name="_CensoAtencionCerrada" model="Model.AtencionSeleccionadaDe(CensoProgramas.Cronicos)" />
                 <partial name="_ProgramaCronicos" model="Model.Cronicos" />
             </div>
 }
 @if (Model.ClinicaHeridas is not null)
 {
-            <div data-programa="@CensoProgramas.ClinicaHeridas">
+            <div data-programa="@CensoProgramas.ClinicaHeridas"
+                 data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.ClinicaHeridas) ? "true" : null)">
+                <partial name="_CensoAtenciones" model="Model.AtencionesDe(CensoProgramas.ClinicaHeridas)"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro } })" />
+                <partial name="_CensoAtencionCerrada" model="Model.AtencionSeleccionadaDe(CensoProgramas.ClinicaHeridas)" />
                 <partial name="_ClinicaHeridas" model="Model.ClinicaHeridas" />
             </div>
 }
 @if (Model.Npt is not null)
 {
-            <div data-programa="@CensoProgramas.Npt">
+            <div data-programa="@CensoProgramas.Npt"
+                 data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.Npt) ? "true" : null)">
+                <partial name="_CensoAtenciones" model="Model.AtencionesDe(CensoProgramas.Npt)"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro } })" />
+                <partial name="_CensoAtencionCerrada" model="Model.AtencionSeleccionadaDe(CensoProgramas.Npt)" />
                 <partial name="_Npt" model="Model.Npt" />
             </div>
 }
 @if (Model.TerapiaAmbulatoria is not null)
 {
-            <div data-programa="@CensoProgramas.TerapiaAmbulatoria">
+            <div data-programa="@CensoProgramas.TerapiaAmbulatoria"
+                 data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.TerapiaAmbulatoria) ? "true" : null)">
+                <partial name="_CensoAtenciones" model="Model.AtencionesDe(CensoProgramas.TerapiaAmbulatoria)"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro } })" />
+                <partial name="_CensoAtencionCerrada" model="Model.AtencionSeleccionadaDe(CensoProgramas.TerapiaAmbulatoria)" />
                 <partial name="_TerapiaAmbulatoria" model="Model.TerapiaAmbulatoria" />
             </div>
 }
@@ -807,6 +840,43 @@ else
                     confirmarEl.addEventListener("hidden.bs.modal", alOcultar);
                     confirmarModal.show();
                 });
+
+            // ----- Atención cerrada: secciones que ya no se editan -----
+            // El panel de un programa cuya atención seleccionada está cerrada llega marcado con
+            // data-solo-lectura. Aquí se apagan sus secciones, salvo las que por diseño se
+            // diligencian después del alta.
+            //
+            // Los campos NO se deshabilitan: un campo deshabilitado no se envía, y las acciones de
+            // sección reciben el modelo completo, así que apagarlos borraría del registro lo que
+            // no se estaba tocando. Se dejan visibles y con su valor —una atención cerrada se abre
+            // justamente para leerla— pero fuera del alcance del ratón y del tabulador. El candado
+            // real es del servidor: CensoAtencionCerradaFilter y RevertirCamposBloqueadosDeAgudos.
+            (() => {
+                const editablesTrasAlta = new Set(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                    CensoProgramas.Todos
+                        .SelectMany(CensoProgramaSecciones.De)
+                        .Select(s => s.Id)
+                        .Where(CensoProgramaSecciones.SeEditaTrasElAlta))));
+
+                document.querySelectorAll('.censo-programa-panes [data-solo-lectura="true"]')
+                    .forEach((pane) => {
+                        pane.querySelectorAll(".tab-pane[id^='tab-']").forEach((seccion) => {
+                            if (editablesTrasAlta.has(seccion.id)) { return; }
+
+                            seccion.classList.add("censo-seccion--cerrada");
+                            seccion.querySelectorAll("input, select, textarea").forEach((campo) => {
+                                if (campo.type === "hidden") { return; }
+                                campo.setAttribute("tabindex", "-1");
+                                campo.setAttribute("aria-readonly", "true");
+                            });
+                            // Guardar esta sección no haría nada: el servidor la rechaza. Se quita
+                            // el botón en vez de dejar que alguien lo pulse y reciba un error.
+                            seccion.querySelectorAll(".censo-save-button").forEach((boton) => {
+                                boton.remove();
+                            });
+                        });
+                    });
+            })();
 
             // El nombre del paciente para los mensajes de confirmación. Vive en el maestro, así que
             // sirve para cualquier programa.
