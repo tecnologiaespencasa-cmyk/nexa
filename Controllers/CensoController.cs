@@ -2484,7 +2484,7 @@ public partial class CensoController : Controller
 
         var cronicos = await _context.CensoCronicos
             .AsNoTracking()
-            .Where(x => x.FechaEgreso == null
+            .Where(x => (x.FechaEgreso == null || x.FechaEgreso < CensoVisibility.FechaEgresoMinima)
                 && (x.EstadoPaciente == null || !EF.Functions.ILike(x.EstadoPaciente, "Inactivo")))
             .Select(x => new CandidatoActivo
             {
@@ -2496,14 +2496,19 @@ public partial class CensoController : Controller
                 NumeroIdentificacion = x.NumeroIdentificacion,
                 Zona = x.ClasificacionZonaSura,
                 Diagnostico = x.GrupoPatologiaCronica,
-                Asegurador = null,
+                // El censo de crónicos no tiene columna de aseguradora porque el programa
+                // atiende únicamente a EPS Sura, igual que terapia ambulatoria. Sin esto los
+                // pacientes crónicos saldrían sin aseguradora y el filtro de abajo los dejaría
+                // fuera del informe por un dato que su formulario nunca pide.
+                Asegurador = AseguradorSura,
                 Estado = x.EstadoPaciente
             })
             .ToListAsync(cancellationToken);
 
         var heridas = await _context.CensoClinicaHeridas
             .AsNoTracking()
-            .Where(x => x.FechaEgreso == null && x.Estado != null && EF.Functions.ILike(x.Estado, "Activo"))
+            .Where(x => (x.FechaEgreso == null || x.FechaEgreso < CensoVisibility.FechaEgresoMinima)
+                && x.Estado != null && EF.Functions.ILike(x.Estado, "Activo"))
             .Select(x => new CandidatoActivo
             {
                 // Con VAC en Sí el paciente se reporta como VAC, que pesa más que clínica de
@@ -2526,7 +2531,8 @@ public partial class CensoController : Controller
 
         var npt = await _context.CensoNpt
             .AsNoTracking()
-            .Where(x => x.FechaEgreso == null && x.Estado != null && EF.Functions.ILike(x.Estado, "Activo"))
+            .Where(x => (x.FechaEgreso == null || x.FechaEgreso < CensoVisibility.FechaEgresoMinima)
+                && x.Estado != null && EF.Functions.ILike(x.Estado, "Activo"))
             .Select(x => new CandidatoActivo
             {
                 Programa = CensoProgramas.Npt,
@@ -2556,7 +2562,7 @@ public partial class CensoController : Controller
                 NumeroIdentificacion = x.NumeroIdentificacion,
                 Zona = x.ClasificacionZonaSura,
                 Diagnostico = x.DiagnosticoDescriptivo,
-                Asegurador = "EPS SURA",
+                Asegurador = AseguradorSura,
                 Estado = x.EstadoPaciente
             })
             .ToListAsync(cancellationToken);
@@ -2582,6 +2588,16 @@ public partial class CensoController : Controller
             })
             .ToListAsync(cancellationToken);
 
+        // Programas de los que el paciente ya fue dado de alta alguna vez. Hacen falta porque un
+        // episodio vacío sobre uno de ellos no es una asignación nueva.
+        var programasConAlta = (await _context.CensoPacienteProgramas
+                .AsNoTracking()
+                .Where(e => e.CerradoAtUtc != null)
+                .Select(e => new { e.Programa, e.CensoPaciente.NumeroIdentificacion })
+                .ToListAsync(cancellationToken))
+            .Select(e => ClaveProgramaPaciente(e.NumeroIdentificacion, e.Programa))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         var conRegistro = agudos
             .Concat(cronicos)
             .Concat(heridas)
@@ -2596,9 +2612,16 @@ public partial class CensoController : Controller
             .Select(x => ClaveProgramaPaciente(x.NumeroIdentificacion, x.Programa))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        // Un episodio vacío solo reporta al paciente cuando el programa es nuevo para él. Si ya
+        // tuvo ese programa y se le dio de alta, el episodio vacío es un "Agregar" que alguien
+        // pulsó sobre la ficha —a veces sin querer, a veces empezando un reingreso— y no una
+        // atención en curso: reportarlo devolvía al informe a pacientes ya dados de alta, que es
+        // justo lo que el informe no puede hacer. En cuanto se diligencie el formulario habrá
+        // fila propia y el paciente volverá a entrar por la vía normal.
         var pendientes = episodiosPendientes
             .Where(e => CensoProgramas.EsValido(e.Programa)
-                && !yaReportados.Contains(ClaveProgramaPaciente(e.NumeroIdentificacion, e.Programa)))
+                && !yaReportados.Contains(ClaveProgramaPaciente(e.NumeroIdentificacion, e.Programa))
+                && !programasConAlta.Contains(ClaveProgramaPaciente(e.NumeroIdentificacion, e.Programa)))
             .Select(e => new CandidatoActivo
             {
                 Programa = e.Programa,
@@ -2610,9 +2633,10 @@ public partial class CensoController : Controller
                 NumeroIdentificacion = e.NumeroIdentificacion,
                 Zona = e.ClasificacionZonaSura,
                 Diagnostico = e.DiagnosticoDescriptivo,
-                // Terapia ambulatoria reporta siempre EPS SURA, igual que su consulta de arriba.
-                Asegurador = e.Programa == CensoProgramas.TerapiaAmbulatoria
-                    ? "EPS SURA"
+                // Crónicos y terapia no guardan aseguradora en su censo y solo atienden a
+                // EPS Sura, igual que en sus consultas de arriba. Los demás la traen del maestro.
+                Asegurador = e.Programa is CensoProgramas.TerapiaAmbulatoria or CensoProgramas.Cronicos
+                    ? AseguradorSura
                     : e.Asegurador,
                 Estado = null
             })
@@ -2642,6 +2666,10 @@ public partial class CensoController : Controller
                 Program = NombreProgramaInforme(x),
                 Insurer = x.Asegurador ?? string.Empty
             })
+            // El informe es de los pacientes de EPS Sura y de nadie más. Se filtra sobre la
+            // fila ya elegida, que es la que se imprime, y no sobre cada candidata: así el
+            // informe nunca muestra una aseguradora distinta de la que dice esta columna.
+            .Where(x => EsAseguradorSura(x.Insurer))
             .OrderBy(x => x.FullName)
             .ThenBy(x => x.Program)
             .ToList();
@@ -2662,6 +2690,22 @@ public partial class CensoController : Controller
         candidato.Programa == CensoProgramas.Agudos
             ? NormalizeActivePatientProgram(null, candidato.Estado)
             : CensoProgramas.Nombre(candidato.Programa);
+
+    /// <summary>
+    /// Rótulo con el que el informe reporta a EPS Sura cuando el censo no guarda la
+    /// aseguradora, como pasa en crónicos y en terapia ambulatoria.
+    /// </summary>
+    private const string AseguradorSura = "EPS SURA";
+
+    /// <summary>
+    /// La misma aseguradora está escrita de varias formas según de dónde venga el dato:
+    /// "EPS SURA" en el catálogo actual, "Sura EPS" en los registros antiguos y "SURA" en el
+    /// catálogo de NPT. Buscar la palabra cubre las tres sin dejar fuera a nadie, y no alcanza
+    /// a "PAN-AMERICAN LIFE DE COLOMBIA", "PANAMERICAN LIFE" ni "PARTICULAR", que son las
+    /// otras opciones que existen.
+    /// </summary>
+    private static bool EsAseguradorSura(string? asegurador) =>
+        asegurador is not null && asegurador.Contains("sura", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Clave paciente + programa para el informe. VAC no es un programa aparte sino el estado del

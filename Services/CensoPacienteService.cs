@@ -713,7 +713,7 @@ public class CensoPacienteService : ICensoPacienteService
                 .ToListAsync(cancellationToken);
             foreach (var fila in cronicos)
             {
-                var cerrado = fila.FechaEgreso.HasValue
+                var cerrado = CensoVisibility.HayEgreso(fila.FechaEgreso)
                     || string.Equals(fila.EstadoPaciente, "Inactivo", StringComparison.OrdinalIgnoreCase);
                 Conciliar(episodios, pacienteId, CensoProgramas.Cronicos, fila.Id, cerrado,
                     fila.MotivoEgreso ?? fila.EstadoPaciente);
@@ -847,7 +847,7 @@ public class CensoPacienteService : ICensoPacienteService
 
     /// <summary>Clínica de heridas y NPT: se cierran con el egreso o con un estado distinto de activo.</summary>
     private static bool EsProgramaCerrado(string? estado, DateTime? fechaEgreso) =>
-        fechaEgreso.HasValue
+        CensoVisibility.HayEgreso(fechaEgreso)
         || (!string.IsNullOrWhiteSpace(estado) && !string.Equals(estado, "Activo", StringComparison.OrdinalIgnoreCase));
 
     private static string? GeneroBinario(string? genero) =>
