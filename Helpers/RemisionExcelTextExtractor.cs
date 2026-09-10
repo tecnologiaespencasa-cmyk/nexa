@@ -15,6 +15,7 @@ public static class RemisionExcelTextExtractor
     private const long MaxUncompressedWorksheetBytes = 20L * 1024 * 1024;
     private const string PreferredSheetName = "Formato Remisión";
     private const int MinimumEvidenceScore = 6;
+    private const int MinimumFilledAnswerRows = 5;
     private static readonly string[] RemisionIndicators =
     {
         "FORMATOREMISION",
@@ -63,6 +64,7 @@ public static class RemisionExcelTextExtractor
         var sheetName = reader.Name;
         var result = new StringBuilder(BuildExtractedTextHeader(sheetName));
         var nonEmptyRows = 0;
+        var answerRows = 0;
         var evidenceScore = ScoreSheetName(sheetName);
         while (reader.Read())
         {
@@ -77,11 +79,15 @@ public static class RemisionExcelTextExtractor
                 result.AppendLine();
                 result.Append(rowText);
                 nonEmptyRows++;
+                if (values.Length > 1)
+                {
+                    answerRows++;
+                }
                 evidenceScore += ScoreRow(rowText);
             }
         }
 
-        return new SheetExtractionCandidate(sheetName, result.ToString(), nonEmptyRows, evidenceScore);
+        return new SheetExtractionCandidate(sheetName, result.ToString(), nonEmptyRows, answerRows, evidenceScore);
     }
 
     private static string ExtractOdsFormatoRemisionText(byte[] workbookBytes)
@@ -108,6 +114,7 @@ public static class RemisionExcelTextExtractor
         var sheetName = (string?)sheet.Attribute(tableNs + "name") ?? "Hoja sin nombre";
         var result = new StringBuilder(BuildExtractedTextHeader(sheetName));
         var nonEmptyRows = 0;
+        var answerRows = 0;
         var evidenceScore = ScoreSheetName(sheetName);
         foreach (var row in sheet.Elements(tableNs + "table-row"))
         {
@@ -122,11 +129,15 @@ public static class RemisionExcelTextExtractor
                 result.AppendLine();
                 result.Append(rowText);
                 nonEmptyRows++;
+                if (values.Length > 1)
+                {
+                    answerRows++;
+                }
                 evidenceScore += ScoreRow(rowText);
             }
         }
 
-        return new SheetExtractionCandidate(sheetName, result.ToString(), nonEmptyRows, evidenceScore);
+        return new SheetExtractionCandidate(sheetName, result.ToString(), nonEmptyRows, answerRows, evidenceScore);
     }
 
     private static XDocument ReadXml(ZipArchive archive, string path)
@@ -179,11 +190,40 @@ public static class RemisionExcelTextExtractor
             throw new InvalidDataException("El archivo no contiene información para analizar.");
         }
 
-        var preferredSheet = populatedSheets.FirstOrDefault(candidate =>
-            string.Equals(NormalizeSheetName(candidate.SheetName), NormalizeSheetName(PreferredSheetName), StringComparison.Ordinal));
-        if (preferredSheet is not null)
+        if (populatedSheets.Count == 1)
         {
-            return preferredSheet;
+            return populatedSheets[0];
+        }
+
+        // Algunas IPS diligencian la remisión sobre otra pestaña del libro (el instructivo, una
+        // copia de trabajo…) y dejan "Formato Remisión" en blanco. Por eso no basta con quedarse
+        // con la hoja del nombre esperado: entre las que tienen estructura de remisión se elige la
+        // que de verdad trae respuestas (filas con etiqueta + dato), no solo el rótulo del campo.
+        var isPreferredName = (SheetExtractionCandidate candidate) => string.Equals(
+            NormalizeSheetName(candidate.SheetName),
+            NormalizeSheetName(PreferredSheetName),
+            StringComparison.Ordinal);
+
+        var remisionLikeSheets = populatedSheets
+            .Where(candidate => candidate.EvidenceScore >= MinimumEvidenceScore || isPreferredName(candidate))
+            .ToList();
+
+        if (remisionLikeSheets.Count > 0)
+        {
+            // Si la hoja con el nombre esperado ya viene diligenciada, es la buena: no se cambia
+            // por otra aunque otra pestaña tenga más celdas (p. ej. un instructivo con un ejemplo).
+            var preferredSheet = remisionLikeSheets.FirstOrDefault(isPreferredName);
+            if (preferredSheet is not null && preferredSheet.AnswerRows >= MinimumFilledAnswerRows)
+            {
+                return preferredSheet;
+            }
+
+            return remisionLikeSheets
+                .OrderByDescending(candidate => candidate.AnswerRows)
+                .ThenByDescending(candidate => isPreferredName(candidate))
+                .ThenByDescending(candidate => candidate.EvidenceScore)
+                .ThenByDescending(candidate => candidate.NonEmptyRows)
+                .First();
         }
 
         var bestCandidate = populatedSheets
@@ -191,7 +231,7 @@ public static class RemisionExcelTextExtractor
             .ThenByDescending(candidate => candidate.NonEmptyRows)
             .First();
 
-        if (populatedSheets.Count == 1 || bestCandidate.EvidenceScore >= MinimumEvidenceScore)
+        if (bestCandidate.EvidenceScore >= MinimumEvidenceScore)
         {
             return bestCandidate;
         }
@@ -216,5 +256,5 @@ public static class RemisionExcelTextExtractor
             .Where(character => char.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark && char.IsLetterOrDigit(character)))
             .ToUpperInvariant();
 
-    private sealed record SheetExtractionCandidate(string SheetName, string Text, int NonEmptyRows, int EvidenceScore);
+    private sealed record SheetExtractionCandidate(string SheetName, string Text, int NonEmptyRows, int AnswerRows, int EvidenceScore);
 }
