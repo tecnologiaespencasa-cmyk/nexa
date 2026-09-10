@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Nexa.Data;
 using Nexa.Helpers;
 using Nexa.Data.Entities;
+using Nexa.Models.Security;
 using Nexa.Models.ViewModels;
 using Nexa.Services.Models;
 
@@ -248,7 +249,18 @@ public partial class CensoController
             HttpContext.Connection.RemoteIpAddress?.ToString(),
             cancellationToken);
 
+        // Clinica de heridas, cronicos y NPT los atiende programas especiales: se les avisa por
+        // correo en cuanto el paciente entra. El aviso nunca puede tumbar el guardado, asi que si
+        // el correo falla se dice en pantalla y el programa queda agregado igual.
+        var avisoCorreo = await _censoProgramaNotificationService.NotificarProgramaAgregadoAsync(
+            paciente, programa, UsuarioActual(), cancellationToken);
+
         TempData["SuccessMessage"] = $"{CensoProgramas.Nombre(programa)} agregado al paciente.";
+        if (!string.IsNullOrWhiteSpace(avisoCorreo))
+        {
+            TempData["ErrorMessage"] = avisoCorreo;
+        }
+
         return RedirectToAction(nameof(Index), new
         {
             cedulaPaciente = paciente.NumeroIdentificacion,
@@ -339,6 +351,12 @@ public partial class CensoController
         model.Atenciones = paciente is null
             ? new Dictionary<string, IReadOnlyList<CensoAtencionViewModel>>(StringComparer.Ordinal)
             : await ConstruirAtencionesAsync(episodios, atencionSolicitada, cancellationToken);
+
+        // Se buscó y no hubo paciente. Distinto de entrar sin buscar: eso no se avisa.
+        model.BusquedaSinResultados = paciente is null && !string.IsNullOrWhiteSpace(model.CedulaFiltro);
+
+        model.PuedeReabrirAtencion = await _currentUserPermissionService.HasPermissionAsync(
+            User, SystemPermissions.Aprobacion, cancellationToken);
 
         var abiertos = model.Programas.Where(x => x.Agregado).Select(x => x.Programa).ToList();
 

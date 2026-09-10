@@ -1088,22 +1088,20 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
    unico accionable: que si se puede seguir registrando.
    -------------------------------------------------------------------------- */
 
+/* Una atencion cerrada: candado, de que atencion se trata, y la unica accion
+   que cambia eso. El gris es deliberado: ningun programa lo usa, asi que no se
+   confunde con el matiz de agudos, cronicos, heridas, NPT ni terapia. */
 .censo-atencion-cerrada {
   display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin-block-end: 1rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--censo-border);
-  border-inline-start: 3px solid var(--censo-ink-soft);
-  border-radius: 12px;
-  background: var(--censo-surface-muted, #fafafa);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
 }
 
-.censo-atencion-cerrada__marca svg {
-  display: block;
-  width: 1.15rem;
-  height: 1.15rem;
+.censo-atencion-cerrada__candado {
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
   fill: none;
   stroke: var(--censo-ink-soft);
   stroke-width: 1.9;
@@ -1114,14 +1112,32 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
 .censo-atencion-cerrada__titulo {
   margin: 0;
   font-size: 0.86rem;
-  font-weight: 800;
-  color: var(--censo-ink);
+  font-weight: 700;
+  color: var(--censo-ink-soft);
 }
 
-.censo-atencion-cerrada__detalle {
-  margin: 0.15rem 0 0;
-  font-size: 0.78rem;
-  color: var(--censo-ink-soft);
+.censo-atencion-cerrada__accion {
+  margin-inline-start: auto;
+}
+
+/* La unica accion de la ficha que cambia el estado de una atencion, y solo la
+   ve quien tiene el permiso. Va en el rojo del sistema y no en el matiz del
+   programa: no es moverse dentro del paciente, es deshacer su alta. Contorno y
+   no relleno porque es la excepcion, no el camino de todos los dias. */
+.censo-boton--reabrir {
+  height: 2.1rem;
+  padding-inline: 0.9rem;
+  border-color: var(--rojo-linea);
+  background: #fff;
+  color: var(--rojo-hondo);
+  font-size: 0.82rem;
+}
+
+.censo-boton--reabrir:hover,
+.censo-boton--reabrir:focus-visible {
+  border-color: var(--rojo);
+  background: var(--rojo-tenue);
+  color: var(--rojo-hondo);
 }
 
 /* --------------------------------------------------------------------------
@@ -1251,4 +1267,162 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
   padding: 0.45rem 0.6rem;
   font-size: 0.85rem;
   color: var(--censo-ink-soft);
+}
+
+/* ==========================================================================
+   Ficha del paciente
+   ==========================================================================
+   Un solo marco con las tres cosas que hay que saber antes de tocar nada:
+   quien es, en que programas esta, y que atencion se esta editando. Antes
+   eran tres tarjetas sueltas y la misma informacion se leia dos veces.
+
+   Las bandas se separan con una linea, no con aire ni con marcos propios:
+   pertenecen al mismo objeto, el paciente. Y solo aparecen cuando tienen algo
+   que decir, asi que un paciente sin programas cerrados ve una sola banda.
+   ========================================================================== */
+
+.censo-ficha {
+  margin: 1rem 0 1.25rem;
+  border: 1px solid var(--censo-border);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(170, 122, 111, 0.08);
+  overflow: hidden;
+}
+
+.censo-ficha__banda {
+  padding: 1rem 1.25rem;
+}
+
+.censo-ficha__banda + .censo-ficha__banda {
+  border-block-start: 1px solid var(--censo-border);
+}
+
+.censo-ficha__banda--identidad {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem 1.5rem;
+  align-items: center;
+}
+
+.censo-ficha__quien {
+  min-width: 0;
+}
+
+/* El nombre es lo unico que se lee de lejos: grande, apretado y sin etiqueta
+   encima. Poner "PACIENTE" sobre el nombre de una persona es explicar lo
+   evidente y ocupa una linea entera. */
+.censo-ficha__nombre {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--censo-ink);
+  overflow-wrap: anywhere;
+}
+
+.censo-ficha__nombre--vacio {
+  color: var(--censo-ink-soft);
+}
+
+/* Documento, edad e ingreso en una sola linea separada por puntos. Son datos
+   que se cotejan de un vistazo, no que se leen uno por uno; con etiqueta
+   propia cada uno ocupaban media pantalla. Cifras tabulares para que el
+   documento se compare digito a digito con el que se busco. */
+.censo-ficha__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--censo-ink-soft);
+}
+
+.censo-ficha__meta > * + *::before {
+  content: "·";
+  margin-inline-end: 0.6rem;
+}
+
+.censo-ficha__buscador {
+  --alto-control: 2.75rem;
+  --radio-control: 12px;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Una busqueda sin resultados no decia nada y la pantalla quedaba igual que al
+   entrar: no se sabia si el documento no existe o si la busqueda no corrio. */
+.censo-ficha__sin-resultados {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  background: var(--rojo-tenue);
+}
+
+.censo-ficha__sin-resultados svg {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: none;
+  stroke: var(--rojo);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.censo-ficha__sin-resultados p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--censo-ink);
+}
+
+.censo-ficha__banda--programas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2rem;
+  align-items: flex-start;
+  background: var(--censo-surface-muted, #fafafa);
+}
+
+.censo-ficha__banda--atencion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Solo se ve la banda del programa activo: son cinco y hablan de lo mismo. */
+.censo-ficha__banda--atencion.d-none {
+  display: none;
+}
+
+/* Dentro de la ficha, el selector de atenciones y la franja de cerrada pierden
+   su margen inferior: la banda ya pone el aire. */
+.censo-ficha__banda--atencion .censo-atenciones,
+.censo-ficha__banda--atencion .censo-atencion-cerrada {
+  margin-block-end: 0;
+}
+
+@media (max-width: 47.99em) {
+  .censo-ficha__banda--identidad {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .censo-ficha__buscador {
+    flex-wrap: wrap;
+  }
+
+  .censo-buscador__campo {
+    flex: 1 1 100%;
+  }
+}
+
+/* La nota de "sin programas" ocupa toda la banda: habla de los dos grupos. */
+.censo-ficha__banda--programas > .censo-carril__aviso {
+  flex: 1 0 100%;
+  margin: 0;
 }

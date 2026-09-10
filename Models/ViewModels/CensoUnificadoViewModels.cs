@@ -328,6 +328,18 @@ public class CensoUnificadoViewModel
     public bool PacienteGuardado => Paciente.PacienteId.HasValue;
 
     /// <summary>
+    /// Se buscó un documento y no apareció ningún paciente. No es lo mismo que entrar a la
+    /// pantalla sin buscar nada: ahí no hay nada que avisar, y aquí sí.
+    /// </summary>
+    public bool BusquedaSinResultados { get; set; }
+
+    /// <summary>
+    /// Quien mira tiene el permiso de reapertura, el mismo que aprueba la del kardex. Sin él, el
+    /// botón de reabrir una atención cerrada no se dibuja.
+    /// </summary>
+    public bool PuedeReabrirAtencion { get; set; }
+
+    /// <summary>
     /// Pacientes que arrastran agudos y crónicos abiertos a la vez desde antes de la unificación.
     /// No se rompen: se muestran con aviso y no se pueden agravar.
     /// </summary>

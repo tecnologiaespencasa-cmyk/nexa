@@ -1274,6 +1274,9 @@
                                 : "Sin enviar a farmacia.";
                 }
 
+                // Devuelve { ok, mensaje, avisos }. Antes solo decia si habia funcionado, y quien
+                // envia a farmacia necesita ademas el mensaje del servidor y sus avisos —por
+                // ejemplo que el correo al auxiliar no salio— para poder mostrarlos.
                 const enviarDocumento = async (url, mensajeExito) => {
                     mostrarError("");
                     const cuerpoForm = new FormData();
@@ -1282,15 +1285,28 @@
                     cuerpoForm.append("kardexJson", JSON.stringify(serializarDocumento()));
                     cuerpoForm.append("__RequestVerificationToken", token);
 
-                    const respuesta = await fetch(url, { method: "POST", body: cuerpoForm });
-                    const datos = await respuesta.json().catch(() => null);
-                    if (!respuesta.ok) {
-                        mostrarError(datos?.message || "No fue posible completar la operación.");
-                        return false;
+                    let respuesta;
+                    let datos = null;
+                    try {
+                        respuesta = await fetch(url, { method: "POST", body: cuerpoForm });
+                        datos = await respuesta.json().catch(() => null);
+                    } catch {
+                        // Sin red la promesa de fetch se rechaza y antes el fallo pasaba sin
+                        // decir nada: el usuario se quedaba mirando un boton que no reaccionaba.
+                        const mensaje = "No se pudo contactar al servidor. Revisa la conexion e intentalo de nuevo.";
+                        mostrarError(mensaje);
+                        return { ok: false, mensaje, avisos: [] };
                     }
 
-                    estadoNota.textContent = datos?.message || mensajeExito;
-                    return true;
+                    if (!respuesta.ok) {
+                        const mensaje = datos?.message || "No fue posible completar la operacion.";
+                        mostrarError(mensaje);
+                        return { ok: false, mensaje, avisos: [] };
+                    }
+
+                    const mensaje = datos?.message || mensajeExito;
+                    estadoNota.textContent = mensaje;
+                    return { ok: true, mensaje, avisos: Array.isArray(datos?.avisos) ? datos.avisos : [] };
                 };
 
                 // Las tarjetas se repintan al navegar entre planes, asi que la apertura se expone en
@@ -1312,9 +1328,42 @@
                 });
 
                 guardarBtn.addEventListener("click", () => enviarDocumento(kardexGuardarUrl, "Requisición guardada."));
+
+                // Enviar a farmacia es el punto sin retorno de la requisicion: cierra el documento
+                // y lo pone en la bandeja del otro equipo. Antes la unica senal era una linea de
+                // texto dentro del propio modal, que ademas se repinta enseguida, asi que no se
+                // sabia si habia salido. Ahora se dice con el mismo dialogo que usa el resto de
+                // clinica de heridas, y los avisos del servidor —como que el correo al auxiliar
+                // no salio— se listan sin hacer creer que el envio fallo.
                 enviarBtn.addEventListener("click", async () => {
-                    if (await enviarDocumento(kardexEnviarUrl, "Enviado a farmacia.")) {
+                    enviarBtn.disabled = true;
+                    try {
+                        const resultado = await enviarDocumento(kardexEnviarUrl, "Enviado a farmacia.");
+
+                        if (!resultado.ok) {
+                            await abrirDialogo({
+                                titulo: "No se envio a farmacia",
+                                mensaje: resultado.mensaje,
+                                soloAviso: true,
+                                tono: "peligro"
+                            });
+                            return;
+                        }
+
                         await cargarKardex(tipoActual);
+                        await abrirDialogo({
+                            titulo: "Requisicion enviada",
+                            // El mensaje lo pone el servidor y ya nombra el tipo de requisicion
+                            // ("Kardex de VAC enviado a farmacia"): una sola fuente para el texto.
+                            mensaje: resultado.avisos.length === 0
+                                ? resultado.mensaje
+                                : `${resultado.mensaje} Con estas observaciones:`,
+                            detalles: resultado.avisos,
+                            soloAviso: true,
+                            tono: resultado.avisos.length === 0 ? "aviso" : "advertencia"
+                        });
+                    } finally {
+                        enviarBtn.disabled = false;
                     }
                 });
 

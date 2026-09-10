@@ -136,59 +136,121 @@
 
     <div class="censo-content">
 
-        <section class="censo-identidad" aria-label="Paciente del censo">
+        @* =================== Ficha del paciente ===================
+           Una sola tarjeta con las tres cosas que hay que saber antes de tocar nada: quién es,
+           en qué programas está, y qué atención se está editando. Antes eran tres marcos
+           separados y la misma información aparecía dos veces (los programas activos se leían
+           arriba y abajo). Las bandas solo aparecen cuando tienen algo que decir. *@
+        <section class="censo-ficha" aria-label="Paciente del censo">
+            <div class="censo-ficha__banda censo-ficha__banda--identidad">
 @if (Model.PacienteGuardado)
 {
-            <div class="censo-identidad__datos">
-                <div>
-                    <span class="censo-identidad__label">Paciente</span>
-                    <p class="censo-identidad__nombre">@p.NombrePaciente</p>
+                <div class="censo-ficha__quien">
+                    <h2 class="censo-ficha__nombre">@p.NombrePaciente</h2>
+                    @* Los identificadores van en una sola línea: se comparan de un vistazo, no se
+                       leen uno por uno, y cada uno con su propia etiqueta era media pantalla. *@
+                    <p class="censo-ficha__meta">
+                        <span>@p.TipoIdentificacion @p.NumeroIdentificacion</span>
+                        <span>@p.Edad años</span>
+                        <span>Ingresó @p.FechaIngreso.ToString("dd/MM/yyyy")</span>
+                    </p>
                 </div>
-                <div class="censo-identidad__meta">
-                    <span class="censo-identidad__label">Documento</span>
-                    <span class="censo-identidad__valor">@p.TipoIdentificacion @p.NumeroIdentificacion</span>
-                </div>
-                <div class="censo-identidad__meta">
-                    <span class="censo-identidad__label">Edad</span>
-                    <span class="censo-identidad__valor">@p.Edad años</span>
-                </div>
-                <div class="censo-identidad__meta">
-                    <span class="censo-identidad__label">Ingreso</span>
-                    <span class="censo-identidad__valor">@p.FechaIngreso.ToString("dd/MM/yyyy")</span>
-                </div>
-                <div class="censo-identidad__meta">
-                    <span class="censo-identidad__label">Programas activos</span>
-                    <span class="censo-identidad__valor">
-                        @(abiertos.Count == 0 ? "Ninguno" : string.Join(" · ", abiertos.Select(x => x.NombreCorto)))
-                    </span>
-                </div>
-            </div>
 }
 else
 {
-            <div class="censo-identidad__datos">
-                <div>
-                    <span class="censo-identidad__label">Censo</span>
-                    <p class="censo-identidad__nombre">Nuevo paciente</p>
-                    <p class="censo-identidad__vacio">
-                        Busca un documento para abrir un paciente existente, o diligencia la recepción y los datos básicos para crearlo.
-                    </p>
+                <div class="censo-ficha__quien">
+                    <h2 class="censo-ficha__nombre censo-ficha__nombre--vacio">Nuevo paciente</h2>
                 </div>
+}
+                <form method="get" asp-action="Index" class="censo-ficha__buscador" role="search">
+                    <label class="visually-hidden" for="buscarDocumento">Número de documento</label>
+                    <div class="censo-buscador__campo">
+                        <svg class="censo-buscador__icono" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7"></circle>
+                            <path d="m20 20-3.5-3.5"></path>
+                        </svg>
+                        <input type="text" class="censo-buscador__input" id="buscarDocumento" name="cedulaPaciente"
+                               value="@Model.CedulaFiltro" placeholder="Documento del paciente" autocomplete="off" inputmode="numeric" />
+                    </div>
+                    <button class="censo-boton censo-boton--solido" type="submit">Buscar</button>
+                    <a class="censo-boton censo-boton--sutil" asp-action="Index">Nuevo</a>
+                </form>
+            </div>
+
+@if (Model.BusquedaSinResultados)
+{
+            @* Una búsqueda sin resultados no decía nada y la pantalla se quedaba igual que al
+               entrar: no se sabía si el documento no existe o si la búsqueda no corrió. *@
+            <div class="censo-ficha__banda censo-ficha__sin-resultados" role="status">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <path d="m20 20-3.5-3.5"></path>
+                </svg>
+                <p>
+                    Ningún paciente con el documento <strong>@Model.CedulaFiltro</strong>.
+                    Revisa el número o diligencia la recepción para crearlo.
+                </p>
             </div>
 }
-            <form method="get" asp-action="Index" class="censo-identidad__buscador" role="search">
-                <label class="visually-hidden" for="buscarDocumento">Número de documento</label>
-                <div class="censo-buscador__campo">
-                    <svg class="censo-buscador__icono" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle cx="11" cy="11" r="7"></circle>
-                        <path d="m20 20-3.5-3.5"></path>
-                    </svg>
-                    <input type="text" class="censo-buscador__input" id="buscarDocumento" name="cedulaPaciente"
-                           value="@Model.CedulaFiltro" placeholder="Documento del paciente" autocomplete="off" inputmode="numeric" />
+
+            @* Los programas del paciente. Se fue el titulo y el parrafo de ayuda: las etiquetas
+               de los dos grupos ya dicen la regla, y quien usa esta pantalla todos los dias no
+               necesita que se la repitan en cada busqueda. *@
+            <div class="censo-ficha__banda censo-ficha__banda--programas">
+                @* La exclusion entre los base se ve en la estructura: comparten un solo marco
+                   partido por lineas. Lo que va fuera de ese marco se puede sumar. *@
+                <div class="censo-carril__grupo">
+                    <p class="censo-carril__grupo-titulo">Programa base</p>
+                    <div class="censo-carril__segmento" role="group"
+                         aria-label="Programa base: agudos, cronicos o terapia ambulatoria, excluyentes entre si">
+@foreach (var chip in Model.Programas.Where(x => CensoProgramas.EsBase(x.Programa)))
+{
+                        <partial name="_CensoProgramaChip" model="chip" view-data="@(new ViewDataDictionary(ViewData) { { "PacienteId", p.PacienteId }, { "CedulaFiltro", Model.CedulaFiltro } })" />
+}
+                    </div>
                 </div>
-                <button class="censo-boton censo-boton--solido" type="submit">Buscar</button>
-                <a class="censo-boton censo-boton--sutil" asp-action="Index">Nuevo</a>
-            </form>
+
+                <div class="censo-carril__grupo censo-carril__grupo--adicionales">
+                    <p class="censo-carril__grupo-titulo">
+                        Programas adicionales
+                        @* Solo se habla cuando hay algo que no se ve: que con terapia activa estos
+                           dos no se pueden agregar. Que se combinan entre si ya lo dice el que
+                           esten fuera del marco de los base. *@
+@if (terapiaActiva)
+{
+                        <span class="censo-carril__grupo-nota">No disponibles con terapia ambulatoria</span>
+}
+                    </p>
+                    <div class="censo-carril__adicionales">
+@foreach (var chip in Model.Programas.Where(x => !CensoProgramas.EsBase(x.Programa)))
+{
+                        <partial name="_CensoProgramaChip" model="chip" view-data="@(new ViewDataDictionary(ViewData) { { "PacienteId", p.PacienteId }, { "CedulaFiltro", Model.CedulaFiltro } })" />
+}
+                    </div>
+                </div>
+
+            </div>
+
+@if (abiertos.Count == 0 && Model.PacienteGuardado)
+{
+                @* A lo ancho de la banda, debajo de los dos grupos: habla de los dos, no del
+                   segundo. Dentro del grupo de adicionales se leia como una nota suya. *@
+                <p class="censo-carril__aviso">Agrega un programa para registrar la atencion.</p>
+}
+            </div>
+
+            @* La atencion que se esta editando. Hay una banda por programa y solo se ve la del
+               programa activo, con el mismo mecanismo que ya usa la barra de guardado. *@
+@foreach (var programa in CensoProgramas.Todos.Where(x => Model.AtencionSeleccionadaDe(x) is not null))
+{
+            <div class="censo-ficha__banda censo-ficha__banda--atencion" data-programa="@programa"
+                 data-censo-banda-atencion>
+                <partial name="_CensoAtenciones" model="Model.AtencionesDe(programa)"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro } })" />
+                <partial name="_CensoAtencionCerrada" model="Model.AtencionSeleccionadaDe(programa)"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro }, { "PuedeReabrir", Model.PuedeReabrirAtencion } })" />
+            </div>
+}
         </section>
 
 @if (!string.IsNullOrWhiteSpace(successMessage))
@@ -517,63 +579,6 @@ else
         </form>
 
         @* ================= Carril de programas ================= *@
-        <section class="censo-carril" aria-labelledby="censoCarrilTitulo">
-            <div class="censo-carril__encabezado">
-                <h2 class="censo-carril__titulo" id="censoCarrilTitulo">Programas del paciente</h2>
-                <p class="censo-carril__ayuda">
-@if (Model.PacienteGuardado)
-{
-                    @:Agrega los programas en los que el paciente recibe atención. Cada uno abre sus propias secciones.
-}
-else
-{
-                    @:Guarda la recepción y los datos básicos para poder agregar programas.
-}
-                </p>
-            </div>
-
-            <div class="censo-carril__lista">
-                @* La exclusión entre los base se ve en la estructura: comparten un solo marco
-                   partido por líneas. Lo que va fuera de ese marco se puede sumar. *@
-                <div class="censo-carril__grupo">
-                    <p class="censo-carril__grupo-titulo">
-                        Programa base
-                        <span class="censo-carril__grupo-nota">Elige uno</span>
-                    </p>
-                    <div class="censo-carril__segmento" role="group"
-                         aria-label="Programa base: agudos, crónicos o terapia ambulatoria, excluyentes entre sí">
-@foreach (var chip in Model.Programas.Where(x => CensoProgramas.EsBase(x.Programa)))
-{
-                        <partial name="_CensoProgramaChip" model="chip" view-data="@(new ViewDataDictionary(ViewData) { { "PacienteId", p.PacienteId }, { "CedulaFiltro", Model.CedulaFiltro } })" />
-}
-                    </div>
-                </div>
-
-                <div class="censo-carril__grupo censo-carril__grupo--adicionales">
-                    <p class="censo-carril__grupo-titulo">
-                        Programas adicionales
-                        @* La nota dice la verdad del momento: con terapia ambulatoria activa estos
-                           dos no se combinan con nada, y decir "se combinan entre sí" sería falso. *@
-                        <span class="censo-carril__grupo-nota">
-                            @(terapiaActiva ? "No disponibles con terapia ambulatoria" : "Se combinan entre sí")
-                        </span>
-                    </p>
-                    <div class="censo-carril__adicionales">
-@foreach (var chip in Model.Programas.Where(x => !CensoProgramas.EsBase(x.Programa)))
-{
-                        <partial name="_CensoProgramaChip" model="chip" view-data="@(new ViewDataDictionary(ViewData) { { "PacienteId", p.PacienteId }, { "CedulaFiltro", Model.CedulaFiltro } })" />
-}
-                    </div>
-                </div>
-            </div>
-
-@if (abiertos.Count == 0 && Model.PacienteGuardado)
-{
-            <p class="censo-carril__aviso">
-                El paciente todavía no tiene programas. Agrega al menos uno para registrar su atención.
-            </p>
-}
-        </section>
 
         @* ================= Formularios de los programas del paciente =================
              Cada programa trae su propio formulario y envia a su propia accion, igual que antes.
@@ -583,9 +588,6 @@ else
 {
             <div data-programa="@CensoProgramas.Agudos"
                  data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.Agudos) ? "true" : null)">
-                <partial name="_CensoAtenciones" model="Model.AtencionesDe(CensoProgramas.Agudos)"
-                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro } })" />
-                <partial name="_CensoAtencionCerrada" model="Model.AtencionSeleccionadaDe(CensoProgramas.Agudos)" />
                 <partial name="_ProgramaAgudos" model="Model.Agudos" />
             </div>
 }
@@ -593,9 +595,6 @@ else
 {
             <div data-programa="@CensoProgramas.Cronicos"
                  data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.Cronicos) ? "true" : null)">
-                <partial name="_CensoAtenciones" model="Model.AtencionesDe(CensoProgramas.Cronicos)"
-                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro } })" />
-                <partial name="_CensoAtencionCerrada" model="Model.AtencionSeleccionadaDe(CensoProgramas.Cronicos)" />
                 <partial name="_ProgramaCronicos" model="Model.Cronicos" />
             </div>
 }
@@ -603,9 +602,6 @@ else
 {
             <div data-programa="@CensoProgramas.ClinicaHeridas"
                  data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.ClinicaHeridas) ? "true" : null)">
-                <partial name="_CensoAtenciones" model="Model.AtencionesDe(CensoProgramas.ClinicaHeridas)"
-                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro } })" />
-                <partial name="_CensoAtencionCerrada" model="Model.AtencionSeleccionadaDe(CensoProgramas.ClinicaHeridas)" />
                 <partial name="_ClinicaHeridas" model="Model.ClinicaHeridas" />
             </div>
 }
@@ -613,9 +609,6 @@ else
 {
             <div data-programa="@CensoProgramas.Npt"
                  data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.Npt) ? "true" : null)">
-                <partial name="_CensoAtenciones" model="Model.AtencionesDe(CensoProgramas.Npt)"
-                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro } })" />
-                <partial name="_CensoAtencionCerrada" model="Model.AtencionSeleccionadaDe(CensoProgramas.Npt)" />
                 <partial name="_Npt" model="Model.Npt" />
             </div>
 }
@@ -623,9 +616,6 @@ else
 {
             <div data-programa="@CensoProgramas.TerapiaAmbulatoria"
                  data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.TerapiaAmbulatoria) ? "true" : null)">
-                <partial name="_CensoAtenciones" model="Model.AtencionesDe(CensoProgramas.TerapiaAmbulatoria)"
-                         view-data="@(new ViewDataDictionary(ViewData) { { "CedulaFiltro", Model.CedulaFiltro } })" />
-                <partial name="_CensoAtencionCerrada" model="Model.AtencionSeleccionadaDe(CensoProgramas.TerapiaAmbulatoria)" />
                 <partial name="_TerapiaAmbulatoria" model="Model.TerapiaAmbulatoria" />
             </div>
 }
@@ -733,6 +723,7 @@ else
 }
     <script>
         (() => {
+            const programaPorDefecto = @Json.Serialize(Model.ProgramaActivo);
             const validarDireccionUrl = "@Url.Action("ValidarDireccion", "Censo")";
             const buscarBarriosUrl = "@Url.Action("BuscarBarrios", "Censo")";
             const defaultsMunicipioUrl = "@Url.Action("ObtenerDefaultsMunicipio", "Censo")";
@@ -899,6 +890,24 @@ else
             window.censoNombrePaciente = () =>
                 document.getElementById("Paciente_NombrePaciente")?.value?.trim() || "este paciente";
 
+            // ----- Confirmar antes de reabrir una atencion -----
+            // Reabrir devuelve la atencion a activa y borra su alta o su egreso. Se pregunta
+            // porque es un cambio de estado del paciente y no hay como deshacerlo con un clic.
+            document.querySelectorAll("[data-censo-reabrir]").forEach((formulario) => {
+                formulario.addEventListener("submit", async (evento) => {
+                    evento.preventDefault();
+                    const programa = formulario.dataset.censoReabrir;
+                    const numero = formulario.dataset.censoReabrirNumero;
+                    const confirmado = await window.censoConfirmar({
+                        titulo: "Reabrir atencion",
+                        mensaje: `Vas a reabrir la atencion ${numero} de ${programa} de `
+                            + `${window.censoNombrePaciente()}. Volvera a estar activa y se `
+                            + `retirara su alta, de modo que podra editarse otra vez.`
+                    });
+                    if (confirmado) { formulario.submit(); }
+                });
+            });
+
             // ----- Confirmar antes de agregar un programa -----
             // El carril agrega el programa con un envío directo; se intercepta para preguntar
             // primero. form.submit() no vuelve a disparar este manejador, así que no hay recursión.
@@ -1028,6 +1037,15 @@ else
                     .forEach((barra) => {
                         barra.classList.toggle("d-none", barra.closest("[data-programa]") !== paneActivo);
                     });
+
+                // La banda de atencion vive en la ficha del paciente, arriba, pero habla del
+                // programa que se este editando: hay una por programa y se muestra la del activo.
+                // En una seccion del paciente no hay programa activo; se muestra la del
+                // programa por defecto para no dejar al paciente sin su estado a la vista.
+                const programaActivo = paneActivo?.dataset.programa ?? programaPorDefecto;
+                document.querySelectorAll("[data-censo-banda-atencion]").forEach((banda) => {
+                    banda.classList.toggle("d-none", banda.dataset.programa !== programaActivo);
+                });
                 const url = new URL(window.location.href);
                 url.searchParams.set("seccion", id);
                 window.history.replaceState({}, "", url);

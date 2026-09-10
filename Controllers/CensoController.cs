@@ -627,6 +627,7 @@ public partial class CensoController : Controller
     private readonly IBridgeSyncQueue _bridgeSyncQueue;
     private readonly INeonClinicaHeridasRepository _neonClinicaHeridasRepository;
     private readonly ICensoPacienteService _censoPacienteService;
+    private readonly ICensoProgramaNotificationService _censoProgramaNotificationService;
     private readonly ICensoTabuladoService _censoTabuladoService;
     private readonly ILogger<CensoController> _logger;
     private readonly IReadOnlyList<string> _medicamentoFallbackValues;
@@ -646,6 +647,7 @@ public partial class CensoController : Controller
         IBridgeSyncQueue bridgeSyncQueue,
         INeonClinicaHeridasRepository neonClinicaHeridasRepository,
         ICensoPacienteService censoPacienteService,
+        ICensoProgramaNotificationService censoProgramaNotificationService,
         ICensoTabuladoService censoTabuladoService,
         ILogger<CensoController> logger,
         IWebHostEnvironment webHostEnvironment)
@@ -662,6 +664,7 @@ public partial class CensoController : Controller
         _bridgeSyncQueue = bridgeSyncQueue;
         _neonClinicaHeridasRepository = neonClinicaHeridasRepository;
         _censoPacienteService = censoPacienteService;
+        _censoProgramaNotificationService = censoProgramaNotificationService;
         _censoTabuladoService = censoTabuladoService;
         _logger = logger;
         _medicamentoFallbackValues = LoadMedicamentoPrincipalValues(webHostEnvironment.ContentRootPath);

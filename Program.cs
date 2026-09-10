@@ -53,6 +53,7 @@ builder.Services.AddScoped<ICurrentUserPermissionService, CurrentUserPermissionS
 builder.Services.AddScoped<ICensoPacienteService, CensoPacienteService>();
 builder.Services.AddScoped<ICensoTabuladoService, CensoTabuladoService>();
 builder.Services.AddScoped<IFarmaciaDispatchNotificationService, FarmaciaDispatchNotificationService>();
+builder.Services.AddScoped<ICensoProgramaNotificationService, CensoProgramaNotificationService>();
 builder.Services.AddScoped<IEspacioCorporativoNotificationService, EspacioCorporativoNotificationService>();
 builder.Services.AddHostedService<EmpacadoNotificationHostedService>();
 builder.Services.AddHostedService<AuditRetentionHostedService>();
