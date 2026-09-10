@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Nexa.Data;
 using Nexa.Helpers;
@@ -1017,6 +1018,20 @@ public partial class CensoController
         model.ZonaDireccionOptions = BuildOptions(ZonaDireccionValues);
         model.AreaOptions = BuildOptions(AreaValues);
         model.IpsQueRemiteOptions = BuildOptions(IpsQueRemiteValues);
+
+        // Una IPS guardada que ya no figura en el catálogo se agrega como opción para este
+        // paciente. Con la lista cerrada, sin esto el campo se pintaría vacío y el primer
+        // guardado borraría un dato que nadie quiso borrar. No abre la puerta a valores nuevos:
+        // solo sobrevive el que la fila ya tenía. Es el mismo criterio que aplica
+        // PopulateDropdownsAsync en el formulario de agudos.
+        var ipsGuardada = model.Paciente.IpsQueRemite;
+        if (!string.IsNullOrWhiteSpace(ipsGuardada)
+            && !IpsQueRemiteValues.Contains(ipsGuardada, StringComparer.OrdinalIgnoreCase))
+        {
+            model.IpsQueRemiteOptions = model.IpsQueRemiteOptions
+                .Append(new SelectListItem { Text = ipsGuardada, Value = ipsGuardada })
+                .ToList();
+        }
         model.VistoBuenoOptions = BuildOptions(VistoBuenoValues);
         model.AseguradorOptions = BuildOptions(AseguradorValues);
         model.NursingAssistantOptions = await GetNursingAssistantOptionsAsync(cancellationToken);

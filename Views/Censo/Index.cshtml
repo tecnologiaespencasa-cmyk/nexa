@@ -467,8 +467,15 @@ else
                                 </div>
                                 <div class="row g-3 censo-field-section__grid">
                                     <div class="col-lg-6">
+                                        @* Lista cerrada con búsqueda: se escribe para filtrar, pero solo se
+                                           guarda lo que está en el catálogo. Antes era un <datalist>, que
+                                           filtra y además acepta texto libre, y por ahí entraron 407
+                                           pacientes con "URGENCIAS IPS SURA LOS ROBLEDO" y varias decenas
+                                           con "SURA" o "AMBULATORIO". El buscador lo arma censo-combo.js
+                                           sobre este mismo <select>, que es el que viaja al servidor. *@
                                         <label asp-for="Paciente.IpsQueRemite" class="form-label"></label>
-                                        <select asp-for="Paciente.IpsQueRemite" asp-items="Model.IpsQueRemiteOptions" class="form-select">
+                                        <select asp-for="Paciente.IpsQueRemite" asp-items="Model.IpsQueRemiteOptions"
+                                                class="form-select" data-censo-buscable="Escribe para buscar la IPS">
                                             <option value="">Selecciona...</option>
                                         </select>
                                         <span asp-validation-for="Paciente.IpsQueRemite" class="text-danger"></span>
@@ -634,12 +641,18 @@ else
                 </div>
                 <a asp-action="ExportarPacientesActivos" download>Descargar Excel</a>
             </div>
+            @* Es el mismo archivo que baja Reportes al filtrar por agudos: la tabla del censo
+               completa, con todas sus columnas. Antes esta tarjeta decía "Todos los programas" y
+               bajaba solo las trece columnas núcleo del tabulado, que no es la información
+               completa de nadie. Los otros cuatro programas se exportan desde Reportes,
+               filtrando por programa. *@
             <div class="censo-history-export-card">
                 <div>
                     <span>Exportable</span>
-                    <strong>Todos los programas</strong>
+                    <strong>@CensoProgramas.Nombre(CensoProgramas.Agudos)</strong>
                 </div>
-                <a asp-action="ExportarProgramaExcel" download>Descargar Excel</a>
+                <a asp-action="ExportarProgramaExcel"
+                   asp-route-programa="@CensoProgramas.Agudos" download>Descargar Excel</a>
             </div>
             <a class="censo-informes__enlace" asp-controller="Reportes" asp-action="Index">
                 Ver el tabulado completo en Reportes
@@ -694,6 +707,9 @@ else
 @section Scripts
 {
     <partial name="_ValidationScriptsPartial" />
+    @* Convierte los <select data-censo-buscable> en listas con busqueda. Va antes que los
+       scripts de programa porque estos consultan las opciones del <select> ya montado. *@
+    <script src="~/js/censo-combo.js" asp-append-version="true"></script>
     <partial name="_CensoExtractorScripts" model="Model" />
 @if (Model.Agudos is not null)
 {

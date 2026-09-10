@@ -591,14 +591,15 @@
                                         <span asp-validation-for="Area" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
+                                        @* Era un <datalist>, que filtra pero acepta texto libre: de ahí salieron
+                                           las IPS inventadas que después ninguna validación aceptaba. Ahora es
+                                           una lista cerrada y censo-combo.js le pone la búsqueda encima. *@
                                         <label asp-for="IpsQueRemite" class="form-label"></label>
-                                        <input asp-for="IpsQueRemite" class="form-control" maxlength="200" id="ipsQueRemiteInput" list="ipsQueRemiteOptions" autocomplete="off" placeholder="Buscar IPS que remite" />
-                                        <datalist id="ipsQueRemiteOptions">
-                                            @foreach (var ipsOption in Model.IpsQueRemiteOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
-                                            {
-                                                <option value="@ipsOption.Value">@ipsOption.Text</option>
-                                            }
-                                        </datalist>
+                                        <select asp-for="IpsQueRemite" asp-items="Model.IpsQueRemiteOptions"
+                                                class="form-select" id="ipsQueRemiteInput"
+                                                data-censo-buscable="Escribe para buscar la IPS">
+                                            <option value="">Selecciona...</option>
+                                        </select>
                                         <span asp-validation-for="IpsQueRemite" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">

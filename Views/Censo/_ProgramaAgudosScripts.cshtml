@@ -2467,7 +2467,11 @@
                 .trim()
                 .replace(/\s+/g, " ");
 
-            const ipsQueRemiteOptions = Array.from(document.querySelectorAll("#ipsQueRemiteOptions option"))
+            // La IPS dejo de ser un <datalist> de texto libre y pasó a ser una lista cerrada:
+            // sus opciones son ahora las del propio <select>, al que censo-combo.js le pone
+            // la busqueda encima. Si esto siguiera apuntando al datalist quedaria vacio y
+            // toda seleccion valida se marcaria como invalida.
+            const ipsQueRemiteOptions = Array.from(document.querySelectorAll("#ipsQueRemiteInput option"))
                 .map((option) => ({
                     value: String(option.value || "").trim(),
                     text: String(option.textContent || "").trim()
@@ -2831,7 +2835,9 @@
             [...section3MedicamentoEntries, ...prorrogaMedicamentoEntries].forEach((entry) => {
                 createSearchableInput(entry.input, medicamentoSearchOptions, canonicalizeMedicamentoInput);
             });
-            createSearchableInput(ipsQueRemiteInput, buildSearchOptions(ipsQueRemiteOptions), () => syncIpsQueRemiteValidation(false));
+            // La IPS ya no usa createSearchableInput: ese ayudante filtra pero deja escribir
+            // cualquier cosa, que es justo por donde entraron las IPS inventadas. Ahora la
+            // arma censo-combo.js sobre el <select>, que no admite valores de fuera.
             createSearchableInput(auxiliarAsignadoInput, buildSearchOptions(auxiliarAsignadoOptions), () => syncAuxiliarAsignadoValidation(false));
             createSearchableInput(auxiliarAsignadoCateterismoInput, buildSearchOptions(auxiliarAsignadoOptions));
 

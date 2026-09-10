@@ -67,48 +67,11 @@ public partial class CensoController
                 return ExportarPorReflexion(registros, "NPT", "censo_npt");
             }
             default:
-                return await ExportarCensoUnificadoExcel(cedulaPaciente, cancellationToken);
+                // Sin programa no hay exportable: el que bajaba "todos los programas" con las
+                // trece columnas nucleo se retiro porque no era la informacion completa de
+                // ningun censo. Cada programa se exporta con las suyas.
+                return BadRequest("Indica el programa que quieres exportar.");
         }
-    }
-
-    /// <summary>Exportable de todos los programas, con las columnas núcleo del tabulado.</summary>
-    [HttpGet]
-    public async Task<IActionResult> ExportarCensoUnificadoExcel(
-        string? cedulaPaciente,
-        CancellationToken cancellationToken)
-    {
-        var model = new CensoUnificadoViewModel { CedulaFiltro = NormalizeCedulaFilter(cedulaPaciente) };
-        await _censoTabuladoService.ConstruirAsync(model, sinRecorte: true, cancellationToken);
-
-        string[] headers =
-        [
-            "Programa", "Estado del programa", "Número de registro", "Paciente", "Tipo de documento",
-            "Número de documento", "Fecha de ingreso", "Estado", "Asegurador", "Zona Sura",
-            "Diagnóstico", "Estado en farmacia", "Adjuntos"
-        ];
-
-        var filas = model.Filas.Select(x => (IReadOnlyList<string?>)new List<string?>
-        {
-            CensoProgramas.Nombre(x.Programa),
-            x.Abierto ? "Abierto" : "Cerrado",
-            x.RegistroId.ToString(CultureInfo.InvariantCulture),
-            x.NombrePaciente,
-            x.TipoIdentificacion,
-            x.NumeroIdentificacion,
-            x.FechaIngreso?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            x.Estado,
-            x.Asegurador,
-            x.ClasificacionZonaSura,
-            x.DiagnosticoDescriptivo,
-            x.EstadoFarmacia,
-            x.TieneAdjuntos ? "Sí" : "No"
-        }).ToList();
-
-        var libro = ExcelWorkbookWriter.BuildTableWorkbook("Censo", headers, filas, DateTime.UtcNow);
-        return File(
-            libro,
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            $"censo_unificado_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
     }
 
     /// <summary>
