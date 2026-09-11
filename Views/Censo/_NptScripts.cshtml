@@ -74,6 +74,7 @@
             const validarDireccionUrl = "@Url.Action("ValidarDireccion", "Censo")";
             const buscarBarriosUrl = "@Url.Action("BuscarBarrios", "Censo")";
             const defaultsMunicipioUrl = "@Url.Action("ObtenerDefaultsMunicipio", "Censo")";
+            const buscarDiagnosticoCie10Url = "@Url.Action("BuscarDiagnosticoCie10", "Censo")";
             const form = document.getElementById("censoNptForm");
             const csrfTokenInput = form?.querySelector("input[name='__RequestVerificationToken']");
             const direccionInput = document.getElementById("direccionInput");
@@ -102,6 +103,8 @@
             const fechaInicioNptInput = document.getElementById("FechaInicioNpt");
             const fechaFinNptInput = document.getElementById("FechaFinNpt");
             const diasTratamientoInput = document.getElementById("DiasTratamiento");
+            const cie10Input = document.getElementById("nptCodigoCie10Input");
+            const diagnosticoInput = document.getElementById("nptDiagnosticoInput");
             const auxiliarEnfermeriaOptions = Array.from(document.querySelectorAll("#nptAuxiliarEnfermeriaOptions option"))
                 .map((option) => option.value || "")
                 .filter((value) => value.trim());
@@ -111,6 +114,35 @@
                 ? Array.from(barrioSelect.options).map((option) => (option.value || "").trim()).filter((value) => !!value)
                 : [];
             let lastValidationDistrict = "";
+
+            // ----- CIE-10 -----
+            // Misma lógica que el maestro (Datos básicos del paciente): el endpoint responde
+            // { found, codigo, diagnostico } contra el catálogo general, y el diagnóstico es de
+            // solo lectura porque lo dicta el catálogo, no quien diligencia el formulario. NPT no
+            // usa el listado cerrado de clínica de heridas: la atención puede corresponder a
+            // cualquier diagnóstico, no solo a los de manejo de herida.
+            cie10Input?.addEventListener("blur", async () => {
+                const codigo = (cie10Input.value || "").trim().toUpperCase();
+                cie10Input.value = codigo;
+                if (!diagnosticoInput) return;
+                if (!/^[A-Z][0-9]{3}$/.test(codigo)) {
+                    diagnosticoInput.value = "";
+                    return;
+                }
+                try {
+                    const respuesta = await fetch(`${buscarDiagnosticoCie10Url}?codigo=${encodeURIComponent(codigo)}`);
+                    if (!respuesta.ok) return;
+                    const datos = await respuesta.json();
+                    diagnosticoInput.value = datos?.found ? datos.diagnostico : "";
+                    if (datos?.found) {
+                        cie10Input.setCustomValidity("");
+                    } else {
+                        cie10Input.setCustomValidity("Ese código CIE10 no está en el catálogo.");
+                        cie10Input.reportValidity();
+                    }
+                } catch { /* sin conexión: el usuario puede continuar y reintentar */ }
+            });
+            cie10Input?.addEventListener("focus", () => cie10Input.setCustomValidity(""));
 
             const escapeHtml = (value) => String(value || "")
                 .replaceAll("&", "&amp;")

@@ -849,8 +849,10 @@ public partial class CensoController
         // el mismo normalizador que ya usaba la precarga de clinica de heridas.
         m.Asegurador = Elegir(
             MapearAsegurador(p.Asegurador, NptAseguradorValues), m.Asegurador);
-        m.CodigoCie10 = Elegir(p.CodigoCie10, m.CodigoCie10);
-        m.DiagnosticoDescriptivo = Elegir(p.DiagnosticoDescriptivo, m.DiagnosticoDescriptivo);
+        // El código CIE10 y el diagnóstico de NPT son propios de la atención, igual que en
+        // clínica de heridas: no se tocan desde el maestro. Antes se sobrescribían en cada
+        // render con Elegir(), lo que hacía invisible el valor propio del programa —el campo
+        // vivía oculto en el formulario y siempre mostraba el del maestro.
         m.Direccion = ElegirOpcional(p.Direccion, m.Direccion);
         m.DireccionEsValida = p.DireccionValidada;
         m.AsumirDireccionErrada = p.AsumirDireccionErrada;

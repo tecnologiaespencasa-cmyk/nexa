@@ -600,7 +600,7 @@
                                     </div>
                                     <div class="herida-apositos-bloqueado @(mostrarApositos ? "d-none" : null)" id="apositosBloqueado">
                                         Los apósitos y medicamentos se habilitan cuando manejo de la herida o VAC están en Sí.
-                                        NPT y PICC llevan lista fija de insumos.
+                                        PICC lleva lista fija de insumos.
                                     </div>
 
                                     @* Al consultar un plan cerrado se muestran sus apósitos congelados en lugar de los editables. *@
@@ -721,7 +721,7 @@
                                     @if (!Model.KardexDisponibles.Any())
                                     {
                                         <div class="herida-kardex__vacio">
-                                            Ninguna atención está en Sí todavía. Marca PICC, VAC, NPT o manejo de la herida y
+                                            Ninguna atención está en Sí todavía. Marca PICC, VAC o manejo de la herida y
                                             guarda la sección para generar su requisición.
                                         </div>
                                     }

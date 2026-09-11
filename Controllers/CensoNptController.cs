@@ -29,17 +29,6 @@ public partial class CensoController
         "Efectivo",
         "No efectivo"
     ];
-    private static readonly string[] NptProgramaValues =
-    [
-        "AGUDO",
-        "CRONICO",
-        "NPT",
-        "CLINICA DE HERIDAS",
-        "CUIDADOR/AUX DE ENFERMERIA",
-        "VAC"
-    ];
-    private static readonly string[] NptTipoNutricionValues = ["Enteral", "Parenteral"];
-    private static readonly string[] NptTipoSondaValues = ["NASOGASTRICA", "GASTROSTOMIA"];
     private static readonly string[] NptSiNoValues = ["Si", "No"];
     private static readonly Regex NptNombrePattern = new(@"^[\p{L}\s]+$", RegexOptions.Compiled);
     private static readonly string[] NptMotivoHospitalizacionValues =
@@ -554,10 +543,7 @@ public partial class CensoController
         model.MunicipioResidenciaOptions = BuildOptions(MunicipiosResidenciaValues);
         model.ZonaDireccionOptions = BuildOptions(ZonaDireccionValues);
         model.LlamadaBienvenidaOptions = BuildOptions(NptLlamadaBienvenidaValues);
-        model.ProgramaPerteneceOptions = BuildOptions(NptProgramaValues);
         model.AuxiliarEnfermeriaOptions = await GetOpsAssistantOptionsAsync(cancellationToken);
-        model.TipoNutricionOptions = BuildOptions(NptTipoNutricionValues);
-        model.TipoSondaOptions = BuildOptions(NptTipoSondaValues);
         model.SiNoOptions = BuildOptions(NptSiNoValues);
         model.MotivoHospitalizacionOptions = BuildOptions(NptMotivoHospitalizacionValues);
         model.RemitidoPorHospitalizacionOptions = BuildOptions(NptRemitidoPorValues);
@@ -654,10 +640,7 @@ public partial class CensoController
         model.Observacion = NormalizeOptionalNptText(model.Observacion);
         model.CodigoCie10 = NormalizeCie10(model.CodigoCie10);
         model.DiagnosticoDescriptivo = NormalizeOptionalNptText(model.DiagnosticoDescriptivo);
-        model.ProgramaPertenece = model.ProgramaPertenece?.Trim() ?? string.Empty;
         model.AuxiliarEnfermeriaAsignado = NormalizeOptionalNptText(model.AuxiliarEnfermeriaAsignado);
-        model.TipoNutricion = model.TipoNutricion?.Trim() ?? string.Empty;
-        model.TipoSonda = model.TipoSonda?.Trim() ?? string.Empty;
         model.Picc = model.Picc?.Trim() ?? string.Empty;
         model.CargueLaboratorios = string.IsNullOrWhiteSpace(model.CargueLaboratorios) ? null : model.CargueLaboratorios.Trim();
         model.CargueGlucometria = string.IsNullOrWhiteSpace(model.CargueGlucometria) ? null : model.CargueGlucometria.Trim();
@@ -755,30 +738,15 @@ public partial class CensoController
             model.DiagnosticoDescriptivo = NormalizeNptText(diagnostico);
         }
 
-        if (!NptProgramaValues.Contains(model.ProgramaPertenece, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.ProgramaPertenece), "Selecciona un programa válido.");
-        }
-
         if (!string.IsNullOrWhiteSpace(model.LlamadaBienvenida)
             && !NptLlamadaBienvenidaValues.Contains(model.LlamadaBienvenida, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.LlamadaBienvenida), "Selecciona un estado de llamada de bienvenida válido.");
         }
 
-        if (!NptTipoNutricionValues.Contains(model.TipoNutricion, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.TipoNutricion), "Selecciona un tipo de nutrición válido.");
-        }
-
-        if (!NptTipoSondaValues.Contains(model.TipoSonda, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.TipoSonda), "Selecciona un tipo de sonda válido.");
-        }
-
         if (!NptSiNoValues.Contains(model.Picc, StringComparer.OrdinalIgnoreCase))
         {
-            ModelState.AddModelError(nameof(model.Picc), "Selecciona una opción válida para PICC.");
+            ModelState.AddModelError(nameof(model.Picc), "Selecciona una opción válida para PICC/CC.");
         }
 
         if (!string.IsNullOrWhiteSpace(model.AuxiliarEnfermeriaAsignado))
@@ -1017,10 +985,7 @@ public partial class CensoController
         record.CodigoCie10 = model.CodigoCie10;
         record.DiagnosticoDescriptivo = model.DiagnosticoDescriptivo ?? string.Empty;
         record.FechaValoracion = model.FechaValoracion.Date;
-        record.ProgramaPertenece = model.ProgramaPertenece;
         record.AuxiliarEnfermeriaAsignado = model.AuxiliarEnfermeriaAsignado;
-        record.TipoNutricion = model.TipoNutricion;
-        record.TipoSonda = model.TipoSonda;
         record.Picc = model.Picc;
         record.FechaUltimaCuracionPicc = model.FechaUltimaCuracionPicc?.Date;
         record.FechaInicioNpt = model.FechaInicioNpt?.Date;
@@ -1099,10 +1064,7 @@ public partial class CensoController
         model.CodigoCie10 = record.CodigoCie10;
         model.DiagnosticoDescriptivo = record.DiagnosticoDescriptivo;
         model.FechaValoracion = record.FechaValoracion.Date;
-        model.ProgramaPertenece = record.ProgramaPertenece;
         model.AuxiliarEnfermeriaAsignado = record.AuxiliarEnfermeriaAsignado;
-        model.TipoNutricion = record.TipoNutricion;
-        model.TipoSonda = record.TipoSonda;
         model.Picc = record.Picc;
         model.FechaUltimaCuracionPicc = record.FechaUltimaCuracionPicc?.Date;
         model.FechaInicioNpt = record.FechaInicioNpt?.Date;

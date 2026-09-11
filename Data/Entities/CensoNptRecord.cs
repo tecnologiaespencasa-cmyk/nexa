@@ -82,21 +82,12 @@ public class CensoNptRecord
 
     public DateTime FechaValoracion { get; set; }
 
-    [Required]
-    [StringLength(40)]
-    public string ProgramaPertenece { get; set; } = string.Empty;
-
     [StringLength(120)]
     public string? AuxiliarEnfermeriaAsignado { get; set; }
 
-    [Required]
-    [StringLength(20)]
-    public string TipoNutricion { get; set; } = string.Empty;
-
-    [Required]
-    [StringLength(20)]
-    public string TipoSonda { get; set; } = string.Empty;
-
+    // PICC/CC: acceso venoso central. El nombre visual cambio de "PICC" a "PICC/CC" el
+    // 2026-09-11; la columna y la propiedad se dejan como estaban para no tocar lo que ya
+    // funciona en el ciclo de farmacia y en las migraciones existentes.
     [Required]
     [StringLength(2)]
     public string Picc { get; set; } = string.Empty;

@@ -109,6 +109,10 @@ public class CensoNptViewModel : ICensoRegistroEditable
     [Display(Name = "Observación")]
     public string? Observacion { get; set; }
 
+    // El código y el diagnóstico son propios de la atención de NPT: no se tocan desde el
+    // maestro (ver AplicarMaestroAModeloNpt). Usan el mismo catálogo general que el maestro
+    // —a diferencia de clínica de heridas, que tiene el suyo propio— así que la validación en
+    // el servidor es la misma: patrón + catálogo cargado de _cie10Catalog.
     [Required(ErrorMessage = "El código CIE10 es obligatorio.")]
     [StringLength(4, ErrorMessage = "El código CIE10 debe tener 4 caracteres.")]
     [RegularExpression(@"^[A-Za-z][0-9]{3}$", ErrorMessage = "El código CIE10 debe iniciar con letra y continuar con 3 dígitos.")]
@@ -123,28 +127,16 @@ public class CensoNptViewModel : ICensoRegistroEditable
     [Display(Name = "Fecha de valoración")]
     public DateTime FechaValoracion { get; set; } = DateTime.Today;
 
-    [Required(ErrorMessage = "Selecciona el programa al que pertenece.")]
-    [Display(Name = "Programa al que pertenece")]
-    public string ProgramaPertenece { get; set; } = string.Empty;
-
     [StringLength(120, ErrorMessage = "El auxiliar de enfermería asignado no puede superar 120 caracteres.")]
     [Display(Name = "Auxiliar de enfermería asignado")]
     public string? AuxiliarEnfermeriaAsignado { get; set; }
 
-    [Required(ErrorMessage = "Selecciona el tipo de nutrición.")]
-    [Display(Name = "Tipo de nutrición")]
-    public string TipoNutricion { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Selecciona el tipo de sonda.")]
-    [Display(Name = "Tipo de sonda")]
-    public string TipoSonda { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Selecciona si el paciente tiene PICC.")]
-    [Display(Name = "PICC")]
+    [Required(ErrorMessage = "Selecciona si el paciente tiene PICC/CC.")]
+    [Display(Name = "PICC/CC")]
     public string Picc { get; set; } = string.Empty;
 
     [DataType(DataType.Date)]
-    [Display(Name = "Fecha de última curación PICC")]
+    [Display(Name = "Fecha de última curación PICC/CC")]
     public DateTime? FechaUltimaCuracionPicc { get; set; }
 
     [DataType(DataType.Date)]
@@ -285,10 +277,7 @@ public class CensoNptViewModel : ICensoRegistroEditable
     public IReadOnlyList<SelectListItem> MunicipioResidenciaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> ZonaDireccionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> LlamadaBienvenidaOptions { get; set; } = [];
-    public IReadOnlyList<SelectListItem> ProgramaPerteneceOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AuxiliarEnfermeriaOptions { get; set; } = [];
-    public IReadOnlyList<SelectListItem> TipoNutricionOptions { get; set; } = [];
-    public IReadOnlyList<SelectListItem> TipoSondaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> SiNoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> MotivoHospitalizacionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> RemitidoPorHospitalizacionOptions { get; set; } = [];

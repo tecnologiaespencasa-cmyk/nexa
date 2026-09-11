@@ -590,10 +590,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.CodigoCie10).HasMaxLength(4).IsRequired();
             entity.Property(x => x.DiagnosticoDescriptivo).HasMaxLength(300).IsRequired();
             entity.Property(x => x.FechaValoracion).HasColumnType("date");
-            entity.Property(x => x.ProgramaPertenece).HasMaxLength(40).IsRequired();
             entity.Property(x => x.AuxiliarEnfermeriaAsignado).HasMaxLength(120);
-            entity.Property(x => x.TipoNutricion).HasMaxLength(20).IsRequired();
-            entity.Property(x => x.TipoSonda).HasMaxLength(20).IsRequired();
             entity.Property(x => x.Picc).HasMaxLength(2).IsRequired();
             entity.Property(x => x.FechaUltimaCuracionPicc).HasColumnType("date");
             entity.Property(x => x.FechaInicioNpt).HasColumnType("date");

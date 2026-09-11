@@ -181,19 +181,26 @@
                                     <h3>Información clínica</h3>
                                 </div>
                                 <div class="row g-3 censo-field-section__grid">
-                                    <input asp-for="CodigoCie10" type="hidden" id="nptCodigoCie10Input" />
-                                    <input asp-for="DiagnosticoDescriptivo" type="hidden" id="nptDiagnosticoInput" />
+                                    @* CIE10 y diagnóstico propios de la atención de NPT: misma lógica que el maestro
+                                       (Datos básicos del paciente), no la lista cerrada que usa clínica de heridas.
+                                       El código se escribe y se valida contra el catálogo general al perder el foco;
+                                       el diagnóstico lo llena ese catálogo y no se edita a mano. *@
                                     <div class="col-lg-3">
+                                        <label asp-for="CodigoCie10" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="CodigoCie10" class="form-control text-uppercase" id="nptCodigoCie10Input"
+                                               maxlength="4" autocomplete="off" placeholder="Ej: A090" />
+                                        <span asp-validation-for="CodigoCie10" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-5">
+                                        <label asp-for="DiagnosticoDescriptivo" class="form-label"></label>@RequiredMark()
+                                        <input asp-for="DiagnosticoDescriptivo" class="form-control" id="nptDiagnosticoInput" readonly />
+                                        <div class="form-text">Lo define el código CIE10.</div>
+                                        <span asp-validation-for="DiagnosticoDescriptivo" class="text-danger"></span>
+                                    </div>
+                                    <div class="col-lg-4">
                                         <label asp-for="FechaValoracion" class="form-label"></label>@RequiredMark()
                                         <input asp-for="FechaValoracion" type="date" class="form-control" />
                                         <span asp-validation-for="FechaValoracion" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-4">
-                                        <label asp-for="ProgramaPertenece" class="form-label"></label>@RequiredMark()
-                                        <select asp-for="ProgramaPertenece" asp-items="Model.ProgramaPerteneceOptions" class="form-select">
-                                            <option value="" disabled hidden>Selecciona...</option>
-                                        </select>
-                                        <span asp-validation-for="ProgramaPertenece" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="AuxiliarEnfermeriaAsignado" class="form-label"></label>
@@ -206,20 +213,6 @@
                                         </datalist>
                                         <div class="form-text">Selecciona un auxiliar OPS activo. Si no aparece, debe registrarse primero en administración de usuarios.</div>
                                         <span asp-validation-for="AuxiliarEnfermeriaAsignado" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-4">
-                                        <label asp-for="TipoNutricion" class="form-label"></label>@RequiredMark()
-                                        <select asp-for="TipoNutricion" asp-items="Model.TipoNutricionOptions" class="form-select">
-                                            <option value="" disabled hidden>Selecciona...</option>
-                                        </select>
-                                        <span asp-validation-for="TipoNutricion" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-4">
-                                        <label asp-for="TipoSonda" class="form-label"></label>@RequiredMark()
-                                        <select asp-for="TipoSonda" asp-items="Model.TipoSondaOptions" class="form-select">
-                                            <option value="" disabled hidden>Selecciona...</option>
-                                        </select>
-                                        <span asp-validation-for="TipoSonda" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
                                         <label asp-for="Picc" class="form-label"></label>@RequiredMark()
