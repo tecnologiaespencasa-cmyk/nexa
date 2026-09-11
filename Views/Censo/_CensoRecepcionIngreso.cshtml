@@ -41,7 +41,11 @@
     string Reloj(TimeSpan? hora) => hora.HasValue ? hora.Value.ToString(@"hh\:mm") : string.Empty;
 }
 
-<div class="tab-pane fade" id="@seccionId" role="tabpanel">
+@* El envoltorio .tab-content no es decorativo: la regla que esconde una sección inactiva es
+   `.tab-content > .tab-pane { display: none }`. Sin el padre, la sección seguía ocupando su caja
+   aunque no se viera, y al pasar a otra sección quedaba un hueco enorme en blanco. *@
+<div class="tab-content">
+<div class="tab-pane fade" id="@seccionId" role="tabpanel" data-censo-recepcion="true">
     <div class="card">
         <div class="card-header">
             <div class="censo-card-heading">
@@ -161,9 +165,11 @@
                     </div>
                 </section>
 
+                @* --inline la marca como barra de sección: vive dentro de su sección y se oculta
+                   con ella, así que el conmutador de barras de programa la deja en paz. *@
                 @if (!soloLectura)
                 {
-                    <div class="censo-form-actions">
+                    <div class="censo-form-actions censo-form-actions--inline">
                         <button type="submit" class="btn btn-primary censo-save-button">
                             <span>Guardar recepción</span>
                             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -234,4 +240,5 @@
             }
         </div>
     </div>
+</div>
 </div>

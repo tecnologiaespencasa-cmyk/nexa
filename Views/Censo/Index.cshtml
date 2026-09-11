@@ -1005,11 +1005,19 @@ else
                 // de heridas se veía "Gestionar kardex y requisición", que es de agudos. Solo se
                 // muestra la del programa dueño de la sección activa. Las barras de sección
                 // (--inline) no entran: esas ya se ocultan con su propia sección.
-                const paneActivo = document.getElementById(id)?.closest("[data-programa]");
+                //
+                // La recepción es la excepción: está dentro del panel del programa pero es otro
+                // formulario, con su propio botón. Dejar la barra del programa a la vista ofrecía
+                // ahí "Gestionar kardex y requisición" y "Actualizar registro", que no son de esta
+                // sección y actuaban sobre el registro del censo, no sobre la recepción.
+                const seccionActivaEl = document.getElementById(id);
+                const paneActivo = seccionActivaEl?.closest("[data-programa]");
+                const enRecepcion = seccionActivaEl?.dataset.censoRecepcion === "true";
                 document
                     .querySelectorAll(".censo-programa-panes [data-programa] .censo-form-actions:not(.censo-form-actions--inline)")
                     .forEach((barra) => {
-                        barra.classList.toggle("d-none", barra.closest("[data-programa]") !== paneActivo);
+                        barra.classList.toggle(
+                            "d-none", enRecepcion || barra.closest("[data-programa]") !== paneActivo);
                     });
 
                 // La banda de atencion vive en la ficha del paciente, arriba, pero habla del
