@@ -23,6 +23,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CensoClinicaHeridasKardex> CensoClinicaHeridasKardex => Set<CensoClinicaHeridasKardex>();
 
     public DbSet<CensoClinicaHeridasKardexAdjunto> CensoClinicaHeridasKardexAdjuntos => Set<CensoClinicaHeridasKardexAdjunto>();
+
+    public DbSet<CensoNptKardex> CensoNptKardex => Set<CensoNptKardex>();
+
+    public DbSet<CensoNptKardexAdjunto> CensoNptKardexAdjuntos => Set<CensoNptKardexAdjunto>();
     public DbSet<CensoNptRecord> CensoNpt => Set<CensoNptRecord>();
     public DbSet<CensoCronicoRecord> CensoCronicos => Set<CensoCronicoRecord>();
     public DbSet<CensoCronicoAgudizacion> CensoCronicoAgudizaciones => Set<CensoCronicoAgudizacion>();
@@ -456,6 +460,37 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<CensoNptKardex>(entity =>
+        {
+            entity.ToTable("censo_npt_kardex");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.ElaboradoPor).HasMaxLength(200);
+            entity.Property(x => x.FarmaciaEstado).HasMaxLength(30).IsRequired();
+
+            entity.HasOne(x => x.CensoNptRecord)
+                .WithMany()
+                .HasForeignKey(x => x.CensoNptRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Una sola requisicion por registro de NPT: a diferencia de heridas no hay tipos ni
+            // planes que agrupar, la atencion tiene la suya y punto.
+            entity.HasIndex(x => x.CensoNptRecordId).IsUnique();
+            entity.HasIndex(x => x.FarmaciaEnviadoAtUtc);
+        });
+
+        modelBuilder.Entity<CensoNptKardexAdjunto>(entity =>
+        {
+            entity.ToTable("censo_npt_kardex_adjuntos");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.FileName).HasMaxLength(260).IsRequired();
+            entity.Property(x => x.FileData).IsRequired();
+
+            entity.HasOne(x => x.Kardex)
+                .WithMany(x => x.Adjuntos)
+                .HasForeignKey(x => x.CensoNptKardexId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<CensoClinicaHeridasRecord>(entity =>
         {
             entity.ToTable("censo_clinica_heridas");
@@ -489,7 +524,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.AuxiliarEnfermeriaAsignado).HasMaxLength(120);
             entity.Property(x => x.Picc).HasMaxLength(2);
             entity.Property(x => x.Vac).HasMaxLength(2);
-            entity.Property(x => x.Npt).HasMaxLength(2);
             entity.Property(x => x.ManejoHerida).HasMaxLength(2);
             entity.Property(x => x.ApositoMedicamento1).HasMaxLength(200);
             entity.Property(x => x.ApositoMedicamento2).HasMaxLength(200);

@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Nexa.Data.Entities;
+using Nexa.Helpers;
 using Nexa.Models.ViewModels;
 using Nexa.Services.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -494,8 +495,58 @@ public partial class CensoController
         };
     }
 
+    /// <summary>
+    /// Resumen de la requisición para la tarjeta de "Manejo de la NPT". El documento completo lo
+    /// pide el modal por AJAX; aquí solo va lo que se ve sin abrirlo. Si todavía no existe, se
+    /// cuentan los insumos y las aplicaciones que tendría al generarse.
+    /// </summary>
+    private async Task PopulateNptKardexResumenAsync(CensoNptViewModel model, CancellationToken cancellationToken)
+    {
+        if (model.EditingRecordId is not { } recordId)
+        {
+            return;
+        }
+
+        var kardex = await _context.CensoNptKardex
+            .AsNoTracking()
+            .Where(x => x.CensoNptRecordId == recordId)
+            .Select(x => new
+            {
+                x.KardexJson,
+                x.ElaboradoPor,
+                x.FarmaciaEnviadoAtUtc,
+                x.KardexCerradoAtUtc,
+                x.CreatedAtUtc,
+                Adjuntos = x.Adjuntos.Count
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var record = await _context.CensoNpt
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == recordId, cancellationToken);
+
+        if (record is null)
+        {
+            return;
+        }
+
+        var documento = NptKardexBuilder.Resolver(
+            record,
+            kardex?.KardexJson,
+            kardex?.ElaboradoPor,
+            kardex?.FarmaciaEnviadoAtUtc ?? kardex?.CreatedAtUtc ?? ColombiaTime.Convert(DateTime.UtcNow));
+
+        model.KardexCerrado = kardex?.KardexCerradoAtUtc is not null;
+        model.KardexEnviado = kardex?.FarmaciaEnviadoAtUtc is not null;
+        model.KardexInsumos = documento.Insumos.Count;
+        model.KardexAplicaciones = documento.Aplicaciones;
+        model.KardexAdjuntos = kardex?.Adjuntos ?? 0;
+    }
+
     private async Task PopulateNptDropdownsAsync(CensoNptViewModel model, CancellationToken cancellationToken)
     {
+        await PopulateNptKardexResumenAsync(model, cancellationToken);
+
         model.AseguradorOptions = BuildOptions(NptAseguradorValues);
         model.TipoIdentificacionOptions = BuildOptions(TiposIdentificacion);
         model.GeneroOptions = BuildOptions(NptGeneroValues);

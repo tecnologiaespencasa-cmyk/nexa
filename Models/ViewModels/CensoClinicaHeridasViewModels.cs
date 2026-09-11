@@ -130,9 +130,6 @@ public class CensoClinicaHeridasViewModel : ICensoRegistroEditable
     [Display(Name = "VAC")]
     public string? Vac { get; set; }
 
-    [Display(Name = "NPT")]
-    public string? Npt { get; set; }
-
     [Display(Name = "Manejo de la herida")]
     public string? ManejoHerida { get; set; }
 

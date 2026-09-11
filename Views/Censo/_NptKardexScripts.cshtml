@@ -1,0 +1,381 @@
+@model CensoNptViewModel
+@*
+    Requisición de insumos de NPT.
+
+    Es el mismo documento que el de clínica de heridas, así que comparte sus estilos, pero el
+    guion es propio y bastante más corto: NPT no tiene planes, ni tipos de atención, ni apósitos
+    que elegir. Los ids llevan prefijo nptKardex porque un paciente puede tener heridas y NPT
+    abiertos a la vez y los dos modales conviven en la misma página.
+*@
+<script>
+    (() => {
+        const modalEl = document.getElementById("nptKardexModal");
+        const recordId = @Json.Serialize(Model.EditingRecordId);
+        if (!modalEl || !recordId) { return; }
+
+        const kardexUrl = "@Url.Action("KardexNpt", "Censo")";
+        const guardarUrl = "@Url.Action("GuardarKardexNpt", "Censo")";
+        const enviarUrl = "@Url.Action("EnviarKardexNptAFarmacia", "Censo")";
+        const adjuntoUrl = "@Url.Action("SubirAdjuntoKardexNpt", "Censo")";
+        const adjuntoEliminarUrl = "@Url.Action("EliminarAdjuntoKardexNpt", "Censo")";
+        const adjuntoDescargaUrl = "@Url.Action("DescargarAdjuntoKardexNpt", "Censo")";
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || "";
+
+        const modal = new bootstrap.Modal(modalEl);
+        const cabecera = document.getElementById("nptKardexTablaCabecera");
+        const cuerpo = document.getElementById("nptKardexTablaCuerpo");
+        const cerradoBanner = document.getElementById("nptKardexCerradoBanner");
+        const errorBanner = document.getElementById("nptKardexErrorBanner");
+        const estadoNota = document.getElementById("nptKardexEstadoNota");
+        const guardarBtn = document.getElementById("nptKardexGuardarBtn");
+        const enviarBtn = document.getElementById("nptKardexEnviarBtn");
+        const agregarInsumoBtn = document.getElementById("nptKardexAgregarInsumo");
+        const adjuntosLista = document.getElementById("nptKardexAdjuntosLista");
+        const adjuntoInput = document.getElementById("nptKardexAdjuntoInput");
+        const adjuntoEstado = document.getElementById("nptKardexAdjuntoEstado");
+        const subirAdjuntoBtn = document.getElementById("nptKardexSubirAdjuntoBtn");
+
+        let cerradoActual = false;
+
+        const campo = (nombre) => modalEl.querySelector(`[data-npt-kardex-field="${nombre}"]`);
+
+        const mostrarError = (mensaje) => {
+            errorBanner.textContent = mensaje || "";
+            errorBanner.classList.toggle("d-none", !mensaje);
+        };
+
+        // ------------------------------------------------------------ Diálogo de avisos
+        const dialogoEl = document.getElementById("nptDialogo");
+        const dialogo = dialogoEl ? new bootstrap.Modal(dialogoEl) : null;
+
+        const avisar = ({ titulo, mensaje, detalles = [] }) => new Promise((resolver) => {
+            if (!dialogo) { window.alert(mensaje); resolver(); return; }
+
+            document.getElementById("nptDialogoTitulo").textContent = titulo;
+            document.getElementById("nptDialogoMensaje").textContent = mensaje;
+
+            const lista = document.getElementById("nptDialogoDetalles");
+            lista.innerHTML = "";
+            lista.classList.toggle("d-none", detalles.length === 0);
+            detalles.forEach((texto) => {
+                const li = document.createElement("li");
+                li.textContent = texto;
+                lista.appendChild(li);
+            });
+
+            // Se resuelve al terminar de ocultarse y no al pulsar: encadenar otro diálogo a mitad
+            // de la animación de cierre hace que Bootstrap lo descarte.
+            const alOcultar = () => {
+                dialogoEl.removeEventListener("hidden.bs.modal", alOcultar);
+                resolver();
+            };
+            dialogoEl.addEventListener("hidden.bs.modal", alOcultar);
+            dialogo.show();
+        });
+
+        // ------------------------------------------------------------ Tabla de insumos
+        function recalcularTotales() {
+            [...cuerpo.querySelectorAll("[data-npt-insumo]")].forEach((tr) => {
+                const total = [...tr.querySelectorAll("[data-npt-cantidad]")]
+                    .reduce((suma, input) => suma + (parseInt(input.value, 10) || 0), 0);
+                tr.querySelector("[data-npt-total]").textContent = total;
+            });
+        }
+
+        const renumerarItems = () => {
+            [...cuerpo.querySelectorAll("[data-npt-insumo]")].forEach((tr, indice) => {
+                tr.querySelector(".herida-kardex-table__item").textContent = indice + 1;
+            });
+        };
+
+        const filaInsumo = (insumo, aplicaciones) => {
+            const tr = document.createElement("tr");
+            tr.dataset.nptInsumo = "";
+
+            const tdItem = document.createElement("td");
+            tdItem.className = "herida-kardex-table__item";
+            tdItem.textContent = insumo.item ?? "";
+            tr.appendChild(tdItem);
+
+            const tdDesc = document.createElement("td");
+            const desc = document.createElement("input");
+            desc.dataset.nptInsumoField = "descripcion";
+            desc.value = insumo.descripcion || "";
+            tdDesc.appendChild(desc);
+            tr.appendChild(tdDesc);
+
+            for (let i = 0; i < aplicaciones; i++) {
+                const td = document.createElement("td");
+                const input = document.createElement("input");
+                input.dataset.nptCantidad = String(i);
+                input.className = "herida-kardex-table__cantidad";
+                input.inputMode = "numeric";
+                input.value = insumo.cantidades?.[i] ?? 0;
+                input.addEventListener("input", recalcularTotales);
+                td.appendChild(input);
+                tr.appendChild(td);
+            }
+
+            const tdTotal = document.createElement("td");
+            tdTotal.className = "herida-kardex-table__total";
+            tdTotal.dataset.nptTotal = "";
+            tr.appendChild(tdTotal);
+
+            const tdQuitar = document.createElement("td");
+            tdQuitar.className = "herida-kardex-table__quitar";
+            const quitar = document.createElement("button");
+            quitar.type = "button";
+            quitar.className = "btn btn-link p-0";
+            quitar.textContent = "Quitar";
+            quitar.addEventListener("click", () => {
+                tr.remove();
+                renumerarItems();
+                recalcularTotales();
+            });
+            tdQuitar.appendChild(quitar);
+            tr.appendChild(tdQuitar);
+
+            return tr;
+        };
+
+        const setSoloLectura = (cerrado) => {
+            cerradoActual = cerrado;
+            cerradoBanner.classList.toggle("d-none", !cerrado);
+            modalEl.querySelectorAll("#nptKardexSheet input, #nptKardexSheet textarea")
+                .forEach((el) => { el.readOnly = cerrado; });
+            guardarBtn.classList.toggle("d-none", cerrado);
+            enviarBtn.classList.toggle("d-none", cerrado);
+            agregarInsumoBtn.classList.toggle("d-none", cerrado);
+            subirAdjuntoBtn.classList.toggle("d-none", cerrado);
+            modalEl.querySelectorAll(".herida-kardex-table__quitar")
+                .forEach((celda) => celda.classList.toggle("d-none", cerrado));
+        };
+
+        const camposTexto = [
+            "codigoFormato", "versionFormato", "paginaFormato", "fechaFormato", "paciente", "documento",
+            "asegurador", "edad", "direccion", "telefonos", "codigoCie10", "diagnostico", "frecuencia",
+            "fechaSolicitud", "auxiliarAsignado", "elaboradoPor", "observaciones"
+        ];
+
+        const pintarDocumento = (documento) => {
+            document.getElementById("nptKardexTitulo").textContent = documento.titulo || "";
+
+            [...camposTexto, "duracionDias", "aplicaciones"].forEach((nombre) => {
+                const el = campo(nombre);
+                if (el) { el.value = documento[nombre] ?? ""; }
+            });
+
+            const aplicaciones = Math.max(1, parseInt(documento.aplicaciones, 10) || 1);
+
+            cabecera.innerHTML = "";
+            const th = (texto, clase) => {
+                const el = document.createElement("th");
+                el.textContent = texto;
+                if (clase) { el.className = clase; }
+                cabecera.appendChild(el);
+                return el;
+            };
+            th("Item");
+            th("Descripción del insumo");
+
+            // Los títulos de las columnas son editables: se suelen reemplazar por la fecha real.
+            const encabezados = documento.encabezados || [];
+            for (let i = 0; i < aplicaciones; i++) {
+                const celda = th("", "herida-kardex-table__aplicacion");
+                const input = document.createElement("input");
+                input.dataset.nptEncabezado = String(i);
+                input.className = "herida-kardex-table__encabezado";
+                input.value = encabezados[i] || `Aplicación ${i + 1}`;
+                input.setAttribute("aria-label", `Título de la columna ${i + 1}`);
+                celda.appendChild(input);
+            }
+
+            th("Total");
+            th("");
+
+            cuerpo.innerHTML = "";
+            (documento.insumos || []).forEach((insumo) => {
+                cuerpo.appendChild(filaInsumo(insumo, aplicaciones));
+            });
+            renumerarItems();
+            recalcularTotales();
+        };
+
+        const pintarAdjuntos = (adjuntos) => {
+            adjuntosLista.innerHTML = "";
+            if (!adjuntos || adjuntos.length === 0) {
+                const vacio = document.createElement("li");
+                vacio.className = "herida-kardex-adjuntos__vacio";
+                vacio.textContent = "Sin adjuntos.";
+                adjuntosLista.appendChild(vacio);
+                return;
+            }
+
+            adjuntos.forEach((adjunto) => {
+                const li = document.createElement("li");
+                const enlace = document.createElement("a");
+                enlace.href = `${adjuntoDescargaUrl}?adjuntoId=${adjunto.id}`;
+                enlace.textContent = adjunto.nombre;
+                enlace.target = "_blank";
+                enlace.rel = "noopener";
+                li.appendChild(enlace);
+
+                if (!cerradoActual) {
+                    const quitar = document.createElement("button");
+                    quitar.type = "button";
+                    quitar.className = "btn btn-link p-0 ms-2";
+                    quitar.textContent = "Eliminar";
+                    quitar.addEventListener("click", async () => {
+                        const cuerpoForm = new FormData();
+                        cuerpoForm.append("adjuntoId", adjunto.id);
+                        cuerpoForm.append("__RequestVerificationToken", token);
+                        const respuesta = await fetch(adjuntoEliminarUrl, { method: "POST", body: cuerpoForm });
+                        if (respuesta.ok) { await cargarKardex(); }
+                    });
+                    li.appendChild(quitar);
+                }
+
+                adjuntosLista.appendChild(li);
+            });
+        };
+
+        const serializarDocumento = () => {
+            const documento = {};
+            camposTexto.forEach((nombre) => { documento[nombre] = campo(nombre)?.value ?? ""; });
+            documento.duracionDias = parseInt(campo("duracionDias")?.value, 10) || 0;
+            documento.aplicaciones = parseInt(campo("aplicaciones")?.value, 10) || 1;
+            documento.tipo = "NPT";
+            documento.encabezados = [...cabecera.querySelectorAll("[data-npt-encabezado]")]
+                .map((input) => input.value.trim());
+            documento.insumos = [...cuerpo.querySelectorAll("[data-npt-insumo]")].map((tr, indice) => ({
+                item: indice + 1,
+                descripcion: tr.querySelector('[data-npt-insumo-field="descripcion"]').value,
+                cantidades: [...tr.querySelectorAll("[data-npt-cantidad]")]
+                    .map((input) => parseInt(input.value, 10) || 0)
+            }));
+            return documento;
+        };
+
+        async function cargarKardex() {
+            mostrarError("");
+            const respuesta = await fetch(`${kardexUrl}?recordId=${recordId}`);
+            const datos = await respuesta.json().catch(() => null);
+
+            if (!respuesta.ok) {
+                mostrarError(datos?.message || "No fue posible abrir la requisición.");
+                return;
+            }
+
+            // El orden importa: la tabla se dibuja primero y después se aplica el modo lectura,
+            // porque sus inputs no existen hasta que se pinta el documento.
+            pintarDocumento(datos.documento || {});
+            setSoloLectura(!!datos.estado?.cerrado);
+            pintarAdjuntos(datos.adjuntos || []);
+
+            estadoNota.textContent = datos.estado?.cerradoPorFarmacia
+                ? "Cerrada por farmacia."
+                : datos.estado?.enviadoAtUtc
+                    ? "Enviada a farmacia. Puedes seguir editando hasta que le den OK."
+                    : "Sin enviar a farmacia.";
+        }
+
+        // Devuelve { ok, mensaje, avisos } para que quien envía a farmacia pueda mostrar tanto el
+        // mensaje del servidor como sus avisos (por ejemplo que el correo al auxiliar no salió).
+        const enviarDocumento = async (url, mensajeExito) => {
+            mostrarError("");
+            const cuerpoForm = new FormData();
+            cuerpoForm.append("recordId", recordId);
+            cuerpoForm.append("kardexJson", JSON.stringify(serializarDocumento()));
+            cuerpoForm.append("__RequestVerificationToken", token);
+
+            let respuesta;
+            let datos = null;
+            try {
+                respuesta = await fetch(url, { method: "POST", body: cuerpoForm });
+                datos = await respuesta.json().catch(() => null);
+            } catch {
+                const mensaje = "No se pudo contactar al servidor. Revisa la conexión e inténtalo de nuevo.";
+                mostrarError(mensaje);
+                return { ok: false, mensaje, avisos: [] };
+            }
+
+            if (!respuesta.ok) {
+                const mensaje = datos?.message || "No fue posible completar la operación.";
+                mostrarError(mensaje);
+                return { ok: false, mensaje, avisos: [] };
+            }
+
+            const mensaje = datos?.message || mensajeExito;
+            estadoNota.textContent = mensaje;
+            return { ok: true, mensaje, avisos: Array.isArray(datos?.avisos) ? datos.avisos : [] };
+        };
+
+        // ------------------------------------------------------------ Acciones
+        agregarInsumoBtn.addEventListener("click", () => {
+            const aplicaciones = Math.max(1, parseInt(campo("aplicaciones")?.value, 10) || 1);
+            cuerpo.appendChild(filaInsumo({ descripcion: "", cantidades: Array(aplicaciones).fill(1) }, aplicaciones));
+            renumerarItems();
+            recalcularTotales();
+        });
+
+        guardarBtn.addEventListener("click", () => enviarDocumento(guardarUrl, "Requisición guardada."));
+
+        // Enviar a farmacia es el punto sin retorno: cierra el documento y lo pone en la bandeja
+        // del otro equipo, así que se confirma con el diálogo en vez de una línea de texto.
+        enviarBtn.addEventListener("click", async () => {
+            enviarBtn.disabled = true;
+            try {
+                const resultado = await enviarDocumento(enviarUrl, "Enviada a farmacia.");
+
+                if (!resultado.ok) {
+                    await avisar({ titulo: "No se envió a farmacia", mensaje: resultado.mensaje });
+                    return;
+                }
+
+                await cargarKardex();
+                await avisar({
+                    titulo: "Requisición enviada",
+                    mensaje: resultado.avisos.length === 0
+                        ? resultado.mensaje
+                        : `${resultado.mensaje} Con estas observaciones:`,
+                    detalles: resultado.avisos
+                });
+            } finally {
+                enviarBtn.disabled = false;
+            }
+        });
+
+        subirAdjuntoBtn.addEventListener("click", () => adjuntoInput.click());
+        adjuntoInput.addEventListener("change", async () => {
+            const archivo = adjuntoInput.files?.[0];
+            if (!archivo) { return; }
+
+            adjuntoEstado.textContent = "Subiendo...";
+            const cuerpoForm = new FormData();
+            cuerpoForm.append("recordId", recordId);
+            cuerpoForm.append("archivo", archivo);
+            cuerpoForm.append("__RequestVerificationToken", token);
+
+            const respuesta = await fetch(adjuntoUrl, { method: "POST", body: cuerpoForm });
+            const datos = await respuesta.json().catch(() => null);
+            adjuntoInput.value = "";
+            if (!respuesta.ok) {
+                adjuntoEstado.textContent = datos?.message || "No fue posible subir el archivo.";
+                return;
+            }
+
+            adjuntoEstado.textContent = "Archivo subido.";
+            await cargarKardex();
+        });
+
+        // Se expone igual que en heridas: el botón vive en una sección que se repinta.
+        window.abrirKardexNpt = async () => {
+            await cargarKardex();
+            modal.show();
+        };
+
+        document.querySelectorAll("[data-npt-kardex-abrir]").forEach((boton) => {
+            boton.addEventListener("click", () => window.abrirKardexNpt());
+        });
+    })();
+</script>

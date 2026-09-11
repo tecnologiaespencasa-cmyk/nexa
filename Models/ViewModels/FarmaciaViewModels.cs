@@ -19,7 +19,7 @@ public class FarmaciaIndexViewModel
     public int TotalPedidos { get; set; }
 
     /// <summary>Nuevos de las dos carriles juntos: alimenta el aviso sonoro de llegada.</summary>
-    public int PedidosNuevos => NuevosBase.TotalItems + NuevosHeridas.TotalItems;
+    public int PedidosNuevos => NuevosBase.TotalItems + NuevosHeridas.TotalItems + NuevosNpt.TotalItems;
 
     public long? UltimoPedidoId { get; set; }
 
@@ -30,6 +30,9 @@ public class FarmaciaIndexViewModel
 
     /// <summary>Nuevos de las requisiciones del censo de clínica de heridas, en su propio carril.</summary>
     public FarmaciaSectionPageViewModel NuevosHeridas { get; set; } = new();
+
+    /// <summary>Nuevos de las requisiciones del censo de NPT, en su propio carril.</summary>
+    public FarmaciaSectionPageViewModel NuevosNpt { get; set; } = new();
 
     public FarmaciaSectionPageViewModel Recepcionados { get; set; } = new();
 
@@ -42,7 +45,7 @@ public class FarmaciaIndexViewModel
     public FarmaciaSectionPageViewModel Despachados { get; set; } = new();
 
     public bool HasPedidos =>
-        NuevosBase.TotalItems > 0 || NuevosHeridas.TotalItems > 0
+        NuevosBase.TotalItems > 0 || NuevosHeridas.TotalItems > 0 || NuevosNpt.TotalItems > 0
         || Recepcionados.TotalItems > 0 || Facturados.TotalItems > 0
         || Empacados.TotalItems > 0 || PorDesempacar.TotalItems > 0 || Despachados.TotalItems > 0;
 }
@@ -118,8 +121,35 @@ public class FarmaciaPedidoViewModel
     /// <summary>True cuando el pedido es una requisición del censo de clínica de heridas.</summary>
     public bool EsClinicaHeridas { get; set; }
 
-    /// <summary>Atención que originó la requisición: manejo de herida, VAC, NPT o PICC.</summary>
+    /// <summary>Atención que originó la requisición: manejo de herida, VAC o PICC.</summary>
     public string? TipoKardexClinicaHeridas { get; set; }
+
+    /// <summary>True cuando el pedido es la requisición del censo de NPT.</summary>
+    public bool EsNpt { get; set; }
+
+    // Los cuatro orígenes comparten bandeja pero tienen sus propias acciones. Estos ayudantes
+    // evitan repetir el mismo encadenamiento de ternarios en cada botón de la vista, que es donde
+    // se colaba el error al agregar un origen nuevo.
+
+    /// <summary>Acción que abre el documento del pedido.</summary>
+    public string AccionDocumento =>
+        EsClinicaHeridas ? "DocumentoClinicaHeridas"
+        : EsNpt ? "DocumentoNpt"
+        : EsAgudizacionCronica ? "DocumentoCronico"
+        : "Documento";
+
+    /// <summary>Sufijo de las acciones del ciclo (OK kardex, facturar, empacar, firma…).</summary>
+    public string SufijoAccion =>
+        EsClinicaHeridas ? "ClinicaHeridas"
+        : EsNpt ? "Npt"
+        : EsAgudizacionCronica ? "Cronico"
+        : string.Empty;
+
+    /// <summary>Rótulo del programa que originó la requisición, si viene de uno.</summary>
+    public string? RotuloPrograma =>
+        EsClinicaHeridas ? $"Clínica de heridas · {TipoKardexClinicaHeridas}"
+        : EsNpt ? "NPT"
+        : null;
 
     public TimeSpan? TiempoEnEmpacado => FarmaciaEmpacadoAtUtc.HasValue
         ? DateTime.UtcNow - FarmaciaEmpacadoAtUtc.Value
@@ -294,6 +324,13 @@ public class FarmaciaEntregaParcialInputModel
 /// <summary>Requisicion de clinica de heridas tal como la ve farmacia (solo lectura).</summary>
 public class FarmaciaClinicaHeridasDocumentViewModel
 {
+    /// <summary>
+    /// True cuando la requisición viene del censo de NPT y no de clínica de heridas. La vista es
+    /// la misma porque el documento tiene la misma forma; esto solo decide los rótulos y a qué
+    /// acciones apunta cada botón.
+    /// </summary>
+    public bool EsNpt { get; set; }
+
     public long Id { get; set; }
 
     public string Tipo { get; set; } = string.Empty;

@@ -104,9 +104,6 @@ public class CensoClinicaHeridasRecord
     public string? Vac { get; set; }
 
     [StringLength(2)]
-    public string? Npt { get; set; }
-
-    [StringLength(2)]
     public string? ManejoHerida { get; set; }
 
     // Seccion 3 "Manejo de la herida": hasta cuatro apositos o medicamentos del catalogo de insumos.

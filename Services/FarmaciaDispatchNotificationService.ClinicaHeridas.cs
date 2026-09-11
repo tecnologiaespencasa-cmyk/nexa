@@ -52,7 +52,9 @@ public partial class FarmaciaDispatchNotificationService
                 FileName = $"Requisicion_{SanitizeFileName(atencion)}_Plan{completo.Plan.Numero}"
                     + $"_{SanitizeFileName(record.NumeroIdentificacion)}.html",
                 ContentType = "text/html",
-                Content = Encoding.UTF8.GetBytes(BuildClinicaHeridasRequisicionHtml(documento, completo.Plan.Numero))
+                Content = Encoding.UTF8.GetBytes(BuildRequisicionHtml(
+                    documento,
+                    $"Atención: {atencion} · Plan {completo.Plan.Numero}"))
             }
         };
 
@@ -276,7 +278,12 @@ public partial class FarmaciaDispatchNotificationService
     /// Copia de la requisición en HTML, con la misma estructura tabulada del documento en pantalla y
     /// el rojo corporativo en los encabezados.
     /// </summary>
-    private static string BuildClinicaHeridasRequisicionHtml(ClinicaHeridasKardexDocumento documento, int numeroPlan)
+    /// <summary>
+    /// Copia imprimible de la requisición que viaja adjunta al correo. Sirve para heridas y
+    /// para NPT: lo único propio de cada programa es el subtítulo, porque heridas numera sus
+    /// planes y NPT no los tiene.
+    /// </summary>
+    internal static string BuildRequisicionHtml(ClinicaHeridasKardexDocumento documento, string subtitulo)
     {
         var encabezados = ClinicaHeridasKardexBuilder.NormalizarEncabezados(
             documento.Encabezados,
@@ -313,7 +320,7 @@ public partial class FarmaciaDispatchNotificationService
             </style>
             </head><body>
             <h1>{{HtmlEncode(documento.Titulo)}}</h1>
-            <p class="sub">Atención: {{HtmlEncode(documento.TipoNombre)}} · Plan {{numeroPlan}}</p>
+            <p class="sub">{{HtmlEncode(subtitulo)}}</p>
 
             <h2>Datos del paciente</h2>
             <table>

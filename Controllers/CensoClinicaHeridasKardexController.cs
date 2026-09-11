@@ -11,7 +11,7 @@ namespace Nexa.Controllers;
 
 /// <summary>
 /// Requisiciones de insumos de clínica de heridas. Cada tipo de atención marcada con "Sí" en la
-/// sección 3 (manejo de la herida, VAC, NPT, PICC) abre su propio kardex, editable hasta que
+/// sección 3 (manejo de la herida, VAC, PICC) abre su propio kardex, editable hasta que
 /// farmacia le da el OK.
 /// </summary>
 public partial class CensoController
@@ -30,7 +30,6 @@ public partial class CensoController
         var habilitados = new List<string>();
         if (EsSi(record.ManejoHerida)) habilitados.Add(ClinicaHeridasKardexTipos.ManejoHerida);
         if (EsSi(record.Vac)) habilitados.Add(ClinicaHeridasKardexTipos.Vac);
-        if (EsSi(record.Npt)) habilitados.Add(ClinicaHeridasKardexTipos.Npt);
         if (EsSi(record.Picc)) habilitados.Add(ClinicaHeridasKardexTipos.Picc);
         return habilitados;
     }

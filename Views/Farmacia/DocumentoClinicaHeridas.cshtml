@@ -16,7 +16,9 @@
         <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-documento="@documentoFiltro">
             &larr; Volver a la bandeja
         </a>
-        <span class="farmacia-heridas-badge">Clínica de heridas &middot; @Model.TipoNombre</span>
+        @* La vista sirve a los dos programas: el documento tiene la misma forma y farmacia no
+           tiene por que aprender dos pantallas. El rotulo es el que dice de cual viene. *@
+        <span class="farmacia-heridas-badge">@(Model.EsNpt ? "NPT" : $"Clínica de heridas · {Model.TipoNombre}")</span>
         @if (Model.Cerrado)
         {
             <span class="farmacia-heridas-badge farmacia-heridas-badge--cerrado">Kardex cerrado</span>
@@ -136,7 +138,7 @@
                 @foreach (var adjunto in Model.Adjuntos)
                 {
                     <li>
-                        <a asp-action="DescargarAdjuntoClinicaHeridas" asp-route-adjuntoId="@adjunto.Id" target="_blank" rel="noopener">
+                        <a asp-action="@(Model.EsNpt ? "DescargarAdjuntoNpt" : "DescargarAdjuntoClinicaHeridas")" asp-route-adjuntoId="@adjunto.Id" target="_blank" rel="noopener">
                             @adjunto.Nombre
                         </a>
                         <span class="text-muted small ms-2">@adjunto.SubidoAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
@@ -148,7 +150,7 @@
 
     @if (!Model.Cerrado && Model.FarmaciaEstado == FarmaciaEstados.Nuevo)
     {
-        <form method="post" asp-action="SetOkKardexClinicaHeridas" asp-route-id="@Model.Id" class="farmacia-document-page__actions">
+        <form method="post" asp-action="@(Model.EsNpt ? "SetOkKardexNpt" : "SetOkKardexClinicaHeridas")" asp-route-id="@Model.Id" class="farmacia-document-page__actions">
             <button type="submit" class="btn btn-success">
                 Dar OK y cerrar kardex
             </button>

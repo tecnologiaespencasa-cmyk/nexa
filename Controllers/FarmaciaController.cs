@@ -39,6 +39,7 @@ public partial class FarmaciaController : Controller
         string? documento,
         int nuevosPagina = 1,
         int nuevosHeridasPagina = 1,
+        int nuevosNptPagina = 1,
         int recepcionadosPagina = 1,
         int facturadosPagina = 1,
         int empacadosPagina = 1,
@@ -67,32 +68,44 @@ public partial class FarmaciaController : Controller
             .Include(x => x.Plan)
             .Where(x => x.FarmaciaEnviadoAtUtc != null);
 
+        // Las requisiciones del censo de NPT son la cuarta fuente. Tienen carril propio: no se
+        // mezclan con las de heridas porque son de otro programa y otro equipo las atiende.
+        var nptQuery = _context.CensoNptKardex
+            .AsNoTracking()
+            .Include(x => x.CensoNptRecord)
+            .Where(x => x.FarmaciaEnviadoAtUtc != null);
+
         if (!string.IsNullOrWhiteSpace(filtro))
         {
             query = query.Where(x => x.NumeroIdentificacion.Contains(filtro));
             cronicosQuery = cronicosQuery.Where(x => x.CensoCronicoRecord.NumeroIdentificacion.Contains(filtro));
             heridasQuery = heridasQuery.Where(x => x.CensoClinicaHeridasRecord.NumeroIdentificacion.Contains(filtro));
+            nptQuery = nptQuery.Where(x => x.CensoNptRecord.NumeroIdentificacion.Contains(filtro));
         }
 
         var totalPedidos = await query.CountAsync(cancellationToken)
             + await cronicosQuery.CountAsync(cancellationToken)
-            + await heridasQuery.CountAsync(cancellationToken);
+            + await heridasQuery.CountAsync(cancellationToken)
+            + await nptQuery.CountAsync(cancellationToken);
 
         var model = new FarmaciaIndexViewModel
         {
             DocumentoFiltro = filtro,
             TotalPedidos = totalPedidos,
-            UltimoPedidoId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, heridasQuery, cancellationToken),
+            UltimoPedidoId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, heridasQuery, nptQuery, cancellationToken),
             PageSize = PageSize,
             // Los nuevos llegan separados en dos carriles: los ingresos base (agudos y
             // agudizaciones de crónicos) y las requisiciones de clínica de heridas.
-            NuevosBase = await BuildMergedSectionPageAsync(query, cronicosQuery, null, FarmaciaEstados.Nuevo, nuevosPagina, cancellationToken),
-            NuevosHeridas = await BuildMergedSectionPageAsync(null, null, heridasQuery, FarmaciaEstados.Nuevo, nuevosHeridasPagina, cancellationToken),
-            Recepcionados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Recepcionado, recepcionadosPagina, cancellationToken),
-            Facturados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Facturado, facturadosPagina, cancellationToken),
-            Empacados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Empacado, empacadosPagina, cancellationToken),
-            PorDesempacar = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.PorDesempacar, porDesempacarPagina, cancellationToken, PorDesempacarPageSize),
-            Despachados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, FarmaciaEstados.Despachado, despachadosPagina, cancellationToken),
+            NuevosBase = await BuildMergedSectionPageAsync(query, cronicosQuery, null, null, FarmaciaEstados.Nuevo, nuevosPagina, cancellationToken),
+            NuevosHeridas = await BuildMergedSectionPageAsync(null, null, heridasQuery, null, FarmaciaEstados.Nuevo, nuevosHeridasPagina, cancellationToken),
+            NuevosNpt = await BuildMergedSectionPageAsync(null, null, null, nptQuery, FarmaciaEstados.Nuevo, nuevosNptPagina, cancellationToken),
+            // Del segundo estado en adelante los cuatro origenes comparten seccion: el trabajo de
+            // farmacia a partir de ahi es el mismo sin importar de que censo venga la requisicion.
+            Recepcionados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, nptQuery, FarmaciaEstados.Recepcionado, recepcionadosPagina, cancellationToken),
+            Facturados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, nptQuery, FarmaciaEstados.Facturado, facturadosPagina, cancellationToken),
+            Empacados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, nptQuery, FarmaciaEstados.Empacado, empacadosPagina, cancellationToken),
+            PorDesempacar = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, nptQuery, FarmaciaEstados.PorDesempacar, porDesempacarPagina, cancellationToken, PorDesempacarPageSize),
+            Despachados = await BuildMergedSectionPageAsync(query, cronicosQuery, heridasQuery, nptQuery, FarmaciaEstados.Despachado, despachadosPagina, cancellationToken),
         };
 
         return View(model);
@@ -106,12 +119,14 @@ public partial class FarmaciaController : Controller
         IQueryable<CensoRecord> censoQuery,
         IQueryable<CensoCronicoAgudizacion> cronicosQuery,
         IQueryable<CensoClinicaHeridasKardex> heridasQuery,
+        IQueryable<CensoNptKardex> nptQuery,
         CancellationToken cancellationToken)
     {
         var ultimoCenso = await censoQuery.MaxAsync(x => x.FarmaciaEnviadoAtUtc, cancellationToken);
         var ultimoCronico = await cronicosQuery.MaxAsync(x => x.FarmaciaEnviadoAtUtc, cancellationToken);
         var ultimoHeridas = await heridasQuery.MaxAsync(x => x.FarmaciaEnviadoAtUtc, cancellationToken);
-        var ultimo = new[] { ultimoCenso, ultimoCronico, ultimoHeridas }.Max();
+        var ultimoNpt = await nptQuery.MaxAsync(x => x.FarmaciaEnviadoAtUtc, cancellationToken);
+        var ultimo = new[] { ultimoCenso, ultimoCronico, ultimoHeridas, ultimoNpt }.Max();
         return ultimo.HasValue
             ? new DateTimeOffset(DateTime.SpecifyKind(ultimo.Value, DateTimeKind.Utc)).ToUnixTimeMilliseconds()
             : null;
@@ -518,12 +533,24 @@ public partial class FarmaciaController : Controller
             .AsNoTracking()
             .Where(x => x.FarmaciaEnviadoAtUtc != null);
 
+        var nptQuery = _context.CensoNptKardex
+            .AsNoTracking()
+            .Where(x => x.FarmaciaEnviadoAtUtc != null);
+
         var newCountBase = await query.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken)
             + await cronicosQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
         var newCountHeridas = await heridasQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
-        var lastId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, heridasQuery, cancellationToken);
+        var newCountNpt = await nptQuery.CountAsync(x => x.FarmaciaEstado == FarmaciaEstados.Nuevo, cancellationToken);
+        var lastId = await GetUltimoEnvioMarkerAsync(query, cronicosQuery, heridasQuery, nptQuery, cancellationToken);
 
-        return Json(new { newCount = newCountBase + newCountHeridas, newCountBase, newCountHeridas, lastId });
+        return Json(new
+        {
+            newCount = newCountBase + newCountHeridas + newCountNpt,
+            newCountBase,
+            newCountHeridas,
+            newCountNpt,
+            lastId
+        });
     }
 
     [HttpGet]
@@ -845,7 +872,13 @@ public partial class FarmaciaController : Controller
                 && x.FarmaciaEmpacadoAtUtc < cutoff)
             .ToListAsync(cancellationToken);
 
-        if (vencidos.Count > 0 || cronicosVencidos.Count > 0 || heridasVencidas.Count > 0)
+        var nptVencidas = await _context.CensoNptKardex
+            .Where(x => x.FarmaciaEstado == FarmaciaEstados.Empacado
+                && x.FarmaciaEmpacadoAtUtc != null
+                && x.FarmaciaEmpacadoAtUtc < cutoff)
+            .ToListAsync(cancellationToken);
+
+        if (vencidos.Count > 0 || cronicosVencidos.Count > 0 || heridasVencidas.Count > 0 || nptVencidas.Count > 0)
         {
             foreach (var r in vencidos)
             {
@@ -860,6 +893,11 @@ public partial class FarmaciaController : Controller
             foreach (var h in heridasVencidas)
             {
                 h.FarmaciaEstado = FarmaciaEstados.PorDesempacar;
+            }
+
+            foreach (var n in nptVencidas)
+            {
+                n.FarmaciaEstado = FarmaciaEstados.PorDesempacar;
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -970,6 +1008,38 @@ public partial class FarmaciaController : Controller
         };
     }
 
+    private static FarmaciaPedidoViewModel MapNptPedido(CensoNptKardex kardex, bool tieneAdjuntos)
+    {
+        var record = kardex.CensoNptRecord;
+        return new FarmaciaPedidoViewModel
+        {
+            Id = kardex.Id,
+            NombrePaciente = record.NombrePaciente,
+            TipoIdentificacion = record.TipoIdentificacion,
+            NumeroIdentificacion = record.NumeroIdentificacion,
+            FechaEnvioUtc = kardex.FarmaciaEnviadoAtUtc ?? kardex.CreatedAtUtc,
+            FechaIngreso = record.FechaIngresoPrograma,
+            EstadoCenso = record.Estado,
+            AuxiliarAsignado = record.AuxiliarEnfermeriaAsignado,
+            KardexVisto = kardex.FarmaciaKardexVistoAtUtc.HasValue,
+            // La requisicion de NPT es un unico documento: no hay hoja aparte.
+            RequisicionVisto = kardex.FarmaciaKardexVistoAtUtc.HasValue,
+            FirmaRegistrada = BuildNptSignatureModel(kardex).EstaCompleta,
+            NombreRecibe = kardex.FarmaciaNombreRecibe,
+            FechaHoraRecepcionUtc = kardex.FarmaciaFechaHoraRecepcionUtc,
+            FarmaciaEstado = kardex.FarmaciaEstado,
+            FarmaciaOkKardex = kardex.FarmaciaOkKardex,
+            FarmaciaEsEntregaParcial = kardex.FarmaciaEsEntregaParcial,
+            FarmaciaCantidadEntregas = kardex.FarmaciaCantidadEntregas,
+            FarmaciaEntregaActual = kardex.FarmaciaEntregaActual,
+            FarmaciaFacturado = kardex.FarmaciaFacturado,
+            FarmaciaEmpacadoAtUtc = kardex.FarmaciaEmpacadoAtUtc,
+            FarmaciaBolsaDesempacada = kardex.FarmaciaBolsaDesempacada,
+            TieneAdjuntos = tieneAdjuntos,
+            EsNpt = true
+        };
+    }
+
     private static FarmaciaSignatureViewModel BuildCronicoSignatureModel(CensoCronicoAgudizacion agudizacion)
     {
         return new FarmaciaSignatureViewModel
@@ -994,6 +1064,7 @@ public partial class FarmaciaController : Controller
         IQueryable<CensoRecord>? censoQuery,
         IQueryable<CensoCronicoAgudizacion>? cronicosQuery,
         IQueryable<CensoClinicaHeridasKardex>? heridasQuery,
+        IQueryable<CensoNptKardex>? nptQuery,
         string estado,
         int requestedPage,
         CancellationToken cancellationToken,
@@ -1002,10 +1073,12 @@ public partial class FarmaciaController : Controller
         var censoEstado = censoQuery?.Where(x => x.FarmaciaEstado == estado);
         var cronicosEstado = cronicosQuery?.Where(x => x.FarmaciaEstado == estado);
         var heridasEstado = heridasQuery?.Where(x => x.FarmaciaEstado == estado);
+        var nptEstado = nptQuery?.Where(x => x.FarmaciaEstado == estado);
 
         var totalItems = (censoEstado is null ? 0 : await censoEstado.CountAsync(cancellationToken))
             + (cronicosEstado is null ? 0 : await cronicosEstado.CountAsync(cancellationToken))
-            + (heridasEstado is null ? 0 : await heridasEstado.CountAsync(cancellationToken));
+            + (heridasEstado is null ? 0 : await heridasEstado.CountAsync(cancellationToken))
+            + (nptEstado is null ? 0 : await nptEstado.CountAsync(cancellationToken));
         var totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)pageSize));
         var currentPage = Math.Clamp(requestedPage, 1, totalPages);
         var take = currentPage * pageSize;
@@ -1041,6 +1114,15 @@ public partial class FarmaciaController : Controller
                 .Select(x => new { Kardex = x, TieneAdjuntos = x.Adjuntos.Any() })
                 .ToListAsync(cancellationToken);
 
+        var nptItems = nptEstado is null
+            ? []
+            : await nptEstado
+                .OrderByDescending(x => x.FarmaciaEnviadoAtUtc)
+                .ThenByDescending(x => x.Id)
+                .Take(take)
+                .Select(x => new { Kardex = x, TieneAdjuntos = x.Adjuntos.Any() })
+                .ToListAsync(cancellationToken);
+
         var merged = censoItems
             .Select(x => MapPedido(
                 x.Record,
@@ -1048,6 +1130,7 @@ public partial class FarmaciaController : Controller
                     || (x.Record.FarmaciaProrrogaDeId is long padre && adjuntosHeredados.Contains(padre))))
             .Concat(cronicoItems.Select(MapCronicoPedido))
             .Concat(heridasItems.Select(x => MapClinicaHeridasPedido(x.Kardex, x.TieneAdjuntos)))
+            .Concat(nptItems.Select(x => MapNptPedido(x.Kardex, x.TieneAdjuntos)))
             .OrderByDescending(x => x.FechaEnvioUtc)
             .ThenByDescending(x => x.Id)
             .Skip((currentPage - 1) * pageSize)

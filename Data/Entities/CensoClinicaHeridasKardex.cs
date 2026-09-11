@@ -5,21 +5,22 @@ namespace Nexa.Data.Entities;
 /// <summary>
 /// Tipos de atención de clínica de heridas que generan requisición de insumos. Cada uno se activa
 /// con su propio "Sí" en la sección 3 y produce un kardex independiente.
+///
+/// NPT estuvo aquí hasta el 2026-09-11: era una atención de otro programa y se trasladó al censo
+/// de NPT, con su propia tabla (censo_npt_kardex) y su propio carril en farmacia.
 /// </summary>
 public static class ClinicaHeridasKardexTipos
 {
     public const string ManejoHerida = "MANEJO_HERIDA";
     public const string Vac = "VAC";
-    public const string Npt = "NPT";
     public const string Picc = "PICC";
 
-    public static readonly string[] Todos = [ManejoHerida, Vac, Npt, Picc];
+    public static readonly string[] Todos = [ManejoHerida, Vac, Picc];
 
     public static string Nombre(string tipo) => tipo switch
     {
         ManejoHerida => "Manejo de herida",
         Vac => "VAC",
-        Npt => "NPT",
         Picc => "PICC",
         _ => tipo
     };

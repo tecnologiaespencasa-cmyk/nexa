@@ -550,7 +550,7 @@ public partial class CensoController
         NormalizeClinicaHeridasManejoHeridaModel(model);
         ValidateClinicaHeridasManejoHeridaModel(model);
 
-        var posted = (model.Picc, model.Vac, model.Npt, model.ManejoHerida,
+        var posted = (model.Picc, model.Vac, model.ManejoHerida,
             model.ApositoMedicamento1, model.ApositoMedicamento2,
             model.ApositoMedicamento3, model.ApositoMedicamento4, model.DuracionTratamientoDias,
             model.FrecuenciaVisita);
@@ -559,7 +559,7 @@ public partial class CensoController
             model,
             restorePostedFields: m =>
             {
-                (m.Picc, m.Vac, m.Npt, m.ManejoHerida,
+                (m.Picc, m.Vac, m.ManejoHerida,
                     m.ApositoMedicamento1, m.ApositoMedicamento2,
                     m.ApositoMedicamento3, m.ApositoMedicamento4, m.DuracionTratamientoDias,
                     m.FrecuenciaVisita) = posted;
@@ -568,7 +568,6 @@ public partial class CensoController
             {
                 record.Picc = m.Picc;
                 record.Vac = m.Vac;
-                record.Npt = m.Npt;
                 record.ManejoHerida = m.ManejoHerida;
                 record.ApositoMedicamento1 = m.ApositoMedicamento1;
                 record.ApositoMedicamento2 = m.ApositoMedicamento2;
@@ -658,7 +657,6 @@ public partial class CensoController
     {
         model.Picc = string.IsNullOrWhiteSpace(model.Picc) ? null : model.Picc.Trim();
         model.Vac = string.IsNullOrWhiteSpace(model.Vac) ? null : model.Vac.Trim();
-        model.Npt = string.IsNullOrWhiteSpace(model.Npt) ? null : model.Npt.Trim();
         model.ManejoHerida = string.IsNullOrWhiteSpace(model.ManejoHerida) ? null : model.ManejoHerida.Trim();
 
         // Los apositos solo aplican a manejo de la herida y VAC; si ninguno esta en Si, el campo ni
@@ -714,11 +712,6 @@ public partial class CensoController
         if (!ClinicaHeridasSiNoValues.Contains(model.Vac ?? string.Empty, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.Vac), "Selecciona una opción válida para VAC.");
-        }
-
-        if (!ClinicaHeridasSiNoValues.Contains(model.Npt ?? string.Empty, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.Npt), "Selecciona una opción válida para NPT.");
         }
 
         if (!ClinicaHeridasSiNoValues.Contains(model.ManejoHerida ?? string.Empty, StringComparer.OrdinalIgnoreCase))
@@ -1317,7 +1310,6 @@ public partial class CensoController
         var seccionSinDiligenciar =
             string.IsNullOrWhiteSpace(model.Picc)
             && string.IsNullOrWhiteSpace(model.Vac)
-            && string.IsNullOrWhiteSpace(model.Npt)
             && string.IsNullOrWhiteSpace(model.ManejoHerida);
 
         if (!seccionSinDiligenciar)
@@ -1327,7 +1319,6 @@ public partial class CensoController
 
         model.Picc = "No";
         model.Vac = "No";
-        model.Npt = "No";
     }
 
     private async Task PopulateClinicaHeridasDropdownsAsync(CensoClinicaHeridasViewModel model, CancellationToken cancellationToken)
@@ -1916,7 +1907,6 @@ public partial class CensoController
         model.AuxiliarEnfermeriaAsignado = record.AuxiliarEnfermeriaAsignado;
         model.Picc = record.Picc;
         model.Vac = record.Vac;
-        model.Npt = record.Npt;
         model.ManejoHerida = record.ManejoHerida;
         model.ApositoMedicamento1 = record.ApositoMedicamento1;
         model.ApositoMedicamento2 = record.ApositoMedicamento2;

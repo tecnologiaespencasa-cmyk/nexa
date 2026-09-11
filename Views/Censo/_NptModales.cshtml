@@ -1,0 +1,144 @@
+@model CensoNptViewModel
+@*
+    Requisición de insumos de NPT.
+
+    Reutiliza las clases del modal de clínica de heridas —la hoja es la misma y no tiene sentido
+    mantener dos estilos para el mismo documento— pero con ids propios: un paciente puede tener
+    heridas y NPT abiertos a la vez, y con ids repetidos los dos modales se pisarían.
+
+    A diferencia de heridas no hay planes ni tipos de atención: la atención de NPT tiene una sola
+    requisición, así que no hay selector ni subtítulo de plan.
+*@
+
+<div class="modal fade herida-kardex-modal" id="nptKardexModal" tabindex="-1" aria-labelledby="nptKardexModalTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <span class="censo-card-heading__eyebrow">NPT</span>
+                    <h5 class="modal-title" id="nptKardexModalTitulo">Requisición de insumos</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning d-none" id="nptKardexCerradoBanner" role="alert">
+                    <strong>Requisición cerrada.</strong> Farmacia ya la aprobó: queda solo para consulta.
+                </div>
+                <div class="alert alert-danger d-none" id="nptKardexErrorBanner" role="alert"></div>
+
+                <div class="herida-kardex-sheet" id="nptKardexSheet" aria-label="Requisición de insumos y dispositivos médicos de NPT">
+                    <div class="herida-kardex-sheet__head">
+                        <div class="herida-kardex-sheet__logo">
+                            <img src="~/images/logo.png" asp-append-version="true" alt="Especialistas En Casa" />
+                        </div>
+                        <div class="herida-kardex-sheet__title" id="nptKardexTitulo"></div>
+                        <div class="herida-kardex-sheet__meta">
+                            <label>Código:<input data-npt-kardex-field="codigoFormato" /></label>
+                            <label>Versión:<input data-npt-kardex-field="versionFormato" /></label>
+                            <label>Página:<input data-npt-kardex-field="paginaFormato" /></label>
+                            <label>Fecha:<input data-npt-kardex-field="fechaFormato" /></label>
+                        </div>
+                    </div>
+
+                    <div class="herida-kardex-section-title">Datos del paciente</div>
+                    <div class="herida-kardex-patient">
+                        <label>Paciente:</label>
+                        <input data-npt-kardex-field="paciente" />
+                        <label>Documento:</label>
+                        <input data-npt-kardex-field="documento" />
+
+                        <label>Asegurador:</label>
+                        <input data-npt-kardex-field="asegurador" />
+                        <label>Edad:</label>
+                        <input data-npt-kardex-field="edad" />
+
+                        <label>Dirección:</label>
+                        <input data-npt-kardex-field="direccion" />
+                        <label>Teléfonos:</label>
+                        <input data-npt-kardex-field="telefonos" />
+
+                        <label>CIE10:</label>
+                        <input data-npt-kardex-field="codigoCie10" />
+                        <label>Diagnóstico:</label>
+                        <input data-npt-kardex-field="diagnostico" />
+                    </div>
+
+                    <div class="herida-kardex-section-title">Tratamiento</div>
+                    <div class="herida-kardex-patient">
+                        <label>Duración (días):</label>
+                        <input data-npt-kardex-field="duracionDias" inputmode="numeric" />
+                        <label>Frecuencia:</label>
+                        <input data-npt-kardex-field="frecuencia" />
+
+                        <label>Aplicaciones:</label>
+                        <input data-npt-kardex-field="aplicaciones" inputmode="numeric" readonly />
+                        <label>Fecha de solicitud:</label>
+                        <input data-npt-kardex-field="fechaSolicitud" type="date" />
+
+                        <label>Auxiliar asignado:</label>
+                        <input data-npt-kardex-field="auxiliarAsignado" />
+                        <label>Elaborado por:</label>
+                        <input data-npt-kardex-field="elaboradoPor" />
+                    </div>
+
+                    <div class="herida-kardex-section-title herida-kardex-section-title--center">Detalle de la requisición</div>
+                    <div class="herida-kardex-table-scroll">
+                        <table class="herida-kardex-table" id="nptKardexTabla">
+                            <thead>
+                                <tr id="nptKardexTablaCabecera"></tr>
+                            </thead>
+                            <tbody id="nptKardexTablaCuerpo"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-link herida-kardex__agregar-insumo" id="nptKardexAgregarInsumo">
+                        + Agregar insumo
+                    </button>
+
+                    <div class="herida-kardex-section-title">Observaciones</div>
+                    <textarea class="herida-kardex-observaciones" data-npt-kardex-field="observaciones" rows="2"></textarea>
+                </div>
+
+                <div class="herida-kardex-adjuntos">
+                    <div class="herida-kardex-adjuntos__head">
+                        <strong>Adjuntos</strong>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="nptKardexSubirAdjuntoBtn">Subir archivo</button>
+                        <input type="file" id="nptKardexAdjuntoInput" class="d-none"
+                               accept=".pdf,.xls,.xlsx,.xlsm,.csv,.jpg,.jpeg,.png" aria-label="Seleccionar adjunto" />
+                        <span class="small text-muted" id="nptKardexAdjuntoEstado"></span>
+                    </div>
+                    <ul class="herida-kardex-adjuntos__list" id="nptKardexAdjuntosLista"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="me-auto small text-muted" id="nptKardexEstadoNota"></span>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-outline-success" id="nptKardexGuardarBtn">Guardar</button>
+                <button type="button" class="btn btn-primary" id="nptKardexEnviarBtn">Enviar a farmacia</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* Confirmación y avisos de la requisición de NPT. Mismo diálogo que usa clínica de heridas, con
+   ids propios para que los dos puedan convivir en la misma página. *@
+<div class="modal fade herida-dialogo" id="nptDialogo" tabindex="-1" aria-labelledby="nptDialogoTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body">
+                <div class="herida-dialogo__icono" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M12 9v4"></path>
+                        <path d="M12 17h.01"></path>
+                        <path d="M10.3 3.9 2.4 17.6A2 2 0 0 0 4.1 20.6h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path>
+                    </svg>
+                </div>
+                <h2 class="herida-dialogo__titulo" id="nptDialogoTitulo"></h2>
+                <p class="herida-dialogo__mensaje" id="nptDialogoMensaje"></p>
+                <ul class="herida-dialogo__detalles d-none" id="nptDialogoDetalles"></ul>
+            </div>
+            <div class="modal-footer herida-dialogo__acciones">
+                <button type="button" class="btn btn-primary" id="nptDialogoAceptar">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>

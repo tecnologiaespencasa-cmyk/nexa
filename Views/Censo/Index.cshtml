@@ -663,6 +663,10 @@ else
 {
     <partial name="_ClinicaHeridasModales" model="Model.ClinicaHeridas" />
 }
+@if (Model.Npt is not null)
+{
+    <partial name="_NptModales" model="Model.Npt" />
+}
 
 @* Confirmacion compartida de la pantalla del censo. Va fuera de .censo-page por el mismo motivo
    que los demas modales, y reutiliza los estilos del dialogo de clinica de heridas. *@
@@ -713,6 +717,7 @@ else
 @if (Model.Npt is not null)
 {
     <partial name="_NptScripts" model="Model.Npt" />
+    <partial name="_NptKardexScripts" model="Model.Npt" />
 }
 @if (Model.TerapiaAmbulatoria is not null)
 {

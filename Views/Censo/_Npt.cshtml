@@ -313,6 +313,54 @@
                                         </button>
                                     </div>
                                 </section>
+
+                                @* La requisicion de insumos vivia en clinica de heridas como un tipo
+                                   mas de kardex; pertenece a este programa. Es una sola por atencion:
+                                   no hay planes ni tipos que elegir, asi que basta una tarjeta. *@
+                                <section class="censo-field-section">
+                                    <div class="censo-field-section__header">
+                                        <span class="censo-field-section__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false">
+                                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                <path d="M14 3v5h5"></path>
+                                            </svg>
+                                        </span>
+                                        <h3>Requisicion de insumos</h3>
+                                    </div>
+                                    <div class="herida-kardex__grid">
+                                        <article class="herida-kardex__card @(Model.KardexCerrado ? "is-cerrado" : Model.KardexEnviado ? "is-enviado" : null)">
+                                            <header>
+                                                <span class="herida-kardex__tipo">NPT</span>
+@if (Model.KardexCerrado)
+{
+                                                <span class="herida-kardex__estado herida-kardex__estado--cerrado">Cerrada por farmacia</span>
+}
+else if (Model.KardexEnviado)
+{
+                                                <span class="herida-kardex__estado herida-kardex__estado--enviado">En farmacia</span>
+}
+else
+{
+                                                <span class="herida-kardex__estado">Sin enviar</span>
+}
+                                            </header>
+                                            <dl class="herida-kardex__datos">
+                                                <div><dt>Insumos</dt><dd>@Model.KardexInsumos</dd></div>
+                                                <div><dt>Aplicaciones</dt><dd>@Model.KardexAplicaciones</dd></div>
+                                                <div><dt>Adjuntos</dt><dd>@Model.KardexAdjuntos</dd></div>
+                                            </dl>
+                                            <button type="button"
+                                                    class="btn btn-outline-primary herida-kardex__abrir"
+                                                    data-npt-kardex-abrir>
+                                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                                                    <path d="M14 3v5h5"></path>
+                                                </svg>
+                                                <span>@(Model.KardexCerrado ? "Ver requisicion" : "Abrir requisicion")</span>
+                                            </button>
+                                        </article>
+                                    </div>
+                                </section>
                             }
                         </div>
                     </div>

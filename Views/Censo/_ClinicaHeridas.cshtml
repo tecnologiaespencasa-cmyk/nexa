@@ -493,14 +493,14 @@
                                         <h3>Dispositivos</h3>
                                     </div>
                                     <div class="row g-3 censo-field-section__grid">
-                                        <div class="col-lg-3">
+                                        <div class="col-lg-4">
                                             <label asp-for="Picc" class="form-label"></label>@RequiredMark()
                                             <select asp-for="Picc" asp-items="Model.SiNoOptions" class="form-select">
                                                 <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.Picc))">Selecciona...</option>
                                             </select>
                                             <span asp-validation-for="Picc" class="text-danger"></span>
                                         </div>
-                                        <div class="col-lg-3">
+                                        <div class="col-lg-4">
                                             <label asp-for="Vac" class="form-label"></label>@RequiredMark()
                                             <select asp-for="Vac" asp-items="Model.SiNoOptions" class="form-select" data-kardex-trigger>
                                                 <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.Vac))">Selecciona...</option>
@@ -508,14 +508,7 @@
                                             <div class="form-text">Con VAC en Si se habilita la sección Activo fijo.</div>
                                             <span asp-validation-for="Vac" class="text-danger"></span>
                                         </div>
-                                        <div class="col-lg-3">
-                                            <label asp-for="Npt" class="form-label"></label>@RequiredMark()
-                                            <select asp-for="Npt" asp-items="Model.SiNoOptions" class="form-select" data-kardex-trigger>
-                                                <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.Npt))">Selecciona...</option>
-                                            </select>
-                                            <span asp-validation-for="Npt" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-lg-3">
+                                        <div class="col-lg-4">
                                             <label asp-for="ManejoHerida" class="form-label"></label>@RequiredMark()
                                             <select asp-for="ManejoHerida" asp-items="Model.SiNoOptions" class="form-select" data-kardex-trigger>
                                                 <option value="" disabled hidden selected="@(string.IsNullOrWhiteSpace(Model.ManejoHerida))">Selecciona...</option>

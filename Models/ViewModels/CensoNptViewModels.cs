@@ -11,6 +11,22 @@ public class CensoNptViewModel : ICensoRegistroEditable
 
     public string? CedulaFiltro { get; set; }
 
+    // ----- Requisición de insumos -----
+    // Resumen para la tarjeta de "Manejo de la NPT". El documento completo lo trae por AJAX el
+    // modal; aquí solo va lo que se muestra sin abrirlo.
+
+    /// <summary>Farmacia ya le dio OK: queda solo para consulta.</summary>
+    public bool KardexCerrado { get; set; }
+
+    /// <summary>Ya salió hacia farmacia, aunque todavía se pueda editar.</summary>
+    public bool KardexEnviado { get; set; }
+
+    public int KardexInsumos { get; set; }
+
+    public int KardexAplicaciones { get; set; }
+
+    public int KardexAdjuntos { get; set; }
+
     [Required(ErrorMessage = "Selecciona el asegurador.")]
     [StringLength(120, ErrorMessage = "El asegurador no puede superar 120 caracteres.")]
     [Display(Name = "Asegurador")]

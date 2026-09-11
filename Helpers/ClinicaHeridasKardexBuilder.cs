@@ -28,28 +28,6 @@ public static class ClinicaHeridasKardexBuilder
         "GASA ADHESIVA (ELECTOFIX) 10X10"
     ];
 
-    private static readonly string[] InsumosNpt =
-    [
-        "BATA ESTERIL",
-        "CLORURO DE SODIO AL 0.9% 50ML",
-        "GORRO DESECHABLE",
-        "BOLSA ROJA PEQUEÑA",
-        "BOLSA GRIS PEQUEÑA",
-        "GUANTE VINILO TALLA M",
-        "GUANTE ESTERIL TALLA 7.0",
-        "CLORHEXIDINA 2% 60ML- SOLUCION",
-        "EQUIPO FOTOSENSIBLE FRESENUIS KABI",
-        "JERINGA DE 10 ML",
-        "BIOCONECTOR",
-        "APOSITO TRANPARENTE",
-        "GASA ADHESIVA (ELECTOFIX) 10X10",
-        "GASA ESTÉRIL PAQUETE 10X10CM X5 UNIDADES",
-        "TAPABOCAS",
-        "TIRAS",
-        "LANCETA",
-        "FILTRO PARA NPT"
-    ];
-
     private static readonly string[] InsumosPicc =
     [
         "AGUJA HIPODERMICA 18X1",
@@ -68,7 +46,7 @@ public static class ClinicaHeridasKardexBuilder
 
     /// <summary>
     /// Solo manejo de herida y VAC arrastran los apósitos/medicamentos elegidos en la sección 3.
-    /// NPT y PICC tienen lista fija.
+    /// PICC tiene lista fija.
     /// </summary>
     public static bool UsaApositosSeleccionados(string tipo) =>
         tipo is ClinicaHeridasKardexTipos.ManejoHerida or ClinicaHeridasKardexTipos.Vac;
@@ -103,7 +81,6 @@ public static class ClinicaHeridasKardexBuilder
         {
             ClinicaHeridasKardexTipos.ManejoHerida => [.. apositosSeleccionados, .. BaseCuracion],
             ClinicaHeridasKardexTipos.Vac => [.. apositosSeleccionados, .. BaseCuracion, "HOJA DE BISTURI N°11"],
-            ClinicaHeridasKardexTipos.Npt => InsumosNpt,
             ClinicaHeridasKardexTipos.Picc => InsumosPicc,
             _ => []
         };
