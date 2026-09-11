@@ -215,6 +215,137 @@ public partial class CensoController
         return RedirectToAction(nameof(Index), new { cedulaPaciente = resultado.Value.NumeroIdentificacion });
     }
 
+    /// <summary>
+    /// Guarda la recepción de un ingreso. Es propia del episodio: cada ingreso nace de su propio
+    /// correo, así que el paciente conserva sus datos básicos y la recepción se captura de nuevo.
+    ///
+    /// No entra sobre una atención cerrada. La recepción es el arranque de la atención, no algo
+    /// que se registre después del alta, así que no está entre las secciones que
+    /// <see cref="CensoProgramaSecciones.SeEditaTrasElAlta"/> deja abiertas.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GuardarRecepcion(
+        CensoRecepcionFormViewModel recepcion,
+        CancellationToken cancellationToken)
+    {
+        TraducirErroresDeFormato();
+
+        var episodio = await _context.CensoPacienteProgramas
+            .Include(x => x.CensoPaciente)
+            .FirstOrDefaultAsync(x => x.Id == recepcion.EpisodioId, cancellationToken);
+
+        if (episodio is null)
+        {
+            TempData["ErrorMessage"] = "No se encontró el ingreso.";
+            return RedirectToAction(nameof(Index), new { cedulaPaciente = recepcion.CedulaPaciente });
+        }
+
+        var documento = episodio.CensoPaciente.NumeroIdentificacion;
+
+        if (episodio.CerradoAtUtc is not null)
+        {
+            TempData["ErrorMessage"] =
+                "Esa atención ya está cerrada: su recepción se conserva tal como se registró.";
+            return RedirectToAction(nameof(Index), new
+            {
+                cedulaPaciente = documento,
+                programa = episodio.Programa,
+                atencion = episodio.Id
+            });
+        }
+
+        recepcion.Programa = episodio.Programa;
+        recepcion.NombreRecepcionaCaso = recepcion.NombreRecepcionaCaso?.Trim();
+        recepcion.NombreRealizaKardex = recepcion.NombreRealizaKardex?.Trim();
+
+        // Quien realiza el kardex solo se exige si ESTE programa lo genera. Antes la regla miraba
+        // todos los programas abiertos del paciente, porque el campo era del paciente y no del
+        // ingreso: a un ingreso de terapia se le pedía el kardex de una clínica de heridas ajena.
+        if (ProgramasConKardex.Contains(episodio.Programa, StringComparer.Ordinal)
+            && string.IsNullOrWhiteSpace(recepcion.NombreRealizaKardex))
+        {
+            ModelState.AddModelError(
+                nameof(recepcion.NombreRealizaKardex),
+                $"{CensoProgramas.Nombre(episodio.Programa)} genera kardex: selecciona quien lo realiza.");
+        }
+
+        var auxiliares = await GetNursingAssistantOptionsAsync(cancellationToken);
+        var permitidos = auxiliares.Select(x => x.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Un auxiliar que ya se inactivó sigue siendo válido si es el que está guardado: lo
+        // contrario obligaría a cambiar el responsable de un ingreso pasado para poder corregir
+        // cualquier otro campo de la misma recepción.
+        if (!string.IsNullOrWhiteSpace(recepcion.NombreRecepcionaCaso)
+            && !permitidos.Contains(recepcion.NombreRecepcionaCaso)
+            && !string.Equals(recepcion.NombreRecepcionaCaso, episodio.NombreRecepcionaCaso, StringComparison.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(recepcion.NombreRecepcionaCaso), "Selecciona un auxiliar válido.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(recepcion.NombreRealizaKardex)
+            && !permitidos.Contains(recepcion.NombreRealizaKardex)
+            && !string.Equals(recepcion.NombreRealizaKardex, episodio.NombreRealizaKardex, StringComparison.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(recepcion.NombreRealizaKardex), "Selecciona un auxiliar válido.");
+        }
+
+        int? indicador = null;
+        if (recepcion.FechaIngreso.HasValue && recepcion.HoraIngreso.HasValue
+            && recepcion.FechaRespuesta.HasValue && recepcion.HoraRespuesta.HasValue)
+        {
+            var ingreso = recepcion.FechaIngreso.Value.Date + recepcion.HoraIngreso.Value;
+            var respuesta = recepcion.FechaRespuesta.Value.Date + recepcion.HoraRespuesta.Value;
+            if (respuesta < ingreso)
+            {
+                ModelState.AddModelError(
+                    nameof(recepcion.HoraRespuesta),
+                    "La fecha/hora de respuesta no puede ser menor a la de ingreso.");
+            }
+            else
+            {
+                indicador = (int)Math.Round(
+                    (respuesta - ingreso).TotalMinutes, MidpointRounding.AwayFromZero);
+            }
+        }
+
+        if (!ModelState.IsValid)
+        {
+            var invalido = await ConstruirModeloUnificadoAsync(documento, episodio.Programa, cancellationToken);
+            invalido.RecepcionEnviada = recepcion;
+            return View("Index", invalido);
+        }
+
+        episodio.FechaIngreso = recepcion.FechaIngreso?.Date;
+        episodio.HoraIngreso = recepcion.HoraIngreso;
+        episodio.FechaRespuesta = recepcion.FechaRespuesta?.Date;
+        episodio.HoraRespuesta = recepcion.HoraRespuesta;
+        episodio.IndicadorTiempoRespuestaMinutos = indicador;
+        episodio.NombreRecepcionaCaso = string.IsNullOrWhiteSpace(recepcion.NombreRecepcionaCaso)
+            ? null : recepcion.NombreRecepcionaCaso;
+        episodio.NombreRealizaKardex = string.IsNullOrWhiteSpace(recepcion.NombreRealizaKardex)
+            ? null : recepcion.NombreRealizaKardex;
+
+        await _censoPacienteService.ReplicarRecepcionAlProgramaAsync(episodio, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _auditService.LogAsync(
+            "CENSO_RECEPCION_GUARDADA",
+            "CensoPacientePrograma",
+            $"Doc: {documento}, Programa: {CensoProgramas.Nombre(episodio.Programa)}, Ingreso: {episodio.Id}",
+            UsuarioActualId(),
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            cancellationToken);
+
+        TempData["SuccessMessage"] = "Recepción del ingreso guardada.";
+        return RedirectToAction(nameof(Index), new
+        {
+            cedulaPaciente = documento,
+            programa = episodio.Programa,
+            atencion = episodio.Id
+        });
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AgregarPrograma(
@@ -523,7 +654,16 @@ public partial class CensoController
                         Desde = fila.Desde ?? ColombiaTime.Convert(e.AgregadoAtUtc).Date,
                         Hasta = fila.Hasta,
                         Abierta = e.CerradoAtUtc is null,
-                        Estado = fila.Estado ?? e.MotivoCierre
+                        Estado = fila.Estado ?? e.MotivoCierre,
+                        // La recepción de este ingreso viaja con la atención, también en las
+                        // anteriores: es lo que deja consultarlas sin volver a la base.
+                        FechaIngresoRecepcion = e.FechaIngreso,
+                        HoraIngresoRecepcion = e.HoraIngreso,
+                        FechaRespuesta = e.FechaRespuesta,
+                        HoraRespuesta = e.HoraRespuesta,
+                        IndicadorTiempoRespuestaMinutos = e.IndicadorTiempoRespuestaMinutos,
+                        NombreRecepcionaCaso = e.NombreRecepcionaCaso,
+                        NombreRealizaKardex = e.NombreRealizaKardex
                     };
                 })
                 .OrderBy(a => a.Desde)
@@ -619,17 +759,24 @@ public partial class CensoController
         var seleccionadas = model.Atenciones
             .Select(par => par.Value.FirstOrDefault(a => a.EsSeleccionada))
             .Where(a => a is not null)
-            .ToDictionary(a => a!.Programa, a => a!.RegistroId, StringComparer.Ordinal);
+            .ToDictionary(a => a!.Programa, a => a!, StringComparer.Ordinal);
 
-        if (seleccionadas.TryGetValue(CensoProgramas.Agudos, out var idAgudos))
+        if (seleccionadas.TryGetValue(CensoProgramas.Agudos, out var atencionAgudos))
         {
+            // La recepción sale de la atención, no del paciente. Un ingreso nuevo todavía no la
+            // tiene: el formulario arranca con la fecha y hora de hoy, que es lo que hacía el
+            // formulario en blanco, y no con la del ingreso anterior.
+            var ahora = ColombiaTime.Convert(DateTime.UtcNow);
             var agudos = new CensoReceptionViewModel
             {
                 CedulaFiltro = doc,
-                FechaIngreso = paciente.FechaIngreso,
-                HoraIngreso = paciente.HoraIngreso,
-                FechaRespuesta = paciente.FechaRespuesta ?? paciente.FechaIngreso,
-                HoraRespuesta = paciente.HoraRespuesta ?? paciente.HoraIngreso,
+                FechaIngreso = atencionAgudos.FechaIngresoRecepcion ?? ahora.Date,
+                HoraIngreso = atencionAgudos.HoraIngresoRecepcion
+                    ?? new TimeSpan(ahora.Hour, ahora.Minute, 0),
+                FechaRespuesta = atencionAgudos.FechaRespuesta
+                    ?? atencionAgudos.FechaIngresoRecepcion ?? ahora.Date,
+                HoraRespuesta = atencionAgudos.HoraRespuesta
+                    ?? atencionAgudos.HoraIngresoRecepcion ?? new TimeSpan(ahora.Hour, ahora.Minute, 0),
                 FechaNacimiento = paciente.FechaNacimiento,
                 Edad = paciente.Edad
             };
@@ -637,21 +784,22 @@ public partial class CensoController
                 agudos,
                 ct,
                 loadLatestRecordIntoForm: true,
-                selectedRecordId: idAgudos,
+                selectedRecordId: atencionAgudos.RegistroId,
                 // El episodio manda: si no tiene registro, la atención es nueva y el formulario
                 // arranca en blanco, como en los otros cuatro programas.
                 permitirUltimaAtencion: false);
             await PopulateDropdownsAsync(agudos, ct);
             PreserveInactiveNursingAssistantSelections(agudos);
             AplicarMaestroAModeloAgudos(agudos, paciente);
+            AplicarRecepcionAModeloAgudos(agudos, atencionAgudos);
             model.Agudos = agudos;
         }
 
-        if (seleccionadas.TryGetValue(CensoProgramas.Cronicos, out var idCronicos))
+        if (seleccionadas.TryGetValue(CensoProgramas.Cronicos, out var atencionCronicos))
         {
             var cronicos = BuildDefaultCronicoModel();
             cronicos.CedulaFiltro = doc;
-            var registro = await BuscarRegistroAsync(_context.CensoCronicos, idCronicos, ct);
+            var registro = await BuscarRegistroAsync(_context.CensoCronicos, atencionCronicos.RegistroId, ct);
             if (registro is not null)
             {
                 ApplyCronicoRecordToModel(cronicos, registro);
@@ -662,11 +810,11 @@ public partial class CensoController
             model.Cronicos = cronicos;
         }
 
-        if (seleccionadas.TryGetValue(CensoProgramas.ClinicaHeridas, out var idHeridas))
+        if (seleccionadas.TryGetValue(CensoProgramas.ClinicaHeridas, out var atencionHeridas))
         {
             var heridas = BuildDefaultClinicaHeridasModel();
             heridas.CedulaFiltro = doc;
-            var registro = await BuscarRegistroAsync(_context.CensoClinicaHeridas, idHeridas, ct);
+            var registro = await BuscarRegistroAsync(_context.CensoClinicaHeridas, atencionHeridas.RegistroId, ct);
             if (registro is not null)
             {
                 ApplyClinicaHeridasRecordToModel(heridas, registro);
@@ -686,11 +834,11 @@ public partial class CensoController
             model.ClinicaHeridas = heridas;
         }
 
-        if (seleccionadas.TryGetValue(CensoProgramas.Npt, out var idNpt))
+        if (seleccionadas.TryGetValue(CensoProgramas.Npt, out var atencionNpt))
         {
             var npt = BuildDefaultNptModel();
             npt.CedulaFiltro = doc;
-            var registro = await BuscarRegistroAsync(_context.CensoNpt, idNpt, ct);
+            var registro = await BuscarRegistroAsync(_context.CensoNpt, atencionNpt.RegistroId, ct);
             if (registro is not null)
             {
                 ApplyNptRecordToModel(npt, registro);
@@ -701,11 +849,11 @@ public partial class CensoController
             model.Npt = npt;
         }
 
-        if (seleccionadas.TryGetValue(CensoProgramas.TerapiaAmbulatoria, out var idTerapia))
+        if (seleccionadas.TryGetValue(CensoProgramas.TerapiaAmbulatoria, out var atencionTerapia))
         {
             var terapia = BuildDefaultTerapiaAmbulatoriaModel();
             terapia.CedulaFiltro = doc;
-            var registro = await BuscarRegistroAsync(_context.CensoTerapiasAmbulatorias, idTerapia, ct);
+            var registro = await BuscarRegistroAsync(_context.CensoTerapiasAmbulatorias, atencionTerapia.RegistroId, ct);
             if (registro is not null)
             {
                 ApplyTerapiaAmbulatoriaRecordToModel(terapia, registro);
@@ -755,12 +903,9 @@ public partial class CensoController
     // ==========================================================================================
     private static void AplicarMaestroAModeloAgudos(CensoReceptionViewModel m, CensoPaciente p)
     {
-        m.FechaIngreso = p.FechaIngreso;
-        m.HoraIngreso = p.HoraIngreso;
-        if (p.FechaRespuesta.HasValue) m.FechaRespuesta = p.FechaRespuesta.Value;
-        if (p.HoraRespuesta.HasValue) m.HoraRespuesta = p.HoraRespuesta.Value;
-        m.NombreRecepcionaCaso = Elegir(p.NombreRecepcionaCaso, m.NombreRecepcionaCaso);
-        m.NombreRealizaKardex = Elegir(p.NombreRealizaKardex, m.NombreRealizaKardex);
+        // La recepción ya no viaja desde el maestro: es del ingreso y la aplica
+        // AplicarRecepcionAModeloAgudos con los datos del episodio. Mientras salía de aquí, un
+        // reingreso mostraba la recepción del ingreso anterior en cada render.
         m.NombrePaciente = Elegir(p.NombrePaciente, m.NombrePaciente);
         m.TipoIdentificacion = Elegir(p.TipoIdentificacion, m.TipoIdentificacion);
         m.NumeroIdentificacion = Elegir(p.NumeroIdentificacion, m.NumeroIdentificacion);
@@ -786,9 +931,29 @@ public partial class CensoController
         m.Telefono3 = ElegirOpcional(p.Telefono3, m.Telefono3);
     }
 
+    /// <summary>
+    /// Pone en el formulario de agudos la recepción del ingreso que se está mostrando.
+    ///
+    /// Agudos manda su formulario entero en un POST y su validación exige estos campos, así que
+    /// siguen viajando en su modelo; lo que cambió es de dónde salen. Un ingreso sin recepción
+    /// todavía conserva lo que el modelo ya traía —hoy—, para que el formulario nuevo no arranque
+    /// con fechas vacías que su propia validación rechaza.
+    /// </summary>
+    private static void AplicarRecepcionAModeloAgudos(CensoReceptionViewModel m, CensoAtencionViewModel a)
+    {
+        if (a.FechaIngresoRecepcion.HasValue) m.FechaIngreso = a.FechaIngresoRecepcion.Value;
+        if (a.HoraIngresoRecepcion.HasValue) m.HoraIngreso = a.HoraIngresoRecepcion.Value;
+        if (a.FechaRespuesta.HasValue) m.FechaRespuesta = a.FechaRespuesta.Value;
+        if (a.HoraRespuesta.HasValue) m.HoraRespuesta = a.HoraRespuesta.Value;
+        m.NombreRecepcionaCaso = Elegir(a.NombreRecepcionaCaso, m.NombreRecepcionaCaso);
+        m.NombreRealizaKardex = Elegir(a.NombreRealizaKardex, m.NombreRealizaKardex);
+    }
+
     private static void AplicarMaestroAModeloCronicos(CensoCronicoViewModel m, CensoPaciente p)
     {
-        m.FechaIngreso = p.FechaIngreso;
+        // La fecha de ingreso al programa es de la atención y la trae su propio registro (o el
+        // valor de hoy, si la atención es nueva). Venía del maestro solo porque allí vivía la
+        // fecha de la recepción, que es otra cosa y ahora está en el episodio.
         m.NombrePaciente = Elegir(p.NombrePaciente, m.NombrePaciente);
         m.TipoIdentificacion = Elegir(p.TipoIdentificacion, m.TipoIdentificacion);
         m.NumeroIdentificacion = Elegir(p.NumeroIdentificacion, m.NumeroIdentificacion);
@@ -931,10 +1096,6 @@ public partial class CensoController
 
     private CensoPacienteFormViewModel NuevoFormularioPaciente(DateTime ahora) => new()
     {
-        FechaIngreso = ahora.Date,
-        HoraIngreso = new TimeSpan(ahora.Hour, ahora.Minute, 0),
-        FechaRespuesta = ahora.Date,
-        HoraRespuesta = new TimeSpan(ahora.Hour, ahora.Minute, 0),
         FechaNacimiento = ahora.Date,
         Edad = 0,
         // Sin municipio de partida a proposito: nacer en "no parametrizado" era lo que dejaba
@@ -949,13 +1110,6 @@ public partial class CensoController
     private static CensoPacienteFormViewModel AFormulario(CensoPaciente p) => new()
     {
         PacienteId = p.Id,
-        FechaIngreso = p.FechaIngreso,
-        HoraIngreso = p.HoraIngreso,
-        FechaRespuesta = p.FechaRespuesta,
-        HoraRespuesta = p.HoraRespuesta,
-        IndicadorTiempoRespuestaMinutos = p.IndicadorTiempoRespuestaMinutos,
-        NombreRecepcionaCaso = p.NombreRecepcionaCaso,
-        NombreRealizaKardex = p.NombreRealizaKardex,
         NombrePaciente = p.NombrePaciente,
         TipoIdentificacion = p.TipoIdentificacion,
         NumeroIdentificacion = p.NumeroIdentificacion,
@@ -1109,13 +1263,8 @@ public partial class CensoController
         p.Telefono2 = p.Telefono2?.Trim();
         p.Telefono3 = p.Telefono3?.Trim();
         p.Edad = CalculateAge(p.FechaNacimiento, DateTime.Today);
-
-        if (p.FechaRespuesta.HasValue && p.HoraRespuesta.HasValue)
-        {
-            var ingreso = p.FechaIngreso.Date + p.HoraIngreso;
-            var respuesta = p.FechaRespuesta.Value.Date + p.HoraRespuesta.Value;
-            p.IndicadorTiempoRespuestaMinutos = (int)Math.Max(0, (respuesta - ingreso).TotalMinutes);
-        }
+        // El indicador de tiempo de respuesta se calcula en GuardarRecepcion: es de la recepción
+        // del ingreso, y aquí ya no hay de dónde sacar sus fechas.
     }
 
     /// <summary>
@@ -1179,13 +1328,10 @@ public partial class CensoController
                 .ToList();
         }
 
-        if (abiertos.Intersect(ProgramasConKardex, StringComparer.Ordinal).Any()
-            && string.IsNullOrWhiteSpace(p.NombreRealizaKardex))
-        {
-            ModelState.AddModelError(
-                nameof(CensoUnificadoViewModel.Paciente) + "." + nameof(p.NombreRealizaKardex),
-                "El paciente tiene un programa que genera kardex: selecciona quien lo realiza.");
-        }
+        // "Quien realiza kardex" ya no se valida aquí: es un campo de la recepción, y la recepción
+        // es de cada ingreso. Lo exige GuardarRecepcion según el programa de ESE episodio, que es
+        // la pregunta correcta —antes bastaba con que el paciente tuviera abierto en cualquier
+        // parte un programa con kardex para exigirlo en un formulario que era de todos—.
 
         if (!abiertos.Contains(CensoProgramas.Agudos, StringComparer.Ordinal))
         {

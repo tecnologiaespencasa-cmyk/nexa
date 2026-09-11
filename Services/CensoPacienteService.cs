@@ -113,14 +113,9 @@ public class CensoPacienteService : ICensoPacienteService
 
     private static void AplicarFormulario(CensoPaciente paciente, CensoPacienteFormViewModel f, string documento)
     {
-        paciente.FechaIngreso = f.FechaIngreso.Date;
-        paciente.HoraIngreso = f.HoraIngreso;
-        paciente.FechaRespuesta = f.FechaRespuesta?.Date;
-        paciente.HoraRespuesta = f.HoraRespuesta;
-        paciente.IndicadorTiempoRespuestaMinutos = f.IndicadorTiempoRespuestaMinutos;
-        paciente.NombreRecepcionaCaso = Limpiar(f.NombreRecepcionaCaso);
-        paciente.NombreRealizaKardex = Limpiar(f.NombreRealizaKardex);
-
+        // La recepción no se escribe aquí: es del ingreso y la guarda GuardarRecepcion contra el
+        // episodio. Mientras vivió en el maestro, guardar la recepción de un reingreso borraba la
+        // del ingreso anterior, porque solo había una fila donde ponerla.
         paciente.TipoIdentificacion = Limpiar(f.TipoIdentificacion) ?? string.Empty;
         paciente.NumeroIdentificacion = documento;
         paciente.NombrePaciente = Limpiar(f.NombrePaciente) ?? string.Empty;
@@ -258,10 +253,9 @@ public class CensoPacienteService : ICensoPacienteService
                 x.FarmaciaProrrogaDeId != null || x.FarmaciaProrrogaVersionId != null ? 1 : 0,
                 new CensoPaciente
                 {
-                    FechaIngreso = x.FechaIngreso, HoraIngreso = x.HoraIngreso,
-                    FechaRespuesta = x.FechaRespuesta, HoraRespuesta = x.HoraRespuesta,
-                    IndicadorTiempoRespuestaMinutos = x.IndicadorTiempoRespuestaMinutos,
-                    NombreRecepcionaCaso = x.NombreRecepcionaCaso, NombreRealizaKardex = x.NombreRealizaKardex,
+                    // La recepción no sube al maestro: es de cada ingreso y ya vive en el episodio.
+                    // La fecha de ingreso sigue usándose arriba, pero solo para ordenar los
+                    // candidatos de más reciente a más antiguo.
                     TipoIdentificacion = x.TipoIdentificacion, NumeroIdentificacion = x.NumeroIdentificacion,
                     NombrePaciente = x.NombrePaciente, FechaNacimiento = x.FechaNacimiento, Edad = x.Edad,
                     CorreoElectronico = x.CorreoElectronico, CodigoCie10 = x.CodigoCie10,
@@ -280,7 +274,6 @@ public class CensoPacienteService : ICensoPacienteService
         {
             candidatos.Add((x.FechaIngreso, 0, new CensoPaciente
             {
-                FechaIngreso = x.FechaIngreso,
                 TipoIdentificacion = x.TipoIdentificacion, NumeroIdentificacion = x.NumeroIdentificacion,
                 NombrePaciente = x.NombrePaciente, FechaNacimiento = x.FechaNacimiento, Edad = x.Edad,
                 Genero = x.Genero, CorreoElectronico = x.CorreoElectronico,
@@ -296,7 +289,6 @@ public class CensoPacienteService : ICensoPacienteService
         {
             candidatos.Add((x.FechaIngresoPrograma, 0, new CensoPaciente
             {
-                FechaIngreso = x.FechaIngresoPrograma,
                 TipoIdentificacion = x.TipoIdentificacion, NumeroIdentificacion = x.NumeroIdentificacion,
                 NombrePaciente = x.NombrePaciente, FechaNacimiento = x.FechaNacimiento, Edad = x.Edad,
                 Genero = x.Genero, Asegurador = x.Asegurador, CodigoCie10 = x.CodigoCie10,
@@ -314,7 +306,6 @@ public class CensoPacienteService : ICensoPacienteService
         {
             candidatos.Add((x.FechaIngresoPrograma, 0, new CensoPaciente
             {
-                FechaIngreso = x.FechaIngresoPrograma,
                 TipoIdentificacion = x.TipoIdentificacion, NumeroIdentificacion = x.NumeroIdentificacion,
                 NombrePaciente = x.NombrePaciente, FechaNacimiento = x.FechaNacimiento, Edad = x.Edad,
                 Genero = x.Genero, Asegurador = x.Asegurador, CodigoCie10 = x.CodigoCie10,
@@ -332,7 +323,6 @@ public class CensoPacienteService : ICensoPacienteService
         {
             candidatos.Add((x.FechaIngreso, 0, new CensoPaciente
             {
-                FechaIngreso = x.FechaIngreso,
                 TipoIdentificacion = x.TipoIdentificacion, NumeroIdentificacion = x.NumeroIdentificacion,
                 NombrePaciente = x.NombrePaciente, FechaNacimiento = x.FechaNacimiento, Edad = x.Edad,
                 CorreoElectronico = x.CorreoElectronico, CodigoCie10 = x.CodigoCie10,
@@ -361,16 +351,11 @@ public class CensoPacienteService : ICensoPacienteService
         string? Texto(Func<CensoPaciente, string?> selector) =>
             ordenados.Select(selector).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 
-        var principal = ordenados[0];
+        // La recepción no se compone aquí: es de cada ingreso y la guarda su episodio. Componerla
+        // tomando "el primer valor no vacío" de varias atenciones era justamente lo que mezclaba
+        // la recepción de un ingreso con la de otro.
         var maestro = new CensoPaciente
         {
-            FechaIngreso = principal.FechaIngreso,
-            HoraIngreso = ordenados.Select(x => x.HoraIngreso).FirstOrDefault(x => x != default),
-            FechaRespuesta = ordenados.Select(x => x.FechaRespuesta).FirstOrDefault(x => x.HasValue),
-            HoraRespuesta = ordenados.Select(x => x.HoraRespuesta).FirstOrDefault(x => x.HasValue),
-            IndicadorTiempoRespuestaMinutos = ordenados.Select(x => x.IndicadorTiempoRespuestaMinutos).FirstOrDefault(x => x.HasValue),
-            NombreRecepcionaCaso = Texto(x => x.NombreRecepcionaCaso),
-            NombreRealizaKardex = Texto(x => x.NombreRealizaKardex),
             TipoIdentificacion = Texto(x => x.TipoIdentificacion) ?? string.Empty,
             NumeroIdentificacion = Texto(x => x.NumeroIdentificacion) ?? doc,
             NombrePaciente = Texto(x => x.NombrePaciente) ?? string.Empty,
@@ -477,6 +462,45 @@ public class CensoPacienteService : ICensoPacienteService
         }
     }
 
+    /// <summary>
+    /// Baja la recepción del ingreso a la tabla del programa, cuando esa tabla la guarda.
+    ///
+    /// Hoy solo agudos: `censo` tiene sus siete columnas de recepción y de ahí leen la bandeja de
+    /// farmacia, los reportes y los exportables. El episodio es el original y esta es su copia,
+    /// nunca al revés. Los otros cuatro censos no tienen dónde guardarla y no la necesitan: su
+    /// pantalla la lee del episodio.
+    ///
+    /// No hace SaveChanges: lo hace quien llama, en la misma transacción que guarda el episodio.
+    /// </summary>
+    public async Task ReplicarRecepcionAlProgramaAsync(
+        CensoPacientePrograma episodio,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(episodio.Programa, CensoProgramas.Agudos, StringComparison.Ordinal)
+            || episodio.RegistroId is null)
+        {
+            return;
+        }
+
+        var r = await _context.Censos
+            .FirstOrDefaultAsync(x => x.Id == episodio.RegistroId.Value, cancellationToken);
+        if (r is null)
+        {
+            return;
+        }
+
+        // Las columnas de `censo` no admiten nulos, así que un campo sin diligenciar conserva el
+        // valor que la fila ya tenía en vez de intentar escribir null y tumbar el guardado.
+        if (episodio.FechaIngreso.HasValue) r.FechaIngreso = episodio.FechaIngreso.Value;
+        if (episodio.HoraIngreso.HasValue) r.HoraIngreso = episodio.HoraIngreso.Value;
+        if (episodio.FechaRespuesta.HasValue) r.FechaRespuesta = episodio.FechaRespuesta.Value;
+        if (episodio.HoraRespuesta.HasValue) r.HoraRespuesta = episodio.HoraRespuesta.Value;
+        if (episodio.IndicadorTiempoRespuestaMinutos.HasValue)
+            r.IndicadorTiempoRespuestaMinutos = episodio.IndicadorTiempoRespuestaMinutos.Value;
+        r.NombreRecepcionaCaso = Preferir(episodio.NombreRecepcionaCaso, r.NombreRecepcionaCaso);
+        r.NombreRealizaKardex = Preferir(episodio.NombreRealizaKardex, r.NombreRealizaKardex);
+    }
+
     private async Task ReplicarAgudosAsync(CensoPaciente p, long registroId, CancellationToken ct)
     {
         var r = await _context.Censos.FirstOrDefaultAsync(x => x.Id == registroId, ct);
@@ -487,15 +511,10 @@ public class CensoPacienteService : ICensoPacienteService
 
         r.CensoPacienteId = p.Id;
 
-        r.FechaIngreso = p.FechaIngreso;
-        r.HoraIngreso = p.HoraIngreso;
-        if (p.FechaRespuesta.HasValue) r.FechaRespuesta = p.FechaRespuesta.Value;
-        if (p.HoraRespuesta.HasValue) r.HoraRespuesta = p.HoraRespuesta.Value;
-        if (p.IndicadorTiempoRespuestaMinutos.HasValue)
-            r.IndicadorTiempoRespuestaMinutos = p.IndicadorTiempoRespuestaMinutos.Value;
-        r.NombreRecepcionaCaso = Preferir(p.NombreRecepcionaCaso, r.NombreRecepcionaCaso);
-        r.NombreRealizaKardex = Preferir(p.NombreRealizaKardex, r.NombreRealizaKardex);
-
+        // La recepción no viaja desde el maestro: es del ingreso, y la replica
+        // ReplicarRecepcionAlProgramaAsync desde el episodio que se está guardando. Si siguiera
+        // saliendo de aquí, guardar los datos básicos del paciente le estamparía a la atención
+        // abierta la recepción del último ingreso que alguien hubiera diligenciado.
         r.NombrePaciente = Preferir(p.NombrePaciente, r.NombrePaciente);
         r.TipoIdentificacion = Preferir(p.TipoIdentificacion, r.TipoIdentificacion);
         r.NumeroIdentificacion = Preferir(p.NumeroIdentificacion, r.NumeroIdentificacion);
@@ -533,7 +552,9 @@ public class CensoPacienteService : ICensoPacienteService
 
         r.CensoPacienteId = p.Id;
 
-        r.FechaIngreso = p.FechaIngreso;
+        // La fecha de ingreso al programa es de la atención: la fija su propio formulario y el
+        // maestro no la toca. Bajaba de aquí solo porque el maestro guardaba la fecha de la
+        // recepción, que es otra cosa y ahora vive en el episodio.
         r.NombrePaciente = Preferir(p.NombrePaciente, r.NombrePaciente);
         r.TipoIdentificacion = Preferir(p.TipoIdentificacion, r.TipoIdentificacion);
         r.NumeroIdentificacion = Preferir(p.NumeroIdentificacion, r.NumeroIdentificacion);
@@ -700,11 +721,36 @@ public class CensoPacienteService : ICensoPacienteService
             var agudos = await _context.Censos
                 .Where(CensoVisibility.EditableRecord(_context))
                 .Where(x => x.CensoPacienteId == pacienteId || x.NumeroIdentificacion.ToUpper() == doc)
-                .Select(x => new { x.Id, x.Estado })
+                .Select(x => new
+                {
+                    x.Id, x.Estado,
+                    x.FechaIngreso, x.HoraIngreso, x.FechaRespuesta, x.HoraRespuesta,
+                    x.IndicadorTiempoRespuestaMinutos, x.NombreRecepcionaCaso, x.NombreRealizaKardex
+                })
                 .ToListAsync(cancellationToken);
             foreach (var fila in agudos)
             {
-                Conciliar(episodios, pacienteId, CensoProgramas.Agudos, fila.Id, EsAgudoCerrado(fila.Estado), fila.Estado);
+                var episodio = Conciliar(
+                    episodios, pacienteId, CensoProgramas.Agudos, fila.Id, EsAgudoCerrado(fila.Estado), fila.Estado);
+
+                // Agudos manda su formulario entero —recepción incluida— a su propia acción, así
+                // que su fila de `censo` puede traer una recepción que el episodio todavía no
+                // tiene: pasa en cada ingreso nuevo, y pasó con los que se crearon entre la
+                // migración y este cambio. Se recupera aquí, que es por donde pasa toda ficha que
+                // alguien abre.
+                //
+                // Solo rellena lo vacío. El episodio es el original: si ya tiene recepción, la
+                // suya manda y la copia de `censo` se rehace desde ella al guardar.
+                if (episodio is not null && !episodio.TieneRecepcion)
+                {
+                    episodio.FechaIngreso = fila.FechaIngreso;
+                    episodio.HoraIngreso = fila.HoraIngreso;
+                    episodio.FechaRespuesta = fila.FechaRespuesta;
+                    episodio.HoraRespuesta = fila.HoraRespuesta;
+                    episodio.IndicadorTiempoRespuestaMinutos = fila.IndicadorTiempoRespuestaMinutos;
+                    episodio.NombreRecepcionaCaso = Limpiar(fila.NombreRecepcionaCaso);
+                    episodio.NombreRealizaKardex = Limpiar(fila.NombreRealizaKardex);
+                }
             }
 
             var cronicos = await _context.CensoCronicos
@@ -768,8 +814,11 @@ public class CensoPacienteService : ICensoPacienteService
     /// <summary>
     /// Crea el episodio de una fila si no existe y sincroniza su estado abierto/cerrado con el del
     /// registro. Nunca borra episodios: serían trazabilidad perdida.
+    ///
+    /// Devuelve el episodio para que quien llama pueda completarlo; agudos lo usa para recuperar
+    /// la recepción que su propio formulario dejó únicamente en `censo`.
     /// </summary>
-    private void Conciliar(
+    private CensoPacientePrograma Conciliar(
         List<CensoPacientePrograma> episodios,
         long pacienteId,
         string programa,
@@ -817,6 +866,8 @@ public class CensoPacienteService : ICensoPacienteService
             episodio.CerradoPor = null;
             episodio.MotivoCierre = null;
         }
+
+        return episodio;
     }
 
     private async Task VincularFilasSueltasAsync(long pacienteId, string doc, CancellationToken ct)

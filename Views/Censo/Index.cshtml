@@ -149,10 +149,24 @@
                     <h2 class="censo-ficha__nombre">@p.NombrePaciente</h2>
                     @* Los identificadores van en una sola línea: se comparan de un vistazo, no se
                        leen uno por uno, y cada uno con su propia etiqueta era media pantalla. *@
+                    @{
+                        // Desde cuándo es paciente: la más antigua de todas sus atenciones. Antes
+                        // se leía del maestro, que guardaba una sola fecha de ingreso; ahora cada
+                        // ingreso tiene la suya y la de la ficha es la primera de todas.
+                        var desde = Model.Atenciones.Values
+                            .SelectMany(x => x)
+                            .Select(x => x.Desde)
+                            .Where(x => x.HasValue)
+                            .OrderBy(x => x)
+                            .FirstOrDefault();
+                    }
                     <p class="censo-ficha__meta">
                         <span>@p.TipoIdentificacion @p.NumeroIdentificacion</span>
                         <span>@p.Edad años</span>
-                        <span>Ingresó @p.FechaIngreso.ToString("dd/MM/yyyy")</span>
+                        @if (desde.HasValue)
+                        {
+                            <span>Paciente desde @desde.Value.ToString("dd/MM/yyyy")</span>
+                        }
                     </p>
                 </div>
 }
@@ -272,22 +286,27 @@ else
             @Html.AntiForgeryToken()
             <input type="hidden" asp-for="Paciente.PacienteId" />
             <input type="hidden" asp-for="Paciente.DireccionEsValida" id="direccionEsValidaInput" />
-            <input type="hidden" asp-for="Paciente.IndicadorTiempoRespuestaMinutos" id="indicadorRespuestaInput" />
 
             <div asp-validation-summary="ModelOnly" class="alert alert-danger censo-validation-summary mb-4" role="alert"></div>
 
             <div class="tab-content">
 
-                @* ---------- Sección: Recepción del paciente ---------- *@
-                <div class="tab-pane fade @(seccionActiva == "tab-paciente-recepcion" ? "show active" : null)"
-                     id="tab-paciente-recepcion" role="tabpanel">
+                @* La recepción ya no se captura aquí: es de cada ingreso y vive en el panel de su
+                   programa. Lo que queda en la ficha del paciente es lo que de verdad se conserva
+                   entre un ingreso y el siguiente. *@
+
+                @* ---------- Sección: Datos básicos del paciente ---------- *@
+                <div class="tab-pane fade @(seccionActiva == "tab-paciente-datos-basicos" ? "show active" : null)"
+                     id="tab-paciente-datos-basicos" role="tabpanel">
                     <div class="card">
                         <div class="card-header">
                             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                                 <div class="censo-card-heading">
                                     <span class="censo-card-heading__eyebrow">Paciente</span>
-                                    <h2 class="h5 mb-0">Recepción del paciente</h2>
+                                    <h2 class="h5 mb-0">Datos básicos del paciente</h2>
                                 </div>
+                                @* El extractor llena los datos del paciente, así que acompaña a esta
+                                   sección. Estaba en la recepción, que se fue al panel del programa. *@
                                 <button type="button" class="btn btn-sm censo-extractor-open-btn" id="abrirExtractorRemisionBtn">
                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -295,69 +314,6 @@ else
                                     </svg>
                                     <span>Extraer datos de remisión</span>
                                 </button>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <section class="censo-field-section">
-                                <div class="row g-3 censo-field-section__grid">
-                                    <div class="col-lg-3">
-                                        <label asp-for="Paciente.FechaIngreso" class="form-label">Fecha de ingreso</label>@RequiredMark(null)
-                                        <input asp-for="Paciente.FechaIngreso" type="date" class="form-control" id="fechaIngresoInput" />
-                                        <span asp-validation-for="Paciente.FechaIngreso" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-3">
-                                        <label asp-for="Paciente.HoraIngreso" class="form-label">Hora de ingreso</label>@RequiredMark(null)
-                                        <input asp-for="Paciente.HoraIngreso" type="text" class="form-control hora-24h-input" id="horaIngresoInput"
-                                               placeholder="HH:mm" maxlength="5" autocomplete="off" />
-                                        <span asp-validation-for="Paciente.HoraIngreso" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-3">
-                                        <label asp-for="Paciente.FechaRespuesta" class="form-label">Fecha de respuesta</label>@RequiredMark(null)
-                                        <input asp-for="Paciente.FechaRespuesta" type="date" class="form-control" id="fechaRespuestaInput" />
-                                        <span asp-validation-for="Paciente.FechaRespuesta" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-3">
-                                        <label asp-for="Paciente.HoraRespuesta" class="form-label">Hora de respuesta</label>@RequiredMark(null)
-                                        <input asp-for="Paciente.HoraRespuesta" type="text" class="form-control hora-24h-input" id="horaRespuestaInput"
-                                               placeholder="HH:mm" maxlength="5" autocomplete="off" />
-                                        <span asp-validation-for="Paciente.HoraRespuesta" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-6">
-                                        <label asp-for="Paciente.NombreRecepcionaCaso" class="form-label"></label>@RequiredMark(null)
-                                        <select asp-for="Paciente.NombreRecepcionaCaso" asp-items="Model.NursingAssistantOptions" class="form-select">
-                                            <option value="">Selecciona...</option>
-                                        </select>
-                                        <span asp-validation-for="Paciente.NombreRecepcionaCaso" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-6">
-                                        <label asp-for="Paciente.NombreRealizaKardex" class="form-label"></label>
-                                        <select asp-for="Paciente.NombreRealizaKardex" asp-items="Model.NursingAssistantOptions" class="form-select">
-                                            <option value="">Selecciona...</option>
-                                        </select>
-                                        <div class="form-text">
-                                            Obligatorio cuando el paciente tenga programa agudos, crónicos o clínica de heridas.
-                                        </div>
-                                        <span asp-validation-for="Paciente.NombreRealizaKardex" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-3">
-                                        <label class="form-label">Tiempo de respuesta</label>
-                                        <input type="text" class="form-control" id="indicadorRespuestaDisplay" readonly
-                                               value="@(p.IndicadorTiempoRespuestaMinutos.HasValue ? $"{p.IndicadorTiempoRespuestaMinutos} min" : string.Empty)" />
-                                    </div>
-                                </div>
-                            </section>
-                        </div>
-                    </div>
-                </div>
-
-                @* ---------- Sección: Datos básicos del paciente ---------- *@
-                <div class="tab-pane fade @(seccionActiva == "tab-paciente-datos-basicos" ? "show active" : null)"
-                     id="tab-paciente-datos-basicos" role="tabpanel">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="censo-card-heading">
-                                <span class="censo-card-heading__eyebrow">Paciente</span>
-                                <h2 class="h5 mb-0">Datos básicos del paciente</h2>
                             </div>
                         </div>
                         <div class="card-body">
@@ -581,10 +537,15 @@ else
              Cada programa trae su propio formulario y envia a su propia accion, igual que antes.
              Aqui solo se hospedan: los paneles se muestran u ocultan con el navegador lateral. *@
         <div class="censo-programa-panes">
+@* La recepción abre el panel de cada programa: es de la atención, no del paciente, así que se
+   pinta una vez por programa y sigue a la atención seleccionada. Va fuera del parcial del
+   programa porque cada uno de esos trae su propio <form> y los formularios no se anidan. *@
 @if (Model.Agudos is not null)
 {
             <div data-programa="@CensoProgramas.Agudos"
                  data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.Agudos) ? "true" : null)">
+                <partial name="_CensoRecepcionIngreso" model="Model"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "Programa", CensoProgramas.Agudos } })" />
                 <partial name="_ProgramaAgudos" model="Model.Agudos" />
             </div>
 }
@@ -592,6 +553,8 @@ else
 {
             <div data-programa="@CensoProgramas.Cronicos"
                  data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.Cronicos) ? "true" : null)">
+                <partial name="_CensoRecepcionIngreso" model="Model"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "Programa", CensoProgramas.Cronicos } })" />
                 <partial name="_ProgramaCronicos" model="Model.Cronicos" />
             </div>
 }
@@ -599,6 +562,8 @@ else
 {
             <div data-programa="@CensoProgramas.ClinicaHeridas"
                  data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.ClinicaHeridas) ? "true" : null)">
+                <partial name="_CensoRecepcionIngreso" model="Model"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "Programa", CensoProgramas.ClinicaHeridas } })" />
                 <partial name="_ClinicaHeridas" model="Model.ClinicaHeridas" />
             </div>
 }
@@ -606,6 +571,8 @@ else
 {
             <div data-programa="@CensoProgramas.Npt"
                  data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.Npt) ? "true" : null)">
+                <partial name="_CensoRecepcionIngreso" model="Model"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "Programa", CensoProgramas.Npt } })" />
                 <partial name="_Npt" model="Model.Npt" />
             </div>
 }
@@ -613,6 +580,8 @@ else
 {
             <div data-programa="@CensoProgramas.TerapiaAmbulatoria"
                  data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.TerapiaAmbulatoria) ? "true" : null)">
+                <partial name="_CensoRecepcionIngreso" model="Model"
+                         view-data="@(new ViewDataDictionary(ViewData) { { "Programa", CensoProgramas.TerapiaAmbulatoria } })" />
                 <partial name="_TerapiaAmbulatoria" model="Model.TerapiaAmbulatoria" />
             </div>
 }
@@ -934,8 +903,11 @@ else
             // porque un duplicado por descuido obliga después a borrar datos de producción.
             const verificarPacienteUrl = "@Url.Action("VerificarPacienteEnPrograma", "Censo")";
 
+            // La recepción queda fuera: guarda contra un ingreso que ya existe, así que no puede
+            // crear un duplicado. Hoy además se saldría sola del guard —no lleva el documento en
+            // el formulario—, pero eso es una casualidad y no una regla.
             document
-                .querySelectorAll(".censo-programa-panes [data-programa] form.censo-form-shell")
+                .querySelectorAll(".censo-programa-panes [data-programa] form.censo-form-shell:not(.censo-recepcion-form)")
                 .forEach((formulario) => {
                     const programa = formulario.closest("[data-programa]")?.dataset.programa;
 
@@ -1078,8 +1050,8 @@ else
             // ----- Hora en formato 24h -----
             // Mismo comportamiento que tenia el censo de agudos: solo digitos, dos puntos
             // automaticos, hora tope 23 y aviso al salir si no quedo en HH:mm. Vive aqui y no en el
-            // parcial de un programa porque la recepcion es de todo paciente, tenga el programa que
-            // tenga.
+            // parcial de un programa porque la recepcion la tienen los cinco: se aplica por clase
+            // sobre todo el documento, asi que alcanza tambien a la de cada ingreso.
             const aplicarMascaraHora = (campo) => {
                 if (!campo || campo.dataset.horaLista === "1") return;
                 campo.dataset.horaLista = "1";
@@ -1136,25 +1108,37 @@ else
             fechaNacimiento?.addEventListener("change", calcularEdad);
 
             // ----- Indicador de tiempo de respuesta -----
-            const campos = {
-                fechaIngreso: document.getElementById("fechaIngresoInput"),
-                horaIngreso: document.getElementById("horaIngresoInput"),
-                fechaRespuesta: document.getElementById("fechaRespuestaInput"),
-                horaRespuesta: document.getElementById("horaRespuestaInput")
-            };
-            const indicadorInput = document.getElementById("indicadorRespuestaInput");
-            const indicadorDisplay = document.getElementById("indicadorRespuestaDisplay");
-            const calcularIndicador = () => {
-                const { fechaIngreso, horaIngreso, fechaRespuesta, horaRespuesta } = campos;
-                if (!fechaIngreso?.value || !horaIngreso?.value || !fechaRespuesta?.value || !horaRespuesta?.value) return;
-                const ingreso = new Date(`${fechaIngreso.value}T${horaIngreso.value}`);
-                const respuesta = new Date(`${fechaRespuesta.value}T${horaRespuesta.value}`);
-                if (Number.isNaN(ingreso.getTime()) || Number.isNaN(respuesta.getTime())) return;
-                const minutos = Math.max(0, Math.round((respuesta - ingreso) / 60000));
-                if (indicadorInput) indicadorInput.value = minutos;
-                if (indicadorDisplay) indicadorDisplay.value = `${minutos} min`;
-            };
-            Object.values(campos).forEach((campo) => campo?.addEventListener("change", calcularIndicador));
+            // Hay una recepción por programa abierto, así que esto se engancha por formulario y no
+            // por id: buscar los campos con getElementById devolvería siempre los del primer
+            // programa del DOM y el indicador de los demás nunca se movería.
+            //
+            // Es solo un adelanto de lo que se ve en pantalla. El valor que se guarda lo calcula
+            // el servidor en GuardarRecepcion, que es quien decide.
+            document.querySelectorAll(".censo-recepcion-form").forEach((formulario) => {
+                const campo = (nombre) => formulario.querySelector(`[data-recepcion="${nombre}"]`);
+                const campos = ["fechaIngreso", "horaIngreso", "fechaRespuesta", "horaRespuesta"].map(campo);
+                const indicador = campo("indicador");
+                if (!indicador || campos.some((x) => !x)) return;
+
+                const cifra = indicador.querySelector(".censo-recepcion__cifra");
+                const unidad = indicador.querySelector(".censo-recepcion__unidad");
+
+                const calcular = () => {
+                    const [fechaIngreso, horaIngreso, fechaRespuesta, horaRespuesta] = campos;
+                    if (!fechaIngreso.value || !horaIngreso.value || !fechaRespuesta.value || !horaRespuesta.value) return;
+                    const ingreso = new Date(`${fechaIngreso.value}T${horaIngreso.value}`);
+                    const respuesta = new Date(`${fechaRespuesta.value}T${horaRespuesta.value}`);
+                    if (Number.isNaN(ingreso.getTime()) || Number.isNaN(respuesta.getTime())) return;
+                    const minutos = Math.max(0, Math.round((respuesta - ingreso) / 60000));
+                    if (cifra) {
+                        cifra.textContent = minutos;
+                        cifra.classList.remove("censo-recepcion__cifra--vacia");
+                    }
+                    if (unidad) unidad.hidden = false;
+                };
+
+                campos.forEach((x) => x.addEventListener("change", calcular));
+            });
 
             // ----- CIE-10 -----
             // El endpoint responde { found, codigo, diagnostico }. El diagnóstico es de solo lectura:

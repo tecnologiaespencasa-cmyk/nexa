@@ -2284,8 +2284,15 @@
 
             const mandatorySectionsConfig = [
                 {
-                    name: "Sección 1 - Recepción del paciente",
-                    seccionId: "tab-paciente-recepcion",
+                    // La recepción dejó de ser del paciente: ahora es de cada ingreso y su sección
+                    // es la del programa. El id anterior (tab-paciente-recepcion) ya no existe, y
+                    // como getElementById devuelve null sin quejarse, avisar de un campo pendiente
+                    // de recepción no llevaba a ninguna parte.
+                    //
+                    // Los campos se siguen buscando dentro del formulario de agudos, que conserva
+                    // los suyos: el de la recepción es otro formulario y no los pisa.
+                    name: "Sección 1 - Recepción del ingreso",
+                    seccionId: "tab-agudos-recepcion",
                     getRequiredFields: () => [
                         "FechaIngreso",
                         "HoraIngreso",

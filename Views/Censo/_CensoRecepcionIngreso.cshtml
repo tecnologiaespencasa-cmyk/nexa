@@ -1,0 +1,237 @@
+@model CensoUnificadoViewModel
+@using Nexa.Data.Entities
+@{
+    // Recepción de un ingreso. Es la primera sección de cada programa porque es por donde empieza
+    // la atención: llega el correo, alguien lo recepciona y de ahí arranca todo lo demás.
+    //
+    // Vivía una sola vez en la ficha del paciente, y por eso un reingreso mostraba —y al guardar
+    // pisaba— la recepción del ingreso anterior. Ahora se captura contra el episodio, así que cada
+    // atención conserva la suya y las anteriores quedan a la vista aquí abajo.
+    var programa = ViewData["Programa"] as string;
+    var recepcion = Model.RecepcionDe(programa);
+    if (programa is null || recepcion is null)
+    {
+        return;
+    }
+
+    // Los ids se prefijan con el programa. La sección se pinta una vez por cada programa abierto
+    // del paciente, así que sin prefijo los cinco compartirían id y getElementById devolvería
+    // siempre el del primero del DOM: es el fallo que ya costó encontrar al unificar la pantalla.
+    //
+    // El prefijo es el mismo que usa CensoProgramaSecciones para nombrar la sección; si los dos
+    // dejaran de coincidir, el navegador apuntaría a un panel que no existe y la sección
+    // simplemente no abriría, sin ningún error visible.
+    var clave = programa switch
+    {
+        CensoProgramas.Agudos => "agudos",
+        CensoProgramas.Cronicos => "cronicos",
+        CensoProgramas.ClinicaHeridas => "heridas",
+        CensoProgramas.Npt => "npt",
+        CensoProgramas.TerapiaAmbulatoria => "terapia",
+        _ => programa.ToLowerInvariant()
+    };
+    var seccionId = $"tab-{clave}-recepcion";
+    // El panel activo lo marca el navegador al cargar, igual que en los parciales de programa.
+    var soloLectura = Model.EsSoloLectura(programa);
+    var atencionActual = Model.AtencionSeleccionadaDe(programa);
+    var otras = Model.AtencionesDe(programa).Where(x => !x.EsSeleccionada).ToList();
+    var exigeKardex = programa is CensoProgramas.Agudos or CensoProgramas.Cronicos or CensoProgramas.ClinicaHeridas;
+
+    Func<object?, object?> Obligatorio = _ => Html.Raw("<span class=\"censo-required\" aria-hidden=\"true\">*</span>");
+    string Reloj(TimeSpan? hora) => hora.HasValue ? hora.Value.ToString(@"hh\:mm") : string.Empty;
+}
+
+<div class="tab-pane fade" id="@seccionId" role="tabpanel">
+    <div class="card">
+        <div class="card-header">
+            <div class="censo-card-heading">
+                <span class="censo-card-heading__eyebrow">Recepción</span>
+                <h2 class="h5 mb-0">Recepción del ingreso</h2>
+            </div>
+            @if (atencionActual is not null && Model.AtencionesDe(programa).Count > 1)
+            {
+                <span class="censo-recepcion__cual">Atención @atencionActual.Numero de @Model.AtencionesDe(programa).Count</span>
+            }
+        </div>
+        <div class="card-body">
+            <p class="censo-recepcion__nota">
+                Cada ingreso llega en su propio correo, así que estos datos son de esta atención.
+                Los datos básicos del paciente se conservan del ingreso anterior.
+            </p>
+
+            <form asp-action="GuardarRecepcion" method="post" class="censo-form-shell censo-recepcion-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="EpisodioId" value="@recepcion.EpisodioId" />
+                <input type="hidden" name="Programa" value="@recepcion.Programa" />
+                <input type="hidden" name="CedulaPaciente" value="@Model.CedulaFiltro" />
+
+                <section class="censo-field-section">
+                    <div class="row g-3 censo-field-section__grid">
+                        <div class="col-lg-3">
+                            <label class="form-label" for="recepcion-@clave-fecha-ingreso">Fecha de ingreso</label>@Obligatorio(null)
+                            <input type="date" class="form-control" id="recepcion-@clave-fecha-ingreso"
+                                   name="FechaIngreso" value="@(recepcion.FechaIngreso?.ToString("yyyy-MM-dd"))"
+                                   data-recepcion="fechaIngreso" />
+                        </div>
+                        <div class="col-lg-3">
+                            <label class="form-label" for="recepcion-@clave-hora-ingreso">Hora de ingreso</label>@Obligatorio(null)
+                            <input type="text" class="form-control hora-24h-input" id="recepcion-@clave-hora-ingreso"
+                                   name="HoraIngreso" value="@Reloj(recepcion.HoraIngreso)"
+                                   placeholder="HH:mm" maxlength="5" autocomplete="off"
+                                   data-recepcion="horaIngreso" />
+                        </div>
+                        <div class="col-lg-3">
+                            <label class="form-label" for="recepcion-@clave-fecha-respuesta">Fecha de respuesta</label>@Obligatorio(null)
+                            <input type="date" class="form-control" id="recepcion-@clave-fecha-respuesta"
+                                   name="FechaRespuesta" value="@(recepcion.FechaRespuesta?.ToString("yyyy-MM-dd"))"
+                                   data-recepcion="fechaRespuesta" />
+                        </div>
+                        <div class="col-lg-3">
+                            <label class="form-label" for="recepcion-@clave-hora-respuesta">Hora de respuesta</label>@Obligatorio(null)
+                            <input type="text" class="form-control hora-24h-input" id="recepcion-@clave-hora-respuesta"
+                                   name="HoraRespuesta" value="@Reloj(recepcion.HoraRespuesta)"
+                                   placeholder="HH:mm" maxlength="5" autocomplete="off"
+                                   data-recepcion="horaRespuesta" />
+                        </div>
+
+                        <div class="col-lg-4">
+                            <label class="form-label" for="recepcion-@clave-recepciona">Nombre de quien recepciona el caso</label>@Obligatorio(null)
+                            <select class="form-select" id="recepcion-@clave-recepciona" name="NombreRecepcionaCaso">
+                                <option value="">Selecciona...</option>
+                                @foreach (var auxiliar in Model.NursingAssistantOptions)
+                                {
+                                    <option value="@auxiliar.Value"
+                                            selected="@(string.Equals(auxiliar.Value, recepcion.NombreRecepcionaCaso, StringComparison.OrdinalIgnoreCase))">
+                                        @auxiliar.Text
+                                    </option>
+                                }
+                                @* Un auxiliar que ya se inactivó sigue apareciendo si es el que quedó
+                                   guardado: si no, corregir cualquier otro campo obligaría a cambiarle
+                                   el responsable a un ingreso que ya pasó. *@
+                                @if (!string.IsNullOrWhiteSpace(recepcion.NombreRecepcionaCaso)
+                                     && !Model.NursingAssistantOptions.Any(x => string.Equals(x.Value, recepcion.NombreRecepcionaCaso, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    <option value="@recepcion.NombreRecepcionaCaso" selected>@recepcion.NombreRecepcionaCaso</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-lg-5">
+                            <label class="form-label" for="recepcion-@clave-kardex">Nombre de quien realiza kardex</label>
+                            @if (exigeKardex)
+                            {
+                                @Obligatorio(null)
+                            }
+                            <select class="form-select" id="recepcion-@clave-kardex" name="NombreRealizaKardex">
+                                <option value="">Selecciona...</option>
+                                @foreach (var auxiliar in Model.NursingAssistantOptions)
+                                {
+                                    <option value="@auxiliar.Value"
+                                            selected="@(string.Equals(auxiliar.Value, recepcion.NombreRealizaKardex, StringComparison.OrdinalIgnoreCase))">
+                                        @auxiliar.Text
+                                    </option>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(recepcion.NombreRealizaKardex)
+                                     && !Model.NursingAssistantOptions.Any(x => string.Equals(x.Value, recepcion.NombreRealizaKardex, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    <option value="@recepcion.NombreRealizaKardex" selected>@recepcion.NombreRealizaKardex</option>
+                                }
+                            </select>
+                            @if (!exigeKardex)
+                            {
+                                <div class="form-text">@CensoProgramas.Nombre(programa) no genera kardex: queda opcional.</div>
+                            }
+                        </div>
+
+                        @* El tiempo de respuesta es un resultado, no algo que se escriba. Antes era un
+                           campo de solo lectura y parecía uno más del formulario.
+                           Ocupa tres columnas para que su rótulo quepa en una línea: partido en dos
+                           empujaba la cifra por debajo de los campos vecinos y quedaba descolgada. *@
+                        <div class="col-lg-3">
+                            <span class="form-label d-block">Tiempo de respuesta</span>
+                            @* La unidad se pinta siempre, oculta mientras no hay cifra: el guion de
+                               "todavía sin calcular" no lleva unidad, pero el script necesita el
+                               elemento para poder mostrarlo cuando el dato aparece. *@
+                            <p class="censo-recepcion__indicador" data-recepcion="indicador" aria-live="polite">
+                                <span class="censo-recepcion__cifra @(recepcion.IndicadorTiempoRespuestaMinutos.HasValue ? null : "censo-recepcion__cifra--vacia")">
+                                    @(recepcion.IndicadorTiempoRespuestaMinutos?.ToString() ?? "—")
+                                </span>
+                                <span class="censo-recepcion__unidad" hidden="@(!recepcion.IndicadorTiempoRespuestaMinutos.HasValue)">min</span>
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                @if (!soloLectura)
+                {
+                    <div class="censo-form-actions">
+                        <button type="submit" class="btn btn-primary censo-save-button">
+                            <span>Guardar recepción</span>
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path d="M5 12h14"></path>
+                                <path d="m13 6 6 6-6 6"></path>
+                            </svg>
+                        </button>
+                    </div>
+                }
+            </form>
+
+            @* Las demás atenciones del programa, para poder consultar de un vistazo cómo entró cada
+               ingreso sin ir saltando entre ellas. El tiempo de respuesta manda en la fila porque es
+               el dato por el que se mira esta sección. *@
+            @if (otras.Count > 0)
+            {
+                <section class="censo-recepcion-historial">
+                    <h3 class="censo-recepcion-historial__titulo">Otras atenciones de este programa</h3>
+                    <ul class="censo-recepcion-historial__lista">
+                        @foreach (var otra in otras.OrderBy(x => x.Numero))
+                        {
+                            <li class="censo-recepcion-historial__fila">
+                                <div class="censo-recepcion-historial__cabeza">
+                                    <span class="censo-recepcion-historial__numero">Atención @otra.Numero</span>
+                                    <span class="censo-recepcion-historial__rango">@otra.Rango</span>
+                                </div>
+                                <div class="censo-recepcion-historial__detalle">
+                                    @if (otra.TieneRecepcion)
+                                    {
+                                        <span>
+                                            Ingresó
+                                            <strong>@(otra.FechaIngresoRecepcion?.ToString("dd/MM/yyyy") ?? "sin fecha")</strong>
+                                            @if (otra.HoraIngresoRecepcion.HasValue)
+                                            {
+                                                <text> a las <strong>@Reloj(otra.HoraIngresoRecepcion)</strong></text>
+                                            }
+                                        </span>
+                                        @if (!string.IsNullOrWhiteSpace(otra.NombreRecepcionaCaso))
+                                        {
+                                            <span>Recepcionó @otra.NombreRecepcionaCaso</span>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(otra.NombreRealizaKardex))
+                                        {
+                                            <span>Kardex @otra.NombreRealizaKardex</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="censo-recepcion-historial__ausente">
+                                            Sin recepción registrada. Es una atención anterior al cambio,
+                                            cuando la recepción se guardaba una sola vez por paciente.
+                                        </span>
+                                    }
+                                </div>
+                                <div class="censo-recepcion-historial__indicador">
+                                    <span class="censo-recepcion__cifra @(otra.IndicadorTiempoRespuestaMinutos.HasValue ? null : "censo-recepcion__cifra--vacia")">
+                                        @(otra.IndicadorTiempoRespuestaMinutos?.ToString() ?? "—")
+                                    </span>
+                                    @if (otra.IndicadorTiempoRespuestaMinutos.HasValue)
+                                    {
+                                        <span class="censo-recepcion__unidad">min</span>
+                                    }
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+        </div>
+    </div>
+</div>

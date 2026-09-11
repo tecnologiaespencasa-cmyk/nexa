@@ -176,8 +176,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.TipoIdentificacion).HasMaxLength(3).IsRequired();
             entity.Property(x => x.NumeroIdentificacion).HasMaxLength(20).IsRequired();
             entity.Property(x => x.NombrePaciente).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.NombreRecepcionaCaso).HasMaxLength(120);
-            entity.Property(x => x.NombreRealizaKardex).HasMaxLength(120);
             entity.Property(x => x.Genero).HasMaxLength(20);
             entity.Property(x => x.CorreoElectronico).HasMaxLength(150);
             entity.Property(x => x.CodigoCie10).HasMaxLength(4);
@@ -197,17 +195,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.Telefono3).HasMaxLength(10);
             entity.Property(x => x.CreadoPor).HasMaxLength(200);
             entity.Property(x => x.ActualizadoPor).HasMaxLength(200);
-            entity.Property(x => x.FechaIngreso).HasColumnType("date");
-            entity.Property(x => x.FechaRespuesta).HasColumnType("date");
             entity.Property(x => x.FechaNacimiento).HasColumnType("date");
-            entity.Property(x => x.HoraIngreso).HasColumnType("time without time zone");
-            entity.Property(x => x.HoraRespuesta).HasColumnType("time without time zone");
             entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
             // Un paciente por documento: es la clave con la que se unifican los censos.
             entity.HasIndex(x => x.NumeroIdentificacion).IsUnique();
             entity.HasIndex(x => x.NombrePaciente);
-            entity.HasIndex(x => x.FechaIngreso);
         });
 
         modelBuilder.Entity<CensoPacientePrograma>(entity =>
@@ -220,6 +213,14 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.MotivoCierre).HasMaxLength(120);
             entity.Property(x => x.AgregadoAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.CerradoAtUtc).HasColumnType("timestamp with time zone");
+            // Recepción del ingreso, con los mismos tipos que ya usan `censo` y las demás tablas
+            // del censo para estos campos: fecha sin hora, y hora del día —no un lapso—.
+            entity.Property(x => x.FechaIngreso).HasColumnType("date");
+            entity.Property(x => x.FechaRespuesta).HasColumnType("date");
+            entity.Property(x => x.HoraIngreso).HasColumnType("time without time zone");
+            entity.Property(x => x.HoraRespuesta).HasColumnType("time without time zone");
+            entity.Property(x => x.NombreRecepcionaCaso).HasMaxLength(120);
+            entity.Property(x => x.NombreRealizaKardex).HasMaxLength(120);
             entity.HasOne(x => x.CensoPaciente)
                 .WithMany(x => x.Programas)
                 .HasForeignKey(x => x.CensoPacienteId)

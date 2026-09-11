@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nexa.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Nexa.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260911194614_RecepcionPorIngreso")]
+    partial class RecepcionPorIngreso
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1858,12 +1861,27 @@ namespace Nexa.Data.Migrations
                     b.Property<int>("Edad")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime>("FechaIngreso")
+                        .HasColumnType("date");
+
                     b.Property<DateTime>("FechaNacimiento")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaRespuesta")
                         .HasColumnType("date");
 
                     b.Property<string>("Genero")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<TimeSpan>("HoraIngreso")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeSpan?>("HoraRespuesta")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<int?>("IndicadorTiempoRespuestaMinutos")
+                        .HasColumnType("integer");
 
                     b.Property<string>("IpsQueRemite")
                         .HasMaxLength(200)
@@ -1877,6 +1895,14 @@ namespace Nexa.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NombreRealizaKardex")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("NombreRecepcionaCaso")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("NumeroIdentificacion")
                         .IsRequired()
@@ -1912,6 +1938,8 @@ namespace Nexa.Data.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FechaIngreso");
 
                     b.HasIndex("NombrePaciente");
 
@@ -1953,10 +1981,10 @@ namespace Nexa.Data.Migrations
                         .HasColumnType("date");
 
                     b.Property<TimeSpan?>("HoraIngreso")
-                        .HasColumnType("time without time zone");
+                        .HasColumnType("interval");
 
                     b.Property<TimeSpan?>("HoraRespuesta")
-                        .HasColumnType("time without time zone");
+                        .HasColumnType("interval");
 
                     b.Property<int?>("IndicadorTiempoRespuestaMinutos")
                         .HasColumnType("integer");

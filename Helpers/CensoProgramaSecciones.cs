@@ -16,21 +16,32 @@ public sealed record CensoSeccion(string Id, string Eyebrow, string Titulo, stri
 /// </summary>
 public static class CensoProgramaSecciones
 {
-    /// <summary>Recepción y datos básicos: se capturan una vez para todo paciente.</summary>
+    /// <summary>
+    /// Datos básicos: lo que se captura una vez para todo paciente y se conserva entre un ingreso
+    /// y el siguiente. La recepción ya no está aquí —era "del paciente" y resultó ser de cada
+    /// ingreso—: ahora es la primera sección de cada programa.
+    /// </summary>
     public static readonly IReadOnlyList<CensoSeccion> Paciente =
     [
-        new("tab-paciente-recepcion", "Recepción",
-            "Recepción del paciente",
-            "Ingreso, tiempos de respuesta y responsables del caso."),
         new("tab-paciente-datos-basicos", "Paciente",
             "Datos básicos del paciente",
             "Identificación, diagnóstico, dirección, ubicación y contacto.")
     ];
 
+    /// <summary>
+    /// La recepción del ingreso, que todos los programas tienen y cada uno guarda por atención.
+    /// Es la primera sección de cada programa porque es por donde empieza el ingreso: llega el
+    /// correo, se recepciona y desde ahí arranca todo lo demás.
+    /// </summary>
+    private static CensoSeccion Recepcion(string prefijo) =>
+        new($"tab-{prefijo}-recepcion", "Recepción", "Recepción del ingreso",
+            "Correo de ingreso, tiempo de respuesta y responsables de esta atención.");
+
     private static readonly IReadOnlyList<CensoSeccion> Agudos =
     [
-        // Agudos es el censo de referencia: su recepción y sus datos básicos son los que subieron al
-        // maestro, así que no tiene sección de datos específicos.
+        Recepcion("agudos"),
+        // Agudos es el censo de referencia: sus datos básicos son los que subieron al maestro, así
+        // que no tiene sección de datos específicos.
         new("tab-agudos-plan-manejo", "Plan", "Plan de manejo",
             "Riesgo, tratamiento, promesa de inicio, apoyos complementarios y seguimiento."),
         new("tab-agudos-gestion-alta", "Alta", "Gestión de alta",
@@ -47,6 +58,7 @@ public static class CensoProgramaSecciones
 
     private static readonly IReadOnlyList<CensoSeccion> Cronicos =
     [
+        Recepcion("cronicos"),
         new("tab-cronicos-datos-especificos", "Específicos", "Datos específicos",
             "Lo que crónicos pide además de los datos básicos del paciente."),
         new("tab-cronicos-gestion-caso", "Caso", "Gestión del caso",
@@ -61,6 +73,7 @@ public static class CensoProgramaSecciones
 
     private static readonly IReadOnlyList<CensoSeccion> ClinicaHeridas =
     [
+        Recepcion("heridas"),
         new("tab-heridas-datos-especificos", "Específicos", "Datos específicos",
             "Lo que clínica de heridas pide además de los datos básicos."),
         new("tab-heridas-manejo", "Manejo", "Manejo de la herida",
@@ -79,6 +92,7 @@ public static class CensoProgramaSecciones
 
     private static readonly IReadOnlyList<CensoSeccion> Npt =
     [
+        Recepcion("npt"),
         new("tab-npt-datos-especificos", "Específicos", "Datos específicos",
             "Lo que NPT pide además de los datos básicos del paciente."),
         new("tab-npt-manejo", "Manejo", "Manejo de la NPT",
@@ -97,6 +111,7 @@ public static class CensoProgramaSecciones
 
     private static readonly IReadOnlyList<CensoSeccion> TerapiaAmbulatoria =
     [
+        Recepcion("terapia"),
         new("tab-terapia-datos-especificos", "Específicos", "Datos específicos",
             "Tratamientos, autorización, fisioterapeuta y estado del paciente."),
         new("tab-terapia-prorroga", "Prórroga", "Prórroga",

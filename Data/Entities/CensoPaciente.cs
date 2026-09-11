@@ -3,8 +3,12 @@ using System.ComponentModel.DataAnnotations;
 namespace Nexa.Data.Entities;
 
 /// <summary>
-/// Maestro de paciente del censo. Guarda una sola vez la recepción y los datos básicos que antes se
-/// repetían en cada censo, para que un paciente que está en varios programas se capture una vez.
+/// Maestro de paciente del censo. Guarda una sola vez los datos básicos que antes se repetían en
+/// cada censo, para que un paciente que está en varios programas se capture una vez.
+///
+/// La recepción NO está aquí, aunque lo estuvo: es del ingreso, no del paciente. Cada ingreso nace
+/// de un correo distinto, así que un paciente que reingresa trae una recepción nueva y la anterior
+/// tiene que quedarse con su ingreso. Vive en <see cref="CensoPacientePrograma"/>.
 ///
 /// Continuidad operativa: esta tabla NO reemplaza a las tablas de programa. Cada programa sigue
 /// guardando su propia copia de los campos compartidos (censo, censo_cronicos, censo_clinica_heridas,
@@ -20,25 +24,6 @@ public class CensoPaciente
 {
     [Key]
     public long Id { get; set; }
-
-    // ----- Recepción del paciente -----
-    public DateTime FechaIngreso { get; set; }
-
-    public TimeSpan HoraIngreso { get; set; }
-
-    public DateTime? FechaRespuesta { get; set; }
-
-    public TimeSpan? HoraRespuesta { get; set; }
-
-    public int? IndicadorTiempoRespuestaMinutos { get; set; }
-
-    [StringLength(120)]
-    public string? NombreRecepcionaCaso { get; set; }
-
-    // Solo se exige cuando el paciente tiene algún programa que genere kardex
-    // (agudos, crónicos con agudización o clínica de heridas).
-    [StringLength(120)]
-    public string? NombreRealizaKardex { get; set; }
 
     // ----- Identificación -----
     [Required]

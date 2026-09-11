@@ -1426,3 +1426,159 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
   flex: 1 0 100%;
   margin: 0;
 }
+
+/* --------------------------------------------------------------------------
+   Recepcion del ingreso
+   --------------------------------------------------------------------------
+   La recepcion es de la atencion, no del paciente: cada ingreso llega en su
+   propio correo. Por eso abre el panel de cada programa y hereda su matiz.
+
+   El tiempo de respuesta se trata como una cifra y no como un campo. Es un
+   resultado: antes iba en un input de solo lectura y se leia como uno mas del
+   formulario, invitando a escribir en el.
+   -------------------------------------------------------------------------- */
+.censo-recepcion__cual {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--censo-border);
+  border-radius: 999px;
+  background: var(--prog-soft, var(--rojo-tenue));
+  color: var(--prog, var(--rojo-hondo));
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.censo-recepcion__nota {
+  margin-block-end: 1.1rem;
+  color: var(--censo-ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.censo-recepcion__indicador {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin: 0;
+  /* Alinea la cifra con la linea base de los campos vecinos, que llevan borde
+     y relleno propios. */
+  padding-block-start: 0.35rem;
+}
+
+.censo-recepcion__cifra {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--prog, var(--rojo));
+  font-variant-numeric: tabular-nums;
+}
+
+.censo-recepcion__cifra--vacia {
+  color: var(--censo-ink-soft);
+}
+
+.censo-recepcion__unidad {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--censo-ink-soft);
+}
+
+/* --------------------------------------------------------------------------
+   Historial de recepciones
+   --------------------------------------------------------------------------
+   Las demas atenciones del programa. Con cinco ingresos, ir saltando entre
+   ellos para comparar no sirve: aqui se leen de corrido.
+   -------------------------------------------------------------------------- */
+.censo-recepcion-historial {
+  margin-block-start: 1.5rem;
+  padding-block-start: 1.25rem;
+  border-block-start: 1px solid var(--censo-border);
+}
+
+.censo-recepcion-historial__titulo {
+  margin-block-end: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--censo-ink-soft);
+}
+
+.censo-recepcion-historial__lista {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.censo-recepcion-historial__fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.15rem 1rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--censo-border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.censo-recepcion-historial__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.censo-recepcion-historial__numero {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--censo-ink);
+}
+
+.censo-recepcion-historial__rango {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--censo-ink-soft);
+}
+
+/* Los datos van separados por un punto medio, que se dibuja entre hermanos y
+   no al final: con un separador por elemento la fila termina colgando. */
+.censo-recepcion-historial__detalle {
+  grid-column: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  font-size: 0.78rem;
+  color: var(--censo-ink-soft);
+}
+
+.censo-recepcion-historial__detalle > span + span::before {
+  content: "·";
+  margin-inline-end: 0.5rem;
+}
+
+.censo-recepcion-historial__ausente {
+  font-style: italic;
+}
+
+.censo-recepcion-historial__indicador {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+@media (max-width: 40rem) {
+  /* En estrecho la cifra pasa debajo: mantenerla en su columna dejaba el
+     detalle en una tira de una palabra por linea. */
+  .censo-recepcion-historial__fila {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .censo-recepcion-historial__indicador {
+    grid-column: 1;
+    grid-row: auto;
+    margin-block-start: 0.35rem;
+  }
+}

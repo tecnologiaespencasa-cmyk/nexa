@@ -147,6 +147,48 @@ public class CensoPacientePrograma
 
     public long? RegistroId { get; set; }
 
+    // ----- Recepción del ingreso -----
+    //
+    // Cada ingreso nace de un correo distinto, así que la recepción es de la atención y no del
+    // paciente. Vivía en el maestro (una sola por paciente) y por eso el segundo ingreso heredaba
+    // la del primero y la pisaba al guardarla: no había dónde guardar la segunda.
+    //
+    // Todo nullable a propósito. Un episodio recién agregado todavía no tiene recepción, y del
+    // histórico anterior al traslado solo se pudo recuperar la de agudos —que sí la guardaba por
+    // atención en su propia tabla— más la única que había en el maestro, que se asignó a la
+    // atención más reciente de cada programa. Las anteriores quedan vacías porque de verdad no se
+    // sabe cuáles fueron: inventarlas sería peor que dejarlas en blanco.
+    //
+    // Agudos conserva además su copia en `censo`: de ahí leen la bandeja de farmacia, los reportes
+    // y los exportables. El episodio es el original y esa copia se replica desde aquí.
+    public DateTime? FechaIngreso { get; set; }
+
+    public TimeSpan? HoraIngreso { get; set; }
+
+    public DateTime? FechaRespuesta { get; set; }
+
+    public TimeSpan? HoraRespuesta { get; set; }
+
+    public int? IndicadorTiempoRespuestaMinutos { get; set; }
+
+    [StringLength(120)]
+    public string? NombreRecepcionaCaso { get; set; }
+
+    // Solo se exige cuando el programa del episodio genera kardex.
+    [StringLength(120)]
+    public string? NombreRealizaKardex { get; set; }
+
+    /// <summary>
+    /// Un episodio sin ningún dato de recepción: o es un ingreso que todavía no la diligenció, o es
+    /// una atención del histórico anterior al traslado. La pantalla lo dice en vez de mostrar
+    /// campos vacíos que parecen un dato borrado.
+    /// </summary>
+    public bool TieneRecepcion =>
+        FechaIngreso.HasValue
+        || FechaRespuesta.HasValue
+        || !string.IsNullOrWhiteSpace(NombreRecepcionaCaso)
+        || !string.IsNullOrWhiteSpace(NombreRealizaKardex);
+
     public DateTime AgregadoAtUtc { get; set; } = DateTime.UtcNow;
 
     [StringLength(200)]

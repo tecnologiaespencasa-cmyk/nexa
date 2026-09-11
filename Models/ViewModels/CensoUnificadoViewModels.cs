@@ -18,39 +18,11 @@ public class CensoPacienteFormViewModel
 {
     public long? PacienteId { get; set; }
 
-    // ----- Sección 1: Recepción del paciente -----
-    [Required(ErrorMessage = "La fecha de ingreso es obligatoria.")]
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha y hora de ingreso")]
-    public DateTime FechaIngreso { get; set; } = DateTime.Today;
-
-    [Required(ErrorMessage = "La hora de ingreso es obligatoria.")]
-    [DataType(DataType.Time)]
-    [Display(Name = "Hora de ingreso")]
-    public TimeSpan HoraIngreso { get; set; }
-
-    [Required(ErrorMessage = "La fecha de respuesta es obligatoria.")]
-    [DataType(DataType.Date)]
-    [Display(Name = "Fecha y hora de respuesta")]
-    public DateTime? FechaRespuesta { get; set; } = DateTime.Today;
-
-    [Required(ErrorMessage = "La hora de respuesta es obligatoria.")]
-    [DataType(DataType.Time)]
-    [Display(Name = "Hora de respuesta")]
-    public TimeSpan? HoraRespuesta { get; set; }
-
-    [Display(Name = "Indicador tiempo de respuesta (minutos)")]
-    public int? IndicadorTiempoRespuestaMinutos { get; set; }
-
-    [Required(ErrorMessage = "Selecciona quien recepciona el caso.")]
-    [StringLength(120)]
-    [Display(Name = "Nombre de quien recepciona el caso")]
-    public string? NombreRecepcionaCaso { get; set; }
-
-    // Solo obligatorio cuando el paciente tiene un programa que genera kardex.
-    [StringLength(120)]
-    [Display(Name = "Nombre de quien realiza kardex")]
-    public string? NombreRealizaKardex { get; set; }
+    // La recepción ya no está aquí. Es del ingreso, no del paciente: cada ingreso nace de un
+    // correo distinto, así que un paciente que reingresa tiene una recepción nueva y la del
+    // ingreso anterior debe quedarse con ese ingreso. Vive en CensoRecepcionFormViewModel,
+    // contra el episodio. Lo que sigue en este modelo es lo que de verdad es del paciente y se
+    // conserva igual entre un ingreso y el siguiente.
 
     // ----- Sección 2: Datos básicos del paciente -----
     [Required(ErrorMessage = "El nombre del paciente es obligatorio.")]
@@ -198,6 +170,58 @@ public class CensoProgramaChipViewModel
 /// alcance aunque siguiera habiendo trabajo pendiente sobre ellas, como la devolución de
 /// productos o del equipo en comodato, que ocurre días después del alta.
 /// </summary>
+/// <summary>
+/// La recepción de un ingreso: lo que trajo el correo con el que empezó esa atención.
+///
+/// Se captura y se guarda contra el episodio, no contra el paciente. Antes vivía una sola vez en
+/// el maestro y por eso un reingreso mostraba —y al guardar pisaba— la recepción del ingreso
+/// anterior: no había dónde poner la segunda.
+/// </summary>
+public class CensoRecepcionFormViewModel
+{
+    public long EpisodioId { get; set; }
+
+    /// <summary>Programa del episodio. Decide si se exige quién realiza el kardex.</summary>
+    public string Programa { get; set; } = string.Empty;
+
+    /// <summary>Documento del paciente, para volver a su pantalla después de guardar.</summary>
+    public string? CedulaPaciente { get; set; }
+
+    [Required(ErrorMessage = "La fecha de ingreso es obligatoria.")]
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha y hora de ingreso")]
+    public DateTime? FechaIngreso { get; set; }
+
+    [Required(ErrorMessage = "La hora de ingreso es obligatoria.")]
+    [DataType(DataType.Time)]
+    [Display(Name = "Hora de ingreso")]
+    public TimeSpan? HoraIngreso { get; set; }
+
+    [Required(ErrorMessage = "La fecha de respuesta es obligatoria.")]
+    [DataType(DataType.Date)]
+    [Display(Name = "Fecha y hora de respuesta")]
+    public DateTime? FechaRespuesta { get; set; }
+
+    [Required(ErrorMessage = "La hora de respuesta es obligatoria.")]
+    [DataType(DataType.Time)]
+    [Display(Name = "Hora de respuesta")]
+    public TimeSpan? HoraRespuesta { get; set; }
+
+    [Display(Name = "Indicador tiempo de respuesta (minutos)")]
+    public int? IndicadorTiempoRespuestaMinutos { get; set; }
+
+    [Required(ErrorMessage = "Selecciona quien recepciona el caso.")]
+    [StringLength(120)]
+    [Display(Name = "Nombre de quien recepciona el caso")]
+    public string? NombreRecepcionaCaso { get; set; }
+
+    // Solo obligatorio cuando el programa de ESTE episodio genera kardex. Antes la regla miraba
+    // todos los programas abiertos del paciente, porque el campo era del paciente.
+    [StringLength(120)]
+    [Display(Name = "Nombre de quien realiza kardex")]
+    public string? NombreRealizaKardex { get; set; }
+}
+
 public class CensoAtencionViewModel
 {
     public long EpisodioId { get; set; }
@@ -208,6 +232,34 @@ public class CensoAtencionViewModel
     public int Numero { get; set; }
 
     public long? RegistroId { get; set; }
+
+    // ----- Recepción de este ingreso -----
+    // Van aquí, y no solo en la atención seleccionada, porque la pantalla tiene que poder mostrar
+    // la recepción de los ingresos anteriores sin volver a la base.
+    public DateTime? FechaIngresoRecepcion { get; set; }
+
+    public TimeSpan? HoraIngresoRecepcion { get; set; }
+
+    public DateTime? FechaRespuesta { get; set; }
+
+    public TimeSpan? HoraRespuesta { get; set; }
+
+    public int? IndicadorTiempoRespuestaMinutos { get; set; }
+
+    public string? NombreRecepcionaCaso { get; set; }
+
+    public string? NombreRealizaKardex { get; set; }
+
+    /// <summary>
+    /// Si este ingreso tiene recepción registrada. Es falso en un ingreso recién abierto y en las
+    /// atenciones del histórico anterior al traslado, donde no se pudo recuperar: la pantalla lo
+    /// dice con todas sus letras en vez de mostrar campos vacíos, que se leen como un dato borrado.
+    /// </summary>
+    public bool TieneRecepcion =>
+        FechaIngresoRecepcion.HasValue
+        || FechaRespuesta.HasValue
+        || !string.IsNullOrWhiteSpace(NombreRecepcionaCaso)
+        || !string.IsNullOrWhiteSpace(NombreRealizaKardex);
 
     /// <summary>Fecha de ingreso al programa; la del episodio mientras no haya registro.</summary>
     public DateTime? Desde { get; set; }
@@ -315,6 +367,50 @@ public class CensoUnificadoViewModel
 
     public CensoAtencionViewModel? AtencionSeleccionadaDe(string? programa) =>
         AtencionesDe(programa).FirstOrDefault(x => x.EsSeleccionada);
+
+    /// <summary>
+    /// Recepción reenviada por el formulario cuando su guardado falló. Se conserva para poder
+    /// repintar lo que la persona escribió junto a sus errores, en vez de devolverle el formulario
+    /// con los valores de la base y el trabajo perdido.
+    /// </summary>
+    public CensoRecepcionFormViewModel? RecepcionEnviada { get; set; }
+
+    /// <summary>
+    /// La recepción editable del programa: la de su atención seleccionada. Si el guardado que
+    /// acaba de fallar era el de este mismo programa, devuelve lo enviado y no lo guardado.
+    /// </summary>
+    public CensoRecepcionFormViewModel? RecepcionDe(string? programa)
+    {
+        if (programa is null)
+        {
+            return null;
+        }
+
+        if (RecepcionEnviada is not null
+            && string.Equals(RecepcionEnviada.Programa, programa, StringComparison.Ordinal))
+        {
+            return RecepcionEnviada;
+        }
+
+        var atencion = AtencionSeleccionadaDe(programa);
+        if (atencion is null)
+        {
+            return null;
+        }
+
+        return new CensoRecepcionFormViewModel
+        {
+            EpisodioId = atencion.EpisodioId,
+            Programa = programa,
+            FechaIngreso = atencion.FechaIngresoRecepcion,
+            HoraIngreso = atencion.HoraIngresoRecepcion,
+            FechaRespuesta = atencion.FechaRespuesta,
+            HoraRespuesta = atencion.HoraRespuesta,
+            IndicadorTiempoRespuestaMinutos = atencion.IndicadorTiempoRespuestaMinutos,
+            NombreRecepcionaCaso = atencion.NombreRecepcionaCaso,
+            NombreRealizaKardex = atencion.NombreRealizaKardex
+        };
+    }
 
     /// <summary>
     /// True cuando el panel de ese programa muestra una atención cerrada. La vista lo usa para

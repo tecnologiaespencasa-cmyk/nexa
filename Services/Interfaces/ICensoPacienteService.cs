@@ -54,6 +54,13 @@ public interface ICensoPacienteService
     Task ReplicarAProgramasAbiertosAsync(CensoPaciente paciente, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Baja la recepción de un ingreso a la tabla de su programa, cuando esa tabla la guarda (hoy
+    /// solo agudos, de donde leen farmacia, los reportes y los exportables). No guarda cambios:
+    /// los deja en el contexto para que los persista la misma operación que guarda el episodio.
+    /// </summary>
+    Task ReplicarRecepcionAlProgramaAsync(CensoPacientePrograma episodio, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Pone al día los episodios del paciente contra lo que realmente hay en las tablas de los
     /// censos: enlaza las filas que todavía no tienen episodio, rellena el vínculo con el maestro y
     /// abre o cierra el episodio según el estado de cada registro.
