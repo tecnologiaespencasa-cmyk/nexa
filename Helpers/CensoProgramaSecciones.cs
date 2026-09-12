@@ -149,6 +149,14 @@ public static class CensoProgramaSecciones
     private static readonly HashSet<string> EditablesTrasElAlta = new(StringComparer.Ordinal)
     {
         // Agudos
+        //
+        // "Gestión de alta" no decide si la atención está abierta o cerrada —eso lo hace el campo
+        // Estado de "Plan de manejo", que sigue bloqueado— así que dejarla editable no reabre nada.
+        // Al revés: es la única sección donde se documentan la fecha y el responsable del alta, y
+        // el cierre real ocurre al elegir el Estado, no al llenar este formulario. Bloquearla dejaba
+        // atenciones "cerradas · Aceptado alta" sin fecha ni responsable, sin ninguna forma de
+        // completarlos después (2026-09-12).
+        "tab-agudos-gestion-alta",
         "tab-agudos-seguimiento-alta-tardia",   // el seguimiento a 24/48/72 horas es posterior al alta
         "tab-agudos-seguimiento-hospitalizacion",
         "tab-agudos-devolucion-productos",
@@ -171,8 +179,6 @@ public static class CensoProgramaSecciones
 
     /// <summary>
     /// True si la sección se puede seguir diligenciando cuando la atención ya está cerrada.
-    /// Todo lo demás queda de solo lectura, incluida la gestión del alta: cambiarla cambiaría
-    /// el estado por el que la atención está cerrada, y eso es reabrirla, no editarla.
     /// </summary>
     public static bool SeEditaTrasElAlta(string? seccionId) =>
         seccionId is not null && EditablesTrasElAlta.Contains(seccionId);
@@ -188,11 +194,17 @@ public static class CensoProgramaSecciones
     /// CensoController.RevertirCamposBloqueadosDeAgudos, comparando contra lo que EF tiene como
     /// valor original.
     ///
-    /// Si algún día se agrega un campo a "Seguimiento alta tardía", "Seguimiento hospitalización"
-    /// o "Devolución de productos", tiene que aparecer aquí o quedará congelado tras el alta.
+    /// Si algún día se agrega un campo a "Gestión de alta", "Seguimiento alta tardía",
+    /// "Seguimiento hospitalización" o "Devolución de productos", tiene que aparecer aquí o
+    /// quedará congelado tras el alta.
     /// </summary>
     public static readonly IReadOnlySet<string> CamposDeAgudosTrasElAlta = new HashSet<string>(StringComparer.Ordinal)
     {
+        // Gestión de alta: fecha y responsable del cierre, no el cierre en sí (eso es Estado, que
+        // no está aquí y por lo tanto se revierte igual que cualquier otro campo bloqueado).
+        "FechaAlta",
+        "NombreQuienGestionaAlta",
+
         // Seguimiento alta tardía
         "AltaTardia",
         "NombreQuienRealizaSeguimientoAltaTardia",
