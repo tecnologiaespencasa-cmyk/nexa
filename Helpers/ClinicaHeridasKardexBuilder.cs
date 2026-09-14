@@ -219,33 +219,27 @@ public static class ClinicaHeridasKardexBuilder
     }
 
     /// <summary>
-    /// Titulos de las columnas de aplicacion. Son editables: el usuario suele reemplazarlos por la
-    /// fecha real de cada visita, asi que viajan guardados con el documento.
+    /// Titulos de las columnas de aplicacion. Son la fecha real de cada visita, elegida del
+    /// calendario -no un texto libre-, asi que un documento recien generado nace con las columnas
+    /// vacias: no hay ninguna fecha que adivinar por defecto.
     /// </summary>
     public static List<string> EncabezadosPorDefecto(int aplicaciones) =>
-        Enumerable.Range(1, Math.Max(1, aplicaciones))
-            .Select(numero => "Aplicación " + numero)
-            .ToList();
+        Enumerable.Repeat(string.Empty, Math.Max(1, aplicaciones)).ToList();
 
     /// <summary>
-    /// Ajusta la lista de encabezados al numero de columnas: conserva los que el usuario ya escribio
-    /// y completa con los de por defecto. Un documento guardado antes de este campo llega sin ellos.
+    /// Ajusta la lista de encabezados al numero de columnas: conserva las fechas que ya se eligieron
+    /// y completa el resto en blanco. Un documento guardado antes de este campo llega sin ellos.
     /// </summary>
     public static List<string> NormalizarEncabezados(List<string>? encabezados, int aplicaciones)
     {
         var total = Math.Max(1, aplicaciones);
-        var pordefecto = EncabezadosPorDefecto(total);
         if (encabezados is null || encabezados.Count == 0)
         {
-            return pordefecto;
+            return EncabezadosPorDefecto(total);
         }
 
         return Enumerable.Range(0, total)
-            .Select(indice =>
-            {
-                var actual = indice < encabezados.Count ? encabezados[indice]?.Trim() : null;
-                return string.IsNullOrWhiteSpace(actual) ? pordefecto[indice] : actual!;
-            })
+            .Select(indice => indice < encabezados.Count ? (encabezados[indice]?.Trim() ?? string.Empty) : string.Empty)
             .ToList();
     }
 }

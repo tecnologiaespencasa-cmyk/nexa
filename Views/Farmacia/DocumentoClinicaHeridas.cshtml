@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="~/css/farmacia.css" asp-append-version="true" />
 }
 
+<form id="heridaFarmaciaTokenForm" class="d-none">@Html.AntiForgeryToken()</form>
+
 <div class="farmacia-document-page">
     <div class="farmacia-document-page__bar">
         <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-documento="@documentoFiltro">
@@ -82,18 +84,51 @@
             <input value="@doc.ElaboradoPor" readonly />
         </div>
 
+        @{
+            // Los encabezados son fechas (input type=date en el censo, "yyyy-MM-dd"). Se muestran en
+            // el formato del resto de la aplicacion; un encabezado historico que no sea una fecha
+            // (de antes de este cambio) se deja tal cual llego, en vez de ocultarlo.
+            string FormatearEncabezado(string? valor) =>
+                DateTime.TryParse(valor, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var fecha)
+                    ? fecha.ToString("dd/MM/yyyy")
+                    : string.IsNullOrWhiteSpace(valor) ? "Sin fecha" : valor;
+            var marcadas = Model.ColumnasMarcadas;
+        }
         <div class="herida-kardex-section-title herida-kardex-section-title--center">Detalle de la requisición</div>
+        @* El seguimiento de entregas (clic para marcar en amarillo) es propio de clínica de
+           heridas: esta misma vista la reutiliza NPT (el documento tiene la misma forma), pero
+           NPT guarda su kardex en otra tabla con otra numeración. Si el clic quedara activo aquí
+           tambien, "Model.Id" apuntaria al Id de CensoNptKardex y el guardado terminaria
+           buscándolo -o peor, encontrando por coincidencia- en censo_clinica_heridas_kardex. Se
+           limita al programa dueño de la funcionalidad en vez de arriesgar esa mezcla. *@
+        @if (!Model.EsNpt)
+        {
+            <p class="herida-kardex-marcado-ayuda">
+                Haz clic sobre una fecha para marcar toda la columna como entregada.
+            </p>
+        }
         <div class="herida-kardex-table-scroll">
-            <table class="herida-kardex-table">
+            <table class="herida-kardex-table" id="@(Model.EsNpt ? null : "heridaFarmaciaTabla")" data-kardex-id="@Model.Id">
                 <thead>
                     <tr>
                         <th>Item</th>
                         <th>Descripción del insumo</th>
                         @for (var aplicacion = 0; aplicacion < doc.Aplicaciones; aplicacion++)
                         {
-                            <th class="herida-kardex-table__aplicacion">
-                                @(aplicacion < doc.Encabezados.Count ? doc.Encabezados[aplicacion] : $"Aplicación {aplicacion + 1}")
-                            </th>
+                            var texto = aplicacion < doc.Encabezados.Count ? doc.Encabezados[aplicacion] : $"Aplicación {aplicacion + 1}";
+                            if (Model.EsNpt)
+                            {
+                                <th class="herida-kardex-table__aplicacion">@FormatearEncabezado(texto)</th>
+                            }
+                            else
+                            {
+                                <th class="herida-kardex-table__aplicacion herida-kardex-table__aplicacion--marcable @(marcadas.Contains(aplicacion) ? "is-marcada" : null)"
+                                    data-columna-marcar="@aplicacion" role="button" tabindex="0"
+                                    title="Marcar o desmarcar esta fecha como entregada">
+                                    @FormatearEncabezado(texto)
+                                </th>
+                            }
                         }
                         <th>Total</th>
                     </tr>
@@ -106,7 +141,7 @@
                             <td>@insumo.Descripcion</td>
                             @for (var aplicacion = 0; aplicacion < doc.Aplicaciones; aplicacion++)
                             {
-                                <td class="herida-kardex-table__cantidad">
+                                <td class="herida-kardex-table__cantidad @(marcadas.Contains(aplicacion) ? "is-marcada" : null)" data-columna="@aplicacion">
                                     @(aplicacion < insumo.Cantidades.Count ? insumo.Cantidades[aplicacion] : 0)
                                 </td>
                             }
@@ -116,12 +151,41 @@
                 </tbody>
             </table>
         </div>
+        <p class="herida-kardex-marcado-estado" id="heridaFarmaciaMarcadoEstado" aria-live="polite"></p>
 
         @if (!string.IsNullOrWhiteSpace(doc.Observaciones))
         {
             <div class="herida-kardex-section-title">Observaciones</div>
             <div class="herida-kardex-observaciones">@doc.Observaciones</div>
         }
+
+        @* Antes esta vista no tenía de dónde mostrar la firma: se firmaba, el pedido pasaba a
+           Despachado, y volver a abrir esta misma página —la única forma de "consultar" la
+           entrega— no decía nada de la firma aunque ya estuviera guardada. Igual que en el
+           documento de agudos/crónicos, se muestra vacío mientras no hay firma y no escondida. *@
+        <div class="herida-kardex-section-title herida-kardex-section-title--center">Firmas de recepción</div>
+        <div class="herida-kardex-patient">
+            <label>Nombre de quien recibe:</label>
+            <input value="@Model.Firma.NombreRecibe" readonly />
+            <label>Fecha y hora de recepción:</label>
+            <input value="@Model.Firma.FechaHoraRecepcionTexto" readonly />
+        </div>
+        <div class="herida-kardex-firmas">
+            <div class="herida-kardex-firmas__item">
+                <strong>Firma de quien entrega</strong>
+                @if (!string.IsNullOrWhiteSpace(Model.Firma.FirmaEntregaDataUrl))
+                {
+                    <img src="@Model.Firma.FirmaEntregaDataUrl" alt="Firma de quien entrega" />
+                }
+            </div>
+            <div class="herida-kardex-firmas__item">
+                <strong>Firma de quien recibe</strong>
+                @if (!string.IsNullOrWhiteSpace(Model.Firma.FirmaRecibeDataUrl))
+                {
+                    <img src="@Model.Firma.FirmaRecibeDataUrl" alt="Firma de quien recibe" />
+                }
+            </div>
+        </div>
     </div>
 
     <div class="herida-kardex-adjuntos">
@@ -164,3 +228,67 @@
         </p>
     }
 </div>
+
+@section Scripts
+{
+    <script>
+        (() => {
+            // Marcar/desmarcar en amarillo una columna completa (una fecha de aplicacion), para que
+            // farmacia controle de un vistazo que entregas ya salieron. El clic guarda de una vez
+            // -no hay boton "Guardar" aparte-, para que nunca quede una marca hecha y sin persistir.
+            const tabla = document.getElementById("heridaFarmaciaTabla");
+            if (!tabla) return;
+
+            const guardarUrl = "@Url.Action("GuardarColumnasMarcadasClinicaHeridas", "Farmacia")";
+            const kardexId = tabla.dataset.kardexId;
+            const token = document.querySelector("#heridaFarmaciaTokenForm input[name='__RequestVerificationToken']")?.value || "";
+            const estado = document.getElementById("heridaFarmaciaMarcadoEstado");
+
+            const columnasMarcadas = () => [...tabla.querySelectorAll("[data-columna-marcar].is-marcada")]
+                .map((th) => parseInt(th.dataset.columnaMarcar, 10));
+
+            const guardar = async () => {
+                if (estado) estado.textContent = "Guardando...";
+                try {
+                    const respuesta = await fetch(guardarUrl, {
+                        method: "POST",
+                        headers: {
+                            "RequestVerificationToken": token,
+                            "Content-Type": "application/x-www-form-urlencoded"
+                        },
+                        body: new URLSearchParams({
+                            id: kardexId,
+                            columnasJson: JSON.stringify(columnasMarcadas())
+                        })
+                    });
+                    if (!respuesta.ok) {
+                        const datos = await respuesta.json().catch(() => null);
+                        if (estado) estado.textContent = datos?.message || "No se pudo guardar el seguimiento de entregas.";
+                        return;
+                    }
+                    if (estado) estado.textContent = "Seguimiento de entregas guardado.";
+                } catch {
+                    if (estado) estado.textContent = "Sin conexion: no se pudo guardar. Intentalo de nuevo.";
+                }
+            };
+
+            tabla.querySelectorAll("[data-columna-marcar]").forEach((cabecera) => {
+                const alternar = () => {
+                    const marcar = !cabecera.classList.contains("is-marcada");
+                    cabecera.classList.toggle("is-marcada", marcar);
+                    tabla.querySelectorAll(`[data-columna="${cabecera.dataset.columnaMarcar}"]`)
+                        .forEach((celda) => celda.classList.toggle("is-marcada", marcar));
+                    guardar();
+                };
+
+                cabecera.addEventListener("click", alternar);
+                cabecera.addEventListener("keydown", (evento) => {
+                    if (evento.key === "Enter" || evento.key === " ") {
+                        evento.preventDefault();
+                        alternar();
+                    }
+                });
+            });
+        })();
+    </script>
+}

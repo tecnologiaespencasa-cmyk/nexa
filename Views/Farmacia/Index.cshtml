@@ -109,9 +109,12 @@
                                 <a class="farmacia-doc-button farmacia-doc-button--req" href="@urlRequisicion">
                                     <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                 </a>
-                                <a class="farmacia-doc-button farmacia-doc-button--kardex" href="@urlKardex">
-                                    <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
-                                </a>
+                                @if (!item.EsClinicaHeridas)
+                                {
+                                    <a class="farmacia-doc-button farmacia-doc-button--kardex" href="@urlKardex">
+                                        <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                    </a>
+                                }
                                 @if (item.TieneAdjuntos)
                                 {
                                     <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(urlAdjuntos)#farmacia-adjuntos">
@@ -259,9 +262,14 @@
                                         <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
-                                            <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
-                                        </a>
+                                        @* Clínica de heridas (y NPT) solo manejan requisición: no existe un
+                                           "kardex" aparte, así que los dos botones abrían el mismo documento. *@
+                                        @if (!item.EsClinicaHeridas)
+                                        {
+                                            <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                                <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                            </a>
+                                        }
                                         @if (item.TieneAdjuntos)
                                         {
                                             <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
@@ -343,9 +351,14 @@
                                         <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
-                                            <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
-                                        </a>
+                                        @* Clínica de heridas (y NPT) solo manejan requisición: no existe un
+                                           "kardex" aparte, así que los dos botones abrían el mismo documento. *@
+                                        @if (!item.EsClinicaHeridas)
+                                        {
+                                            <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                                <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                            </a>
+                                        }
                                         @if (item.TieneAdjuntos)
                                         {
                                             <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
@@ -410,9 +423,14 @@
                                         <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
-                                            <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
-                                        </a>
+                                        @* Clínica de heridas (y NPT) solo manejan requisición: no existe un
+                                           "kardex" aparte, así que los dos botones abrían el mismo documento. *@
+                                        @if (!item.EsClinicaHeridas)
+                                        {
+                                            <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                                <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                            </a>
+                                        }
                                         @if (item.TieneAdjuntos)
                                         {
                                             <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
@@ -467,9 +485,14 @@
                                         <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>@(item.RequisicionVisto ? "Visto" : "Nuevo")</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
-                                            <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
-                                        </a>
+                                        @* Clínica de heridas (y NPT) solo manejan requisición: no existe un
+                                           "kardex" aparte, así que los dos botones abrían el mismo documento. *@
+                                        @if (!item.EsClinicaHeridas)
+                                        {
+                                            <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                                <span>Kardex</span><small>@(item.KardexVisto ? "Visto" : "Nuevo")</small>
+                                            </a>
+                                        }
                                         @if (item.TieneAdjuntos)
                                         {
                                             <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
@@ -551,9 +574,12 @@
                                         <a class="farmacia-doc-button farmacia-doc-button--req" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="requisicion" asp-route-documento="@Model.DocumentoFiltro">
                                             <span>Requisici&oacute;n</span><small>Visto</small>
                                         </a>
-                                        <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
-                                            <span>Kardex</span><small>Visto</small>
-                                        </a>
+                                        @if (!item.EsClinicaHeridas)
+                                        {
+                                            <a class="farmacia-doc-button farmacia-doc-button--kardex" asp-action="@item.AccionDocumento" asp-route-id="@item.Id" asp-route-tipo="kardex" asp-route-documento="@Model.DocumentoFiltro">
+                                                <span>Kardex</span><small>Visto</small>
+                                            </a>
+                                        }
                                         @if (item.TieneAdjuntos)
                                         {
                                             <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">

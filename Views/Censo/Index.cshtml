@@ -118,6 +118,11 @@
                                 data-censo-tab="@seccion.Id"
                                 aria-controls="@seccion.Id"
                                 aria-selected="@((seccion.Id == seccionActiva).ToString().ToLowerInvariant())">
+                            @* Marcador de "parada" de la ruta de atención: hueco en reposo, solido
+                               y con halo cuando es la sección donde el usuario está ubicado. Es la
+                               única que se rellena; las demás del mismo programa se quedan quietas
+                               a propósito, para que no compitan con ella. *@
+                            <span class="censo-nav__punto" aria-hidden="true"></span>
                             <span class="censo-nav__content">
                                 <span class="censo-nav__eyebrow">@seccion.Eyebrow</span>
                                 <span class="censo-nav__title">@seccion.Titulo</span>

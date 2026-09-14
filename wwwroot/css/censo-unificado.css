@@ -549,15 +549,27 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
   grid-column: 1 / -1;
 }
 
+/* --------------------------------------------------------------------------
+   Navegador lateral: "ruta de atencion"
+   -----------------------------------------------------------------------
+   Rediseño 2026-09-14. Cada programa es un carril de color con paradas (sus
+   secciones). El error del primer intento fue pintar todas las secciones
+   del grupo abierto del mismo tinte: quedaban identicas entre si y la
+   activa se perdia. La regla correcta es otra -- el color de FONDO es solo
+   para la parada donde el usuario esta ubicado; todo lo demas se
+   diferencia con el riel y el color del texto, no con relleno.
+   -------------------------------------------------------------------------- */
 .censo-nav-grupo__cabecera {
   display: flex;
+  position: relative;
   gap: 0.55rem;
   align-items: center;
   width: 100%;
   margin-bottom: 0.4rem;
-  padding: 0.4rem 0.5rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.7rem;
   border: 0;
-  border-radius: 10px;
+  border-inline-start: 2px solid color-mix(in srgb, var(--prog, var(--censo-ink-soft)) 38%, transparent);
+  border-radius: 8px;
   background: transparent;
   font-size: 0.7rem;
   font-weight: 800;
@@ -565,19 +577,27 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
   text-transform: uppercase;
   color: var(--prog, var(--censo-ink-soft));
   cursor: pointer;
-  transition: background-color 0.16s ease;
+  transition: border-color 0.2s ease, background-color 0.16s ease;
+}
+
+/* Abierto: el riel del programa sube a su matiz completo, para anclar
+   visualmente el bloque de paradas que cuelga debajo -- "todo esto es
+   Agudos" -- sin necesidad de rellenar la cabecera entera. */
+.censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__cabecera {
+  border-inline-start-color: var(--prog, var(--rojo));
 }
 
 .censo-nav-grupo__cabecera:hover {
-  background: var(--prog-soft, var(--rojo-tenue));
+  background: color-mix(in srgb, var(--prog, var(--rojo)) 8%, transparent);
 }
 
 .censo-nav-grupo__punto {
   flex: 0 0 auto;
-  width: 0.55rem;
-  height: 0.55rem;
+  width: 0.6rem;
+  height: 0.6rem;
   border-radius: 50%;
   background: var(--prog, var(--censo-ink-soft));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--prog, var(--censo-ink-soft)) 16%, transparent);
 }
 
 .censo-nav-grupo__titulo {
@@ -595,52 +615,117 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: transform 0.18s ease;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__chevron {
   transform: rotate(90deg);
 }
 
-/* Se pliega SIN display:none a proposito: los items siguen generando caja, asi
-   que el contador de secciones (01, 02, 03...) no se descuadra al cerrar un
-   grupo. Lo que se anima es la aparicion del contenido, no la altura: animar
-   altura obliga a medir en JavaScript y a depender de que termine la
-   transicion, y cuando eso falla el grupo queda abierto pero vacio. Aqui la
-   altura conmuta y no hay nada que se pueda quedar a medias. */
+/* ----- Apertura y cierre, animados de verdad -----
+   grid-template-rows: 0fr -> 1fr anima hasta la altura real del contenido
+   sin medirla en JavaScript. El intento anterior (altura fija 0/auto sin
+   transicion, solo la aparicion del contenido con opacity) se abria y
+   cerraba de golpe: la caja saltaba de 0 a su alto final en un solo
+   fotograma. La clave para que el truco de la rejilla funcione es DONDE va
+   el overflow:hidden -- en el HIJO (.pista), nunca en el contenedor de la
+   rejilla (.secciones); puesto ahi arriba, la fila nunca llega a medir el
+   contenido y la animacion no corre. Probado con un titulo de dos lineas
+   para confirmar que no recorta contenido mas alto de lo esperado. */
 .censo-nav-grupo__secciones {
-  overflow: hidden;
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: visible;
+  transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.censo-nav-grupo[data-abierto="false"] .censo-nav-grupo__secciones {
-  height: 0;
+.censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__secciones {
+  grid-template-rows: 1fr;
 }
 
 .censo-nav-grupo__pista {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
   padding-block-end: 2px;
-  opacity: 1;
-  transform: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  overflow: hidden;
+  min-height: 0;
 }
 
-/* Ademas de invisible, fuera del alcance del teclado: sin esto el tabulador
-   entra en secciones que no se ven. */
-/* La visibilidad se apaga de inmediato, sin retardo de transicion: si la
-   transicion no llega a correr, el contenido quedaria alcanzable con el
-   tabulador dentro de un grupo cerrado. Visualmente no se nota, porque la
-   altura cero ya lo recorta. */
+/* Fuera del alcance del teclado mientras esta cerrado: la rejilla en 0fr
+   recorta visualmente, pero no desconecta el tabulador por si sola. El
+   retardo iguala la duracion de la transicion de arriba, para no
+   desconectarlo mientras todavia se ve abrirse. */
 .censo-nav-grupo[data-abierto="false"] .censo-nav-grupo__pista {
   visibility: hidden;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: none;
+  transition: visibility 0s linear 0.32s;
 }
 
+/* Reaparicion escalonada de las paradas al abrir un grupo: una cascada
+   breve en vez de que las siete salten a la vez. */
+.censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__pista .censo-nav__item {
+  animation: censoFieldReveal 0.3s ease both;
+}
+
+.censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__pista .censo-nav__item:nth-child(2) { animation-delay: 0.03s; }
+.censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__pista .censo-nav__item:nth-child(3) { animation-delay: 0.06s; }
+.censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__pista .censo-nav__item:nth-child(4) { animation-delay: 0.09s; }
+.censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__pista .censo-nav__item:nth-child(5) { animation-delay: 0.12s; }
+.censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__pista .censo-nav__item:nth-child(n+6) { animation-delay: 0.15s; }
+
+/* ----- Las paradas -----
+   En reposo: riel fino, marcador hueco, texto neutro, SIN relleno. Es la
+   correccion sobre el intento anterior, que pintaba el fondo de todas por
+   igual -- ahi es donde la seccion activa dejaba de notarse. */
 .censo-nav-grupo .censo-nav__item {
-  border-inline-start: 3px solid var(--prog, transparent) !important;
+  display: flex;
+  align-items: center;
+  border-inline-start: 2px solid color-mix(in srgb, var(--prog, var(--rojo)) 28%, transparent) !important;
+  background: transparent !important;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+
+/* Marcador de parada. Hueco en reposo; el pase del mouse solo lo entibia,
+   y unicamente la parada activa lo llena de verdad (mas abajo). */
+.censo-nav__punto {
+  flex: 0 0 auto;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-inline-end: 0.65rem;
+  border: 2px solid color-mix(in srgb, var(--prog, var(--rojo)) 50%, transparent);
+  border-radius: 50%;
+  background: #fff;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* El refresco visual de censo.css deja el pase del mouse en azul fijo
+   (pensado para el navegador clasico, de un solo programa). Aqui cada
+   seccion es de un programa distinto, asi que responder siempre en azul
+   confundia cronicos, heridas, NPT y terapia con agudos. */
+.censo-nav-grupo .censo-nav__item:hover,
+.censo-nav-grupo .censo-nav__item:focus-visible {
+  background: transparent !important;
+  border-inline-start-color: var(--prog, var(--rojo)) !important;
+  color: var(--prog, var(--rojo)) !important;
+}
+
+.censo-nav-grupo .censo-nav__item:hover .censo-nav__punto,
+.censo-nav-grupo .censo-nav__item:focus-visible .censo-nav__punto {
+  border-color: var(--prog, var(--rojo));
+  background: color-mix(in srgb, var(--prog, var(--rojo)) 30%, #fff);
+}
+
+.censo-nav-grupo .censo-nav__item:hover .censo-nav__title,
+.censo-nav-grupo .censo-nav__item:focus-visible .censo-nav__title {
+  transform: translateX(2px);
+}
+
+.censo-nav-grupo .censo-nav__title {
+  transition: transform 0.18s ease;
 }
 
 /* --------------------------------------------------------------------------
@@ -751,20 +836,53 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
 
 /* Sin numeros de seccion: convivian con el conteo del grupo y se confundian
    entre si. El orden ya lo dice la posicion en la lista. */
-/* El elemento activo venia forzado a azul por el refresco visual de censo.css.
-   En la pantalla unificada dice mas si toma el matiz de su propio programa: te
-   dice donde estas y a que programa pertenece, sin meter un color que no
-   significa nada. En el grupo del paciente cae al rojo del sistema. */
+/* ----- La parada activa -----
+   Es la unica pregunta que este navegador tiene que responder sin
+   ambiguedad -- "donde estoy" -- y por eso es la UNICA seccion de su grupo
+   que se rellena. Relleno en degrade sutil (no plano: se ve mas cuidado),
+   riel al triple de grosor, marcador solido con halo que crece con un
+   pequeño resorte, y texto en negrita del color del programa. En el grupo
+   del paciente cae al rojo del sistema. */
 .censo-nav-grupo .censo-nav__item.active {
+  border-inline-start-width: 3px !important;
+  border-inline-start-color: var(--prog, var(--rojo)) !important;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--prog, var(--rojo)) 15%, #fff),
+    color-mix(in srgb, var(--prog, var(--rojo)) 5%, #fff)
+  ) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--prog, var(--rojo)) 30%, transparent);
   color: var(--prog, var(--rojo)) !important;
 }
 
+.censo-nav-grupo .censo-nav__item.active .censo-nav__punto {
+  border-color: var(--prog, var(--rojo));
+  background: var(--prog, var(--rojo));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--prog, var(--rojo)) 22%, transparent);
+  transform: scale(1.25);
+}
+
+.censo-nav-grupo .censo-nav__item::before,
 .censo-nav-grupo .censo-nav__item.active::before {
-  background: var(--prog, var(--rojo)) !important;
+  content: none !important;
 }
 
 .censo-nav-grupo .censo-nav__item::after {
   content: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .censo-nav-grupo__secciones,
+  .censo-nav-grupo__chevron,
+  .censo-nav-grupo .censo-nav__item,
+  .censo-nav__punto,
+  .censo-nav-grupo .censo-nav__title {
+    transition: none !important;
+  }
+
+  .censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__pista .censo-nav__item {
+    animation: none;
+  }
 }
 
 .censo-nav-grupo .censo-nav__title {
@@ -1282,7 +1400,11 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
    ========================================================================== */
 
 .censo-ficha {
-  margin: 1rem 0 1.25rem;
+  /* Sin margen superior: .censo-page ya pone ese aire en su padding, y el
+     sidebar (la otra columna de la rejilla) arranca justo ahí, sin margen
+     propio. Con los 16px que este margen sumaba encima, la ficha del
+     paciente quedaba mas abajo que "Paciente" en el navegador lateral. */
+  margin: 0 0 1.25rem;
   border: 1px solid var(--censo-border);
   border-radius: 24px;
   background: #fff;

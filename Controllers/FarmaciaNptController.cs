@@ -51,6 +51,10 @@ public partial class FarmaciaController
             CerradoAtUtc = kardex.KardexCerradoAtUtc,
             EnviadoAtUtc = kardex.FarmaciaEnviadoAtUtc,
             FarmaciaEstado = kardex.FarmaciaEstado,
+            // Mismo hueco que tenía clínica de heridas con esta vista compartida: al firmar y
+            // despachar, volver a consultar el documento no mostraba la firma aunque ya estuviera
+            // guardada, porque el modelo nunca la traía.
+            Firma = BuildNptSignatureModel(kardex),
             Adjuntos = kardex.Adjuntos
                 .OrderByDescending(x => x.UploadedAtUtc)
                 .Select(x => new FarmaciaClinicaHeridasAdjuntoViewModel

@@ -54,6 +54,14 @@ public class CensoClinicaHeridasKardex
     /// <summary>Contenido editado del kardex. Si es nulo se muestra el generado automáticamente.</summary>
     public string? KardexJson { get; set; }
 
+    /// <summary>
+    /// Índices (0-based) de las columnas de aplicación que farmacia marcó como entregadas, en JSON
+    /// (p. ej. "[0,2,3]"). Es una anotación propia de farmacia para controlar el avance de la
+    /// entrega sobre las fechas de la requisición: no toca el contenido del kardex ni lo que el
+    /// censo diligenció, por eso vive aparte de <see cref="KardexJson"/>.
+    /// </summary>
+    public string? FarmaciaColumnasMarcadasJson { get; set; }
+
     /// <summary>Perfil que abrió y guardó el kardex por última vez.</summary>
     [StringLength(200)]
     public string? ElaboradoPor { get; set; }

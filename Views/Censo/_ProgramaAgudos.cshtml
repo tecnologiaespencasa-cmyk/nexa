@@ -374,33 +374,13 @@
                                         </div>
                                     </section>
 
-                                    <section class="censo-recepcion-panel censo-recepcion-panel--status">
-                                        <div class="censo-recepcion-panel__header">
-                                            <span class="censo-recepcion-panel__eyebrow">Estados</span>
-                                        </div>
-
-                                        <label class="form-label d-block">Gestión completa o pendiente</label>
-                                        <div class="censo-gestion-status-card">
-                                            <div class="form-check form-switch censo-gestion-check">
-                                                <input asp-for="GestionCompleta" class="form-check-input" type="checkbox" role="switch" id="gestionCompletaSwitch" />
-                                                <label class="form-check-label" for="gestionCompletaSwitch">
-                                                    <span id="gestionEstadoTexto">Pendiente</span>
-                                                </label>
-                                            </div>
-                                            <p class="censo-gestion-status-card__hint">Usa este control para diferenciar de inmediato los casos cerrados de los que aun necesitan seguimiento.</p>
-                                        </div>
-
-                                        <label class="form-label d-block mt-3">Gestión Analista asistencial</label>
-                                        <div class="censo-gestion-status-card">
-                                            <div class="form-check form-switch censo-gestion-check">
-                                                <input asp-for="GestionAnalistaAsistencial" class="form-check-input" type="checkbox" role="switch" id="gestionAnalistaSwitch" />
-                                                <label class="form-check-label" for="gestionAnalistaSwitch">
-                                                    <span id="gestionAnalistaTexto">No</span>
-                                                </label>
-                                            </div>
-                                            <p class="censo-gestion-status-card__hint">Solo los perfiles con el permiso <strong>Analista asistencial</strong> pueden activar o desactivar este estado.</p>
-                                        </div>
-                                    </section>
+                                    @* "Estados" (Gestión completa/pendiente y Gestión Analista asistencial) se
+                                       trasladó a "Plan de manejo" el 2026-09-14: no es un dato de recepción, y
+                                       vivir aquí lo dejó inalcanzable el 2026-09-08 al ocultarse esta sección
+                                       (superseded por la Recepción del ingreso del episodio). Desde entonces
+                                       NINGÚN registro nuevo pudo marcarse "Completa" -- 194 registros seguidos,
+                                       todos "Pendiente" a la fuerza, porque el interruptor no tenía dónde
+                                       pulsarse. Ver la sección "Estado de gestión del caso" más abajo. *@
                                 </div>
                             </div>
                         </div>
@@ -643,6 +623,48 @@
                     </div>
 
                     <div class="tab-pane fade" id="tab-agudos-plan-manejo" role="tabpanel" aria-labelledby="tab-agudos-plan-manejo-link" data-section-title="Plan de manejo" data-section-description="Organiza riesgo, tratamiento, promesa de inicio, apoyos complementarios y seguimiento operativo.">
+                        @* Trasladado el 2026-09-14 desde "Recepción del paciente": son los dos interruptores que
+                           deciden "Sin autorización y pendiente" en el tablero de Reportes (GestionCompletaPendiente,
+                           columna EventosPendientesPorAuxiliar/RegistrosPrioritarios de ReportesController), no un
+                           dato de recepción. Vivir en la recepción los dejó sin ningún control visible al ocultarse
+                           esa sección el 2026-09-08: desde entonces 194 registros seguidos quedaron "Pendiente" a
+                           la fuerza porque nadie podía marcarlos "Completa". *@
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <div class="censo-card-heading">
+                                    <h2 class="h5 mb-0">Estado de gestión del caso</h2>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="censo-recepcion-layout">
+                                    <section class="censo-recepcion-panel censo-recepcion-panel--status">
+                                        <label class="form-label d-block">Gestión completa o pendiente</label>
+                                        <div class="censo-gestion-status-card">
+                                            <div class="form-check form-switch censo-gestion-check">
+                                                <input asp-for="GestionCompleta" class="form-check-input" type="checkbox" role="switch" id="gestionCompletaSwitch" />
+                                                <label class="form-check-label" for="gestionCompletaSwitch">
+                                                    <span id="gestionEstadoTexto">Pendiente</span>
+                                                </label>
+                                            </div>
+                                            <p class="censo-gestion-status-card__hint">Usa este control para diferenciar de inmediato los casos cerrados de los que aun necesitan seguimiento.</p>
+                                        </div>
+                                    </section>
+
+                                    <section class="censo-recepcion-panel censo-recepcion-panel--status">
+                                        <label class="form-label d-block">Gestión Analista asistencial</label>
+                                        <div class="censo-gestion-status-card">
+                                            <div class="form-check form-switch censo-gestion-check">
+                                                <input asp-for="GestionAnalistaAsistencial" class="form-check-input" type="checkbox" role="switch" id="gestionAnalistaSwitch" />
+                                                <label class="form-check-label" for="gestionAnalistaSwitch">
+                                                    <span id="gestionAnalistaTexto">No</span>
+                                                </label>
+                                            </div>
+                                            <p class="censo-gestion-status-card__hint">Solo los perfiles con el permiso <strong>Analista asistencial</strong> pueden activar o desactivar este estado.</p>
+                                        </div>
+                                    </section>
+                                </div>
+                            </div>
+                        </div>
                         <div class="card">
                             <div class="card-header">
                                 <div class="censo-card-heading">

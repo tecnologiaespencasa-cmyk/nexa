@@ -44,6 +44,8 @@ public partial class FarmaciaController
             CerradoAtUtc = kardex.KardexCerradoAtUtc,
             EnviadoAtUtc = kardex.FarmaciaEnviadoAtUtc,
             FarmaciaEstado = kardex.FarmaciaEstado,
+            Firma = BuildClinicaHeridasSignatureModel(kardex),
+            ColumnasMarcadas = ParseColumnasMarcadas(kardex.FarmaciaColumnasMarcadasJson),
             Adjuntos = kardex.Adjuntos
                 .OrderByDescending(x => x.UploadedAtUtc)
                 .Select(x => new FarmaciaClinicaHeridasAdjuntoViewModel
@@ -410,6 +412,80 @@ public partial class FarmaciaController
             nombreRecibe = kardex.FarmaciaNombreRecibe,
             fechaHoraRecepcionTexto = ColombiaTime.Convert(kardex.FarmaciaFechaHoraRecepcionUtc)?.ToString("dd/MM/yyyy HH:mm")
         });
+    }
+
+    /// <summary>
+    /// Marca o desmarca en amarillo una columna completa de la requisición (una fecha de
+    /// aplicación), para que farmacia controle de un vistazo qué entregas ya salieron. Es una
+    /// anotación propia de farmacia: no toca el contenido del kardex ni lo que el censo diligenció,
+    /// y no exige ningún estado de despacho en particular porque el seguimiento puede empezar desde
+    /// antes de la primera entrega.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GuardarColumnasMarcadasClinicaHeridas(
+        long id,
+        string? columnasJson,
+        CancellationToken cancellationToken)
+    {
+        var kardex = await _context.CensoClinicaHeridasKardex
+            .Include(x => x.CensoClinicaHeridasRecord)
+            .Include(x => x.Plan)
+            .FirstOrDefaultAsync(x => x.Id == id && x.FarmaciaEnviadoAtUtc != null, cancellationToken);
+
+        if (kardex is null)
+        {
+            return NotFound(new { message = "No se encontro el despacho de farmacia." });
+        }
+
+        List<int> columnas;
+        try
+        {
+            columnas = string.IsNullOrWhiteSpace(columnasJson)
+                ? []
+                : JsonSerializer.Deserialize<List<int>>(columnasJson, HeridasKardexJsonOptions) ?? [];
+        }
+        catch (JsonException)
+        {
+            return BadRequest(new { message = "No se pudo interpretar la seleccion de columnas." });
+        }
+
+        // Se valida contra el documento real: un indice fuera de rango no se guarda, para que un
+        // numero de aplicaciones distinto (el plan cambio, por ejemplo) no deje columnas marcadas
+        // que ya no existen.
+        var documento = ResolverDocumento(kardex);
+        var validas = columnas
+            .Where(indice => indice >= 0 && indice < documento.Aplicaciones)
+            .Distinct()
+            .Order()
+            .ToList();
+
+        kardex.FarmaciaColumnasMarcadasJson = validas.Count == 0
+            ? null
+            : JsonSerializer.Serialize(validas, HeridasKardexJsonOptions);
+        kardex.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Json(new { message = "Seguimiento de entregas guardado.", columnasMarcadas = validas });
+    }
+
+    private static IReadOnlyList<int> ParseColumnasMarcadas(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<int>>(json, HeridasKardexJsonOptions) ?? [];
+        }
+        catch (JsonException)
+        {
+            // Un JSON ilegible no debe tumbar la vista: se muestra sin nada marcado.
+            return [];
+        }
     }
 
     private static FarmaciaSignatureViewModel BuildClinicaHeridasSignatureModel(CensoClinicaHeridasKardex kardex)

@@ -1155,16 +1155,21 @@
                     th("Item");
                     th("Descripción del insumo");
 
-                    // Los titulos de las columnas son editables: el usuario suele reemplazarlos por
-                    // la fecha real de cada visita.
+                    // Los titulos de las columnas son fechas: cada aplicacion se identifica por el
+                    // dia real de la visita, no por un texto libre. Solo se elige del calendario -no
+                    // se escribe nada más- y esa es la fecha que le llega a farmacia.
                     const encabezados = documento.encabezados || [];
                     for (let i = 0; i < aplicaciones; i++) {
                         const celda = th("", "herida-kardex-table__aplicacion");
                         const input = document.createElement("input");
+                        input.type = "date";
                         input.dataset.kardexEncabezado = String(i);
                         input.className = "herida-kardex-table__encabezado";
-                        input.value = encabezados[i] || `Aplicación ${i + 1}`;
-                        input.setAttribute("aria-label", `Título de la columna ${i + 1}`);
+                        // Un valor que no sea una fecha ISO (encabezados de antes de este cambio,
+                        // como "Aplicación 1" o un numero suelto) no es un date valido: el campo
+                        // simplemente nace vacio, a la espera de que se elija la fecha real.
+                        input.value = /^\d{4}-\d{2}-\d{2}$/.test(encabezados[i] || "") ? encabezados[i] : "";
+                        input.setAttribute("aria-label", `Fecha de la aplicación ${i + 1}`);
                         celda.appendChild(input);
                     }
 

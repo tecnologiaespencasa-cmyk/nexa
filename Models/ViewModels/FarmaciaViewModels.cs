@@ -347,6 +347,14 @@ public class FarmaciaClinicaHeridasDocumentViewModel
 
     public string FarmaciaEstado { get; set; } = FarmaciaEstados.Nuevo;
 
+    // Sin esto la vista nunca supo que una entrega ya estaba firmada: al firmar y despachar, el
+    // documento no tenía de dónde leer el nombre de quien recibe ni las dos imágenes de firma, así
+    // que volver a consultar la requisición las mostraba en blanco aunque sí estaban guardadas.
+    public FarmaciaSignatureViewModel Firma { get; set; } = new();
+
+    /// <summary>Índices (0-based) de las columnas de aplicación que farmacia ya marcó como entregadas.</summary>
+    public IReadOnlyList<int> ColumnasMarcadas { get; set; } = [];
+
     public IReadOnlyList<FarmaciaClinicaHeridasAdjuntoViewModel> Adjuntos { get; set; } = [];
 }
 

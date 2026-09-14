@@ -4919,6 +4919,39 @@ button.herida-fotos__marco:focus-visible {
   color: #555555;
 }
 
+/* Firmas de recepción: mismo par de casillas que ya usa el documento de agudos/crónicos
+   (.farmacia-document-signatures__grid), con el trazo fino de esta hoja en vez del suyo. */
+.herida-kardex-firmas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.herida-kardex-firmas__item {
+  border-bottom: 1px solid #d6d6d6;
+  border-right: 1px solid #d6d6d6;
+  min-height: 8rem;
+  padding: 0.5rem;
+}
+
+.herida-kardex-firmas__item:last-child {
+  border-right: 0;
+}
+
+.herida-kardex-firmas__item strong {
+  display: block;
+  font-size: 0.76rem;
+  margin-bottom: 0.35rem;
+  text-align: center;
+}
+
+.herida-kardex-firmas__item img {
+  display: block;
+  height: 6.2rem;
+  margin: 0 auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
 .herida-kardex-table-scroll {
   overflow-x: auto;
 }
@@ -4957,6 +4990,47 @@ button.herida-fotos__marco:focus-visible {
 
 .herida-kardex-table__cantidad {
   text-align: center;
+}
+
+/* Seguimiento de entregas (farmacia): clic sobre la fecha marca en amarillo toda la columna. El
+   encabezado ademas se tacha -es la fecha ya resuelta-; las cantidades solo se resaltan, sin
+   tachar, para que sigan siendo legibles. */
+.herida-kardex-table__aplicacion--marcable {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.herida-kardex-table__aplicacion--marcable:hover {
+  background: #fff3cd;
+}
+
+.herida-kardex-table__aplicacion--marcable:focus-visible {
+  outline: 2px solid #d97706;
+  outline-offset: -2px;
+}
+
+.herida-kardex-table th.is-marcada {
+  background: #fbbf24;
+  color: #452b02;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+.herida-kardex-table td.is-marcada {
+  background: #fef3c7;
+}
+
+.herida-kardex-marcado-ayuda {
+  color: #6b5d5a;
+  font-size: 0.78rem;
+  margin: 0.3rem 0 0.6rem;
+}
+
+.herida-kardex-marcado-estado {
+  color: #6b5d5a;
+  font-size: 0.78rem;
+  margin: 0.4rem 0 0;
+  min-height: 1.1rem;
 }
 
 .herida-kardex-table__item,
