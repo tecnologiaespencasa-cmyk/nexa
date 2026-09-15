@@ -347,11 +347,15 @@ else
                                         <input asp-for="Paciente.NumeroIdentificacion" class="form-control" maxlength="20"
                                                autocomplete="off" id="numeroIdentificacionMaestroInput" />
                                         <span asp-validation-for="Paciente.NumeroIdentificacion" class="text-danger"></span>
+                                        <div class="alert d-none mt-2 py-2 px-3" id="documentoMaestroMensaje"></div>
                                     </div>
                                     <div class="col-lg-3">
                                         <label asp-for="Paciente.FechaNacimiento" class="form-label"></label>@RequiredMark(null)
+                                        @* Sin max nativo a propósito: "hoy" se rechaza en el servidor (ValidarFechaNacimiento),
+                                           con el mismo mensaje rojo y el mismo scroll-al-error del resto de la sección, en vez
+                                           del aviso silencioso del navegador. *@
                                         <input asp-for="Paciente.FechaNacimiento" type="date" class="form-control"
-                                               id="fechaNacimientoMaestroInput" max="@DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd")" />
+                                               id="fechaNacimientoMaestroInput" />
                                         <span asp-validation-for="Paciente.FechaNacimiento" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-2">
@@ -366,7 +370,7 @@ else
                                         <span asp-validation-for="Paciente.Genero" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="Paciente.CorreoElectronico" class="form-label"></label>
+                                        <label asp-for="Paciente.CorreoElectronico" class="form-label"></label>@RequiredMark(null)
                                         <input asp-for="Paciente.CorreoElectronico" class="form-control" type="email"
                                                autocomplete="off" placeholder="correo@@ejemplo.com" />
                                         <span asp-validation-for="Paciente.CorreoElectronico" class="text-danger"></span>
@@ -380,7 +384,7 @@ else
                                 </div>
                                 <div class="row g-3 censo-field-section__grid">
                                     <div class="col-lg-3">
-                                        <label asp-for="Paciente.CodigoCie10" class="form-label"></label>
+                                        <label asp-for="Paciente.CodigoCie10" class="form-label"></label>@RequiredMark(null)
                                         <input asp-for="Paciente.CodigoCie10" class="form-control" maxlength="4"
                                                autocomplete="off" id="codigoCie10MaestroInput" placeholder="Ej: A090" />
                                         <span asp-validation-for="Paciente.CodigoCie10" class="text-danger"></span>
@@ -493,7 +497,7 @@ else
                                            pacientes con "URGENCIAS IPS SURA LOS ROBLEDO" y varias decenas
                                            con "SURA" o "AMBULATORIO". El buscador lo arma censo-combo.js
                                            sobre este mismo <select>, que es el que viaja al servidor. *@
-                                        <label asp-for="Paciente.IpsQueRemite" class="form-label"></label>
+                                        <label asp-for="Paciente.IpsQueRemite" class="form-label"></label>@RequiredMark(null)
                                         <select asp-for="Paciente.IpsQueRemite" asp-items="Model.IpsQueRemiteOptions"
                                                 class="form-select" data-censo-buscable="Escribe para buscar la IPS">
                                             <option value="">Selecciona...</option>
@@ -501,7 +505,7 @@ else
                                         <span asp-validation-for="Paciente.IpsQueRemite" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-6">
-                                        <label asp-for="Paciente.VistoBuenoRangoFueraAnexo" class="form-label"></label>
+                                        <label asp-for="Paciente.VistoBuenoRangoFueraAnexo" class="form-label"></label>@RequiredMark(null)
                                         <select asp-for="Paciente.VistoBuenoRangoFueraAnexo" asp-items="Model.VistoBuenoOptions" class="form-select">
                                             <option value="">Selecciona...</option>
                                         </select>
@@ -535,6 +539,25 @@ else
                 </div>
             </div>
         </form>
+
+        <script>
+            // Lleva a la vista el primer campo con error tras un guardado fallido de "Datos
+            // básicos". La sección ya vuelve activa por su cuenta (ver ViewData["SeccionInicial"]
+            // en GuardarPaciente), pero con un formulario tan largo el error puede quedar fuera de
+            // la pantalla; esto reproduce el scroll-al-error que tenía el censo antes de unificarse.
+            // asp-validation-for solo imprime texto dentro del <span> cuando ModelState trae un
+            // error para ese campo, así que no hace falta ninguna marca aparte para detectarlo.
+            (() => {
+                const primerError = Array.from(
+                    document.querySelectorAll("#censoPacienteForm .text-danger"))
+                    .find((el) => el.textContent.trim().length > 0);
+                if (!primerError) return;
+
+                const contenedor = primerError.closest("[class*='col-']") || primerError;
+                contenedor.scrollIntoView({ behavior: "smooth", block: "center" });
+                contenedor.querySelector("input, select, textarea")?.focus();
+            })();
+        </script>
 
         @* ================= Carril de programas ================= *@
 
@@ -704,6 +727,7 @@ else
             const buscarBarriosUrl = "@Url.Action("BuscarBarrios", "Censo")";
             const defaultsMunicipioUrl = "@Url.Action("ObtenerDefaultsMunicipio", "Censo")";
             const buscarDiagnosticoCie10Url = "@Url.Action("BuscarDiagnosticoCie10", "Censo")";
+            const verificarPacienteMaestroUrl = "@Url.Action("VerificarPacienteMaestro", "Censo")";
 
             // ----- Mayúsculas en todo lo que se escribe -----
             // Los cinco censos ya lo hacían dentro de su propio formulario; al subir la recepción y
@@ -770,6 +794,61 @@ else
             tipoIdentificacionMaestro?.addEventListener("change", sincronizarNumeroIdentificacion);
             numeroIdentificacionMaestro?.addEventListener("input", sincronizarNumeroIdentificacion);
             sincronizarNumeroIdentificacion();
+
+            // ----- Avisar si el documento ya tiene paciente maestro -----
+            // GuardarAsync busca siempre por documento y actualiza el maestro que encuentre, así
+            // que si aquí se escribe por error el número de otro paciente real, hoy se le pisarían
+            // sus datos sin ningún aviso. Se consulta al escribir (con espera) y al salir del
+            // campo, para que también dispare cuando el extractor de remisión llena el documento
+            // (dispara "change" igual que si lo escribiera una persona). No bloquea el guardado:
+            // puede ser el mismo paciente que ya se está editando, o un dato real que se corrige.
+            const pacienteIdMaestroInput = document.getElementById("Paciente_PacienteId");
+            const mensajeDocumentoMaestro = document.getElementById("documentoMaestroMensaje");
+
+            const mostrarMensajeDocumento = (texto, tono) => {
+                if (!mensajeDocumentoMaestro) return;
+                if (!texto) {
+                    mensajeDocumentoMaestro.className = "alert d-none mt-2 py-2 px-3";
+                    mensajeDocumentoMaestro.textContent = "";
+                    return;
+                }
+                mensajeDocumentoMaestro.textContent = texto;
+                mensajeDocumentoMaestro.className = `alert mt-2 py-2 px-3 alert-${tono}`;
+            };
+
+            const verificarDocumentoMaestro = async () => {
+                const documento = String(numeroIdentificacionMaestro?.value || "").trim();
+                if (documento.length < 5) { mostrarMensajeDocumento("", null); return; }
+
+                let datos = null;
+                try {
+                    const respuesta = await fetch(
+                        `${verificarPacienteMaestroUrl}?documento=${encodeURIComponent(documento)}`);
+                    if (respuesta.ok) { datos = await respuesta.json(); }
+                } catch { /* sin conexion no se estorba la escritura */ }
+
+                if (!datos?.existe) { mostrarMensajeDocumento("", null); return; }
+
+                const idActual = String(pacienteIdMaestroInput?.value || "").trim();
+                if (idActual && String(datos.pacienteId) === idActual) {
+                    // Es el mismo paciente que ya se está editando: nada que avisar.
+                    mostrarMensajeDocumento("", null);
+                    return;
+                }
+
+                mostrarMensajeDocumento(
+                    `Este documento ya pertenece a un paciente registrado${datos.nombre ? `: ${datos.nombre}` : ""}.`
+                    + " Si guardas, se actualizarán sus datos.",
+                    "warning");
+            };
+
+            let temporizadorDocumentoMaestro = null;
+            numeroIdentificacionMaestro?.addEventListener("input", () => {
+                clearTimeout(temporizadorDocumentoMaestro);
+                temporizadorDocumentoMaestro = setTimeout(verificarDocumentoMaestro, 500);
+            });
+            numeroIdentificacionMaestro?.addEventListener("change", verificarDocumentoMaestro);
+            if (numeroIdentificacionMaestro?.value) { verificarDocumentoMaestro(); }
 
             // El buscador recibe un documento: mismas reglas de caracteres.
             const buscarDocumento = document.getElementById("buscarDocumento");

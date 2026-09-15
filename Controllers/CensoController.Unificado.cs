@@ -137,6 +137,35 @@ public partial class CensoController
         });
     }
 
+    /// <summary>
+    /// Busca si un documento ya tiene paciente maestro. "Datos básicos" lo consulta al escribir el
+    /// número de identificación, antes de guardar: <see cref="CensoPacienteService.GuardarAsync"/>
+    /// busca siempre por documento y actualiza el maestro que encuentre, así que si alguien escribe
+    /// por error el número de otro paciente real hoy se lo pisaría sin ningún aviso.
+    ///
+    /// No bloquea, igual que <see cref="VerificarPacienteEnPrograma"/>: puede ser el mismo paciente
+    /// que ya se está editando, o un reingreso legítimo. Solo informa.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> VerificarPacienteMaestro(
+        string? documento,
+        CancellationToken cancellationToken)
+    {
+        var doc = NormalizeCedulaFilter(documento);
+        if (string.IsNullOrWhiteSpace(doc))
+        {
+            return Json(new { existe = false });
+        }
+
+        var paciente = await _censoPacienteService.BuscarPorDocumentoAsync(doc, cancellationToken);
+        return Json(new
+        {
+            existe = paciente is not null,
+            pacienteId = paciente?.Id,
+            nombre = paciente?.NombrePaciente
+        });
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> GuardarPaciente(
@@ -178,6 +207,7 @@ public partial class CensoController
         }
 
         ValidarUbicacionResuelta(paciente);
+        ValidarFechaNacimiento(paciente);
 
         await ValidarObligatoriosPorProgramaAsync(paciente, cancellationToken);
 
@@ -188,6 +218,13 @@ public partial class CensoController
                 null,
                 cancellationToken,
                 paciente);
+
+            // Sin esto, ConstruirModeloUnificadoAsync elige como programa activo el de mayor
+            // jerarquía que el paciente ya tenga abierto (porque programaSolicitado es null), y
+            // esa sección tapa a "Datos básicos" en el navegador. El formulario que se acaba de
+            // enviar sigue en el DOM con sus datos intactos, pero al quedar oculto detrás de otra
+            // pestaña parece que el guardado "borró todo".
+            ViewData["SeccionInicial"] = CensoProgramaSecciones.Paciente[0].Id;
             return View("Index", invalido);
         }
 
@@ -200,6 +237,7 @@ public partial class CensoController
                 null,
                 cancellationToken,
                 paciente);
+            ViewData["SeccionInicial"] = CensoProgramaSecciones.Paciente[0].Id;
             return View("Index", invalido);
         }
 
@@ -1382,6 +1420,24 @@ public partial class CensoController
             "Valida la dirección o elige el municipio: no se puede guardar sin parametrizar.");
         Exigir(nameof(p.Barrio), p.Barrio,
             "Valida la dirección o elige el barrio: no se puede guardar sin parametrizar.");
+    }
+
+    /// <summary>
+    /// Un paciente nuevo nace con <see cref="NuevoFormularioPaciente"/> en fecha de hoy, a
+    /// propósito: no se atienden pacientes que ingresan el mismo día que nacen, así que "hoy"
+    /// nunca es una fecha de nacimiento válida y obliga a elegir la real antes de poder guardar.
+    /// Se valida aquí, con el mismo mensaje rojo y el mismo scroll-al-error que el resto de la
+    /// sección, en vez de dejarlo al <c>max</c> nativo del campo: ese bloqueaba el guardado en
+    /// silencio con el aviso propio del navegador, sin pasar por la aplicación.
+    /// </summary>
+    private void ValidarFechaNacimiento(CensoPacienteFormViewModel p)
+    {
+        if (p.FechaNacimiento.Date >= GetColombiaNow().Date)
+        {
+            ModelState.AddModelError(
+                nameof(CensoUnificadoViewModel.Paciente) + "." + nameof(p.FechaNacimiento),
+                "El paciente no puede nacer hoy. Ingresa la fecha real de nacimiento.");
+        }
     }
 
     private string UsuarioActual() =>
