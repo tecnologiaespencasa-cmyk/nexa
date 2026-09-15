@@ -269,10 +269,17 @@ else
 }
         </section>
 
-@if (!string.IsNullOrWhiteSpace(successMessage))
-{
-        <div class="alert alert-success" role="status">@successMessage</div>
-}
+@* El aviso de éxito sale como toast (se auto-oculta) en vez del banner verde grande de antes.
+   El texto viaja server-rendered dentro del propio toast -igual que antes iba en el <div>- y el
+   script de más abajo solo decide si lo muestra, según si quedó con contenido. *@
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1090">
+    <div class="toast align-items-center text-bg-success border-0" id="censoToastExito" role="status" aria-live="polite" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">@successMessage</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+        </div>
+    </div>
+</div>
 @if (!string.IsNullOrWhiteSpace(errorMessage))
 {
         <div class="alert alert-danger" role="alert">@errorMessage</div>
@@ -366,7 +373,7 @@ else
                                         <input asp-for="Paciente.Edad" class="form-control" id="edadMaestroInput" readonly />
                                     </div>
                                     <div class="col-lg-3">
-                                        <label asp-for="Paciente.Genero" class="form-label"></label>
+                                        <label asp-for="Paciente.Genero" class="form-label"></label>@RequiredMark(null)
                                         <select asp-for="Paciente.Genero" asp-items="Model.GeneroOptions" class="form-select">
                                             <option value="">Selecciona...</option>
                                         </select>
@@ -399,7 +406,7 @@ else
                                         <span asp-validation-for="Paciente.DiagnosticoDescriptivo" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-4">
-                                        <label asp-for="Paciente.Asegurador" class="form-label"></label>
+                                        <label asp-for="Paciente.Asegurador" class="form-label"></label>@RequiredMark(null)
                                         <select asp-for="Paciente.Asegurador" asp-items="Model.AseguradorOptions" class="form-select">
                                             <option value="">Selecciona...</option>
                                         </select>
@@ -877,19 +884,37 @@ else
             // se resolviera antes, un diálogo encadenado se abriría a mitad de la animación de
             // cierre y Bootstrap lo descartaría. La exponen en window porque también la usan los
             // parciales de programa, que se renderizan antes que este bloque.
+            // ----- Aviso de éxito como toast -----
+            // Reemplaza el banner verde grande de antes: mismo mensaje, pero se auto-oculta en
+            // vez de quedarse fijo hasta la siguiente navegación.
+            const toastExitoEl = document.getElementById("censoToastExito");
+            if (toastExitoEl && toastExitoEl.querySelector(".toast-body")?.textContent.trim()) {
+                new bootstrap.Toast(toastExitoEl, { delay: 5000 }).show();
+            }
+
             const confirmarEl = document.getElementById("censoConfirmarDialogo");
             const confirmarModal = confirmarEl ? new bootstrap.Modal(confirmarEl) : null;
+
+            // Para resaltar en negrilla el nombre del paciente o el programa dentro del mensaje:
+            // el mensaje ahora se pinta con innerHTML, así que cada dato dinámico que lo compone
+            // se escapa primero con este helper y solo las etiquetas <strong> que agrega el propio
+            // código quedan como HTML real.
+            window.censoEscapeHtml = (valor) => {
+                const contenedor = document.createElement("div");
+                contenedor.textContent = String(valor ?? "");
+                return contenedor.innerHTML;
+            };
 
             window.censoConfirmar = ({ titulo, mensaje, textoConfirmar = "Confirmar", tono = "aviso" }) =>
                 new Promise((resolver) => {
                     if (!confirmarModal) {
-                        resolver(window.confirm(mensaje));
+                        resolver(window.confirm(mensaje.replace(/<\/?strong>/g, "")));
                         return;
                     }
 
                     const aceptar = document.getElementById("censoConfirmarAceptar");
                     document.getElementById("censoConfirmarTitulo").textContent = titulo;
-                    document.getElementById("censoConfirmarMensaje").textContent = mensaje;
+                    document.getElementById("censoConfirmarMensaje").innerHTML = mensaje;
                     confirmarEl.dataset.tono = tono;
                     aceptar.textContent = textoConfirmar;
                     aceptar.className = tono === "peligro"
@@ -969,9 +994,10 @@ else
                     const numero = formulario.dataset.censoReabrirNumero;
                     const confirmado = await window.censoConfirmar({
                         titulo: "Reabrir atencion",
-                        mensaje: `Vas a reabrir la atencion ${numero} de ${programa} de `
-                            + `${window.censoNombrePaciente()}. Volvera a estar activa y se `
-                            + `retirara su alta, de modo que podra editarse otra vez.`
+                        mensaje: `Vas a reabrir la atencion <strong>${window.censoEscapeHtml(numero)}</strong> de `
+                            + `<strong>${window.censoEscapeHtml(programa)}</strong> de `
+                            + `<strong>${window.censoEscapeHtml(window.censoNombrePaciente())}</strong>. Volvera a `
+                            + `estar activa y se retirara su alta, de modo que podra editarse otra vez.`
                     });
                     if (confirmado) { formulario.submit(); }
                 });
@@ -987,9 +1013,9 @@ else
                     const aviso = formulario.dataset.censoAgregarAviso;
                     const confirmado = await window.censoConfirmar({
                         titulo: "Agregar programa",
-                        mensaje: `¿Estás seguro de agregarle al paciente ${window.censoNombrePaciente()} `
-                            + `el siguiente programa: ${programa}?`
-                            + (aviso ? ` ${aviso}` : "")
+                        mensaje: `¿Estás seguro de agregarle al paciente <strong>${window.censoEscapeHtml(window.censoNombrePaciente())}</strong> `
+                            + `el siguiente programa: <strong>${window.censoEscapeHtml(programa)}</strong>?`
+                            + (aviso ? ` ${window.censoEscapeHtml(aviso)}` : "")
                     });
                     if (confirmado) { formulario.submit(); }
                 });
@@ -1036,8 +1062,9 @@ else
                                 : "";
                             const confirmado = await window.censoConfirmar({
                                 titulo: "El paciente ya existe",
-                                mensaje: `El documento ${documento} ya tiene ${cuantos} en ${datos.programa}`
-                                    + `${datos.nombre ? ` (${datos.nombre})` : ""}.${abiertos}`
+                                mensaje: `El documento <strong>${window.censoEscapeHtml(documento)}</strong> ya tiene ${cuantos} `
+                                    + `en <strong>${window.censoEscapeHtml(datos.programa)}</strong>`
+                                    + `${datos.nombre ? ` (<strong>${window.censoEscapeHtml(datos.nombre)}</strong>)` : ""}.${abiertos}`
                                     + " ¿Confirmas que quieres crear otro registro?",
                                 textoConfirmar: "Crear de todos modos",
                                 tono: "advertencia"

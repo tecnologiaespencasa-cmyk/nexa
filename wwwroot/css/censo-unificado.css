@@ -662,8 +662,12 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
 }
 
 /* Reaparicion escalonada de las paradas al abrir un grupo: una cascada
-   breve en vez de que las siete salten a la vez. */
-.censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__pista .censo-nav__item {
+   breve en vez de que las siete salten a la vez. Se excluyen las paradas
+   bloqueadas (p. ej. "Gestión de alta" antes de que el estado sea de alta):
+   la animacion termina fijando opacity:1 con prioridad de animación, por
+   encima de cualquier regla de autor sin !important, y le quitaba el
+   aspecto opaco a .censo-nav__item--locked. */
+.censo-nav-grupo[data-abierto="true"] .censo-nav-grupo__pista .censo-nav__item:not(.censo-nav__item--locked) {
   animation: censoFieldReveal 0.3s ease both;
 }
 

@@ -49,6 +49,7 @@ public class CensoPacienteFormViewModel
     public int Edad { get; set; }
 
     // Subió al maestro desde crónicos, clínica de heridas y NPT.
+    [Required(ErrorMessage = "Selecciona el género del paciente.")]
     [StringLength(20)]
     [Display(Name = "Género")]
     public string? Genero { get; set; }
@@ -69,6 +70,7 @@ public class CensoPacienteFormViewModel
 
     // Subió al maestro: en agudos vivía en la sección 3 (plan de manejo) y en clínica de heridas y
     // NPT en datos básicos. Se sigue replicando a la sección 3 de agudos.
+    [Required(ErrorMessage = "Selecciona el asegurador del paciente.")]
     [StringLength(120, ErrorMessage = "El asegurador no puede superar 120 caracteres.")]
     [Display(Name = "Asegurador")]
     public string? Asegurador { get; set; }
