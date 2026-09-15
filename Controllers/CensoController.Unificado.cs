@@ -826,9 +826,16 @@ public partial class CensoController
                 // El episodio manda: si no tiene registro, la atención es nueva y el formulario
                 // arranca en blanco, como en los otros cuatro programas.
                 permitirUltimaAtencion: false);
+            // AplicarMaestroAModeloAgudos va ANTES de PopulateDropdownsAsync: este último arma
+            // BarrioOptions buscando por el Barrio que YA tenga el modelo (o "a" si está vacío,
+            // lo que devuelve el catálogo completo del municipio). Si el maestro se aplicara
+            // después, la búsqueda se haría con el modelo todavía vacío y el <select> de Barrio
+            // (sin opción en blanco real, solo un placeholder disabled) terminaba mostrando y
+            // guardando el primer barrio alfabético del catálogo -"Aldea Pablo VI" en Medellín-
+            // sin importar el barrio real del paciente. Ver [[bug-barrio-select-censo]].
+            AplicarMaestroAModeloAgudos(agudos, paciente);
             await PopulateDropdownsAsync(agudos, ct);
             PreserveInactiveNursingAssistantSelections(agudos);
-            AplicarMaestroAModeloAgudos(agudos, paciente);
             AplicarRecepcionAModeloAgudos(agudos, atencionAgudos);
             model.Agudos = agudos;
         }

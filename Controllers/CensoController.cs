@@ -5673,8 +5673,13 @@ public partial class CensoController : Controller
             AppendDataCell(sb, item.HoraIngreso.ToString(@"hh\:mm"));
             AppendDataCell(sb, FormatDate(item.FechaRespuesta));
             AppendDataCell(sb, item.HoraRespuesta.ToString(@"hh\:mm"));
-            AppendDataCell(sb, FormatDate(item.FechaGestionFarmacia));
-            AppendDataCell(sb, item.HoraGestionFarmacia.ToString(@"hh\:mm"));
+            // FechaGestionFarmacia/HoraGestionFarmacia son DateTime/TimeSpan no nulos que solo se
+            // llenan al despachar a farmacia (ver los ExecuteSqlInterpolated de dispatch); un
+            // registro que nunca llegó ahí se queda en su valor por defecto (0001-01-01 / 00:00),
+            // que no es una fecha real y no debe imprimirse tal cual.
+            var gestionFarmaciaRegistrada = item.FechaGestionFarmacia != default;
+            AppendDataCell(sb, gestionFarmaciaRegistrada ? FormatDate(item.FechaGestionFarmacia) : string.Empty);
+            AppendDataCell(sb, gestionFarmaciaRegistrada ? item.HoraGestionFarmacia.ToString(@"hh\:mm") : string.Empty);
             AppendDataCell(sb, item.GestionCompletaPendiente);
             AppendDataCell(sb, item.GestionAnalistaAsistencial ? "Sí" : "No");
             AppendDataCell(sb, item.IndicadorTiempoRespuestaMinutos.ToString());
