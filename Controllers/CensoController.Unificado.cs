@@ -1141,7 +1141,11 @@ public partial class CensoController
 
     private CensoPacienteFormViewModel NuevoFormularioPaciente(DateTime ahora) => new()
     {
-        FechaNacimiento = ahora.Date,
+        // "Ayer" y no "hoy": el input de fecha de nacimiento tiene max = ayer (no se atienden
+        // pacientes que ingresan el mismo día que nacen), así que un paciente nuevo tiene que
+        // arrancar en un valor que ese límite acepte. Sigue siendo obviamente falso -nadie nace el
+        // día antes de un ingreso real- así que obliga a corregirlo igual que "hoy" lo hacía.
+        FechaNacimiento = ahora.Date.AddDays(-1),
         Edad = 0,
         // Sin municipio de partida a proposito: nacer en "no parametrizado" era lo que dejaba
         // pacientes guardados con la direccion sin resolver, porque el formulario ya venia lleno

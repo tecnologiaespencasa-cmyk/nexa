@@ -399,7 +399,14 @@
             const numeroDiasAutorizadoInput = document.getElementById("numeroDiasAutorizadoInput");
             const isClosedPlanEditableControl = (control) => control === estadoSelect
                 || control === autorizacionEventoInput
-                || control === numeroDiasAutorizadoInput;
+                || control === numeroDiasAutorizadoInput
+                // Gestión completa/pendiente y Gestión Analista asistencial son estado operativo
+                // del caso, no datos clínicos del plan de manejo: deben poder cambiarse aunque el
+                // Kardex o la atención ya estén cerrados. Se comparan por id (en vez de por
+                // referencia a una constante) porque esos switches se resuelven más abajo en el
+                // archivo, fuera del alcance de esta función.
+                || control?.id === "gestionCompletaSwitch"
+                || control?.id === "gestionAnalistaSwitch";
             const gestionAltaTabLink = document.querySelector('[data-censo-tab="tab-agudos-gestion-alta"]');
             const gestionAltaPane = document.getElementById("tab-agudos-gestion-alta");
             const fechaAltaInput = document.getElementById("fechaAltaInput");
@@ -1423,7 +1430,7 @@
                     const banner = document.createElement("div");
                     banner.className = "alert alert-warning censo-plan-manejo-closed-banner mb-3";
                     banner.setAttribute("role", "alert");
-                    banner.innerHTML = "<strong>Plan de manejo cerrado.</strong> El Kardex del ingreso inicial fue aprobado por farmacia. Solo permanecen editables los campos <strong>Estado</strong>, <strong>Autorización evento</strong> y <strong>Número de días autorizado</strong>.";
+                    banner.innerHTML = "<strong>Plan de manejo cerrado.</strong> El Kardex del ingreso inicial fue aprobado por farmacia. Solo permanecen editables los campos <strong>Estado</strong>, <strong>Autorización evento</strong>, <strong>Número de días autorizado</strong> y el <strong>Estado de gestión del caso</strong>.";
                     planManejoTabPane.querySelector(".card")?.before(banner);
                 }
 

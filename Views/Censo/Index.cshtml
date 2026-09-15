@@ -351,11 +351,14 @@ else
                                     </div>
                                     <div class="col-lg-3">
                                         <label asp-for="Paciente.FechaNacimiento" class="form-label"></label>@RequiredMark(null)
-                                        @* Sin max nativo a propósito: "hoy" se rechaza en el servidor (ValidarFechaNacimiento),
-                                           con el mismo mensaje rojo y el mismo scroll-al-error del resto de la sección, en vez
-                                           del aviso silencioso del navegador. *@
+                                        @* max restaurado: el calendario nativo ya no deja elegir hoy ni fechas futuras.
+                                           El paciente nuevo nace en "ayer" (NuevoFormularioPaciente), no en "hoy", para
+                                           que ese valor por defecto no choque con este mismo límite al cargar el
+                                           formulario. ValidarFechaNacimiento en el servidor queda como respaldo, con el
+                                           mismo mensaje rojo y el mismo scroll-al-error del resto de la sección, por si
+                                           el límite nativo se saltara (p. ej. un POST armado a mano). *@
                                         <input asp-for="Paciente.FechaNacimiento" type="date" class="form-control"
-                                               id="fechaNacimientoMaestroInput" />
+                                               id="fechaNacimientoMaestroInput" max="@DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd")" />
                                         <span asp-validation-for="Paciente.FechaNacimiento" class="text-danger"></span>
                                     </div>
                                     <div class="col-lg-2">
@@ -637,6 +640,17 @@ else
                 </div>
                 <a asp-action="ExportarProgramaExcel"
                    asp-route-programa="@CensoProgramas.Agudos" download>Descargar Excel</a>
+            </div>
+            @* Mismo exportable que ya existia en Reportes al filtrar por Terapia ambulatoria
+               (ExportarProgramaExcel -> ExportarTerapiasAmbulatoriasExcel): se reusa tal cual, con
+               las mismas columnas, en vez de generar uno nuevo. *@
+            <div class="censo-history-export-card">
+                <div>
+                    <span>Exportable</span>
+                    <strong>@CensoProgramas.Nombre(CensoProgramas.TerapiaAmbulatoria)</strong>
+                </div>
+                <a asp-action="ExportarProgramaExcel"
+                   asp-route-programa="@CensoProgramas.TerapiaAmbulatoria" download>Descargar Excel</a>
             </div>
             <a class="censo-informes__enlace" asp-controller="Reportes" asp-action="Index">
                 Ver el tabulado completo en Reportes

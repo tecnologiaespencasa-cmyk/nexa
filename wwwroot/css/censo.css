@@ -3098,7 +3098,13 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   opacity: 0.82;
 }
 
-#tab-agudos-plan-manejo.is-plan-manejo-closed input:not(#autorizacionEventoInput):not(#numeroDiasAutorizadoInput),
+/* Estado de gestión del caso sigue totalmente editable con el Kardex cerrado: no se atenúa como
+   el resto del plan de manejo, para no parecer bloqueado cuando no lo está. */
+#tab-agudos-plan-manejo.is-plan-manejo-closed #estadoGestionCasoCard {
+  opacity: 1;
+}
+
+#tab-agudos-plan-manejo.is-plan-manejo-closed input:not(#autorizacionEventoInput):not(#numeroDiasAutorizadoInput):not(#gestionCompletaSwitch):not(#gestionAnalistaSwitch),
 #tab-agudos-plan-manejo.is-plan-manejo-closed select:not(#estadoSelect),
 #tab-agudos-plan-manejo.is-plan-manejo-closed textarea {
   cursor: not-allowed;
