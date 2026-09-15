@@ -636,10 +636,7 @@ else
                 <a asp-action="ExportarPacientesActivos" download>Descargar Excel</a>
             </div>
             @* Es el mismo archivo que baja Reportes al filtrar por agudos: la tabla del censo
-               completa, con todas sus columnas. Antes esta tarjeta decía "Todos los programas" y
-               bajaba solo las trece columnas núcleo del tabulado, que no es la información
-               completa de nadie. Los otros cuatro programas se exportan desde Reportes,
-               filtrando por programa. *@
+               completa, con todas sus columnas. *@
             <div class="censo-history-export-card">
                 <div>
                     <span>Exportable</span>
@@ -658,6 +655,18 @@ else
                 </div>
                 <a asp-action="ExportarProgramaExcel"
                    asp-route-programa="@CensoProgramas.TerapiaAmbulatoria" download>Descargar Excel</a>
+            </div>
+            @* Resumen de los cinco programas juntos (Programa, documento, fecha de ingreso, estado,
+               abierto/cerrado, asegurador, zona Sura, diagnóstico) - no reemplaza los exportables
+               por programa de arriba, esos traen todas sus columnas; este es para una vista rápida
+               de los cinco a la vez. Reusa ConstruirFilasResumenAsync, el mismo armado de filas que
+               ya usa el tabulado en pantalla de Reportes. *@
+            <div class="censo-history-export-card">
+                <div>
+                    <span>Exportable</span>
+                    <strong>Todos los programas (resumen)</strong>
+                </div>
+                <a asp-action="ExportarTodosLosProgramasExcel" download>Descargar Excel</a>
             </div>
             <a class="censo-informes__enlace" asp-controller="Reportes" asp-action="Index">
                 Ver el tabulado completo en Reportes

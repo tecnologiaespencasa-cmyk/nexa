@@ -15,4 +15,14 @@ public interface ICensoTabuladoService
     Task ConstruirAsync(
         CensoUnificadoViewModel model,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Las filas núcleo de los cinco programas, sin el recorte que aplica la pantalla. La usa el
+    /// exportable "Todos los programas" del censo.
+    /// </summary>
+    Task<List<CensoUnificadoTablaRowViewModel>> ConstruirFilasResumenAsync(
+        string? cedulaPaciente,
+        DateTime? desde,
+        DateTime? hasta,
+        CancellationToken cancellationToken);
 }

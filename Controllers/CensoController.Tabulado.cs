@@ -75,6 +75,79 @@ public partial class CensoController
     }
 
     /// <summary>
+    /// Exportable resumido de los cinco programas juntos: el mismo juego de columnas núcleo que ya
+    /// arma <see cref="ICensoTabuladoService.ConstruirFilasResumenAsync"/> para el tabulado en
+    /// pantalla, sin el recorte de filas de la pantalla. No reemplaza los exportables por programa
+    /// -esos traen todas sus columnas- es para una vista rápida de los cinco a la vez.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> ExportarTodosLosProgramasExcel(
+        string? cedulaPaciente,
+        DateTime? desde,
+        DateTime? hasta,
+        CancellationToken cancellationToken)
+    {
+        var filas = await _censoTabuladoService.ConstruirFilasResumenAsync(
+            cedulaPaciente, desde?.Date, hasta?.Date, cancellationToken);
+
+        var ordenadas = filas
+            .OrderByDescending(x => x.FechaIngreso ?? DateTime.MinValue)
+            .ThenBy(x => CensoProgramas.Jerarquia(x.Programa))
+            .ThenByDescending(x => x.RegistroId)
+            .ToList();
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("<?xml version=\"1.0\"?>");
+        sb.AppendLine("<?mso-application progid=\"Excel.Sheet\"?>");
+        sb.AppendLine("<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\"");
+        sb.AppendLine(" xmlns:o=\"urn:schemas-microsoft-com:office:office\"");
+        sb.AppendLine(" xmlns:x=\"urn:schemas-microsoft-com:office:excel\"");
+        sb.AppendLine(" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">");
+        sb.AppendLine(" <Styles>");
+        sb.AppendLine("  <Style ss:ID=\"Header\"><Font ss:Bold=\"1\"/></Style>");
+        sb.AppendLine(" </Styles>");
+        sb.AppendLine(" <Worksheet ss:Name=\"Todos los programas\">");
+        sb.AppendLine("  <Table>");
+
+        sb.AppendLine("   <Row>");
+        AppendHeaderCell(sb, "Programa");
+        AppendHeaderCell(sb, "TipoIdentificacion");
+        AppendHeaderCell(sb, "NumeroIdentificacion");
+        AppendHeaderCell(sb, "NombrePaciente");
+        AppendHeaderCell(sb, "FechaIngreso");
+        AppendHeaderCell(sb, "Estado");
+        AppendHeaderCell(sb, "Abierto");
+        AppendHeaderCell(sb, "Asegurador");
+        AppendHeaderCell(sb, "ClasificacionZonaSura");
+        AppendHeaderCell(sb, "DiagnosticoDescriptivo");
+        sb.AppendLine("   </Row>");
+
+        foreach (var fila in ordenadas)
+        {
+            sb.AppendLine("   <Row>");
+            AppendDataCell(sb, CensoProgramas.Nombre(fila.Programa));
+            AppendDataCell(sb, fila.TipoIdentificacion);
+            AppendDataCell(sb, fila.NumeroIdentificacion);
+            AppendDataCell(sb, fila.NombrePaciente);
+            AppendDataCell(sb, fila.FechaIngreso.HasValue ? fila.FechaIngreso.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) : "");
+            AppendDataCell(sb, fila.Estado ?? "");
+            AppendDataCell(sb, fila.Abierto ? "Abierto" : "Cerrado");
+            AppendDataCell(sb, fila.Asegurador ?? "");
+            AppendDataCell(sb, fila.ClasificacionZonaSura ?? "");
+            AppendDataCell(sb, fila.DiagnosticoDescriptivo ?? "");
+            sb.AppendLine("   </Row>");
+        }
+
+        sb.AppendLine("  </Table>");
+        sb.AppendLine(" </Worksheet>");
+        sb.AppendLine("</Workbook>");
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var fileName = $"censo_todos_los_programas_{DateTime.Now:yyyyMMdd_HHmmss}.xls";
+        return File(bytes, "application/vnd.ms-excel", fileName);
+    }
+
+    /// <summary>
     /// Arma un exportable con todas las propiedades de la entidad. Se usa en los programas que no
     /// tenían exportable propio, para que el archivo salga con la información completa.
     /// </summary>

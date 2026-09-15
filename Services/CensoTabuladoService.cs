@@ -41,6 +41,53 @@ public class CensoTabuladoService : ICensoTabuladoService
         var filtro = CensoProgramas.EsValido(model.ProgramaFiltro) ? model.ProgramaFiltro : null;
         model.ProgramaFiltro = filtro;
 
+        var filas = await ConstruirFilasResumenAsync(doc, desde, hasta, ct);
+
+        // Los contadores de los chips se calculan sobre el total, antes de aplicar el filtro: si no,
+        // al mirar un programa los demas apareceran siempre en cero y no se sabria donde mas buscar.
+        model.ConteoPorPrograma = filas
+            .GroupBy(x => x.Programa)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+
+        if (filtro is not null)
+        {
+            filas.RemoveAll(x => !string.Equals(x.Programa, filtro, StringComparison.Ordinal));
+        }
+
+        model.TotalSinRecorte = filas.Count;
+        model.LimiteFilas = model.TieneFiltroFechaIngreso ? LimiteFilasConRango : LimiteFilas;
+
+        var ordenadas = filas
+            .OrderByDescending(x => x.FechaIngreso ?? DateTime.MinValue)
+            .ThenBy(x => CensoProgramas.Jerarquia(x.Programa))
+            .ThenByDescending(x => x.RegistroId);
+
+        // El tope es de la pantalla, no de los datos. Al filtrar por documento se traen todas:
+        // un paciente no llega al tope y recortarlo escondería atenciones suyas.
+        model.Filas = string.IsNullOrWhiteSpace(doc)
+            ? ordenadas.Take(model.LimiteFilas).ToList()
+            : ordenadas.ToList();
+
+        model.IngresosHoyCount = await ContarIngresosHoyAsync(ct);
+
+        if (filtro is not null)
+        {
+            await CargarDetallePorProgramaAsync(model, filtro, doc, desde, hasta, ct);
+        }
+    }
+
+    /// <summary>
+    /// Arma las filas núcleo de los cinco programas (sin el recorte de la pantalla), con Abierto y
+    /// TieneAdjuntos ya resueltos. La usa <see cref="ConstruirAsync"/> para el tabulado en pantalla
+    /// y el exportable "Todos los programas" del censo, que sí necesita el total sin recortar.
+    /// </summary>
+    public async Task<List<CensoUnificadoTablaRowViewModel>> ConstruirFilasResumenAsync(
+        string? cedulaPaciente,
+        DateTime? desde,
+        DateTime? hasta,
+        CancellationToken ct)
+    {
+        var doc = NormalizarDocumento(cedulaPaciente);
         var filas = new List<CensoUnificadoTablaRowViewModel>();
 
         // --- Agudos. Excluye las copias internas de despacho a farmacia con el mismo criterio que
@@ -202,37 +249,7 @@ public class CensoTabuladoService : ICensoTabuladoService
             }
         }
 
-        // Los contadores de los chips se calculan sobre el total, antes de aplicar el filtro: si no,
-        // al mirar un programa los demas apareceran siempre en cero y no se sabria donde mas buscar.
-        model.ConteoPorPrograma = filas
-            .GroupBy(x => x.Programa)
-            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
-
-        if (filtro is not null)
-        {
-            filas.RemoveAll(x => !string.Equals(x.Programa, filtro, StringComparison.Ordinal));
-        }
-
-        model.TotalSinRecorte = filas.Count;
-        model.LimiteFilas = model.TieneFiltroFechaIngreso ? LimiteFilasConRango : LimiteFilas;
-
-        var ordenadas = filas
-            .OrderByDescending(x => x.FechaIngreso ?? DateTime.MinValue)
-            .ThenBy(x => CensoProgramas.Jerarquia(x.Programa))
-            .ThenByDescending(x => x.RegistroId);
-
-        // El tope es de la pantalla, no de los datos. Al filtrar por documento se traen todas:
-        // un paciente no llega al tope y recortarlo escondería atenciones suyas.
-        model.Filas = string.IsNullOrWhiteSpace(doc)
-            ? ordenadas.Take(model.LimiteFilas).ToList()
-            : ordenadas.ToList();
-
-        model.IngresosHoyCount = await ContarIngresosHoyAsync(ct);
-
-        if (filtro is not null)
-        {
-            await CargarDetallePorProgramaAsync(model, filtro, doc, desde, hasta, ct);
-        }
+        return filas;
     }
 
     /// <summary>
@@ -289,13 +306,17 @@ public class CensoTabuladoService : ICensoTabuladoService
     private async Task<int> ContarIngresosHoyAsync(CancellationToken ct)
     {
         var hoy = ColombiaTime.Convert(DateTime.UtcNow).Date;
-        var agudos = await _context.Censos.AsNoTracking()
+
+        // Solo agudos, no los cinco programas: sumarlos todos bajo una sola cifra "Ingresos hoy"
+        // generaba confusión al compararla contra el gráfico "Censo Agudos" de Reportes, que solo
+        // mide agudos (reporte real 2026-09-15, "los números no cuadran"). Mismo criterio que ese
+        // gráfico (ReportesController.ExcludeCancelledAndRejected): un ingreso cancelado o
+        // rechazado el mismo día no es un ingreso real.
+        return await _context.Censos.AsNoTracking()
             .Where(CensoVisibility.EditableRecord(_context))
+            .Where(x => x.Estado == null
+                || (!EF.Functions.ILike(x.Estado, "%cancelado%")
+                    && !EF.Functions.ILike(x.Estado, "%rechazado%")))
             .CountAsync(x => x.FechaIngreso == hoy, ct);
-        var cronicos = await _context.CensoCronicos.AsNoTracking().CountAsync(x => x.FechaIngreso == hoy, ct);
-        var heridas = await _context.CensoClinicaHeridas.AsNoTracking().CountAsync(x => x.FechaIngresoPrograma == hoy, ct);
-        var npt = await _context.CensoNpt.AsNoTracking().CountAsync(x => x.FechaIngresoPrograma == hoy, ct);
-        var terapia = await _context.CensoTerapiasAmbulatorias.AsNoTracking().CountAsync(x => x.FechaIngreso == hoy, ct);
-        return agudos + cronicos + heridas + npt + terapia;
     }
 }
