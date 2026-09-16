@@ -70,12 +70,6 @@ public class AuthController : Controller
             new(ClaimTypes.Email, user.Email)
         };
 
-        var roleClaims = user.UserRoles
-            .Select(ur => ur.Role.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(roleName => new Claim(ClaimTypes.Role, roleName));
-        claims.AddRange(roleClaims);
-
         var permissionClaims = user.UserPermissions
             .Select(up => up.Permission.Code)
             .Distinct(StringComparer.OrdinalIgnoreCase)

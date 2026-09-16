@@ -1,0 +1,110 @@
+@model HojaVidaLineaDeVida
+@using System.Globalization
+@{
+    var inv = CultureInfo.InvariantCulture;
+    string Pct(double valor) => valor.ToString("0.###", inv) + "%";
+    var hayMarcas = Model.Marcas.Count > 0;
+    var tipos = Model.Marcas.Select(m => m.Tipo).ToHashSet();
+    var situaciones = Model.Carriles.SelectMany(c => c.Barras).Select(b => b.Situacion).ToHashSet();
+}
+
+<section class="hv-linea" id="linea" aria-labelledby="hvLineaTitulo">
+    <div class="hv-seccion__cabeza">
+        <div>
+            <h2 id="hvLineaTitulo" class="hv-seccion__titulo">Línea de vida</h2>
+            <p class="hv-seccion__ayuda">Cada barra es un ingreso: empieza el día que llegó y termina en el alta. Toca una barra para ir a su detalle.</p>
+        </div>
+        <ul class="hv-leyenda" aria-label="Convenciones">
+            @if (situaciones.Contains(HojaVidaSituacion.EnCurso) || situaciones.Contains(HojaVidaSituacion.SinDiligenciar))
+            {
+                <li><span class="hv-leyenda__muestra hv-leyenda__muestra--encurso" aria-hidden="true"></span>En curso</li>
+            }
+            @if (situaciones.Contains(HojaVidaSituacion.Cerrada))
+            {
+                <li><span class="hv-leyenda__muestra hv-leyenda__muestra--cerrada" aria-hidden="true"></span>Con alta</li>
+            }
+            @if (situaciones.Contains(HojaVidaSituacion.NoEfectiva))
+            {
+                <li><span class="hv-leyenda__muestra hv-leyenda__muestra--noefectiva" aria-hidden="true"></span>No se prestó</li>
+            }
+            @if (tipos.Contains("novedad"))
+            {
+                <li><span class="hv-marca hv-marca--novedad hv-marca--leyenda" aria-hidden="true"></span>Novedad</li>
+            }
+            @if (tipos.Contains("hospitalizacion"))
+            {
+                <li><span class="hv-marca hv-marca--hospitalizacion hv-marca--leyenda" aria-hidden="true"></span>Hospitalización</li>
+            }
+            @if (tipos.Contains("ronda"))
+            {
+                <li><span class="hv-marca hv-marca--ronda hv-marca--leyenda" aria-hidden="true"></span>Ronda intramural</li>
+            }
+        </ul>
+    </div>
+
+    @* El papel es milimetrado como el de un electrocardiograma: en pantallas angostas conserva un
+       ancho mínimo legible y se desplaza de lado dentro de su marco, sin mover la página. *@
+    <div class="hv-ecg" tabindex="0" role="group" aria-label="Línea de vida del paciente. En pantallas pequeñas se desplaza de lado.">
+        <div class="hv-ecg__lienzo">
+            @foreach (var carril in Model.Carriles)
+            {
+                <div class="hv-ecg__carril hv-prog--@carril.ProgramaClase">
+                    <span class="hv-ecg__rotulo">
+                        <span class="hv-ecg__muestra" aria-hidden="true"></span>
+                        @carril.ProgramaNombre
+                    </span>
+                    <div class="hv-ecg__pista">
+                        @foreach (var barra in carril.Barras)
+                        {
+                            var situacion = barra.Situacion switch
+                            {
+                                HojaVidaSituacion.EnCurso => "encurso",
+                                HojaVidaSituacion.SinDiligenciar => "sindiligenciar",
+                                HojaVidaSituacion.NoEfectiva => "noefectiva",
+                                _ => "cerrada"
+                            };
+                            <a href="#@barra.IngresoClave"
+                               class="hv-barra hv-barra--@situacion"
+                               style="--x:@Pct(barra.InicioPct);--w:@Pct(barra.AnchoPct)"
+                               data-hv-ir="@barra.IngresoClave"
+                               data-hv-tip="@barra.Etiqueta"
+                               aria-label="@barra.Etiqueta"></a>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (hayMarcas)
+            {
+                <div class="hv-ecg__carril hv-ecg__carril--eventos">
+                    <span class="hv-ecg__rotulo">Eventos</span>
+                    <div class="hv-ecg__pista">
+                        @foreach (var marca in Model.Marcas)
+                        {
+                            <span class="hv-marca hv-marca--@marca.Tipo @(marca.Pendiente ? "hv-marca--pendiente" : null)"
+                                  style="--x:@Pct(marca.Pct)"
+                                  tabindex="0"
+                                  role="img"
+                                  data-hv-tip="@marca.Etiqueta"
+                                  aria-label="@marca.Etiqueta"></span>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="hv-ecg__eje" aria-hidden="true">
+                <span class="hv-ecg__rotulo"></span>
+                <div class="hv-ecg__pista">
+                    @foreach (var marca in Model.Eje)
+                    {
+                        <span class="hv-ecg__tick @(marca.Mayor ? "hv-ecg__tick--mayor" : null)" style="--x:@Pct(marca.Pct)">@marca.Texto</span>
+                    }
+                </div>
+            </div>
+
+            <div class="hv-ecg__capa" aria-hidden="true">
+                <span class="hv-ecg__hoy" style="--x:@Pct(Model.HoyPct)"><span>Hoy</span></span>
+            </div>
+        </div>
+    </div>
+</section>

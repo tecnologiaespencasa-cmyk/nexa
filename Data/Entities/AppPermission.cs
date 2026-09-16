@@ -14,7 +14,5 @@ public class AppPermission
     [StringLength(250)]
     public string Description { get; set; } = string.Empty;
 
-    public ICollection<AppRolePermission> RolePermissions { get; set; } = new List<AppRolePermission>();
-
     public ICollection<AppUserPermission> UserPermissions { get; set; } = new List<AppUserPermission>();
 }

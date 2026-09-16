@@ -8,10 +8,7 @@ namespace Nexa.Data;
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
 {
     public DbSet<AppUser> Users => Set<AppUser>();
-    public DbSet<AppRole> Roles => Set<AppRole>();
     public DbSet<AppPermission> Permissions => Set<AppPermission>();
-    public DbSet<AppUserRole> UserRoles => Set<AppUserRole>();
-    public DbSet<AppRolePermission> RolePermissions => Set<AppRolePermission>();
     public DbSet<AppUserPermission> UserPermissions => Set<AppUserPermission>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<CensoRecord> Censos => Set<CensoRecord>();
@@ -82,16 +79,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(x => x.NormalizedNationalId).IsUnique();
         });
 
-        modelBuilder.Entity<AppRole>(entity =>
-        {
-            entity.ToTable("Roles");
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Name).HasMaxLength(80).IsRequired();
-            entity.Property(x => x.NormalizedName).HasMaxLength(80).IsRequired();
-            entity.Property(x => x.Description).HasMaxLength(250);
-            entity.HasIndex(x => x.NormalizedName).IsUnique();
-        });
-
         modelBuilder.Entity<AppPermission>(entity =>
         {
             entity.ToTable("Permissions");
@@ -99,38 +86,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.Code).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Description).HasMaxLength(250).IsRequired();
             entity.HasIndex(x => x.Code).IsUnique();
-        });
-
-        modelBuilder.Entity<AppUserRole>(entity =>
-        {
-            entity.ToTable("UserRoles");
-            entity.HasKey(x => new { x.UserId, x.RoleId });
-
-            entity.HasOne(x => x.User)
-                .WithMany(x => x.UserRoles)
-                .HasForeignKey(x => x.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(x => x.Role)
-                .WithMany(x => x.UserRoles)
-                .HasForeignKey(x => x.RoleId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<AppRolePermission>(entity =>
-        {
-            entity.ToTable("RolePermissions");
-            entity.HasKey(x => new { x.RoleId, x.PermissionId });
-
-            entity.HasOne(x => x.Role)
-                .WithMany(x => x.RolePermissions)
-                .HasForeignKey(x => x.RoleId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(x => x.Permission)
-                .WithMany(x => x.RolePermissions)
-                .HasForeignKey(x => x.PermissionId)
-                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<AppUserPermission>(entity =>
@@ -1127,24 +1082,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(x => x.UserId);
         });
 
-        modelBuilder.Entity<AppRole>().HasData(
-            new AppRole { Id = 1, Name = "Administrador", NormalizedName = "ADMINISTRADOR", Description = "Administracion total del sistema" },
-            new AppRole { Id = 2, Name = "Auditor", NormalizedName = "AUDITOR", Description = "Consulta de reportes y auditoria" },
-            new AppRole { Id = 3, Name = "Colaborador", NormalizedName = "COLABORADOR", Description = "Acceso basico a modulos internos" }
-        );
-
         modelBuilder.Entity<AppPermission>().HasData(
             new AppPermission { Id = 1, Code = "USERS_READ", Description = "Consultar usuarios" },
             new AppPermission { Id = 2, Code = "USERS_WRITE", Description = "Crear, editar y desactivar usuarios" },
             new AppPermission { Id = 3, Code = "AUDIT_READ", Description = "Consultar bitacora de auditoria" }
-        );
-
-        modelBuilder.Entity<AppRolePermission>().HasData(
-            new AppRolePermission { RoleId = 1, PermissionId = 1 },
-            new AppRolePermission { RoleId = 1, PermissionId = 2 },
-            new AppRolePermission { RoleId = 1, PermissionId = 3 },
-            new AppRolePermission { RoleId = 2, PermissionId = 3 },
-            new AppRolePermission { RoleId = 3, PermissionId = 1 }
         );
     }
 

@@ -1,0 +1,42 @@
+@model HojaVidaPacienteViewModel
+@{
+    var compacto = ViewData["Compacto"] is true;
+    var hayError = !string.IsNullOrWhiteSpace(Model.ErrorBusqueda);
+}
+
+<form asp-controller="Paciente" asp-action="Index" method="post"
+      class="hv-consulta @(compacto ? "hv-consulta--compacta" : null)"
+      role="search" autocomplete="off" novalidate>
+    <label for="hvDocumento" class="hv-consulta__rotulo">Documento del paciente</label>
+    <div class="hv-consulta__fila">
+        <span class="hv-consulta__icono" aria-hidden="true"><i class="bi bi-person-vcard"></i></span>
+        <input id="hvDocumento"
+               name="documento"
+               class="hv-consulta__campo"
+               type="text"
+               inputmode="text"
+               maxlength="30"
+               spellcheck="false"
+               autocapitalize="characters"
+               placeholder="Ej. 43123456"
+               value="@(compacto ? Model.Identidad.NumeroDocumento : Model.Documento)"
+               aria-describedby="hvConsultaAyuda"
+               aria-invalid="@(hayError ? "true" : "false")"
+               required
+               autofocus="@(!compacto)" />
+        <button type="submit" class="hv-boton">
+            <span>@(compacto ? "Consultar" : "Abrir hoja de vida")</span>
+            <i class="bi bi-arrow-right" aria-hidden="true"></i>
+        </button>
+    </div>
+    <p id="hvConsultaAyuda" class="hv-consulta__ayuda @(hayError ? "hv-consulta__ayuda--error" : null)" aria-live="polite">
+        @if (hayError)
+        {
+            <i class="bi bi-exclamation-circle" aria-hidden="true"></i> @Model.ErrorBusqueda
+        }
+        else if (!compacto)
+        {
+            <text>Con o sin puntos: sirve 43123456 o CC 43.123.456.</text>
+        }
+    </p>
+</form>

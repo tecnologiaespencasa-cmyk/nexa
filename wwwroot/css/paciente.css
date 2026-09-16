@@ -1,0 +1,2099 @@
+/* ==========================================================================
+   Hoja de vida del paciente
+   --------------------------------------------------------------------------
+   Idea visual: una historia clínica que se lee de un vistazo. Su pieza propia es
+   la "línea de vida": los ingresos del paciente dibujados sobre papel milimetrado
+   de electrocardiograma, en el rojo de la marca. Todo lo demás es sobrio.
+
+   Tipografía
+   - Archivo, en ancho condensado, para el nombre del paciente y los títulos: los
+     nombres colombianos de cuatro partes caben en una línea sin achicarse.
+   - Atkinson Hyperlegible Next para el texto y Atkinson Hyperlegible Mono para
+     cifras, fechas, documentos y dosis. Esa familia se diseñó para que no se
+     confundan 0/O, 1/l/I ni 5/S: en un documento o en una dosis, confundirlos
+     es un error clínico.
+
+   Colores de programa: los mismos del censo (censo-unificado.css). El color sigue
+   al programa en toda la intranet; aquí no se repintan.
+   ========================================================================== */
+
+body.page-paciente {
+    --hv-papel: #edf1f0;
+    --hv-hoja: #ffffff;
+    --hv-hoja-2: #f6f8f8;
+    --hv-tinta: #16242b;
+    --hv-tinta-2: #4b5b63;
+    --hv-tinta-3: #66757c;
+    --hv-linea: #d6dedd;
+    --hv-linea-suave: #e7ecec;
+
+    --hv-rojo: #e04524;
+    --hv-rojo-hondo: #b4331a;
+    --hv-rojo-tenue: #fcede8;
+
+    /* Estados: reservados para estado, siempre con icono y texto. */
+    --hv-vital: #0b7a5c;
+    --hv-vital-tenue: #e2f3ed;
+    --hv-ambar: #8a5300;
+    --hv-ambar-vivo: #c77700;
+    --hv-ambar-tenue: #fdf1dc;
+    --hv-ambar-linea: #efcf94;
+    --hv-critico: #b42318;
+    --hv-critico-tenue: #fdecea;
+    --hv-info: #1f5e86;
+    --hv-info-tenue: #e7f0f6;
+
+    /* Papel de electrocardiograma. */
+    --hv-ecg-papel: #fffaf8;
+    --hv-ecg-fina: rgba(224, 69, 36, 0.065);
+    --hv-ecg-gruesa: rgba(224, 69, 36, 0.15);
+    --hv-ecg-borde: rgba(224, 69, 36, 0.2);
+
+    --prog-agudos: #e04524;
+    --prog-cronicos: #6b4de6;
+    --prog-heridas: #0f9d76;
+    --prog-npt: #d97400;
+    --prog-terapia: #006be6;
+
+    --hv-f-titulo: "Archivo", "Arial Narrow", "Segoe UI", system-ui, sans-serif;
+    --hv-f-texto: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+    --hv-f-dato: "Atkinson Hyperlegible Mono", "Cascadia Mono", "Consolas", ui-monospace, monospace;
+
+    --hv-radio: 16px;
+    background: var(--hv-papel);
+}
+
+.hv {
+    color: var(--hv-tinta);
+    font-family: var(--hv-f-texto);
+    font-size: 1rem;
+    line-height: 1.55;
+}
+
+.hv *,
+.hv *::before,
+.hv *::after {
+    box-sizing: border-box;
+}
+
+.hv-prog--agudos { --prog: var(--prog-agudos); }
+.hv-prog--cronicos { --prog: var(--prog-cronicos); }
+.hv-prog--heridas { --prog: var(--prog-heridas); }
+.hv-prog--npt { --prog: var(--prog-npt); }
+.hv-prog--terapia { --prog: var(--prog-terapia); }
+
+.hv-marco {
+    margin: 0 auto;
+    max-width: 84rem;
+    padding: 1.25rem clamp(1rem, 3vw, 2.5rem) 4rem;
+}
+
+.hv a {
+    color: var(--hv-rojo-hondo);
+}
+
+.hv a:focus-visible,
+.hv button:focus-visible,
+.hv summary:focus-visible,
+.hv [tabindex]:focus-visible,
+.hv input:focus-visible {
+    outline: 3px solid rgba(180, 51, 26, 0.5);
+    outline-offset: 2px;
+}
+
+.hv-num {
+    font-family: var(--hv-f-dato);
+    font-size: 0.95em;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.hv-tenue {
+    color: var(--hv-tinta-2);
+}
+
+.hv-quiebre {
+    overflow-wrap: anywhere;
+}
+
+.hv-codigo {
+    background: rgba(22, 36, 43, 0.07);
+    border-radius: 5px;
+    color: var(--hv-tinta);
+    font-family: var(--hv-f-dato);
+    font-size: 0.8em;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.05rem 0.38rem;
+    white-space: nowrap;
+}
+
+.hv-conteo {
+    background: rgba(22, 36, 43, 0.07);
+    border-radius: 999px;
+    color: var(--hv-tinta-2);
+    display: inline-block;
+    font-family: var(--hv-f-dato);
+    font-size: 0.72rem;
+    font-stretch: normal;
+    font-weight: 600;
+    line-height: 1.5;
+    min-width: 1.5rem;
+    padding: 0 0.42rem;
+    text-align: center;
+}
+
+.hv-conteo--alerta {
+    background: var(--hv-ambar-tenue);
+    color: var(--hv-ambar);
+}
+
+/* --------------------------------------------------------------------------
+   Membrete y sello
+   -------------------------------------------------------------------------- */
+
+.hv-membrete {
+    align-items: center;
+    color: var(--hv-tinta-2);
+    display: flex;
+    font-size: 0.86rem;
+    font-weight: 600;
+    gap: 0.55rem;
+    margin: 0;
+}
+
+.hv-sello {
+    fill: var(--hv-rojo);
+    flex: none;
+    height: 1.2rem;
+    width: 1.2rem;
+}
+
+.hv-sello rect {
+    opacity: 0.92;
+}
+
+/* --------------------------------------------------------------------------
+   Portada (antes de consultar)
+   -------------------------------------------------------------------------- */
+
+.hv-portada {
+    margin: clamp(1.5rem, 7vh, 5rem) auto 0;
+    max-width: 46rem;
+}
+
+.hv-portada__titulo {
+    color: var(--hv-tinta);
+    font-family: var(--hv-f-titulo);
+    font-size: clamp(2.5rem, 1.5rem + 4vw, 4.5rem);
+    font-stretch: 80%;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 0.95;
+    margin: 1rem 0 1rem;
+    text-wrap: balance;
+}
+
+.hv-portada__texto {
+    color: var(--hv-tinta-2);
+    font-size: 1.12rem;
+    margin: 0;
+    max-width: 38rem;
+    text-wrap: pretty;
+}
+
+.hv-latido {
+    display: block;
+    height: 3.2rem;
+    margin: 1.6rem 0 0.9rem;
+    overflow: visible;
+    width: 100%;
+}
+
+.hv-latido path {
+    fill: none;
+    stroke: var(--hv-rojo);
+    /* Con vector-effect el guion se mide en píxeles de pantalla: tiene que ser más largo que la
+       línea más ancha posible o el final queda como hueco. */
+    stroke-dasharray: 2400;
+    stroke-dashoffset: 0;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+    animation: hv-trazar 1.6s cubic-bezier(0.6, 0, 0.3, 1) 0.15s both;
+}
+
+@keyframes hv-trazar {
+    from { stroke-dashoffset: 2400; }
+    to { stroke-dashoffset: 0; }
+}
+
+/* --------------------------------------------------------------------------
+   Consulta
+   -------------------------------------------------------------------------- */
+
+.hv-consulta {
+    background: var(--hv-hoja);
+    border: 1px solid var(--hv-linea);
+    border-radius: var(--hv-radio);
+    box-shadow: 0 1px 0 rgba(22, 36, 43, 0.03), 0 18px 40px -26px rgba(22, 36, 43, 0.35);
+    margin: 0;
+    padding: 1.1rem 1.1rem 0.9rem;
+}
+
+.hv-consulta__rotulo {
+    color: var(--hv-tinta-2);
+    display: block;
+    font-size: 0.86rem;
+    font-weight: 600;
+    margin-bottom: 0.45rem;
+}
+
+.hv-consulta__fila {
+    align-items: stretch;
+    display: flex;
+    gap: 0.6rem;
+    position: relative;
+}
+
+.hv-consulta__icono {
+    align-items: center;
+    color: var(--hv-tinta-3);
+    display: flex;
+    font-size: 1.25rem;
+    inset: 0 auto 0 0.95rem;
+    pointer-events: none;
+    position: absolute;
+}
+
+.hv-consulta__campo {
+    background: var(--hv-hoja-2);
+    border: 1.5px solid var(--hv-linea);
+    border-radius: 11px;
+    color: var(--hv-tinta);
+    flex: 1;
+    font-family: var(--hv-f-dato);
+    font-size: 1.45rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    min-width: 0;
+    padding: 0.62rem 0.9rem 0.62rem 2.9rem;
+    transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+
+.hv-consulta__campo::placeholder {
+    color: #97a3a8;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+}
+
+.hv-consulta__campo:focus,
+.hv-consulta__campo:focus-visible {
+    background: var(--hv-hoja);
+    border-color: var(--hv-rojo-hondo);
+    box-shadow: 0 0 0 4px rgba(224, 69, 36, 0.16);
+    outline: none;
+}
+
+.hv-consulta__campo[aria-invalid="true"] {
+    border-color: var(--hv-critico);
+}
+
+.hv-boton {
+    align-items: center;
+    background: var(--hv-rojo-hondo);
+    border: 0;
+    border-radius: 11px;
+    color: #fff;
+    display: inline-flex;
+    flex: none;
+    font-size: 1rem;
+    font-weight: 700;
+    gap: 0.55rem;
+    justify-content: center;
+    padding: 0 1.3rem;
+    transition: background-color 0.15s, transform 0.15s;
+}
+
+.hv-boton:hover {
+    background: #962914;
+}
+
+.hv-boton:active {
+    transform: translateY(1px);
+}
+
+.hv-boton i {
+    transition: transform 0.2s;
+}
+
+.hv-boton:hover i {
+    transform: translateX(3px);
+}
+
+.hv-consulta__ayuda {
+    align-items: center;
+    color: var(--hv-tinta-2);
+    display: flex;
+    font-size: 0.85rem;
+    gap: 0.35rem;
+    margin: 0.55rem 0 0;
+    min-height: 1.3em;
+}
+
+.hv-consulta__ayuda--error {
+    color: var(--hv-critico);
+    font-weight: 600;
+}
+
+.hv-vacio {
+    background: var(--hv-hoja);
+    border: 1px solid var(--hv-ambar-linea);
+    border-radius: var(--hv-radio);
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    padding: 1.1rem 1.25rem;
+}
+
+.hv-vacio > i {
+    color: var(--hv-ambar);
+    font-size: 1.7rem;
+    line-height: 1;
+}
+
+.hv-vacio p {
+    margin: 0 0 0.35rem;
+}
+
+.hv-vacio__titulo {
+    font-weight: 700;
+}
+
+.hv-aviso {
+    align-items: flex-start;
+    color: var(--hv-ambar);
+    display: flex;
+    font-size: 0.83rem;
+    gap: 0.45rem;
+    margin: 0.75rem 0 0;
+}
+
+/* Barra de consulta cuando ya hay una hoja abierta. */
+
+.hv-barra-consulta {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.hv-consulta--compacta {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    padding: 0;
+}
+
+.hv-consulta--compacta .hv-consulta__rotulo {
+    margin: 0;
+}
+
+.hv-consulta--compacta .hv-consulta__campo {
+    background: var(--hv-hoja);
+    font-size: 1rem;
+    padding: 0.45rem 0.7rem 0.45rem 2.35rem;
+    width: 13rem;
+}
+
+.hv-consulta--compacta .hv-consulta__icono {
+    font-size: 1rem;
+    left: 0.8rem;
+}
+
+.hv-consulta--compacta .hv-boton {
+    font-size: 0.92rem;
+    padding: 0 1rem;
+}
+
+.hv-consulta--compacta .hv-consulta__ayuda {
+    flex-basis: 100%;
+    margin: 0;
+}
+
+.hv-consulta--compacta .hv-consulta__ayuda:not(.hv-consulta__ayuda--error) {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   Ficha
+   -------------------------------------------------------------------------- */
+
+.hv-ficha {
+    background: var(--hv-hoja);
+    border: 1px solid var(--hv-linea);
+    border-radius: 20px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    overflow: hidden;
+}
+
+.hv-ficha__identidad {
+    padding: clamp(1.25rem, 3vw, 2.25rem);
+}
+
+.hv-estado {
+    align-items: center;
+    border-radius: 999px;
+    display: inline-flex;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    gap: 0.2rem 0.55rem;
+    margin: 0 0 1rem;
+    padding: 0.28rem 0.85rem 0.28rem 0.6rem;
+}
+
+.hv-estado strong {
+    font-weight: 700;
+}
+
+.hv-estado--activo {
+    background: var(--hv-vital-tenue);
+    color: var(--hv-vital);
+}
+
+.hv-estado--inactivo {
+    background: #edf0f1;
+    color: var(--hv-tinta-2);
+}
+
+.hv-estado--fallecido {
+    background: #ebebeb;
+    color: #333;
+}
+
+.hv-estado__programas {
+    color: var(--hv-tinta);
+    font-weight: 600;
+}
+
+.hv-estado__programas::before {
+    color: var(--hv-tinta-3);
+    content: "·";
+    margin-right: 0.5rem;
+}
+
+.hv-estado__senal {
+    background: currentColor;
+    border-radius: 50%;
+    flex: none;
+    height: 0.62rem;
+    position: relative;
+    width: 0.62rem;
+}
+
+.hv-estado--activo .hv-estado__senal::after {
+    animation: hv-latir 2.4s ease-out infinite;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    content: "";
+    inset: -2px;
+    position: absolute;
+}
+
+.hv-estado--inactivo .hv-estado__senal {
+    background: transparent;
+    box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.hv-estado--fallecido .hv-estado__senal {
+    border-radius: 2px;
+    height: 0.18rem;
+}
+
+@keyframes hv-latir {
+    0% { opacity: 0.7; transform: scale(1); }
+    70%, 100% { opacity: 0; transform: scale(2.6); }
+}
+
+.hv-ficha__nombre {
+    color: var(--hv-tinta);
+    font-family: var(--hv-f-titulo);
+    font-size: clamp(2rem, 1.2rem + 2.7vw, 3.4rem);
+    font-stretch: 78%;
+    font-weight: 780;
+    letter-spacing: -0.005em;
+    line-height: 0.97;
+    margin: 0 0 0.85rem;
+    overflow-wrap: anywhere;
+    text-transform: uppercase;
+    text-wrap: balance;
+}
+
+/* Cada pieza lleva su separador a la izquierda, dentro de un margen negativo que el contenedor
+   recorta: la pieza que abre renglón pierde el suyo y no queda un "·" colgando al inicio. */
+.hv-ficha__ids {
+    color: var(--hv-tinta-2);
+    font-size: 1rem;
+    margin: 0;
+    overflow: hidden;
+}
+
+.hv-ficha__fila {
+    display: flex;
+    flex-wrap: wrap;
+    margin-left: -1.25rem;
+    row-gap: 0.2rem;
+}
+
+.hv-ficha__fila > span {
+    padding-left: 1.25rem;
+    position: relative;
+}
+
+.hv-ficha__fila > span::before {
+    color: #a9b4b8;
+    content: "·";
+    left: 0.5rem;
+    position: absolute;
+}
+
+.hv-ficha__documento {
+    color: var(--hv-tinta);
+    font-weight: 600;
+}
+
+.hv-resumen {
+    background: var(--hv-hoja-2);
+    border-left: 1px solid var(--hv-linea-suave);
+    padding: clamp(1.25rem, 3vw, 2.25rem);
+}
+
+.hv-resumen__rotulo {
+    color: var(--hv-rojo-hondo);
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin: 0 0 0.6rem;
+}
+
+.hv-resumen__frase {
+    font-size: 1.07rem;
+    line-height: 1.55;
+    margin: 0 0 0.55rem;
+    text-wrap: pretty;
+}
+
+/* Las cifras del resumen van subrayadas como con resaltador, igual que se marca una nota. */
+.hv-resumen__frase strong {
+    background: linear-gradient(transparent 60%, rgba(224, 69, 36, 0.17) 60%, rgba(224, 69, 36, 0.17) 92%, transparent 92%);
+    font-weight: 700;
+}
+
+.hv-resumen__consulta {
+    align-items: baseline;
+    color: var(--hv-tinta-3);
+    display: flex;
+    font-size: 0.8rem;
+    gap: 0.4rem;
+    margin: 1rem 0 0;
+}
+
+/* --------------------------------------------------------------------------
+   Índice
+   -------------------------------------------------------------------------- */
+
+.hv-indice {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    background: rgba(237, 241, 240, 0.9);
+    display: flex;
+    gap: 0.2rem;
+    margin: 0.75rem calc(-1 * clamp(1rem, 3vw, 2.5rem)) 0;
+    overflow-x: auto;
+    padding: 0.5rem clamp(1rem, 3vw, 2.5rem);
+    position: sticky;
+    scrollbar-width: none;
+    top: 0;
+    z-index: 20;
+}
+
+.hv-indice::-webkit-scrollbar {
+    display: none;
+}
+
+.hv-indice a {
+    align-items: center;
+    border-radius: 999px;
+    color: var(--hv-tinta-2);
+    display: inline-flex;
+    font-size: 0.9rem;
+    font-weight: 600;
+    gap: 0.4rem;
+    padding: 0.42rem 0.85rem;
+    text-decoration: none;
+    transition: background-color 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+.hv-indice a:hover {
+    background: var(--hv-hoja);
+    color: var(--hv-tinta);
+}
+
+.hv-indice a[aria-current="true"] {
+    background: var(--hv-tinta);
+    color: #fff;
+}
+
+.hv-indice a[aria-current="true"] .hv-conteo {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+}
+
+/* --------------------------------------------------------------------------
+   Secciones
+   -------------------------------------------------------------------------- */
+
+.hv-seccion__cabeza {
+    align-items: flex-end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 2rem;
+    justify-content: space-between;
+    margin-bottom: 0.9rem;
+}
+
+.hv-seccion__titulo {
+    align-items: center;
+    color: var(--hv-tinta);
+    display: flex;
+    font-family: var(--hv-f-titulo);
+    font-size: 1.55rem;
+    font-stretch: 86%;
+    font-weight: 750;
+    gap: 0.55rem;
+    line-height: 1.1;
+    margin: 0;
+}
+
+.hv-seccion__ayuda {
+    color: var(--hv-tinta-2);
+    font-size: 0.92rem;
+    margin: 0.3rem 0 0;
+    max-width: 44rem;
+}
+
+.hv-seccion {
+    scroll-margin-top: 4rem;
+}
+
+.hv-seccion + .hv-seccion {
+    margin-top: 2.25rem;
+}
+
+.hv-vacio-seccion {
+    background: var(--hv-hoja);
+    border: 1px solid var(--hv-linea);
+    border-radius: 14px;
+    color: var(--hv-tinta-2);
+    margin: 0;
+    padding: 1rem 1.1rem;
+}
+
+.hv-boton-texto {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    color: var(--hv-rojo-hondo);
+    display: inline-flex;
+    font-size: 0.88rem;
+    font-weight: 700;
+    gap: 0.4rem;
+    padding: 0.35rem 0.55rem;
+}
+
+.hv-boton-texto:hover {
+    background: var(--hv-rojo-tenue);
+}
+
+/* --------------------------------------------------------------------------
+   Línea de vida — papel de electrocardiograma
+   -------------------------------------------------------------------------- */
+
+.hv-linea {
+    background: var(--hv-hoja);
+    border: 1px solid var(--hv-linea);
+    border-radius: 20px;
+    margin-top: 0.75rem;
+    padding: clamp(1rem, 2.5vw, 1.6rem);
+    scroll-margin-top: 4rem;
+}
+
+.hv-leyenda {
+    color: var(--hv-tinta-2);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.82rem;
+    gap: 0.35rem 1.1rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.hv-leyenda li {
+    align-items: center;
+    display: flex;
+    gap: 0.45rem;
+}
+
+.hv-leyenda__muestra {
+    background: #5b6b72;
+    border-radius: 3px;
+    display: inline-block;
+    height: 0.6rem;
+    position: relative;
+    width: 1.5rem;
+}
+
+.hv-leyenda__muestra--cerrada {
+    background: #a9b5b9;
+}
+
+.hv-leyenda__muestra--encurso {
+    margin-right: 0.3rem;
+}
+
+.hv-leyenda__muestra--encurso::after {
+    background: #5b6b72;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--hv-hoja);
+    content: "";
+    height: 0.62rem;
+    position: absolute;
+    right: -0.3rem;
+    top: 0;
+    width: 0.62rem;
+}
+
+.hv-leyenda__muestra--noefectiva {
+    background: repeating-linear-gradient(135deg, rgba(91, 107, 114, 0.55) 0 2px, transparent 2px 5px);
+    box-shadow: inset 0 0 0 1.5px #a9b5b9;
+}
+
+.hv-ecg {
+    --rotulo: 10rem;
+    --pista-izq: 0.6rem;
+    --pista-der: 1.2rem;
+    background: var(--hv-ecg-papel);
+    border: 1px solid var(--hv-ecg-borde);
+    border-radius: 12px;
+    margin-top: 1rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+}
+
+.hv-ecg__lienzo {
+    min-width: 46rem;
+    padding-top: 0.5rem;
+    position: relative;
+}
+
+/* La cuadrícula: líneas finas cada 8 px y gruesas cada 40 px, como el papel del ECG.
+   Cada carril mide 40 px para caer sobre una línea gruesa. */
+.hv-ecg__lienzo::before {
+    background-image:
+        linear-gradient(var(--hv-ecg-gruesa) 1px, transparent 1px),
+        linear-gradient(90deg, var(--hv-ecg-gruesa) 1px, transparent 1px),
+        linear-gradient(var(--hv-ecg-fina) 1px, transparent 1px),
+        linear-gradient(90deg, var(--hv-ecg-fina) 1px, transparent 1px);
+    background-position: 0 0.5rem;
+    background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
+    bottom: 0;
+    content: "";
+    left: var(--rotulo);
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    top: 0;
+}
+
+.hv-ecg__carril,
+.hv-ecg__eje {
+    display: grid;
+    grid-template-columns: var(--rotulo) minmax(0, 1fr);
+    position: relative;
+}
+
+.hv-ecg__carril {
+    height: 40px;
+}
+
+.hv-ecg__rotulo {
+    align-items: center;
+    background: var(--hv-ecg-papel);
+    border-right: 1px solid var(--hv-ecg-borde);
+    color: var(--hv-tinta);
+    display: flex;
+    font-size: 0.84rem;
+    font-weight: 600;
+    gap: 0.5rem;
+    left: 0;
+    line-height: 1.15;
+    padding: 0 0.75rem 0 1rem;
+    position: sticky;
+    z-index: 4;
+}
+
+.hv-ecg__carril--eventos .hv-ecg__rotulo {
+    color: var(--hv-tinta-2);
+    font-weight: 500;
+}
+
+.hv-ecg__muestra {
+    background: var(--prog);
+    border-radius: 3px;
+    flex: none;
+    height: 0.7rem;
+    width: 0.7rem;
+}
+
+.hv-ecg__pista {
+    margin: 0 var(--pista-der) 0 var(--pista-izq);
+    position: relative;
+}
+
+.hv-barra {
+    animation: hv-crecer 0.75s cubic-bezier(0.2, 0.75, 0.2, 1) 0.1s both;
+    background: color-mix(in oklab, var(--prog) 62%, #ffffff);
+    border-radius: 4px;
+    height: 16px;
+    left: var(--x);
+    min-width: 8px;
+    position: absolute;
+    top: 12px;
+    transform-origin: left center;
+    transition: box-shadow 0.15s;
+    width: var(--w);
+}
+
+.hv-ecg__carril:nth-child(2) .hv-barra { animation-delay: 0.18s; }
+.hv-ecg__carril:nth-child(3) .hv-barra { animation-delay: 0.26s; }
+.hv-ecg__carril:nth-child(4) .hv-barra { animation-delay: 0.34s; }
+.hv-ecg__carril:nth-child(5) .hv-barra { animation-delay: 0.42s; }
+
+.hv-barra--encurso {
+    background: var(--prog);
+}
+
+/* El extremo de una atención en curso es un punto vivo: late despacio en el "hoy". */
+.hv-barra--encurso::after,
+.hv-barra--encurso::before {
+    background: var(--prog);
+    border-radius: 50%;
+    content: "";
+    height: 12px;
+    margin-top: -6px;
+    position: absolute;
+    right: -6px;
+    top: 50%;
+    width: 12px;
+}
+
+.hv-barra--encurso::after {
+    box-shadow: 0 0 0 2px var(--hv-ecg-papel);
+}
+
+.hv-barra--encurso::before {
+    animation: hv-latir 2.4s ease-out 1s infinite;
+    opacity: 0;
+}
+
+.hv-barra--sindiligenciar {
+    background: repeating-linear-gradient(135deg, var(--prog) 0 3px, color-mix(in oklab, var(--prog) 30%, #ffffff) 3px 7px);
+}
+
+.hv-barra--noefectiva {
+    background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--prog) 55%, transparent) 0 2px, transparent 2px 6px);
+    box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--prog) 55%, #ffffff);
+}
+
+.hv-barra:hover,
+.hv-barra:focus-visible {
+    box-shadow: 0 0 0 2px var(--hv-ecg-papel), 0 0 0 4px var(--prog);
+    outline: none;
+}
+
+@keyframes hv-crecer {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+}
+
+/* Marcas de eventos: rombo = novedad, triángulo = hospitalización, anillo = ronda. */
+.hv-marca {
+    display: block;
+    height: 11px;
+    left: var(--x);
+    margin: -5.5px 0 0 -5.5px;
+    position: absolute;
+    top: 50%;
+    width: 11px;
+}
+
+.hv-marca::before {
+    content: "";
+    inset: -9px;
+    position: absolute;
+}
+
+.hv-marca--novedad {
+    background: #7c8b91;
+    border-radius: 2px;
+    box-shadow: 0 0 0 2px var(--hv-ecg-papel);
+    transform: rotate(45deg) scale(0.9);
+}
+
+.hv-marca--novedad.hv-marca--pendiente {
+    background: var(--hv-ambar-vivo);
+}
+
+.hv-marca--hospitalizacion {
+    background: var(--hv-tinta);
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    height: 12px;
+    width: 13px;
+}
+
+.hv-marca--ronda {
+    background: var(--hv-ecg-papel);
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 2.5px var(--hv-info), 0 0 0 2px var(--hv-ecg-papel);
+}
+
+.hv-marca--leyenda {
+    left: auto;
+    margin: 0 0.1rem;
+    position: relative;
+    top: auto;
+}
+
+.hv-leyenda .hv-marca--novedad {
+    background: var(--hv-ambar-vivo);
+    box-shadow: none;
+}
+
+.hv-marca:focus-visible {
+    outline-offset: 4px;
+}
+
+.hv-ecg__eje {
+    border-top: 1px solid var(--hv-ecg-borde);
+    height: 30px;
+}
+
+.hv-ecg__eje .hv-ecg__rotulo {
+    border-right-color: var(--hv-ecg-borde);
+}
+
+.hv-ecg__tick {
+    color: var(--hv-tinta-2);
+    font-family: var(--hv-f-dato);
+    font-size: 0.7rem;
+    left: var(--x);
+    position: absolute;
+    top: 7px;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+.hv-ecg__tick::before {
+    background: var(--hv-ecg-borde);
+    content: "";
+    height: 5px;
+    left: 50%;
+    position: absolute;
+    top: -7px;
+    width: 1px;
+}
+
+.hv-ecg__tick--mayor {
+    color: var(--hv-tinta);
+    font-weight: 600;
+}
+
+.hv-ecg__capa {
+    bottom: 30px;
+    left: calc(var(--rotulo) + var(--pista-izq));
+    pointer-events: none;
+    position: absolute;
+    right: var(--pista-der);
+    top: 0;
+    z-index: 3;
+}
+
+.hv-ecg__hoy {
+    border-left: 1.5px solid var(--hv-rojo-hondo);
+    bottom: 0;
+    left: var(--x);
+    position: absolute;
+    top: 0;
+}
+
+.hv-ecg__hoy span {
+    background: var(--hv-rojo-hondo);
+    border-radius: 0 4px 4px 0;
+    color: #fff;
+    font-family: var(--hv-f-dato);
+    font-size: 0.64rem;
+    font-weight: 600;
+    left: 0;
+    letter-spacing: 0.04em;
+    padding: 0 0.3rem;
+    position: absolute;
+    top: 0;
+}
+
+/* Globo de ayuda de la línea de vida. */
+.hv-tip {
+    background: var(--hv-tinta);
+    border-radius: 8px;
+    box-shadow: 0 10px 24px -10px rgba(22, 36, 43, 0.5);
+    color: #fff;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    max-width: 19rem;
+    padding: 0.5rem 0.7rem;
+    pointer-events: none;
+    position: fixed;
+    z-index: 1080;
+}
+
+/* --------------------------------------------------------------------------
+   Cuerpo: principal + lateral
+   -------------------------------------------------------------------------- */
+
+.hv-cuerpo {
+    align-items: start;
+    display: grid;
+    gap: 1.25rem 1.75rem;
+    grid-template-areas:
+        "principal alertas"
+        "principal lateral";
+    grid-template-columns: minmax(0, 1fr) 22rem;
+    grid-template-rows: auto 1fr;
+    margin-top: 1.75rem;
+}
+
+.hv-alertas { grid-area: alertas; }
+.hv-principal { grid-area: principal; min-width: 0; }
+
+.hv-lateral {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    grid-area: lateral;
+    min-width: 0;
+}
+
+.hv-alertas,
+.hv-panel {
+    background: var(--hv-hoja);
+    border: 1px solid var(--hv-linea);
+    border-radius: var(--hv-radio);
+    padding: 1.1rem 1.15rem;
+    scroll-margin-top: 4rem;
+}
+
+.hv-lateral__titulo {
+    color: var(--hv-tinta);
+    font-family: var(--hv-f-titulo);
+    font-size: 1.12rem;
+    font-stretch: 88%;
+    font-weight: 730;
+    line-height: 1.2;
+    margin: 0 0 0.75rem;
+}
+
+.hv-panel__ayuda {
+    color: var(--hv-tinta-2);
+    font-size: 0.8rem;
+    margin: -0.45rem 0 0.8rem;
+}
+
+/* Alertas */
+
+.hv-alertas__lista {
+    display: grid;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.hv-alerta {
+    background: var(--hv-hoja-2);
+    border-radius: 11px;
+    display: grid;
+    gap: 0.65rem;
+    grid-template-columns: 1.3rem minmax(0, 1fr);
+    padding: 0.7rem 0.8rem;
+}
+
+.hv-alerta__icono {
+    font-size: 1.1rem;
+    line-height: 1.3;
+}
+
+.hv-alerta--critica { background: var(--hv-critico-tenue); }
+.hv-alerta--critica .hv-alerta__icono { color: var(--hv-critico); }
+.hv-alerta--atencion { background: var(--hv-ambar-tenue); }
+.hv-alerta--atencion .hv-alerta__icono { color: var(--hv-ambar); }
+.hv-alerta--info { background: var(--hv-info-tenue); }
+.hv-alerta--info .hv-alerta__icono { color: var(--hv-info); }
+
+.hv-alerta__titulo {
+    font-size: 0.93rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 0;
+}
+
+.hv-alerta__detalle {
+    color: var(--hv-tinta-2);
+    font-size: 0.85rem;
+    line-height: 1.45;
+    margin: 0.2rem 0 0;
+}
+
+.hv-alertas__calma {
+    align-items: flex-start;
+    color: var(--hv-vital);
+    display: flex;
+    font-weight: 600;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Ingresos
+   -------------------------------------------------------------------------- */
+
+.hv-ingresos {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.hv-ingreso {
+    background: var(--hv-hoja);
+    border: 1px solid var(--hv-linea);
+    border-radius: 14px;
+    scroll-margin-top: 4rem;
+    transition: box-shadow 0.35s, border-color 0.35s;
+}
+
+.hv-ingreso--encurso {
+    border-color: color-mix(in oklab, var(--prog) 38%, var(--hv-linea));
+}
+
+.hv-ingreso.hv-resaltado {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--prog) 28%, transparent);
+}
+
+.hv-ingreso__cabeza {
+    align-items: center;
+    column-gap: 0.8rem;
+    cursor: pointer;
+    display: grid;
+    grid-template-areas:
+        "marca titulo chip flecha"
+        ".     tramo  estancia estancia"
+        ".     dx     dx     dx";
+    grid-template-columns: 1rem minmax(0, 1fr) auto auto;
+    list-style: none;
+    padding: 0.95rem 1.1rem;
+    row-gap: 0.25rem;
+}
+
+.hv-ingreso__cabeza::-webkit-details-marker {
+    display: none;
+}
+
+.hv-ingreso__cabeza:focus-visible {
+    border-radius: 14px;
+    outline-offset: -3px;
+}
+
+.hv-ingreso__marca {
+    background: color-mix(in oklab, var(--prog) 62%, #ffffff);
+    border-radius: 3px;
+    grid-area: marca;
+    height: 0.6rem;
+    width: 1rem;
+}
+
+.hv-ingreso--encurso .hv-ingreso__marca,
+.hv-ingreso--sindiligenciar .hv-ingreso__marca {
+    background: var(--prog);
+}
+
+.hv-ingreso--noefectiva .hv-ingreso__marca {
+    background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--prog) 60%, transparent) 0 2px, transparent 2px 5px);
+    box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--prog) 55%, #ffffff);
+}
+
+.hv-ingreso__titulo {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.6rem;
+    grid-area: titulo;
+    min-width: 0;
+}
+
+.hv-ingreso__programa {
+    font-family: var(--hv-f-titulo);
+    font-size: 1.14rem;
+    font-stretch: 88%;
+    font-weight: 720;
+    line-height: 1.2;
+}
+
+.hv-ingreso__orden {
+    color: var(--hv-tinta-2);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.hv-ingreso__cabeza > .hv-chip {
+    grid-area: chip;
+    justify-self: end;
+}
+
+.hv-ingreso__tramo {
+    font-size: 0.9rem;
+    grid-area: tramo;
+}
+
+.hv-ingreso__flecha-tramo {
+    color: var(--hv-tinta-3);
+    margin: 0 0.2rem;
+}
+
+.hv-ingreso__estancia {
+    font-size: 0.88rem;
+    grid-area: estancia;
+    justify-self: end;
+    text-align: right;
+}
+
+.hv-ingreso__estancia strong {
+    font-weight: 600;
+}
+
+.hv-ingreso__dx {
+    color: var(--hv-tinta-2);
+    font-size: 0.88rem;
+    grid-area: dx;
+    min-width: 0;
+}
+
+.hv-ingreso__flecha {
+    color: var(--hv-tinta-2);
+    grid-area: flecha;
+    transition: transform 0.25s;
+}
+
+.hv-ingreso__pliegue[open] .hv-ingreso__flecha {
+    transform: rotate(180deg);
+}
+
+.hv-ingreso__pliegue[open] > .hv-ingreso__cuerpo {
+    animation: hv-aparecer 0.28s ease-out;
+}
+
+@keyframes hv-aparecer {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: none; }
+}
+
+.hv-ingreso__cuerpo {
+    border-top: 1px solid var(--hv-linea-suave);
+    padding: 1rem 1.25rem 1.3rem calc(1.1rem + 1rem + 0.8rem);
+}
+
+/* Chips */
+
+.hv-chip {
+    align-items: center;
+    border-radius: 999px;
+    display: inline-flex;
+    font-size: 0.78rem;
+    font-weight: 700;
+    gap: 0.35rem;
+    line-height: 1.25;
+    padding: 0.2rem 0.6rem;
+    white-space: nowrap;
+}
+
+.hv-chip--encurso,
+.hv-chip--resuelta { background: var(--hv-vital-tenue); color: var(--hv-vital); }
+.hv-chip--cerrada { background: #edf0f1; color: var(--hv-tinta-2); }
+.hv-chip--sindiligenciar { background: #eef1f2; color: var(--hv-tinta-2); }
+.hv-chip--noefectiva { background: #f3eeec; color: #6a5650; }
+.hv-chip--pendiente { background: var(--hv-ambar-tenue); color: var(--hv-ambar); }
+.hv-chip--prioridad { background: var(--hv-critico-tenue); color: var(--hv-critico); font-size: 0.72rem; }
+
+.hv-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.hv-chip--dato {
+    background: var(--hv-hoja-2);
+    border: 1px solid var(--hv-linea-suave);
+    color: var(--hv-tinta);
+    font-weight: 600;
+    padding: 0.28rem 0.7rem;
+    white-space: normal;
+}
+
+.hv-chip__detalle {
+    color: var(--hv-tinta-2);
+    font-weight: 400;
+}
+
+.hv-chip__detalle::before {
+    content: "· ";
+}
+
+/* Hechos (pares rótulo-valor) */
+
+.hv-hechos {
+    display: grid;
+    gap: 0.75rem 1.25rem;
+    grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+    margin: 0;
+}
+
+.hv-hechos dt {
+    color: var(--hv-tinta-2);
+    font-size: 0.77rem;
+    font-weight: 600;
+    margin-bottom: 0.08rem;
+}
+
+.hv-hechos dd {
+    font-size: 0.93rem;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.hv-hechos dd .hv-tenue {
+    display: block;
+    font-size: 0.85rem;
+}
+
+.hv-hechos--apilado {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/* Bloques del detalle */
+
+.hv-bloque {
+    margin-top: 1.4rem;
+}
+
+.hv-bloque__titulo {
+    align-items: center;
+    display: flex;
+    font-size: 0.96rem;
+    font-weight: 700;
+    gap: 0.5rem;
+    margin: 0 0 0.6rem;
+}
+
+.hv-bloque__titulo > i {
+    color: var(--prog, var(--hv-rojo-hondo));
+}
+
+.hv-bloque__subtitulo {
+    align-items: center;
+    color: var(--hv-tinta-2);
+    display: flex;
+    font-size: 0.86rem;
+    font-weight: 700;
+    gap: 0.45rem;
+    margin: 1rem 0 0.45rem;
+}
+
+.hv-destacado {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin: 0 0 0.7rem;
+}
+
+.hv-destacado strong.hv-num {
+    font-family: var(--hv-f-titulo);
+    font-size: 1.7rem;
+    font-stretch: 85%;
+    font-weight: 750;
+    letter-spacing: 0;
+    line-height: 1;
+}
+
+.hv-nota {
+    align-items: flex-start;
+    background: var(--hv-info-tenue);
+    border-radius: 10px;
+    display: flex;
+    font-size: 0.9rem;
+    gap: 0.6rem;
+    margin: 1rem 0 0;
+    padding: 0.6rem 0.8rem;
+}
+
+.hv-nota > i {
+    color: var(--hv-info);
+    line-height: 1.45;
+}
+
+/* Tablas */
+
+.hv-tabla {
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+.hv-tabla th,
+.hv-tabla td {
+    border-bottom: 1px solid var(--hv-linea-suave);
+    padding: 0.5rem 0.6rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.hv-tabla th:first-child,
+.hv-tabla td:first-child {
+    padding-left: 0;
+}
+
+.hv-tabla thead th {
+    border-bottom-color: var(--hv-linea);
+    color: var(--hv-tinta-2);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding-top: 0;
+}
+
+.hv-tabla tbody th {
+    font-weight: 600;
+}
+
+.hv-tabla tbody tr:last-child > * {
+    border-bottom: 0;
+}
+
+.hv-tabla__num {
+    text-align: right !important;
+    white-space: nowrap;
+}
+
+.hv-tabla--seguimientos tbody th .hv-tenue {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 400;
+}
+
+.hv-foto img {
+    background: var(--hv-hoja-2);
+    border-radius: 8px;
+    display: block;
+    height: 56px;
+    object-fit: cover;
+    width: 56px;
+}
+
+/* Prórrogas y agudizaciones */
+
+.hv-prorrogas {
+    display: grid;
+    gap: 0.7rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.hv-prorroga {
+    background: var(--hv-hoja-2);
+    border: 1px solid var(--hv-linea-suave);
+    border-radius: 11px;
+    padding: 0.75rem 0.95rem 0.5rem;
+}
+
+.hv-prorroga__cabeza {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    gap: 0.2rem 0;
+    margin: 0 0 0.35rem;
+}
+
+.hv-prorroga__cabeza > span::before {
+    color: #a9b4b8;
+    content: "·";
+    margin: 0 0.5rem;
+}
+
+/* Listas simples */
+
+.hv-lista {
+    display: grid;
+    font-size: 0.9rem;
+    gap: 0.45rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.hv-lista i {
+    margin-right: 0.3rem;
+}
+
+.hv-lista__detalle {
+    color: var(--hv-tinta-2);
+    display: block;
+    font-size: 0.85rem;
+}
+
+.hv-ok { color: var(--hv-vital); }
+.hv-espera { color: var(--hv-ambar-vivo); }
+
+/* Evolución de la herida */
+
+.hv-evolucion {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    margin: 0 0 0.9rem;
+}
+
+.hv-evolucion__trazo {
+    flex: none;
+    overflow: visible;
+}
+
+.hv-evolucion__trazo polyline {
+    fill: none;
+    stroke: var(--prog, var(--hv-rojo));
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.hv-evolucion__trazo circle {
+    fill: var(--prog, var(--hv-rojo));
+    stroke: var(--hv-hoja);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.hv-evolucion figcaption {
+    align-items: baseline;
+    display: flex;
+    flex: 1 1 16rem;
+    flex-wrap: wrap;
+    font-size: 0.92rem;
+    gap: 0.2rem 0.4rem;
+}
+
+.hv-evolucion figcaption .hv-tenue {
+    flex-basis: 100%;
+    font-size: 0.8rem;
+}
+
+.hv-evolucion__cambio {
+    border-radius: 999px;
+    font-family: var(--hv-f-dato);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.05rem 0.5rem;
+}
+
+.hv-evolucion__cambio--mejora { background: var(--hv-vital-tenue); color: var(--hv-vital); }
+.hv-evolucion__cambio--aumento { background: var(--hv-critico-tenue); color: var(--hv-critico); }
+
+/* --------------------------------------------------------------------------
+   Novedades y rondas
+   -------------------------------------------------------------------------- */
+
+.hv-filtro {
+    background: rgba(22, 36, 43, 0.06);
+    border-radius: 999px;
+    display: inline-flex;
+    padding: 3px;
+}
+
+.hv-filtro button {
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    color: var(--hv-tinta-2);
+    font-size: 0.86rem;
+    font-weight: 600;
+    padding: 0.32rem 0.85rem;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.hv-filtro button[aria-pressed="true"] {
+    background: var(--hv-hoja);
+    box-shadow: 0 1px 2px rgba(22, 36, 43, 0.14);
+    color: var(--hv-tinta);
+}
+
+.hv-novedades {
+    background: var(--hv-hoja);
+    border: 1px solid var(--hv-linea);
+    border-radius: 14px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.hv-novedad {
+    display: grid;
+    gap: 0.5rem 1.1rem;
+    grid-template-columns: 9rem minmax(0, 1fr);
+    padding: 1rem 1.15rem;
+    scroll-margin-top: 4rem;
+    transition: background-color 0.6s;
+}
+
+.hv-novedad + .hv-novedad {
+    border-top: 1px solid var(--hv-linea-suave);
+}
+
+.hv-novedad:first-child { border-radius: 14px 14px 0 0; }
+.hv-novedad:last-child { border-radius: 0 0 14px 14px; }
+
+.hv-novedad.hv-resaltado {
+    background: #fff6e6;
+}
+
+.hv-novedad[hidden] {
+    display: none;
+}
+
+.hv-novedad__lado {
+    align-items: flex-start;
+    color: var(--hv-tinta-2);
+    display: flex;
+    flex-direction: column;
+    font-size: 0.85rem;
+    gap: 0.4rem;
+}
+
+.hv-novedad__tipo {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 1rem;
+    font-weight: 700;
+    gap: 0.3rem 0.55rem;
+    line-height: 1.3;
+    margin: 0 0 0.3rem;
+}
+
+.hv-novedad__categoria {
+    color: var(--hv-tinta-2);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.hv-novedad__texto {
+    font-size: 0.93rem;
+    margin: 0 0 0.4rem;
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+}
+
+.hv-novedad__meds {
+    color: var(--hv-tinta-2);
+    font-size: 0.86rem;
+    margin: 0 0 0.4rem;
+}
+
+.hv-novedad__respuesta {
+    background: var(--hv-hoja-2);
+    border-radius: 8px;
+    font-size: 0.88rem;
+    margin: 0.45rem 0;
+    overflow-wrap: anywhere;
+    padding: 0.5rem 0.7rem;
+    white-space: pre-line;
+}
+
+.hv-novedad__meta {
+    color: var(--hv-tinta-2);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    gap: 0.2rem 1rem;
+    margin: 0.35rem 0 0;
+}
+
+.hv-novedad__meta a {
+    font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Lateral
+   -------------------------------------------------------------------------- */
+
+.hv-cifras {
+    margin: 0;
+}
+
+.hv-cifra {
+    padding: 0.6rem 0;
+}
+
+.hv-cifra + .hv-cifra {
+    border-top: 1px solid var(--hv-linea-suave);
+}
+
+.hv-cifra:first-child {
+    padding-top: 0;
+}
+
+.hv-cifra dt {
+    color: var(--hv-tinta-2);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.hv-cifra dd {
+    margin: 0.05rem 0 0;
+}
+
+.hv-cifra__valor {
+    display: block;
+    font-family: var(--hv-f-titulo);
+    font-size: 1.4rem;
+    font-stretch: 85%;
+    font-variant-numeric: tabular-nums;
+    font-weight: 720;
+    line-height: 1.15;
+}
+
+.hv-cifra__nota {
+    color: var(--hv-tinta-2);
+    display: block;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    margin-top: 0.1rem;
+}
+
+.hv-frecuencias {
+    display: grid;
+    gap: 0.6rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.hv-frecuencias li {
+    align-items: baseline;
+    display: grid;
+    font-size: 0.86rem;
+    gap: 0.25rem 0.6rem;
+    grid-template-areas:
+        "nombre valor"
+        "barra  barra";
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.hv-frecuencias__nombre {
+    grid-area: nombre;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.hv-frecuencias__valor {
+    color: var(--hv-tinta-2);
+    grid-area: valor;
+}
+
+.hv-frecuencias__barra {
+    background: var(--hv-rojo);
+    border-radius: 0 4px 4px 0;
+    grid-area: barra;
+    height: 8px;
+    min-width: 8px;
+    width: var(--w);
+}
+
+.hv-diagnosticos {
+    display: grid;
+    font-size: 0.86rem;
+    gap: 0.55rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.hv-diagnosticos li {
+    align-items: baseline;
+    display: grid;
+    gap: 0.55rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    line-height: 1.35;
+}
+
+.hv-diagnosticos__veces {
+    color: var(--hv-tinta-2);
+    font-size: 0.8rem;
+}
+
+.hv-telefonos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.9rem;
+}
+
+.hv-telefonos a {
+    color: var(--hv-tinta);
+    text-decoration-color: #b8c3c6;
+    text-underline-offset: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   Pantallas medianas y celulares
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1099.98px) {
+    .hv-cuerpo {
+        grid-template-areas:
+            "alertas"
+            "principal"
+            "lateral";
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: none;
+    }
+
+    .hv-lateral {
+        align-items: start;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    }
+}
+
+@media (max-width: 767.98px) {
+    .hv-ficha {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hv-resumen {
+        border-left: 0;
+        border-top: 1px solid var(--hv-linea-suave);
+    }
+
+    .hv-consulta__fila {
+        flex-direction: column;
+    }
+
+    .hv-consulta__icono {
+        bottom: auto;
+        height: 3.2rem;
+    }
+
+    .hv-boton {
+        min-height: 3rem;
+    }
+
+    .hv-barra-consulta {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .hv-consulta--compacta {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .hv-consulta--compacta .hv-consulta__fila {
+        flex-direction: row;
+    }
+
+    .hv-consulta--compacta .hv-consulta__campo {
+        width: auto;
+    }
+
+    .hv-consulta--compacta .hv-consulta__icono {
+        height: auto;
+        bottom: 0;
+    }
+
+    .hv-ecg {
+        --rotulo: 7.25rem;
+    }
+
+    .hv-ecg__rotulo {
+        font-size: 0.78rem;
+        padding-left: 0.7rem;
+    }
+
+    .hv-ingreso__cabeza {
+        grid-template-areas:
+            "marca titulo flecha"
+            ".     chip   chip"
+            ".     tramo  tramo"
+            ".     estancia estancia"
+            ".     dx     dx";
+        grid-template-columns: 1rem minmax(0, 1fr) auto;
+        padding: 0.9rem 0.9rem;
+    }
+
+    .hv-ingreso__cabeza > .hv-chip,
+    .hv-ingreso__estancia {
+        justify-self: start;
+        text-align: left;
+    }
+
+    .hv-ingreso__cuerpo {
+        padding: 0.9rem 0.9rem 1.1rem;
+    }
+
+    .hv-novedad {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hv-novedad__lado {
+        align-items: center;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    /* En el celular cada fila de tabla se vuelve una tarjeta con sus rótulos. */
+    .hv-tabla thead {
+        display: none;
+    }
+
+    .hv-tabla tr {
+        border-bottom: 1px solid var(--hv-linea-suave);
+        display: grid;
+        gap: 0.3rem 0.9rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 0.6rem 0;
+    }
+
+    .hv-tabla tbody tr:last-child {
+        border-bottom: 0;
+    }
+
+    .hv-tabla th,
+    .hv-tabla td {
+        border: 0;
+        padding: 0;
+        text-align: left !important;
+        white-space: normal;
+    }
+
+    .hv-tabla tbody th {
+        grid-column: 1 / -1;
+    }
+
+    .hv-tabla td::before {
+        color: var(--hv-tinta-2);
+        content: attr(data-rotulo);
+        display: block;
+        font-family: var(--hv-f-texto);
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Movimiento reducido e impresión
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+    .hv *,
+    .hv *::before,
+    .hv *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+@media print {
+    body.page-paciente {
+        background: #fff;
+    }
+
+    body.page-paciente > header,
+    body.page-paciente > footer,
+    .hv-barra-consulta,
+    .hv-indice,
+    .hv-tip,
+    .hv-boton-texto,
+    .hv-filtro {
+        display: none !important;
+    }
+
+    .hv-marco {
+        max-width: none;
+        padding: 0;
+    }
+
+    .hv-ecg {
+        overflow: visible;
+    }
+
+    .hv-ecg__lienzo {
+        min-width: 0;
+    }
+
+    .hv-ecg,
+    .hv-ecg__lienzo::before,
+    .hv-barra,
+    .hv-marca,
+    .hv-chip,
+    .hv-alerta,
+    .hv-estado {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .hv-cuerpo {
+        display: block;
+    }
+
+    .hv-ingreso,
+    .hv-novedad,
+    .hv-panel,
+    .hv-alertas {
+        break-inside: avoid;
+    }
+
+    .hv-lateral,
+    .hv-alertas {
+        margin-top: 1rem;
+    }
+}

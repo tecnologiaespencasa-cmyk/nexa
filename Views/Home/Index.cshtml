@@ -24,6 +24,14 @@
         },
         new
         {
+            Allowed = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.HojaVidaPaciente)).Succeeded,
+            Controller = "Paciente",
+            Title = "Paciente",
+            Description = "Consulta la hoja de vida del paciente: ingresos, medicamentos, servicios y novedades.",
+            IconPath = "M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Zm5 3a2.5 2.5 0 1 0 2.5 2.5A2.5 2.5 0 0 0 9 8Zm-4 9h8c0-2.2-1.8-3.5-4-3.5S5 14.8 5 17Zm10-8v1.5h3V9Zm0 3v1.5h3V12Z"
+        },
+        new
+        {
             Allowed = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Reportes)).Succeeded,
             Controller = "Reportes",
             Title = "Reportes",

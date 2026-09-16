@@ -1,0 +1,487 @@
+@model HojaVidaPacienteViewModel
+@using System.Globalization
+@using Nexa.Helpers
+@{
+    // Sin el nombre del paciente: el título de la pestaña queda en el historial del navegador.
+    ViewData["Title"] = "Paciente";
+    var conHoja = Model.Consultado && Model.Encontrado;
+    var hoy = Model.ConsultadoEn.Date;
+    var estadoClase = Model.Estado.Activo ? "activo" : Model.Estado.Fallecido ? "fallecido" : "inactivo";
+    var pendientes = Model.Novedades.Count(n => !n.Resuelta);
+    var maxMedicamento = Model.MedicamentosFrecuentes.Count > 0 ? Model.MedicamentosFrecuentes.Max(m => m.Veces) : 1;
+    var inv = CultureInfo.InvariantCulture;
+    var datosIngreso = new ViewDataDictionary(ViewData) { ["Hoy"] = hoy };
+}
+
+@section Styles
+{
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Atkinson+Hyperlegible+Mono:wght@400;600&family=Atkinson+Hyperlegible+Next:ital,wght@0,400;0,600;0,700;1,400&display=swap" />
+    <link rel="stylesheet" href="~/css/paciente.css" asp-append-version="true" />
+}
+
+@* Marca de la IPS: el asterisco de tres barras redondeadas del logo, dibujado para que escale
+   nítido a cualquier tamaño. *@
+@{
+    void Sello(string clase)
+    {
+        <svg class="@clase" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+            <rect x="38" y="4" width="24" height="92" rx="12" />
+            <rect x="38" y="4" width="24" height="92" rx="12" transform="rotate(60 50 50)" />
+            <rect x="38" y="4" width="24" height="92" rx="12" transform="rotate(120 50 50)" />
+        </svg>
+    }
+}
+
+<div class="hv @(conHoja ? "hv--hoja" : "hv--portada")">
+    <div class="hv-marco">
+
+        @if (!conHoja)
+        {
+            <section class="hv-portada" aria-labelledby="hvPortadaTitulo">
+                <p class="hv-membrete">
+                    @{ Sello("hv-sello"); }
+                    <span>Especialistas en Casa</span>
+                </p>
+                <h1 id="hvPortadaTitulo" class="hv-portada__titulo">Hoja de vida del paciente</h1>
+                <p class="hv-portada__texto">
+                    Todo lo que un paciente ha vivido con nosotros en una sola página: sus ingresos, los medicamentos
+                    y servicios que recibió, sus novedades y el tiempo que lleva en atención domiciliaria.
+                </p>
+
+                <svg class="hv-latido" viewBox="0 0 600 60" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                    <path d="M0 40 H250 L262 40 L270 22 L280 52 L292 6 L304 50 L312 40 H600" />
+                </svg>
+
+                <partial name="_Consulta" model="Model" view-data='new ViewDataDictionary(ViewData) { ["Compacto"] = false }' />
+
+                @if (Model.Consultado && Model.ErrorBusqueda is null && !Model.Encontrado)
+                {
+                    <div class="hv-vacio" role="status">
+                        <i class="bi bi-person-exclamation" aria-hidden="true"></i>
+                        <div>
+                            <p class="hv-vacio__titulo">No hay ningún paciente con el documento <span class="hv-num">@HojaVidaFormato.Documento(Model.Documento)</span></p>
+                            <p>Revisa que el número esté completo. Si es un paciente nuevo, todavía no tiene hoja de vida: aparece aquí en cuanto se registra en el censo o en el Portal Administrativo.</p>
+                            @if (Model.AvisoPortal is not null)
+                            {
+                                <p class="hv-aviso"><i class="bi bi-cloud-slash" aria-hidden="true"></i> @Model.AvisoPortal</p>
+                            }
+                        </div>
+                    </div>
+                }
+            </section>
+        }
+        else
+        {
+            <div class="hv-barra-consulta">
+                <p class="hv-membrete">
+                    @{ Sello("hv-sello"); }
+                    <span>Hoja de vida del paciente</span>
+                </p>
+                <partial name="_Consulta" model="Model" view-data='new ViewDataDictionary(ViewData) { ["Compacto"] = true }' />
+            </div>
+
+            @* ── Ficha ─────────────────────────────────────────────────────────── *@
+            <header class="hv-ficha">
+                <div class="hv-ficha__identidad">
+                    <p class="hv-estado hv-estado--@estadoClase" role="status">
+                        <span class="hv-estado__senal" aria-hidden="true"></span>
+                        <strong>@Model.Estado.Rotulo</strong>
+                        @if (Model.Estado.ProgramasEnCurso.Count > 0)
+                        {
+                            <span class="hv-estado__programas">@string.Join(" · ", Model.Estado.ProgramasEnCurso)</span>
+                        }
+                    </p>
+                    <h1 class="hv-ficha__nombre">@Model.Identidad.Nombre</h1>
+                    @* El recorte del contenedor oculta el separador de la primera pieza de cada renglón. *@
+                    <p class="hv-ficha__ids"><span class="hv-ficha__fila">
+                        <span class="hv-ficha__documento hv-num">@Model.Identidad.TipoDocumento @HojaVidaFormato.Documento(Model.Identidad.NumeroDocumento)</span>
+                        @if (Model.Identidad.Edad is { } edad)
+                        {
+                            <span>@edad años</span>
+                        }
+                        @if (Model.Identidad.Genero is not null)
+                        {
+                            <span>@Model.Identidad.Genero</span>
+                        }
+                        @if (Model.Identidad.Asegurador is not null)
+                        {
+                            <span>@Model.Identidad.Asegurador</span>
+                        }
+                        @if (Model.Identidad.Municipio is not null)
+                        {
+                            <span>@Model.Identidad.Municipio</span>
+                        }
+                    </span></p>
+                </div>
+
+                <div class="hv-resumen">
+                    <p class="hv-resumen__rotulo">En pocas palabras</p>
+                    @foreach (var frase in Model.Resumen)
+                    {
+                        @* En una sola línea a propósito: cualquier salto entre trozos se vuelve un espacio antes del punto. *@
+                        <p class="hv-resumen__frase">@foreach (var trozo in frase.Trozos) { if (trozo.Resaltado) {<strong>@trozo.Texto</strong>} else {<text>@trozo.Texto</text>} }</p>
+                    }
+                    <p class="hv-resumen__consulta">
+                        <i class="bi bi-clock-history" aria-hidden="true"></i>
+                        <span>Consultado el @HojaVidaFormato.FechaHora(Model.ConsultadoEn)<br />Lo que está en curso se ve con su estado a esta hora.</span>
+                    </p>
+                </div>
+            </header>
+
+            <nav class="hv-indice" aria-label="Secciones de la hoja de vida">
+                <a href="#linea">Línea de vida</a>
+                <a href="#ingresos">Ingresos <span class="hv-conteo">@Model.Ingresos.Count</span></a>
+                <a href="#novedades">Novedades <span class="hv-conteo @(pendientes > 0 ? "hv-conteo--alerta" : null)">@Model.Novedades.Count</span></a>
+                @if (Model.Rondas.Count > 0)
+                {
+                    <a href="#rondas">Rondas intramurales <span class="hv-conteo">@Model.Rondas.Count</span></a>
+                }
+                <a href="#cifras">En cifras</a>
+                <a href="#contacto">Contacto</a>
+            </nav>
+
+            @if (Model.Linea.TieneDatos)
+            {
+                <partial name="_LineaDeVida" model="Model.Linea" />
+            }
+
+            <div class="hv-cuerpo">
+
+                @* ── Lo que hay que saber ─────────────────────────────────────── *@
+                <section class="hv-alertas" aria-labelledby="hvAlertasTitulo">
+                    <h2 id="hvAlertasTitulo" class="hv-lateral__titulo">Lo que hay que saber</h2>
+                    @if (Model.Alertas.Count == 0)
+                    {
+                        <p class="hv-alertas__calma">
+                            <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                            Nada pendiente: sin novedades abiertas, hospitalizaciones ni reingresos tempranos.
+                        </p>
+                    }
+                    else
+                    {
+                        <ul class="hv-alertas__lista">
+                            @foreach (var alerta in Model.Alertas)
+                            {
+                                <li class="hv-alerta hv-alerta--@alerta.Nivel">
+                                    <i class="bi @alerta.Icono hv-alerta__icono" aria-hidden="true"></i>
+                                    <div>
+                                        <p class="hv-alerta__titulo">
+                                            <span class="visually-hidden">@(alerta.Nivel switch { "critica" => "Importante: ", "atencion" => "Atención: ", _ => "Información: " })</span>
+                                            @alerta.Titulo
+                                        </p>
+                                        @if (alerta.Detalle is not null)
+                                        {
+                                            <p class="hv-alerta__detalle">@alerta.Detalle</p>
+                                        }
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    @if (Model.AvisoPortal is not null)
+                    {
+                        <p class="hv-aviso"><i class="bi bi-cloud-slash" aria-hidden="true"></i> @Model.AvisoPortal</p>
+                    }
+                    @if (Model.AvisoSeguimientosHeridas is not null)
+                    {
+                        <p class="hv-aviso"><i class="bi bi-cloud-slash" aria-hidden="true"></i> @Model.AvisoSeguimientosHeridas</p>
+                    }
+                </section>
+
+                <div class="hv-principal">
+
+                    @* ── Ingresos ──────────────────────────────────────────────── *@
+                    <section class="hv-seccion" id="ingresos" aria-labelledby="hvIngresosTitulo">
+                        <div class="hv-seccion__cabeza">
+                            <div>
+                                <h2 id="hvIngresosTitulo" class="hv-seccion__titulo">Ingresos <span class="hv-conteo">@Model.Ingresos.Count</span></h2>
+                                <p class="hv-seccion__ayuda">Del más reciente al más antiguo. Las atenciones en curso aparecen abiertas.</p>
+                            </div>
+                            @if (Model.Ingresos.Count > 1)
+                            {
+                                <button type="button" class="hv-boton-texto" data-hv-plegar aria-pressed="false">
+                                    <i class="bi bi-arrows-expand" aria-hidden="true"></i><span>Abrir todos</span>
+                                </button>
+                            }
+                        </div>
+
+                        @if (Model.Ingresos.Count == 0)
+                        {
+                            <p class="hv-vacio-seccion">No tiene ingresos registrados en el censo.@(Model.Rondas.Count > 0 ? " Solo aparece en el Portal Administrativo." : string.Empty)</p>
+                        }
+                        else
+                        {
+                            <div class="hv-ingresos">
+                                @foreach (var ingreso in Model.Ingresos)
+                                {
+                                    <partial name="_Ingreso" model="ingreso" view-data="datosIngreso" />
+                                }
+                            </div>
+                        }
+                    </section>
+
+                    @* ── Novedades ─────────────────────────────────────────────── *@
+                    <section class="hv-seccion" id="novedades" aria-labelledby="hvNovedadesTitulo">
+                        <div class="hv-seccion__cabeza">
+                            <div>
+                                <h2 id="hvNovedadesTitulo" class="hv-seccion__titulo">Novedades <span class="hv-conteo">@Model.Novedades.Count</span></h2>
+                                <p class="hv-seccion__ayuda">Reportadas por el personal en el Portal Administrativo.</p>
+                            </div>
+                            @if (pendientes > 0 && pendientes < Model.Novedades.Count)
+                            {
+                                <div class="hv-filtro" role="group" aria-label="Filtrar novedades">
+                                    <button type="button" aria-pressed="true" data-hv-filtro="todas">Todas</button>
+                                    <button type="button" aria-pressed="false" data-hv-filtro="pendientes">Sin resolver <span class="hv-num">@pendientes</span></button>
+                                </div>
+                            }
+                        </div>
+
+                        @if (Model.Novedades.Count == 0)
+                        {
+                            <p class="hv-vacio-seccion">@(Model.AvisoPortal is null ? "No tiene novedades reportadas." : "No se pudieron consultar las novedades en este momento.")</p>
+                        }
+                        else
+                        {
+                            <ol class="hv-novedades">
+                                @foreach (var novedad in Model.Novedades)
+                                {
+                                    <li class="hv-novedad @(novedad.Resuelta ? "hv-novedad--resuelta" : "hv-novedad--pendiente")"
+                                        id="novedad-@novedad.Id"
+                                        data-hv-pendiente="@(novedad.Resuelta ? "false" : "true")">
+                                        <div class="hv-novedad__lado">
+                                            <span class="hv-chip @(novedad.Resuelta ? "hv-chip--resuelta" : "hv-chip--pendiente")">
+                                                <i class="bi @(novedad.Resuelta ? "bi-check-circle-fill" : "bi-hourglass-split")" aria-hidden="true"></i>
+                                                @(novedad.Resuelta ? "Resuelta" : "Sin resolver")
+                                            </span>
+                                            <time class="hv-num" datetime="@novedad.Fecha.ToString("yyyy-MM-ddTHH:mm", inv)">@HojaVidaFormato.Fecha(novedad.Fecha)</time>
+                                        </div>
+                                        <div class="hv-novedad__cuerpo">
+                                            <h3 class="hv-novedad__tipo">
+                                                @novedad.Tipo
+                                                <span class="hv-novedad__categoria">@novedad.Categoria</span>
+                                                @if (novedad.Prioridad == "ALTA")
+                                                {
+                                                    <span class="hv-chip hv-chip--prioridad">Prioridad alta</span>
+                                                }
+                                            </h3>
+                                            @if (!string.IsNullOrWhiteSpace(novedad.Descripcion))
+                                            {
+                                                <p class="hv-novedad__texto">@novedad.Descripcion</p>
+                                            }
+                                            @if (novedad.Medicamentos.Count > 0)
+                                            {
+                                                <p class="hv-novedad__meds"><i class="bi bi-capsule" aria-hidden="true"></i> @string.Join(", ", novedad.Medicamentos)</p>
+                                            }
+                                            @if (novedad.Respuesta is not null)
+                                            {
+                                                <p class="hv-novedad__respuesta"><strong>Respuesta:</strong> @novedad.Respuesta</p>
+                                            }
+                                            <p class="hv-novedad__meta">
+                                                @if (novedad.ReportadoPor is not null)
+                                                {
+                                                    <span>Reportó @novedad.ReportadoPor</span>
+                                                }
+                                                @if (novedad.Responsable is not null)
+                                                {
+                                                    <span>Gestiona @novedad.Responsable</span>
+                                                }
+                                                <span>Última gestión: <span class="hv-num">@HojaVidaFormato.Fecha(novedad.UltimaGestion)</span></span>
+                                                @if (novedad.IngresoClave is not null)
+                                                {
+                                                    <a href="#@novedad.IngresoClave" data-hv-ir="@novedad.IngresoClave">Durante @novedad.IngresoNombre</a>
+                                                }
+                                            </p>
+                                        </div>
+                                    </li>
+                                }
+                            </ol>
+                        }
+                    </section>
+
+                    @* ── Rondas intramurales ───────────────────────────────────── *@
+                    @if (Model.Rondas.Count > 0)
+                    {
+                        <section class="hv-seccion" id="rondas" aria-labelledby="hvRondasTitulo">
+                            <div class="hv-seccion__cabeza">
+                                <div>
+                                    <h2 id="hvRondasTitulo" class="hv-seccion__titulo">Rondas intramurales <span class="hv-conteo">@Model.Rondas.Count</span></h2>
+                                    <p class="hv-seccion__ayuda">El médico de ronda identificó al paciente en una IPS como candidato a atención en casa.</p>
+                                </div>
+                            </div>
+                            <ol class="hv-novedades">
+                                @foreach (var ronda in Model.Rondas)
+                                {
+                                    var (rondaClase, rondaTexto, rondaIcono) = ronda.IngresoEfectivo switch
+                                    {
+                                        true => ("resuelta", "Ingresó", "bi-check-circle-fill"),
+                                        false => ("noefectiva", "No ingresó", "bi-slash-circle"),
+                                        _ => ronda.IngresoClave is not null
+                                            ? ("resuelta", "Ingresó", "bi-check-circle-fill")
+                                            : ("pendiente", "Sin confirmar", "bi-question-circle")
+                                    };
+                                    <li class="hv-novedad" id="ronda-@ronda.Id">
+                                        <div class="hv-novedad__lado">
+                                            <span class="hv-chip hv-chip--@rondaClase"><i class="bi @rondaIcono" aria-hidden="true"></i>@rondaTexto</span>
+                                            <time class="hv-num" datetime="@ronda.Fecha.ToString("yyyy-MM-dd", inv)">@HojaVidaFormato.Fecha(ronda.Fecha)</time>
+                                        </div>
+                                        <div class="hv-novedad__cuerpo">
+                                            <h3 class="hv-novedad__tipo">@ronda.Ips</h3>
+                                            @if (ronda.Cie10 is not null || ronda.Diagnostico is not null)
+                                            {
+                                                <p class="hv-novedad__texto"><span class="hv-codigo">@ronda.Cie10</span> @ronda.Diagnostico</p>
+                                            }
+                                            @if (ronda.Medicamentos.Count > 0)
+                                            {
+                                                <p class="hv-novedad__meds"><i class="bi bi-capsule" aria-hidden="true"></i> @string.Join(", ", ronda.Medicamentos)</p>
+                                            }
+                                            @if (ronda.IngresoEfectivo == false && (ronda.CausaNoIngreso is not null || ronda.Observacion is not null))
+                                            {
+                                                <p class="hv-novedad__respuesta"><strong>Por qué no ingresó:</strong> @string.Join(". ", new[] { ronda.CausaNoIngreso, ronda.Observacion }.Where(x => x is not null))</p>
+                                            }
+                                            <p class="hv-novedad__meta">
+                                                <span>En la IPS desde el <span class="hv-num">@HojaVidaFormato.Fecha(ronda.FechaIngresoIps)</span></span>
+                                                @if (ronda.ReportadoPor is not null)
+                                                {
+                                                    <span>Reportó @ronda.ReportadoPor</span>
+                                                }
+                                                @if (ronda.IngresoClave is not null)
+                                                {
+                                                    <a href="#@ronda.IngresoClave" data-hv-ir="@ronda.IngresoClave">Dio paso a @ronda.IngresoNombre</a>
+                                                }
+                                            </p>
+                                        </div>
+                                    </li>
+                                }
+                            </ol>
+                        </section>
+                    }
+                </div>
+
+                @* ── Lateral ─────────────────────────────────────────────────── *@
+                <aside class="hv-lateral" aria-label="Resumen del paciente">
+                    <section class="hv-panel" id="cifras" aria-labelledby="hvCifrasTitulo">
+                        <h2 id="hvCifrasTitulo" class="hv-lateral__titulo">En cifras</h2>
+                        <dl class="hv-cifras">
+                            @foreach (var cifra in Model.Cifras)
+                            {
+                                <div class="hv-cifra">
+                                    <dt>@cifra.Etiqueta</dt>
+                                    <dd>
+                                        <span class="hv-cifra__valor">@cifra.Valor</span>
+                                        @if (cifra.Nota is not null)
+                                        {
+                                            <span class="hv-cifra__nota">@cifra.Nota</span>
+                                        }
+                                    </dd>
+                                </div>
+                            }
+                        </dl>
+                    </section>
+
+                    @if (Model.MedicamentosFrecuentes.Count > 0)
+                    {
+                        <section class="hv-panel" aria-labelledby="hvMedicamentosTitulo">
+                            <h2 id="hvMedicamentosTitulo" class="hv-lateral__titulo">Medicamentos más usados</h2>
+                            <p class="hv-panel__ayuda">En cuántos ingresos se le formuló cada uno.</p>
+                            <ol class="hv-frecuencias">
+                                @foreach (var medicamento in Model.MedicamentosFrecuentes)
+                                {
+                                    var ancho = (medicamento.Veces * 100.0 / maxMedicamento).ToString("0.#", inv);
+                                    <li>
+                                        <span class="hv-frecuencias__nombre">@medicamento.Nombre</span>
+                                        <span class="hv-frecuencias__barra" style="--w:@(ancho)%" aria-hidden="true"></span>
+                                        <span class="hv-frecuencias__valor hv-num">@medicamento.Veces <span class="visually-hidden">@(medicamento.Veces == 1 ? "ingreso" : "ingresos")</span></span>
+                                    </li>
+                                }
+                            </ol>
+                        </section>
+                    }
+
+                    @if (Model.Diagnosticos.Count > 0)
+                    {
+                        <section class="hv-panel" aria-labelledby="hvDiagnosticosTitulo">
+                            <h2 id="hvDiagnosticosTitulo" class="hv-lateral__titulo">Diagnósticos registrados</h2>
+                            <ul class="hv-diagnosticos">
+                                @foreach (var diagnostico in Model.Diagnosticos)
+                                {
+                                    <li>
+                                        <span class="hv-codigo">@diagnostico.Codigo</span>
+                                        <span>@(diagnostico.Descripcion ?? "Sin descripción")</span>
+                                        @if (diagnostico.Veces > 1)
+                                        {
+                                            <span class="hv-diagnosticos__veces hv-num" title="Registrado en @diagnostico.Veces atenciones">×@diagnostico.Veces</span>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </section>
+                    }
+
+                    <section class="hv-panel" id="contacto" aria-labelledby="hvContactoTitulo">
+                        <h2 id="hvContactoTitulo" class="hv-lateral__titulo">Contacto y ubicación</h2>
+                        <dl class="hv-hechos hv-hechos--apilado">
+                            @if (Model.Identidad.Direccion is not null)
+                            {
+                                <div>
+                                    <dt>Dirección</dt>
+                                    <dd>
+                                        @Model.Identidad.Direccion
+                                        @if (Model.Identidad.DetalleDireccion is not null)
+                                        {
+                                            <span class="hv-tenue">@Model.Identidad.DetalleDireccion</span>
+                                        }
+                                    </dd>
+                                </div>
+                            }
+                            @if (Model.Identidad.Barrio is not null || Model.Identidad.Municipio is not null)
+                            {
+                                <div><dt>Barrio y municipio</dt><dd>@string.Join(", ", new[] { Model.Identidad.Barrio, Model.Identidad.Municipio }.Where(x => x is not null))</dd></div>
+                            }
+                            @if (Model.Identidad.Zona is not null)
+                            {
+                                <div><dt>Zona</dt><dd>@Model.Identidad.Zona</dd></div>
+                            }
+                            @if (Model.Identidad.Telefonos.Count > 0)
+                            {
+                                <div>
+                                    <dt>Teléfonos</dt>
+                                    <dd class="hv-telefonos">
+                                        @foreach (var telefono in Model.Identidad.Telefonos)
+                                        {
+                                            <a class="hv-num" href="tel:@telefono">@telefono</a>
+                                        }
+                                    </dd>
+                                </div>
+                            }
+                            @if (Model.Identidad.Correo is not null)
+                            {
+                                <div><dt>Correo</dt><dd class="hv-quiebre">@Model.Identidad.Correo</dd></div>
+                            }
+                            @if (Model.Identidad.FechaNacimiento is not null)
+                            {
+                                <div><dt>Fecha de nacimiento</dt><dd class="hv-num">@HojaVidaFormato.Fecha(Model.Identidad.FechaNacimiento)</dd></div>
+                            }
+                            @if (Model.Identidad.IpsQueRemite is not null)
+                            {
+                                <div><dt>IPS que remitió</dt><dd>@Model.Identidad.IpsQueRemite</dd></div>
+                            }
+                        </dl>
+                        @if (!Model.Identidad.DesdeMaestro)
+                        {
+                            <p class="hv-panel__ayuda">Tomado del registro más reciente: el paciente no tiene ficha maestra en el censo.</p>
+                        }
+                    </section>
+                </aside>
+            </div>
+
+            <div class="hv-tip" role="tooltip" id="hvTip" hidden></div>
+        }
+    </div>
+</div>
+
+@section Scripts
+{
+    <script src="~/js/paciente.js" asp-append-version="true"></script>
+}

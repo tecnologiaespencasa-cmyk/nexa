@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Nexa.Models.Security;
 using Nexa.Models.ViewModels;
 using Nexa.Services.Interfaces;
 using Nexa.Services.Models;
@@ -21,10 +22,12 @@ public class ProfileController : Controller
         """;
 
     private readonly IProfileService _profileService;
+    private readonly IAuthorizationService _authorizationService;
 
-    public ProfileController(IProfileService profileService)
+    public ProfileController(IProfileService profileService, IAuthorizationService authorizationService)
     {
         _profileService = profileService;
+        _authorizationService = authorizationService;
     }
 
     [HttpGet]
@@ -171,7 +174,7 @@ public class ProfileController : Controller
             Username = profile.Value.Username,
             Email = profile.Value.Email,
             HasProfilePhoto = profile.Value.HasProfilePhoto,
-            RoleName = GetCurrentUserRoles(),
+            RoleName = await GetCurrentUserRoleLabelAsync(),
             EmailChange = emailChange ?? new(),
             PasswordChange = passwordChange ?? new(),
             PhotoChange = photoChange ?? new()
@@ -212,14 +215,16 @@ public class ProfileController : Controller
             : Guid.Empty;
     }
 
-    private string GetCurrentUserRoles()
+    private async Task<string> GetCurrentUserRoleLabelAsync()
     {
-        var roles = User.FindAll(ClaimTypes.Role)
-            .Select(claim => claim.Value)
-            .Where(role => !string.IsNullOrWhiteSpace(role))
-            .Distinct(StringComparer.OrdinalIgnoreCase);
+        var isAdmin = (await _authorizationService.AuthorizeAsync(User, SystemPermissions.UserAdministration)).Succeeded;
+        if (isAdmin)
+        {
+            return "Administrador";
+        }
 
-        return string.Join(" · ", roles.DefaultIfEmpty("Sin rol asignado"));
+        var hasAnyPermission = User.Claims.Any(claim => claim.Type == "permission");
+        return hasAnyPermission ? "Colaborador" : "Sin permisos asignados";
     }
 
     private string? GetClientIpAddress()

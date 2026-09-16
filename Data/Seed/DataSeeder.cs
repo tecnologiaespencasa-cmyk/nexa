@@ -61,12 +61,6 @@ public static class DataSeeder
             return;
         }
 
-        var adminRole = await context.Roles.FirstOrDefaultAsync(r => r.NormalizedName == "ADMINISTRADOR");
-        if (adminRole is null)
-        {
-            return;
-        }
-
         var normalizedEmail = adminEmail.ToUpperInvariant();
         var normalizedUsername = adminUsername.ToUpperInvariant();
         var normalizedNationalId = adminNationalId.ToUpperInvariant();
@@ -89,7 +83,6 @@ public static class DataSeeder
         };
 
         context.Users.Add(adminUser);
-        context.UserRoles.Add(new AppUserRole { User = adminUser, RoleId = adminRole.Id });
 
         var screenPermissions = await context.Permissions
             .Where(p => SystemPermissions.ScreenPermissions.Contains(p.Code))
@@ -265,7 +258,8 @@ public static class DataSeeder
             new { Code = SystemPermissions.Aprobacion, Description = "Aprobacion" },
             new { Code = SystemPermissions.AnalistaAsistencial, Description = "AnalistaAsistencial" },
             new { Code = SystemPermissions.EspacioCorporativo, Description = "Mi espacio corporativo - Básico" },
-            new { Code = SystemPermissions.EspacioCorporativoAdmin, Description = "Mi espacio corporativo - Administrador" }
+            new { Code = SystemPermissions.EspacioCorporativoAdmin, Description = "Mi espacio corporativo - Administrador" },
+            new { Code = SystemPermissions.HojaVidaPaciente, Description = "Paciente - Hoja de vida" }
         };
 
         var existingCodes = await context.Permissions

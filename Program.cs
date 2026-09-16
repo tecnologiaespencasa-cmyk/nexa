@@ -43,6 +43,7 @@ builder.Services.AddScoped<IUserAdministrationRepository, UserAdministrationRepo
 builder.Services.AddScoped<INeonOpsAssistantUserRepository, NeonOpsAssistantUserRepository>();
 builder.Services.AddScoped<INeonClinicaHeridasRepository, NeonClinicaHeridasRepository>();
 builder.Services.AddScoped<IPortalNovedadRepository, PortalNovedadRepository>();
+builder.Services.AddScoped<IPortalPacienteRepository, PortalPacienteRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserAdministrationService, UserAdministrationService>();
@@ -51,6 +52,7 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddScoped<ICurrentUserPermissionService, CurrentUserPermissionService>();
 builder.Services.AddScoped<ICensoPacienteService, CensoPacienteService>();
+builder.Services.AddScoped<IHojaVidaPacienteService, HojaVidaPacienteService>();
 builder.Services.AddScoped<ICensoTabuladoService, CensoTabuladoService>();
 builder.Services.AddScoped<IFarmaciaDispatchNotificationService, FarmaciaDispatchNotificationService>();
 builder.Services.AddScoped<ICensoProgramaNotificationService, CensoProgramaNotificationService>();
@@ -93,7 +95,6 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole(SystemRoles.Admin));
     options.AddPolicy(SystemPermissions.AuditRead, policy =>
     {
         policy.RequireAuthenticatedUser();

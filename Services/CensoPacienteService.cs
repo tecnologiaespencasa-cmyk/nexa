@@ -759,8 +759,7 @@ public class CensoPacienteService : ICensoPacienteService
                 .ToListAsync(cancellationToken);
             foreach (var fila in cronicos)
             {
-                var cerrado = CensoVisibility.HayEgreso(fila.FechaEgreso)
-                    || string.Equals(fila.EstadoPaciente, "Inactivo", StringComparison.OrdinalIgnoreCase);
+                var cerrado = EsCronicoCerrado(fila.EstadoPaciente, fila.FechaEgreso);
                 Conciliar(episodios, pacienteId, CensoProgramas.Cronicos, fila.Id, cerrado,
                     fila.MotivoEgreso ?? fila.EstadoPaciente);
             }
@@ -791,8 +790,7 @@ public class CensoPacienteService : ICensoPacienteService
                 .ToListAsync(cancellationToken);
             foreach (var fila in terapia)
             {
-                var cerrado = string.Equals(fila.EstadoAlta, "Cerrado", StringComparison.OrdinalIgnoreCase)
-                    || !string.Equals(fila.EstadoPaciente, "Activo", StringComparison.OrdinalIgnoreCase);
+                var cerrado = EsTerapiaCerrada(fila.EstadoPaciente, fila.EstadoAlta);
                 Conciliar(episodios, pacienteId, CensoProgramas.TerapiaAmbulatoria, fila.Id, cerrado,
                     fila.MotivoAlta ?? fila.EstadoPaciente);
             }
@@ -889,17 +887,40 @@ public class CensoPacienteService : ICensoPacienteService
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.CensoPacienteId, pacienteId), ct);
     }
 
+    // Reglas de cierre de cada censo. Son públicas porque la hoja de vida del paciente decide con
+    // ellas si una atención está en curso sin pasar por esta reconciliación (que escribe): si las
+    // dos pantallas usaran reglas distintas, dirían cosas distintas del mismo paciente.
+
     /// <summary>Mismo criterio de cierre que usa el censo de agudos: alta, cancelación o rechazo.</summary>
-    private static bool EsAgudoCerrado(string? estado) =>
+    public static bool EsAgudoCerrado(string? estado) =>
         !string.IsNullOrWhiteSpace(estado)
         && (estado.Contains("alta", StringComparison.OrdinalIgnoreCase)
             || estado.Contains("cancelado", StringComparison.OrdinalIgnoreCase)
             || estado.Contains("rechazado", StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>
+    /// Una atención de agudos cancelada o rechazada nunca llegó a prestarse: se cierra igual que un
+    /// alta, pero no cuenta como estancia.
+    /// </summary>
+    public static bool EsAgudoNoEfectivo(string? estado) =>
+        !string.IsNullOrWhiteSpace(estado)
+        && (estado.Contains("cancelado", StringComparison.OrdinalIgnoreCase)
+            || estado.Contains("rechazado", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Crónicos: se cierra con el egreso o cuando el estado del paciente pasa a inactivo.</summary>
+    public static bool EsCronicoCerrado(string? estadoPaciente, DateTime? fechaEgreso) =>
+        CensoVisibility.HayEgreso(fechaEgreso)
+        || string.Equals(estadoPaciente, "Inactivo", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Clínica de heridas y NPT: se cierran con el egreso o con un estado distinto de activo.</summary>
-    private static bool EsProgramaCerrado(string? estado, DateTime? fechaEgreso) =>
+    public static bool EsProgramaCerrado(string? estado, DateTime? fechaEgreso) =>
         CensoVisibility.HayEgreso(fechaEgreso)
         || (!string.IsNullOrWhiteSpace(estado) && !string.Equals(estado, "Activo", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Terapia ambulatoria: se cierra con el alta cerrada o con el paciente fuera de "Activo".</summary>
+    public static bool EsTerapiaCerrada(string? estadoPaciente, string? estadoAlta) =>
+        string.Equals(estadoAlta, "Cerrado", StringComparison.OrdinalIgnoreCase)
+        || !string.Equals(estadoPaciente, "Activo", StringComparison.OrdinalIgnoreCase);
 
     private static string? GeneroBinario(string? genero) =>
         string.Equals(genero, "Masculino", StringComparison.OrdinalIgnoreCase)

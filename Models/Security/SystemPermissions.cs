@@ -13,6 +13,9 @@ public static class SystemPermissions
     public const string EspacioCorporativo = "SCREEN_ESPACIO_CORPORATIVO";
     public const string EspacioCorporativoAdmin = "SCREEN_ESPACIO_CORPORATIVO_ADMIN";
 
+    /// <summary>Hoja de vida del paciente: consulta de solo lectura de toda su historia con la IPS.</summary>
+    public const string HojaVidaPaciente = "SCREEN_HOJA_VIDA_PACIENTE";
+
     /// <summary>
     /// Politica compuesta: permite el ingreso al espacio corporativo tanto al usuario basico
     /// como al administrador (no es un permiso almacenado en base de datos).
@@ -30,6 +33,7 @@ public static class SystemPermissions
         Aprobacion,
         AnalistaAsistencial,
         EspacioCorporativo,
-        EspacioCorporativoAdmin
+        EspacioCorporativoAdmin,
+        HojaVidaPaciente
     };
 }

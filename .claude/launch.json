@@ -7,6 +7,11 @@
       "runtimeArgs": ["run"],
       "port": 5086,
       "url": "http://localhost:5086"
+    },
+    {
+      "name": "intranet-web-en-curso",
+      "port": 5086,
+      "url": "http://localhost:5086"
     }
   ]
 }

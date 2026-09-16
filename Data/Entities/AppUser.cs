@@ -65,8 +65,6 @@ public class AppUser
 
     public decimal ProfilePhotoZoom { get; set; } = 1m;
 
-    public ICollection<AppUserRole> UserRoles { get; set; } = new List<AppUserRole>();
-
     public ICollection<AppUserPermission> UserPermissions { get; set; } = new List<AppUserPermission>();
 
     public ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();

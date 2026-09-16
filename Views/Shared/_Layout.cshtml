@@ -7,20 +7,17 @@
     var controllerName = ViewContext.RouteData.Values["controller"]?.ToString();
     var actionName = ViewContext.RouteData.Values["action"]?.ToString();
     var isCensoView = string.Equals(controllerName, "Censo", System.StringComparison.OrdinalIgnoreCase);
+    var isPacienteView = string.Equals(controllerName, "Paciente", System.StringComparison.OrdinalIgnoreCase);
     var isHomeView = string.Equals(controllerName, "Home", System.StringComparison.OrdinalIgnoreCase)
         && string.Equals(actionName, "Index", System.StringComparison.OrdinalIgnoreCase);
     var isLoginPage = string.Equals(controllerName, "Auth", System.StringComparison.OrdinalIgnoreCase)
         && string.Equals(actionName, "Login", System.StringComparison.OrdinalIgnoreCase);
     var showNavigation = User.Identity?.IsAuthenticated == true && !isLoginPage;
     var currentUserName = User.FindFirstValue("full_name") ?? User.Identity?.Name ?? "Usuario";
-    var currentUserRoles = User.FindAll(ClaimTypes.Role)
-        .Select(claim => claim.Value)
-        .Where(role => !string.IsNullOrWhiteSpace(role))
-        .Distinct(System.StringComparer.OrdinalIgnoreCase);
-    var currentUserRole = string.Join(" · ", currentUserRoles.DefaultIfEmpty("Sin rol asignado"));
     var bodyClasses = string.Join(" ", new[]
     {
         isCensoView ? "page-censo" : null,
+        isPacienteView ? "page-paciente" : null,
         isHomeView ? "page-home" : null
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
 }
@@ -64,6 +61,11 @@
                                 var canInventario = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.InventarioBiomedico)).Succeeded;
                                 var canFarmacia = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Farmacia)).Succeeded;
                                 var canEspacioCorporativo = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.EspacioCorporativoAccess)).Succeeded;
+                                var canHojaVidaPaciente = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.HojaVidaPaciente)).Succeeded;
+                                var hasAnyPermission = User.Claims.Any(claim => claim.Type == "permission");
+                                var currentUserRole = canManageUsers
+                                    ? "Administrador"
+                                    : (hasAnyPermission ? "Colaborador" : "Sin permisos asignados");
                             }
 
                             <li class="nav-item">
@@ -115,6 +117,20 @@
                                             <i class="bi bi-clipboard2-pulse-fill" aria-hidden="true"></i>
                                         </span>
                                         <span>Censo</span>
+                                    </a>
+                                </li>
+                            }
+
+                            @if (canHojaVidaPaciente)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link intranet-nav-link @(isPacienteView ? "active" : null)"
+                                       asp-controller="Paciente"
+                                       asp-action="Index">
+                                        <span class="intranet-nav-link__icon" aria-hidden="true">
+                                            <i class="bi bi-person-vcard-fill" aria-hidden="true"></i>
+                                        </span>
+                                        <span>Paciente</span>
                                     </a>
                                 </li>
                             }
@@ -226,7 +242,7 @@
         </header>
     }
 
-    <div class="@((isCensoView || isHomeView) ? "container-fluid px-0" : "container")">
+    <div class="@((isCensoView || isHomeView || isPacienteView) ? "container-fluid px-0" : "container")">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>

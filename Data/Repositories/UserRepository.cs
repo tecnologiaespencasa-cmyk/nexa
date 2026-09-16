@@ -18,10 +18,6 @@ public class UserRepository : IUserRepository
         var normalizedUsername = username.Trim().ToUpperInvariant();
 
         return _context.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-                    .ThenInclude(r => r.RolePermissions)
-                        .ThenInclude(rp => rp.Permission)
             .Include(u => u.UserPermissions)
                 .ThenInclude(up => up.Permission)
             .FirstOrDefaultAsync(
@@ -32,8 +28,6 @@ public class UserRepository : IUserRepository
     public Task<AppUser?> GetByIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return _context.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
             .Include(u => u.UserPermissions)
                 .ThenInclude(up => up.Permission)
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);

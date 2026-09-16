@@ -1,0 +1,27 @@
+@model IReadOnlyList<HojaVidaMedicamento>
+@using Nexa.Helpers
+
+@* Tabla en escritorio; en el celular cada fila se vuelve una tarjeta con sus rótulos. *@
+<table class="hv-tabla hv-tabla--medicamentos">
+    <thead>
+        <tr>
+            <th scope="col">Medicamento</th>
+            <th scope="col">Dosis</th>
+            <th scope="col">Vía</th>
+            <th scope="col">Frecuencia</th>
+            <th scope="col" class="hv-tabla__num">Días pactados</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var medicamento in Model)
+        {
+            <tr>
+                <th scope="row" data-rotulo="Medicamento">@medicamento.Nombre</th>
+                <td data-rotulo="Dosis" class="hv-num">@(medicamento.Dosis ?? "—")</td>
+                <td data-rotulo="Vía">@(medicamento.Via ?? "—")</td>
+                <td data-rotulo="Frecuencia">@(medicamento.Frecuencia ?? "—")</td>
+                <td data-rotulo="Días pactados" class="hv-tabla__num hv-num">@(medicamento.Dias is { } dias ? HojaVidaFormato.Dias(dias) : "—")</td>
+            </tr>
+        }
+    </tbody>
+</table>

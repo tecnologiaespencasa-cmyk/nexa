@@ -1,0 +1,534 @@
+@model HojaVidaIngreso
+@using System.Globalization
+@using System.Linq
+@using Nexa.Helpers
+@{
+    var hoy = ViewData["Hoy"] is DateTime h ? h : DateTime.Today;
+    var abierto = Model.Situacion is HojaVidaSituacion.EnCurso or HojaVidaSituacion.SinDiligenciar;
+    var (situacionClase, situacionTexto, situacionIcono) = Model.Situacion switch
+    {
+        HojaVidaSituacion.EnCurso => ("encurso", "En curso", "bi-play-circle-fill"),
+        HojaVidaSituacion.SinDiligenciar => ("sindiligenciar", "Sin diligenciar", "bi-circle"),
+        HojaVidaSituacion.NoEfectiva => ("noefectiva", "No se prestó", "bi-slash-circle"),
+        _ => ("cerrada", "Alta", "bi-check-circle-fill")
+    };
+    var tituloId = $"{Model.Clave}-titulo";
+    var inv = CultureInfo.InvariantCulture;
+}
+
+<article class="hv-ingreso hv-prog--@Model.ProgramaClase hv-ingreso--@situacionClase" id="@Model.Clave" aria-labelledby="@tituloId">
+    <details class="hv-ingreso__pliegue" open="@abierto">
+        <summary class="hv-ingreso__cabeza">
+            <span class="hv-ingreso__marca" aria-hidden="true"></span>
+            <span class="hv-ingreso__titulo" id="@tituloId">
+                <span class="hv-ingreso__programa">@Model.ProgramaNombre</span>
+                @if (Model.TotalEnPrograma > 1)
+                {
+                    <span class="hv-ingreso__orden">Ingreso @Model.NumeroEnPrograma de @Model.TotalEnPrograma</span>
+                }
+            </span>
+            <span class="hv-chip hv-chip--@situacionClase">
+                <i class="bi @situacionIcono" aria-hidden="true"></i>@situacionTexto
+            </span>
+            <span class="hv-ingreso__tramo hv-num">
+                @HojaVidaFormato.Fecha(Model.FechaIngreso)
+                <span class="hv-ingreso__flecha-tramo" aria-hidden="true">→</span>
+                <span class="visually-hidden">hasta</span>
+                @switch (Model.Situacion)
+                {
+                    case HojaVidaSituacion.EnCurso:
+                    case HojaVidaSituacion.SinDiligenciar:
+                        <span>hoy</span>
+                        break;
+                    case HojaVidaSituacion.NoEfectiva:
+                        <span class="hv-tenue">no inició</span>
+                        break;
+                    default:
+                        if (Model.FechaAlta is null)
+                        {
+                            <span class="hv-tenue">alta sin fecha</span>
+                        }
+                        else if (Model.FechaAltaEstimada)
+                        {
+                            <span title="Fecha estimada con el último día de tratamiento: el alta no tiene fecha registrada.">≈ @HojaVidaFormato.Fecha(Model.FechaAlta)</span>
+                        }
+                        else
+                        {
+                            <span>@HojaVidaFormato.Fecha(Model.FechaAlta)</span>
+                        }
+                        break;
+                }
+            </span>
+            <span class="hv-ingreso__estancia">
+                @if (Model.DiasEstancia is { } dias)
+                {
+                    <strong class="hv-num">@HojaVidaFormato.Dias(dias)</strong>
+                    <span class="hv-tenue">@(Model.Situacion == HojaVidaSituacion.EnCurso ? "hasta hoy" : "de estancia")</span>
+                }
+                else if (Model.Situacion == HojaVidaSituacion.NoEfectiva)
+                {
+                    <span class="hv-tenue">@Model.EstadoCenso</span>
+                }
+            </span>
+            @if (Model.Cie10 is not null || Model.Diagnostico is not null)
+            {
+                <span class="hv-ingreso__dx">
+                    @if (Model.Cie10 is not null)
+                    {
+                        <span class="hv-codigo">@Model.Cie10</span>
+                    }
+                    @Model.Diagnostico
+                </span>
+            }
+            <i class="bi bi-chevron-down hv-ingreso__flecha" aria-hidden="true"></i>
+        </summary>
+
+        <div class="hv-ingreso__cuerpo">
+            <dl class="hv-hechos">
+                @if (Model.EstadoCenso is not null && Model.Situacion != HojaVidaSituacion.NoEfectiva)
+                {
+                    <div><dt>Estado en el censo</dt><dd>@Model.EstadoCenso</dd></div>
+                }
+                @if (Model.Asegurador is not null)
+                {
+                    <div><dt>Asegurador</dt><dd>@Model.Asegurador</dd></div>
+                }
+                @if (Model.Profesional is not null)
+                {
+                    <div><dt>@(Model.ProfesionalRol ?? "Profesional")</dt><dd>@Model.Profesional</dd></div>
+                }
+                @if (Model.Recepcion?.RecibidoPor is not null)
+                {
+                    <div><dt>Recibió el caso</dt><dd>@Model.Recepcion.RecibidoPor</dd></div>
+                }
+                @if (Model.Recepcion?.MinutosRespuesta is { } minutos)
+                {
+                    <div><dt>Tiempo de respuesta</dt><dd class="hv-num">@HojaVidaFormato.Minutos(minutos)</dd></div>
+                }
+                @if (Model.Recepcion?.KardexPor is not null)
+                {
+                    <div><dt>Hizo el kardex</dt><dd>@Model.Recepcion.KardexPor</dd></div>
+                }
+                @if (Model.MotivoAlta is not null && Model.Situacion == HojaVidaSituacion.Cerrada && Model.MotivoAlta != Model.EstadoCenso)
+                {
+                    <div><dt>Motivo del alta</dt><dd>@Model.MotivoAlta</dd></div>
+                }
+                @if (Model.QuienGestionaAlta is not null)
+                {
+                    <div><dt>Gestionó el alta</dt><dd>@Model.QuienGestionaAlta</dd></div>
+                }
+            </dl>
+
+            @if (Model.Ronda is { } ronda)
+            {
+                <p class="hv-nota hv-nota--ronda">
+                    <i class="bi bi-signpost-2" aria-hidden="true"></i>
+                    <span>
+                        Llegó por una <strong>ronda intramural</strong> en @ronda.Ips, reportada el @HojaVidaFormato.Fecha(ronda.Fecha)@(ronda.ReportadoPor is not null ? $" por {ronda.ReportadoPor}" : string.Empty).
+                    </span>
+                </p>
+            }
+
+            @if (Model.Medicamentos.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo"><i class="bi bi-capsule" aria-hidden="true"></i> Medicamentos pactados al ingreso</h3>
+                    <partial name="_Medicamentos" model="Model.Medicamentos" />
+                </section>
+            }
+
+            @if (Model.Prorrogas.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo">
+                        <i class="bi bi-calendar-plus" aria-hidden="true"></i> Prórrogas
+                        <span class="hv-conteo">@Model.Prorrogas.Count</span>
+                    </h3>
+                    <ol class="hv-prorrogas">
+                        @foreach (var prorroga in Model.Prorrogas)
+                        {
+                            <li class="hv-prorroga">
+                                <p class="hv-prorroga__cabeza">
+                                    <strong>Prórroga @prorroga.Numero</strong>
+                                    @if (prorroga.Tipo is not null)
+                                    {
+                                        <span>@prorroga.Tipo</span>
+                                    }
+                                    @if (prorroga.DiasExtension is { } extension)
+                                    {
+                                        <span class="hv-num">+@HojaVidaFormato.Dias(extension)</span>
+                                    }
+                                    @if (prorroga.FechaInicio is not null || prorroga.FechaFin is not null)
+                                    {
+                                        <span class="hv-num">@HojaVidaFormato.Fecha(prorroga.FechaInicio) → @HojaVidaFormato.Fecha(prorroga.FechaFin)</span>
+                                    }
+                                </p>
+                                @if (prorroga.Medicamentos.Count > 0)
+                                {
+                                    <partial name="_Medicamentos" model="prorroga.Medicamentos" />
+                                }
+                            </li>
+                        }
+                    </ol>
+                </section>
+            }
+
+            @if (Model.Agudizaciones.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo">
+                        <i class="bi bi-activity" aria-hidden="true"></i> Agudizaciones
+                        <span class="hv-conteo">@Model.Agudizaciones.Count</span>
+                    </h3>
+                    <ol class="hv-prorrogas">
+                        @foreach (var agudizacion in Model.Agudizaciones)
+                        {
+                            <li class="hv-prorroga">
+                                <p class="hv-prorroga__cabeza">
+                                    <strong>Agudización @agudizacion.Numero</strong>
+                                    @if (agudizacion.Cie10 is not null)
+                                    {
+                                        <span><span class="hv-codigo">@agudizacion.Cie10</span> @agudizacion.Diagnostico</span>
+                                    }
+                                    @if (agudizacion.FechaInicio is not null || agudizacion.FechaFin is not null)
+                                    {
+                                        <span class="hv-num">@HojaVidaFormato.Fecha(agudizacion.FechaInicio) → @HojaVidaFormato.Fecha(agudizacion.FechaFin)</span>
+                                    }
+                                    @if (agudizacion.EstadoFarmacia is not null)
+                                    {
+                                        <span>Farmacia: @agudizacion.EstadoFarmacia.ToLowerInvariant()</span>
+                                    }
+                                </p>
+                                @if (agudizacion.Medicamentos.Count > 0)
+                                {
+                                    <partial name="_Medicamentos" model="agudizacion.Medicamentos" />
+                                }
+                            </li>
+                        }
+                    </ol>
+                </section>
+            }
+
+            @if (Model.Npt is { } npt)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo"><i class="bi bi-droplet-half" aria-hidden="true"></i> Nutrición parenteral</h3>
+                    <p class="hv-destacado">
+                        @if (npt.Dias is { } diasNpt)
+                        {
+                            <strong class="hv-num">@HojaVidaFormato.Dias(diasNpt)</strong>
+                            <span>@(npt.EnCurso ? "de NPT hasta hoy" : "de NPT")</span>
+                        }
+                        else
+                        {
+                            <span>Sin fechas de NPT registradas</span>
+                        }
+                    </p>
+                    <dl class="hv-hechos">
+                        <div><dt>Inicio</dt><dd class="hv-num">@HojaVidaFormato.Fecha(npt.Inicio)</dd></div>
+                        <div><dt>Fin</dt><dd class="hv-num">@(npt.Fin is null ? (npt.EnCurso ? "En curso" : "Sin fecha") : HojaVidaFormato.Fecha(npt.Fin))</dd></div>
+                        @if (npt.Conexion is not null)
+                        {
+                            <div><dt>Hora de conexión</dt><dd class="hv-num">@npt.Conexion</dd></div>
+                        }
+                        @if (npt.Desconexion is not null)
+                        {
+                            <div><dt>Hora de desconexión</dt><dd class="hv-num">@npt.Desconexion</dd></div>
+                        }
+                        @if (npt.Picc is not null)
+                        {
+                            <div><dt>PICC/CC</dt><dd>@npt.Picc</dd></div>
+                        }
+                    </dl>
+                </section>
+            }
+
+            @if (Model.Terapias.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo"><i class="bi bi-person-walking" aria-hidden="true"></i> Terapias</h3>
+                    <table class="hv-tabla">
+                        <thead>
+                            <tr>
+                                <th scope="col">Tipo de terapia</th>
+                                <th scope="col" class="hv-tabla__num">Sesiones</th>
+                                <th scope="col">Frecuencia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var terapia in Model.Terapias)
+                            {
+                                <tr>
+                                    <th scope="row" data-rotulo="Tipo de terapia">@terapia.Tipo</th>
+                                    <td data-rotulo="Sesiones" class="hv-tabla__num hv-num">@(terapia.Cantidad?.ToString(inv) ?? "—")</td>
+                                    <td data-rotulo="Frecuencia">@(terapia.Frecuencia ?? "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (Model.ProrrogasTerapia.Count > 0)
+                    {
+                        <h4 class="hv-bloque__subtitulo">Prórrogas de terapia <span class="hv-conteo">@Model.ProrrogasTerapia.Count</span></h4>
+                        <ul class="hv-lista">
+                            @foreach (var prorroga in Model.ProrrogasTerapia)
+                            {
+                                <li>
+                                    <strong>@prorroga.Tipo</strong>
+                                    @if (prorroga.Cantidad is not null)
+                                    {
+                                        <span> · @prorroga.Cantidad sesiones</span>
+                                    }
+                                    @if (prorroga.Frecuencia is { } frecuencia)
+                                    {
+                                        <span> · @frecuencia por semana</span>
+                                    }
+                                    <span class="hv-tenue"> · solicitada el <span class="hv-num">@HojaVidaFormato.Fecha(prorroga.FechaSolicitud)</span></span>
+                                    @if (prorroga.CodigoAutorizacion is not null)
+                                    {
+                                        <span class="hv-tenue"> · autorización @prorroga.CodigoAutorizacion</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+            }
+
+            @if (Model.Insumos.Count > 0 || Model.PlanesHeridas.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo"><i class="bi bi-bandaid" aria-hidden="true"></i> Apósitos e insumos</h3>
+                    @if (Model.Insumos.Count > 0)
+                    {
+                        <ul class="hv-chips" aria-label="Insumos de la atención">
+                            @foreach (var insumo in Model.Insumos)
+                            {
+                                <li class="hv-chip hv-chip--dato">@insumo</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="hv-tenue">Sin insumos registrados en la atención.</p>
+                    }
+
+                    @if (Model.PlanesHeridas.Count > 1 || Model.PlanesHeridas.Any(p => p.CerradoEl is not null))
+                    {
+                        <h4 class="hv-bloque__subtitulo">Planes de requisición <span class="hv-conteo">@Model.PlanesHeridas.Count</span></h4>
+                        <ol class="hv-lista">
+                            @foreach (var plan in Model.PlanesHeridas)
+                            {
+                                <li>
+                                    <strong>Plan @plan.Numero</strong>
+                                    <span class="hv-tenue">
+                                        · <span class="hv-num">@HojaVidaFormato.Fecha(plan.AbiertoEl)</span> → @if (plan.CerradoEl is null) {<text>vigente</text>} else {<span class="hv-num">@HojaVidaFormato.Fecha(plan.CerradoEl)</span>}
+                                    </span>
+                                    @if (plan.Insumos.Count > 0)
+                                    {
+                                        <span> · @string.Join(", ", plan.Insumos)</span>
+                                    }
+                                    @if (plan.DuracionDias is { } duracion)
+                                    {
+                                        <span> · @HojaVidaFormato.Dias(duracion).ToLowerInvariant()</span>
+                                    }
+                                </li>
+                            }
+                        </ol>
+                    }
+                </section>
+            }
+
+            @if (Model.Servicios.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo"><i class="bi bi-heart-pulse" aria-hidden="true"></i> Servicios y cuidados</h3>
+                    <ul class="hv-chips">
+                        @foreach (var servicio in Model.Servicios)
+                        {
+                            <li class="hv-chip hv-chip--dato">
+                                @servicio.Nombre
+                                @if (servicio.Detalle is not null)
+                                {
+                                    <span class="hv-chip__detalle">@servicio.Detalle</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            @if (Model.EvolucionHerida is { } evolucion)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo">
+                        <i class="bi bi-graph-down" aria-hidden="true"></i> Evolución de la herida
+                        <span class="hv-conteo">@evolucion.Seguimientos.Count</span>
+                    </h3>
+                    @if (evolucion.CambioPorcentual is { } cambio && evolucion.Trazo is not null)
+                    {
+                        var ultimoPunto = evolucion.Trazo.Split(' ').Last().Split(',');
+                        <figure class="hv-evolucion">
+                            <svg class="hv-evolucion__trazo" viewBox="-4 -4 128 40" width="150" height="47" role="img"
+                                 aria-label="Área de la herida en cada seguimiento, de @HojaVidaFormato.Numero(evolucion.AreaInicial ?? 0) a @HojaVidaFormato.Numero(evolucion.AreaUltima ?? 0) centímetros cuadrados">
+                                <polyline points="@evolucion.Trazo" />
+                                <circle cx="@ultimoPunto[0]" cy="@ultimoPunto[1]" r="4" />
+                            </svg>
+                            <figcaption>
+                                El área pasó de <strong class="hv-num">@HojaVidaFormato.Numero(evolucion.AreaInicial ?? 0) cm²</strong>
+                                a <strong class="hv-num">@HojaVidaFormato.Numero(evolucion.AreaUltima ?? 0) cm²</strong>
+                                <span class="hv-evolucion__cambio @(cambio <= 0 ? "hv-evolucion__cambio--mejora" : "hv-evolucion__cambio--aumento")">
+                                    <i class="bi @(cambio <= 0 ? "bi-arrow-down-right" : "bi-arrow-up-right")" aria-hidden="true"></i>
+                                    @(cambio > 0 ? "+" : string.Empty)@HojaVidaFormato.Numero(cambio, 0) %
+                                </span>
+                                <span class="hv-tenue">Área aproximada: largo × ancho.</span>
+                            </figcaption>
+                        </figure>
+                    }
+                    <table class="hv-tabla hv-tabla--seguimientos">
+                        <thead>
+                            <tr>
+                                <th scope="col">Seguimiento</th>
+                                <th scope="col">Foto</th>
+                                <th scope="col" class="hv-tabla__num">Medidas (cm)</th>
+                                <th scope="col" class="hv-tabla__num">Área</th>
+                                <th scope="col">Tejido y exudado</th>
+                                <th scope="col">Auxiliar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var seguimiento in evolucion.Seguimientos.Reverse())
+                            {
+                                <tr>
+                                    <th scope="row" data-rotulo="Seguimiento">
+                                        N.º @seguimiento.Numero
+                                        <span class="hv-tenue hv-num">@HojaVidaFormato.Fecha(seguimiento.Fecha)</span>
+                                        @if (seguimiento.Ubicacion is not null)
+                                        {
+                                            <span class="hv-tenue">@seguimiento.Ubicacion</span>
+                                        }
+                                    </th>
+                                    <td data-rotulo="Foto">
+                                        @if (seguimiento.FotoDriveItemId is not null)
+                                        {
+                                            <a class="hv-foto" href="@Url.Action("FotoHerida", "Paciente", new { driveItemId = seguimiento.FotoDriveItemId })" target="_blank" rel="noopener">
+                                                <img src="@Url.Action("FotoHerida", "Paciente", new { driveItemId = seguimiento.FotoDriveItemId, miniatura = true })"
+                                                     alt="Plano general de la herida, seguimiento @seguimiento.Numero" loading="lazy" width="56" height="56" />
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <span class="hv-tenue">Sin foto</span>
+                                        }
+                                    </td>
+                                    <td data-rotulo="Medidas (cm)" class="hv-tabla__num hv-num">
+                                        @HojaVidaFormato.Numero(seguimiento.Largo) × @HojaVidaFormato.Numero(seguimiento.Ancho) × @HojaVidaFormato.Numero(seguimiento.Profundidad)
+                                    </td>
+                                    <td data-rotulo="Área" class="hv-tabla__num hv-num">@HojaVidaFormato.Numero(seguimiento.Area) cm²</td>
+                                    <td data-rotulo="Tejido y exudado">@(string.Join(" · ", new[] { seguimiento.Tejido, seguimiento.Exudado }.Where(x => x is not null)) is { Length: > 0 } texto ? texto : "—")</td>
+                                    <td data-rotulo="Auxiliar">@(seguimiento.Auxiliar ?? "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </section>
+            }
+
+            @if (Model.Hospitalizaciones.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo">
+                        <i class="bi bi-hospital" aria-hidden="true"></i> Hospitalizaciones
+                        <span class="hv-conteo">@Model.Hospitalizaciones.Count</span>
+                    </h3>
+                    <ul class="hv-lista">
+                        @foreach (var hospitalizacion in Model.Hospitalizaciones)
+                        {
+                            <li>
+                                <strong class="hv-num">@HojaVidaFormato.Fecha(hospitalizacion.Fecha)</strong>
+                                @if (hospitalizacion.FechaAlta is not null)
+                                {
+                                    <span> → alta el <span class="hv-num">@HojaVidaFormato.Fecha(hospitalizacion.FechaAlta)</span></span>
+                                }
+                                @if (hospitalizacion.Motivo is not null)
+                                {
+                                    <span> · @hospitalizacion.Motivo</span>
+                                }
+                                @if (hospitalizacion.Ips is not null)
+                                {
+                                    <span> · @hospitalizacion.Ips</span>
+                                }
+                                @if (hospitalizacion.RemitidoPor is not null)
+                                {
+                                    <span class="hv-tenue"> · remitido por @hospitalizacion.RemitidoPor.ToLowerInvariant()</span>
+                                }
+                                @if (hospitalizacion.Detalle is not null)
+                                {
+                                    <span class="hv-lista__detalle">@hospitalizacion.Detalle</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            @if (Model.Despachos.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo"><i class="bi bi-box-seam" aria-hidden="true"></i> Pedidos a farmacia</h3>
+                    <ul class="hv-lista hv-lista--despachos">
+                        @foreach (var despacho in Model.Despachos)
+                        {
+                            <li>
+                                <i class="bi @(despacho.Entregado ? "bi-check-circle-fill hv-ok" : "bi-hourglass-split hv-espera")" aria-hidden="true"></i>
+                                <strong>@despacho.Documento</strong>
+                                <span> · @despacho.Estado</span>
+                                @if (despacho.EnviadoEl is { } enviado)
+                                {
+                                    <span class="hv-tenue"> · enviado el <span class="hv-num">@HojaVidaFormato.Fecha(enviado)</span></span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            @if (Model.Novedades.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo">
+                        <i class="bi bi-megaphone" aria-hidden="true"></i> Novedades durante este ingreso
+                        <span class="hv-conteo">@Model.Novedades.Count</span>
+                    </h3>
+                    <ul class="hv-lista">
+                        @foreach (var novedad in Model.Novedades)
+                        {
+                            <li>
+                                <i class="bi @(novedad.Resuelta ? "bi-check-circle-fill hv-ok" : "bi-hourglass-split hv-espera")" aria-hidden="true"></i>
+                                <a href="#novedad-@novedad.Id" data-hv-ir="novedad-@novedad.Id">@novedad.Tipo</a>
+                                <span class="hv-tenue"> · <span class="hv-num">@HojaVidaFormato.Fecha(novedad.Fecha)</span> · @(novedad.Resuelta ? "resuelta" : "sin resolver")</span>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            @if (Model.Datos.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo"><i class="bi bi-card-list" aria-hidden="true"></i> Otros datos del ingreso</h3>
+                    <dl class="hv-hechos hv-hechos--otros">
+                        @foreach (var dato in Model.Datos)
+                        {
+                            <div><dt>@dato.Etiqueta</dt><dd>@dato.Valor</dd></div>
+                        }
+                    </dl>
+                </section>
+            }
+
+            @if (!Model.TieneDetalle && Model.Asegurador is null && Model.Profesional is null)
+            {
+                <p class="hv-tenue">Este ingreso todavía no tiene datos diligenciados en el censo.</p>
+            }
+        </div>
+    </details>
+</article>
