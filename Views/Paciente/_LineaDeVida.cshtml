@@ -3,8 +3,9 @@
 @{
     var inv = CultureInfo.InvariantCulture;
     string Pct(double valor) => valor.ToString("0.###", inv) + "%";
-    var hayMarcas = Model.Marcas.Count > 0;
     var tipos = Model.Marcas.Select(m => m.Tipo).ToHashSet();
+    var hayPendientes = Model.Marcas.Any(m => m.Tipo == "novedad" && m.Pendiente);
+    var hayResueltas = Model.Marcas.Any(m => m.Tipo == "novedad" && !m.Pendiente);
     var situaciones = Model.Carriles.SelectMany(c => c.Barras).Select(b => b.Situacion).ToHashSet();
 }
 
@@ -12,28 +13,34 @@
     <div class="hv-seccion__cabeza">
         <div>
             <h2 id="hvLineaTitulo" class="hv-seccion__titulo">Línea de vida</h2>
-            <p class="hv-seccion__ayuda">Cada barra es un ingreso: empieza el día que llegó y termina en el alta. Toca una barra para ir a su detalle.</p>
+            <p class="hv-seccion__ayuda">
+                Cada barra es un ingreso: empieza el día que llegó y termina en el alta. Toca una barra para ir a su detalle.
+            </p>
         </div>
-        <ul class="hv-leyenda" aria-label="Convenciones">
+        <ul class="hv-leyenda" aria-label="Qué significa cada figura">
             @if (situaciones.Contains(HojaVidaSituacion.EnCurso) || situaciones.Contains(HojaVidaSituacion.SinDiligenciar))
             {
-                <li><span class="hv-leyenda__muestra hv-leyenda__muestra--encurso" aria-hidden="true"></span>En curso</li>
+                <li><span class="hv-leyenda__muestra hv-leyenda__muestra--encurso" aria-hidden="true"></span>Atención en curso</li>
             }
             @if (situaciones.Contains(HojaVidaSituacion.Cerrada))
             {
-                <li><span class="hv-leyenda__muestra hv-leyenda__muestra--cerrada" aria-hidden="true"></span>Con alta</li>
+                <li><span class="hv-leyenda__muestra hv-leyenda__muestra--cerrada" aria-hidden="true"></span>Atención con alta</li>
             }
             @if (situaciones.Contains(HojaVidaSituacion.NoEfectiva))
             {
                 <li><span class="hv-leyenda__muestra hv-leyenda__muestra--noefectiva" aria-hidden="true"></span>No se prestó</li>
             }
-            @if (tipos.Contains("novedad"))
-            {
-                <li><span class="hv-marca hv-marca--novedad hv-marca--leyenda" aria-hidden="true"></span>Novedad</li>
-            }
             @if (tipos.Contains("hospitalizacion"))
             {
                 <li><span class="hv-marca hv-marca--hospitalizacion hv-marca--leyenda" aria-hidden="true"></span>Hospitalización</li>
+            }
+            @if (hayPendientes)
+            {
+                <li><span class="hv-marca hv-marca--novedad hv-marca--pendiente hv-marca--leyenda" aria-hidden="true"></span>Novedad sin resolver</li>
+            }
+            @if (hayResueltas)
+            {
+                <li><span class="hv-marca hv-marca--novedad hv-marca--leyenda" aria-hidden="true"></span>Novedad resuelta</li>
             }
             @if (tipos.Contains("ronda"))
             {
@@ -42,10 +49,20 @@
         </ul>
     </div>
 
-    @* El papel es milimetrado como el de un electrocardiograma: en pantallas angostas conserva un
-       ancho mínimo legible y se desplaza de lado dentro de su marco, sin mover la página. *@
+    @* El tiempo se lee por bandas de mes alternadas: se ve cuánto duró cada cosa sin leer fechas.
+       En pantallas angostas el lienzo conserva un ancho mínimo legible y se desplaza de lado dentro
+       de su marco, sin mover la página. *@
     <div class="hv-ecg" tabindex="0" role="group" aria-label="Línea de vida del paciente. En pantallas pequeñas se desplaza de lado.">
-        <div class="hv-ecg__lienzo">
+        <div class="hv-ecg__lienzo" style="--filas-eventos:@Math.Max(Model.FilasEventos, 1);--carriles:@Model.Carriles.Count">
+
+            <div class="hv-ecg__bandas" aria-hidden="true">
+                @foreach (var banda in Model.Eje)
+                {
+                    <span class="hv-banda @(banda.Alterna ? "hv-banda--alterna" : null)"
+                          style="--x:@Pct(banda.InicioPct);--w:@Pct(banda.AnchoPct)"></span>
+                }
+            </div>
+
             @foreach (var carril in Model.Carriles)
             {
                 <div class="hv-ecg__carril hv-prog--@carril.ProgramaClase">
@@ -74,15 +91,15 @@
                 </div>
             }
 
-            @if (hayMarcas)
+            @if (Model.Marcas.Count > 0)
             {
                 <div class="hv-ecg__carril hv-ecg__carril--eventos">
-                    <span class="hv-ecg__rotulo">Eventos</span>
+                    <span class="hv-ecg__rotulo">Lo que pasó</span>
                     <div class="hv-ecg__pista">
                         @foreach (var marca in Model.Marcas)
                         {
                             <span class="hv-marca hv-marca--@marca.Tipo @(marca.Pendiente ? "hv-marca--pendiente" : null)"
-                                  style="--x:@Pct(marca.Pct)"
+                                  style="--x:@Pct(marca.Pct);--fila:@marca.Fila"
                                   tabindex="0"
                                   role="img"
                                   data-hv-tip="@marca.Etiqueta"
@@ -95,9 +112,15 @@
             <div class="hv-ecg__eje" aria-hidden="true">
                 <span class="hv-ecg__rotulo"></span>
                 <div class="hv-ecg__pista">
-                    @foreach (var marca in Model.Eje)
+                    @foreach (var banda in Model.Eje.Where(b => !b.SinEtiqueta))
                     {
-                        <span class="hv-ecg__tick @(marca.Mayor ? "hv-ecg__tick--mayor" : null)" style="--x:@Pct(marca.Pct)">@marca.Texto</span>
+                        <span class="hv-ecg__mes" style="--x:@Pct(banda.InicioPct);--w:@Pct(banda.AnchoPct)">
+                            @banda.Texto
+                            @if (banda.Anio is not null)
+                            {
+                                <span class="hv-ecg__anio">@banda.Anio</span>
+                            }
+                        </span>
                     }
                 </div>
             </div>

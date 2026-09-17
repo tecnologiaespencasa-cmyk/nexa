@@ -114,6 +114,17 @@
                             <span>@Model.Identidad.Municipio</span>
                         }
                     </span></p>
+                    @if (Model.Identidad.DiagnosticoActual is not null || Model.Identidad.Cie10Actual is not null)
+                    {
+                        <p class="hv-ficha__diagnostico">
+                            <span class="hv-ficha__diagnostico-rotulo">@(Model.Estado.Activo ? "Diagnóstico en curso" : "Último diagnóstico")</span>
+                            @if (Model.Identidad.Cie10Actual is not null)
+                            {
+                                <span class="hv-codigo">@Model.Identidad.Cie10Actual</span>
+                            }
+                            <span>@Model.Identidad.DiagnosticoActual</span>
+                        </p>
+                    }
                 </div>
 
                 <div class="hv-resumen">

@@ -115,8 +115,13 @@
   var papel = hoja.querySelector('.hv-ecg');
   if (papel) {
     // En pantallas angostas el papel se desplaza de lado: se abre mostrando el presente, que es
-    // lo primero que se busca, en vez del ingreso más antiguo.
-    papel.scrollLeft = papel.scrollWidth;
+    // lo primero que se busca, en vez del ingreso más antiguo. Se espera al siguiente cuadro
+    // porque antes del primer dibujo el ancho real todavía no está calculado.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        if (papel.scrollWidth > papel.clientWidth) papel.scrollLeft = papel.scrollWidth;
+      });
+    });
     papel.addEventListener('scroll', ocultarTip, { passive: true });
   }
 

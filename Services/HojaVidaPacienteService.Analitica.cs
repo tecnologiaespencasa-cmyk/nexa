@@ -184,12 +184,23 @@ public partial class HojaVidaPacienteService
 
     private static HojaVidaIdentidad ConstruirIdentidad(
         DatosCenso datos,
+        IReadOnlyList<HojaVidaIngreso> ingresos,
         IReadOnlyList<PortalNovedadPacienteRow> novedades,
         IReadOnlyList<PortalRondaPacienteRow> rondas,
         string documento,
         DateTime hoy)
     {
         var identidad = new HojaVidaIdentidad { NumeroDocumento = documento };
+
+        // El diagnóstico de la atención en curso; si no hay ninguna, el de la última que hubo.
+        var ingresoVigente = ingresos
+            .Where(i => i.Cie10 is not null || i.Diagnostico is not null)
+            .OrderByDescending(i => i.Situacion == HojaVidaSituacion.EnCurso)
+            .ThenBy(i => CensoProgramas.Jerarquia(i.Programa))
+            .ThenByDescending(i => i.FechaIngreso ?? DateTime.MinValue)
+            .FirstOrDefault();
+        identidad.Cie10Actual = ingresoVigente?.Cie10;
+        identidad.DiagnosticoActual = ingresoVigente?.Diagnostico;
         var m = datos.Maestro;
 
         // Sin maestro, los datos del registro más reciente de cualquier censo.
@@ -377,26 +388,33 @@ public partial class HojaVidaPacienteService
 
         if (estado.Activo)
         {
+            // Cada programa con su propia fecha de ingreso. Antes se tomaba la más antigua de todos
+            // y la frase se la atribuía a los dos: decía que el paciente estaba en agudos desde el
+            // día en que entró a crónicos.
             var enCurso = ingresos
                 .Where(i => i.Situacion is HojaVidaSituacion.EnCurso or HojaVidaSituacion.SinDiligenciar)
+                .OrderBy(i => CensoProgramas.Jerarquia(i.Programa))
+                .ThenBy(i => i.FechaIngreso ?? DateTime.MaxValue)
                 .ToList();
-            var desde = enCurso.Min(i => i.FechaIngreso);
-            var trozos = new List<HojaVidaTrozo>
+
+            var trozos = new List<HojaVidaTrozo> { new("Está activo en ") };
+            for (var i = 0; i < enCurso.Count; i++)
             {
-                new("Está activo en "),
-                new(UnirLista(estado.ProgramasEnCurso), true)
-            };
-            if (desde is { } d)
-            {
-                trozos.Add(new(" desde el "));
-                trozos.Add(new(HojaVidaFormato.FechaLarga(d), true));
-                trozos.Add(new($" ({HojaVidaFormato.Dias((hoy - d).Days).ToLowerInvariant()})."));
-            }
-            else
-            {
-                trozos.Add(new("."));
+                if (i > 0)
+                {
+                    trozos.Add(new(i == enCurso.Count - 1 ? " y en " : ", en "));
+                }
+
+                trozos.Add(new(enCurso[i].ProgramaNombre, true));
+                if (enCurso[i].FechaIngreso is { } inicio)
+                {
+                    trozos.Add(new(" desde el "));
+                    trozos.Add(new(HojaVidaFormato.FechaLarga(inicio), true));
+                    trozos.Add(new($" ({HojaVidaFormato.Dias((hoy - inicio).Days).ToLowerInvariant()})"));
+                }
             }
 
+            trozos.Add(new("."));
             frases.Add(new HojaVidaFrase { Trozos = trozos });
         }
         else if (estado.Fallecido)
@@ -583,6 +601,48 @@ public partial class HojaVidaPacienteService
             });
         }
 
+        // Controles con fecha: lo que ya se venció o está por vencerse en una atención en curso.
+        var controles = enCurso
+            .SelectMany(i => i.Controles)
+            .Where(c => c.DiasParaProximo is { } dias && dias <= 7)
+            .OrderBy(c => c.DiasParaProximo)
+            .ToList();
+        foreach (var control in controles.Take(3))
+        {
+            var dias = control.DiasParaProximo!.Value;
+            alertas.Add(new HojaVidaAlerta
+            {
+                Nivel = dias < 0 ? "atencion" : "info",
+                Icono = "bi-calendar-event",
+                Titulo = dias < 0
+                    ? $"{control.Nombre}: vencido hace {HojaVidaFormato.Dias(-dias).ToLowerInvariant()}"
+                    : dias == 0
+                        ? $"{control.Nombre}: es hoy"
+                        : $"{control.Nombre}: en {HojaVidaFormato.Dias(dias).ToLowerInvariant()}",
+                Detalle = Unir(
+                    control.Proximo is { } proximo ? $"Programado para el {HojaVidaFormato.Fecha(proximo)}" : null,
+                    control.Ultimo is { } ultimo ? $"último el {HojaVidaFormato.Fecha(ultimo)}" : null)
+            });
+        }
+
+        // Escalas en nivel alto: es lo que cambia la forma de atender al paciente en la casa.
+        var riesgos = enCurso
+            .SelectMany(i => i.Escalas)
+            .Where(e => e.Nivel == "alto" && e.Interpretacion is not null)
+            .Select(e => $"{e.Interpretacion} ({e.Nombre} {e.Valor})")
+            .Distinct()
+            .ToList();
+        if (riesgos.Count > 0)
+        {
+            alertas.Add(new HojaVidaAlerta
+            {
+                Nivel = "atencion",
+                Icono = "bi-clipboard2-pulse",
+                Titulo = riesgos.Count == 1 ? "Escala de valoración en nivel alto" : "Escalas de valoración en nivel alto",
+                Detalle = string.Join(" · ", riesgos)
+            });
+        }
+
         var dispositivos = enCurso.SelectMany(i => i.Servicios)
             .Where(s => Dispositivos.Contains(s.Nombre))
             .Select(s => s.Detalle is null ? s.Nombre : $"{s.Nombre} ({s.Detalle.ToLowerInvariant()})")
@@ -721,18 +781,6 @@ public partial class HojaVidaPacienteService
             cifras.Add(new HojaVidaCifra("Hospitalizaciones", hospitalizaciones.ToString(), "Registradas durante la atención domiciliaria"));
         }
 
-        var respuestas = ingresos
-            .Where(i => i.Recepcion?.MinutosRespuesta is > 0)
-            .Select(i => i.Recepcion!.MinutosRespuesta!.Value)
-            .ToList();
-        if (respuestas.Count > 0)
-        {
-            cifras.Add(new HojaVidaCifra(
-                "Respuesta a la solicitud",
-                HojaVidaFormato.Minutos(respuestas.Average()),
-                respuestas.Count == 1 ? "Tiempo entre el correo y la respuesta" : $"Promedio de {respuestas.Count} ingresos"));
-        }
-
         if (model.Novedades.Count > 0)
         {
             var pendientes = model.Novedades.Count(n => !n.Resuelta);
@@ -823,7 +871,8 @@ public partial class HojaVidaPacienteService
             .OrderBy(g => CensoProgramas.Jerarquia(g.Key))
             .Select(g => new HojaVidaCarril
             {
-                ProgramaNombre = g.First().ProgramaNombre,
+                // Nombre corto: el carril es angosto y el nombre completo lo parte en dos líneas.
+                ProgramaNombre = CensoProgramas.NombreCorto(g.Key),
                 ProgramaClase = g.First().ProgramaClase,
                 Barras = g.OrderBy(i => i.FechaIngreso).Select(i =>
                 {
@@ -868,13 +917,16 @@ public partial class HojaVidaPacienteService
             Etiqueta = $"Ronda intramural en {r.Ips}, {HojaVidaFormato.Fecha(r.Fecha)}"
         }));
 
+        var ordenadas = RepartirEnFilas(marcas);
+
         return new HojaVidaLineaDeVida
         {
             Desde = desde,
             Hasta = hasta,
             Carriles = carriles,
-            Marcas = marcas.OrderBy(m => m.Pct).ToList(),
-            Eje = MarcasEje(desde, hasta, Pct),
+            Marcas = ordenadas,
+            FilasEventos = ordenadas.Count == 0 ? 0 : ordenadas.Max(m => m.Fila) + 1,
+            Eje = BandasEje(desde, hasta, Pct),
             HoyPct = Math.Round(Pct(hoy), 3)
         };
     }
@@ -895,49 +947,91 @@ public partial class HojaVidaPacienteService
     }
 
     /// <summary>
-    /// Marcas del eje con una densidad que se lee: semanas en historias cortas, meses en las de
-    /// hasta año y medio, trimestres hasta cuatro años y años de ahí en adelante.
+    /// El eje no son marcas sueltas sino bandas: un mes cada una (un año en historias de más de
+    /// tres años), pintadas alternadamente. Así se ve de un vistazo cuánto duró cada cosa sin
+    /// tener que leer fechas, que era lo difícil de la versión anterior.
     /// </summary>
-    private static IReadOnlyList<HojaVidaMarcaEje> MarcasEje(DateTime desde, DateTime hasta, Func<DateTime, double> pct)
+    private static IReadOnlyList<HojaVidaBanda> BandasEje(DateTime desde, DateTime hasta, Func<DateTime, double> pct)
     {
-        var dias = (hasta - desde).TotalDays;
-        var marcas = new List<HojaVidaMarcaEje>();
+        // Ancho mínimo, en porcentaje de la línea, para que quepa el rótulo de la banda.
+        const double AnchoParaMes = 3.6;
+        const double AnchoParaMesConAnio = 7;
 
-        if (dias <= 75)
+        var bandas = new List<HojaVidaBanda>();
+        var porAnio = (hasta.Year - desde.Year) * 12 + hasta.Month - desde.Month > 36;
+        var paso = porAnio ? 12 : 1;
+        var inicio = porAnio ? new DateTime(desde.Year, 1, 1) : new DateTime(desde.Year, desde.Month, 1);
+        var alterna = false;
+        var anioEscrito = 0;
+
+        for (var banda = inicio; banda <= hasta; banda = banda.AddMonths(paso))
         {
-            var fecha = desde.Date.AddDays(((int)DayOfWeek.Monday - (int)desde.DayOfWeek + 7) % 7);
-            for (; fecha <= hasta; fecha = fecha.AddDays(7))
+            var fin = banda.AddMonths(paso);
+            var x0 = pct(banda < desde ? desde : banda);
+            var x1 = pct(fin > hasta ? hasta : fin);
+            var ancho = x1 - x0;
+            if (ancho <= 0)
             {
-                marcas.Add(new HojaVidaMarcaEje(Math.Round(pct(fecha), 3),
-                    $"{fecha.Day} {HojaVidaFormato.MesCorto(fecha.Month)}", fecha.Day <= 7));
+                continue;
             }
 
-            return marcas;
+            var texto = porAnio ? banda.Year.ToString() : HojaVidaFormato.MesCorto(banda.Month);
+
+            // El año se escribe una sola vez por año, en la primera banda donde de verdad quepa:
+            // ponerlo siempre en la primera recortaba el rótulo cuando esa banda era angosta.
+            string? anio = null;
+            if (!porAnio && banda.Year != anioEscrito && ancho >= AnchoParaMesConAnio)
+            {
+                anio = banda.Year.ToString();
+                anioEscrito = banda.Year;
+            }
+
+            bandas.Add(new HojaVidaBanda(Math.Round(x0, 3), Math.Round(ancho, 3), texto, anio, alterna)
+            {
+                SinEtiqueta = ancho < AnchoParaMes
+            });
+            alterna = !alterna;
         }
 
-        var paso = dias switch
-        {
-            <= 550 => 1,
-            <= 1460 => 3,
-            _ => 12
-        };
+        return bandas;
+    }
 
-        var mes = new DateTime(desde.Year, desde.Month, 1).AddMonths(1);
-        while ((mes.Month - 1) % paso != 0)
+    /// <summary>
+    /// Reparte los eventos en hasta tres filas para que dos del mismo día no queden uno encima del
+    /// otro. Se recorren en orden y cada uno baja a la primera fila donde haya espacio.
+    /// </summary>
+    private static IReadOnlyList<HojaVidaMarca> RepartirEnFilas(List<HojaVidaMarca> marcas)
+    {
+        const double SeparacionMinima = 1.8;
+        const int MaximoFilas = 3;
+        var ocupadas = new List<double>();
+
+        foreach (var marca in marcas.OrderBy(m => m.Pct))
         {
-            mes = mes.AddMonths(1);
+            var fila = 0;
+            while (fila < ocupadas.Count && marca.Pct - ocupadas[fila] < SeparacionMinima)
+            {
+                fila++;
+            }
+
+            if (fila >= MaximoFilas)
+            {
+                fila = 0;
+            }
+
+            if (fila == ocupadas.Count)
+            {
+                ocupadas.Add(marca.Pct);
+            }
+            else
+            {
+                ocupadas[fila] = marca.Pct;
+            }
+
+            marca.Fila = fila;
         }
 
-        for (; mes <= hasta; mes = mes.AddMonths(paso))
-        {
-            var esEnero = mes.Month == 1;
-            var texto = paso == 12
-                ? mes.Year.ToString()
-                : esEnero ? $"{HojaVidaFormato.MesCorto(1)} {mes.Year}" : HojaVidaFormato.MesCorto(mes.Month);
-            marcas.Add(new HojaVidaMarcaEje(Math.Round(pct(mes), 3), texto, esEnero));
-        }
-
-        return marcas;
+        return marcas.OrderBy(m => m.Pct).ToList();
     }
 
     private static string? Primero(params string?[] valores) => valores.Select(Texto).FirstOrDefault(v => v is not null);

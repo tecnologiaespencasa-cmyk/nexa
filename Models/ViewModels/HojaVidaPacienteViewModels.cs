@@ -81,6 +81,11 @@ public class HojaVidaIdentidad
 
     public string? IpsQueRemite { get; set; }
 
+    /// <summary>Diagnóstico de la atención en curso (o de la última); lo primero que se pregunta.</summary>
+    public string? DiagnosticoActual { get; set; }
+
+    public string? Cie10Actual { get; set; }
+
     /// <summary>False cuando no existe el maestro y los datos se tomaron del registro más reciente.</summary>
     public bool DesdeMaestro { get; set; }
 }
@@ -179,14 +184,16 @@ public class HojaVidaIngreso
 
     public string? Asegurador { get; set; }
 
-    /// <summary>Profesional asignado: auxiliar de enfermería o fisioterapeuta.</summary>
-    public string? Profesional { get; set; }
+    /// <summary>Escalas de valoración con su lectura en palabras (Barthel, Braden, Morse…).</summary>
+    public IReadOnlyList<HojaVidaEscala> Escalas { get; set; } = [];
 
-    public string? ProfesionalRol { get; set; }
+    /// <summary>Controles con fecha de vencimiento: cambio de sonda, curación del catéter…</summary>
+    public IReadOnlyList<HojaVidaControl> Controles { get; set; } = [];
 
-    public HojaVidaRecepcion? Recepcion { get; set; }
+    /// <summary>Observación escrita por quien diligenció el censo.</summary>
+    public string? Observacion { get; set; }
 
-    /// <summary>Datos propios del programa que no tienen sección aparte (escalas, clasificación…).</summary>
+    /// <summary>Datos propios del programa que no tienen sección aparte (clasificación, fuente…).</summary>
     public IReadOnlyList<HojaVidaDato> Datos { get; set; } = [];
 
     /// <summary>Medicamentos pactados al ingreso.</summary>
@@ -226,20 +233,27 @@ public class HojaVidaIngreso
         Medicamentos.Count > 0 || Prorrogas.Count > 0 || Agudizaciones.Count > 0 || Servicios.Count > 0
         || Insumos.Count > 0 || PlanesHeridas.Count > 0 || Terapias.Count > 0 || Npt is not null
         || Hospitalizaciones.Count > 0 || Despachos.Count > 0 || EvolucionHerida is not null
-        || Novedades.Count > 0 || Datos.Count > 0 || Recepcion is not null;
+        || Novedades.Count > 0 || Datos.Count > 0 || Escalas.Count > 0 || Controles.Count > 0
+        || Observacion is not null;
 }
 
-public class HojaVidaRecepcion
+/// <summary>
+/// Una escala de valoración con su lectura: el número solo no dice nada a quien no la conoce, así
+/// que siempre viaja con lo que significa ("Barthel 35 de 100 · dependencia grave").
+/// </summary>
+public record HojaVidaEscala(string Nombre, string Valor, string? Interpretacion, string? Nivel = null)
 {
-    public DateTime? FechaSolicitud { get; set; }
+    /// <summary>Parte del máximo de la escala, 0 a 1, para dibujar la barra. Null si no es puntaje.</summary>
+    public double? Porcion { get; init; }
+}
 
-    public TimeSpan? HoraSolicitud { get; set; }
+/// <summary>Un control con fecha: última vez que se hizo y cuándo toca el siguiente.</summary>
+public record HojaVidaControl(string Nombre, DateTime? Ultimo, DateTime? Proximo, string? Detalle = null)
+{
+    /// <summary>Días que faltan (negativo si ya pasó). Solo tiene sentido en atenciones en curso.</summary>
+    public int? DiasParaProximo { get; init; }
 
-    public int? MinutosRespuesta { get; set; }
-
-    public string? RecibidoPor { get; set; }
-
-    public string? KardexPor { get; set; }
+    public bool Vencido => DiasParaProximo is < 0;
 }
 
 public record HojaVidaDato(string Etiqueta, string Valor);
@@ -512,7 +526,11 @@ public class HojaVidaLineaDeVida
 
     public IReadOnlyList<HojaVidaMarca> Marcas { get; set; } = [];
 
-    public IReadOnlyList<HojaVidaMarcaEje> Eje { get; set; } = [];
+    /// <summary>Bandas del eje: un mes (o un año en historias largas) cada una.</summary>
+    public IReadOnlyList<HojaVidaBanda> Eje { get; set; } = [];
+
+    /// <summary>Cuántas filas necesita el carril de eventos para que no se tapen entre sí.</summary>
+    public int FilasEventos { get; set; }
 
     public double HoyPct { get; set; }
 
@@ -552,6 +570,17 @@ public class HojaVidaMarca
     public string Etiqueta { get; set; } = string.Empty;
 
     public bool Pendiente { get; set; }
+
+    /// <summary>Fila dentro del carril de eventos: evita que dos marcas del mismo día se tapen.</summary>
+    public int Fila { get; set; }
 }
 
-public record HojaVidaMarcaEje(double Pct, string Texto, bool Mayor);
+/// <summary>
+/// Una banda del eje del tiempo. Se pintan alternadas para que el ojo separe un mes del siguiente
+/// sin tener que leer las fechas.
+/// </summary>
+public record HojaVidaBanda(double InicioPct, double AnchoPct, string Texto, string? Anio, bool Alterna)
+{
+    /// <summary>La banda es muy angosta para su rótulo: se pinta, pero sin texto.</summary>
+    public bool SinEtiqueta { get; init; }
+}

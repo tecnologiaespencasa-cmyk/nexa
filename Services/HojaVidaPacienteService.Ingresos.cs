@@ -23,17 +23,12 @@ public partial class HojaVidaPacienteService
         IReadOnlyList<ClinicaHeridasSeguimientoRow> seguimientosHeridas,
         DateTime hoy)
     {
-        var episodios = datos.Episodios
-            .Where(x => x.RegistroId.HasValue)
-            .GroupBy(x => (x.Programa, x.RegistroId!.Value))
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.AgregadoAtUtc).First());
-
         var ingresos = new List<HojaVidaIngreso>();
-        ingresos.AddRange(datos.Agudos.Select(r => IngresoAgudos(r, datos, episodios, hoy)));
-        ingresos.AddRange(datos.Cronicos.Select(r => IngresoCronicos(r, datos, episodios, hoy)));
-        ingresos.AddRange(datos.Heridas.Select((r, i) => IngresoHeridas(r, i + 1, datos, episodios, seguimientosHeridas, hoy)));
-        ingresos.AddRange(datos.Npt.Select(r => IngresoNpt(r, datos, episodios, hoy)));
-        ingresos.AddRange(datos.Terapias.Select(r => IngresoTerapia(r, datos, episodios, hoy)));
+        ingresos.AddRange(datos.Agudos.Select(r => IngresoAgudos(r, datos, hoy)));
+        ingresos.AddRange(datos.Cronicos.Select(r => IngresoCronicos(r, datos, hoy)));
+        ingresos.AddRange(datos.Heridas.Select((r, i) => IngresoHeridas(r, i + 1, datos, seguimientosHeridas, hoy)));
+        ingresos.AddRange(datos.Npt.Select(r => IngresoNpt(r, datos, hoy)));
+        ingresos.AddRange(datos.Terapias.Select(r => IngresoTerapia(r, datos, hoy)));
 
         // Programas asignados en el carril que nadie ha diligenciado: el informe de activos ya los
         // cuenta, así que la hoja de vida también los muestra, rotulados como lo que son.
@@ -49,7 +44,6 @@ public partial class HojaVidaPacienteService
                 Situacion = HojaVidaSituacion.SinDiligenciar,
                 FechaIngreso = FechaValida(episodio.FechaIngreso) ?? ColombiaTime.Convert(episodio.AgregadoAtUtc).Date,
                 EstadoCenso = "Asignado sin diligenciar",
-                Recepcion = Recepcion(episodio),
                 Datos = Datos(("Asignado por", episodio.AgregadoPor))
             });
         }
@@ -85,7 +79,6 @@ public partial class HojaVidaPacienteService
     private static HojaVidaIngreso IngresoAgudos(
         CensoRecord r,
         DatosCenso datos,
-        IReadOnlyDictionary<(string, long), CensoPacientePrograma> episodios,
         DateTime hoy)
     {
         var situacion = CensoPacienteService.EsAgudoNoEfectivo(r.Estado)
@@ -107,22 +100,9 @@ public partial class HojaVidaPacienteService
             Cie10 = Texto(r.CodigoCie10),
             Diagnostico = Texto(r.DiagnosticoDescriptivo),
             Asegurador = Texto(r.Asegurador),
-            Profesional = Texto(r.AuxiliarAsignado),
-            ProfesionalRol = "Auxiliar asignado",
+            Observacion = Texto(r.ObservacionesPlanManejo),
             QuienGestionaAlta = Texto(r.NombreQuienGestionaAlta)
         };
-
-        episodios.TryGetValue((CensoProgramas.Agudos, r.Id), out var episodio);
-        ingreso.Recepcion = episodio is { TieneRecepcion: true }
-            ? Recepcion(episodio)
-            : new HojaVidaRecepcion
-            {
-                FechaSolicitud = FechaValida(r.FechaIngreso),
-                HoraSolicitud = r.HoraIngreso == TimeSpan.Zero ? null : r.HoraIngreso,
-                MinutosRespuesta = r.IndicadorTiempoRespuestaMinutos > 0 ? r.IndicadorTiempoRespuestaMinutos : null,
-                RecibidoPor = Texto(r.NombreRecepcionaCaso),
-                KardexPor = Texto(r.NombreRealizaKardex)
-            };
 
         ingreso.Medicamentos = Medicamentos(
             (r.NombreMedicamentoPrincipalTratante, Dosis(r.DosisMedicamentoPrincipal, r.MedidaMedicamentoPrincipal), r.ViaAdministracionMedicamentoPrincipal, r.FrecuenciaAdministracionMxPrincipal, r.DiasMedicamentoPrincipal),
@@ -215,6 +195,11 @@ public partial class HojaVidaPacienteService
             ("Alta tardía", EsSi(r.AltaTardia) ? "Sí" : null),
             ("Devolución de productos", Unir(r.MotivoNovedadDevolucionProductos, r.EstadoDevolucionServicioFarmaceutico)));
 
+        ingreso.Controles = Controles(hoy, ingreso.Situacion,
+            ("Cambio de sonda", FechaValida(r.FechaUltimoCambioSonda), FechaValida(r.FechaProximoCambioSonda),
+                r.NumeroCalibreSonda is { } calibre and > 0 ? $"Calibre {calibre}" : null),
+            ("Curación del catéter PICC", FechaValida(r.FechaUltimaCuracionPicc), null, null));
+
         ingreso.Servicios = Servicios(
             (EsSi(r.RequiereServiciosComplementarios), "Servicios complementarios", r.ServicioComplementario),
             (EsSi(r.RequiereCuidador), "Requiere cuidador", null),
@@ -274,7 +259,6 @@ public partial class HojaVidaPacienteService
     private static HojaVidaIngreso IngresoCronicos(
         CensoCronicoRecord r,
         DatosCenso datos,
-        IReadOnlyDictionary<(string, long), CensoPacientePrograma> episodios,
         DateTime hoy)
     {
         var cerrado = CensoPacienteService.EsCronicoCerrado(r.EstadoPaciente, r.FechaEgreso);
@@ -294,27 +278,39 @@ public partial class HojaVidaPacienteService
             Diagnostico = Texto(r.GrupoPatologiaCronica)
         };
 
-        episodios.TryGetValue((CensoProgramas.Cronicos, r.Id), out var episodio);
-        ingreso.Recepcion = episodio is { TieneRecepcion: true } ? Recepcion(episodio) : null;
-
         CalcularEstancia(ingreso, hoy);
+
+        // Las escalas no se muestran como números sueltos: cada una viaja con lo que significa.
+        ingreso.Escalas = Escalas(
+            Barthel(r.CalificacionBarthel),
+            Karnofsky(r.Karnofsky),
+            Braden(r.Braden, r.RiesgoLesionPiel),
+            Morse(r.EscalaMorse, r.RiesgoCaida),
+            Fast(r.Fast),
+            Rankin(r.Rankin),
+            Mmrc(r.DisneaMmrc),
+            Nyha(r.Nyha));
+
+        ingreso.Controles = Controles(hoy, ingreso.Situacion,
+            ("Cambio de sonda vesical", FechaValida(r.FechaUltimoCambioSondaVesical), FechaValida(r.FechaProximoCambioSondaVesical),
+                Unir(Calibre(r.CalibreSondaVesical), Texto(r.FrecuenciaCambioSondaVesical))),
+            ("Cambio de sonda nasogástrica", FechaValida(r.FechaUltimoCambioSondaNasogastrica), null,
+                Unir(Calibre(r.CalibreSondaNasogastrica), Texto(r.FrecuenciaCambioSondaNasogastrica))),
+            ("Prescripción de pañales (MIPRES)", FechaValida(r.FechaUltimaPrescripcionPanales),
+                Vence(r.FechaUltimaPrescripcionPanales, r.TiempoPrescripcionPanalesMeses),
+                Unir(Texto(r.EstadoMipresPanales), Texto(r.TallaPanales) is { } talla ? $"talla {talla}" : null)),
+            ("Prescripción de nutrición (MIPRES)", FechaValida(r.FechaUltimaPrescripcionNutricion),
+                Vence(r.FechaUltimaPrescripcionNutricion, r.TiempoPrescripcionNutricionMeses),
+                Texto(r.EstadoMipresNutricion)));
+
+        ingreso.Observacion = Texto(r.ObservacionCambioSonda);
 
         ingreso.Datos = Datos(
             ("Fuente de ingreso", r.FuenteIngreso),
             ("Clasificación del caso", r.ClasificacionCaso),
             ("Diagnóstico complementario", Unir(r.DiagnosticoCronicoComplementario, r.GrupoPatologiaCronicaComplementario)),
-            ("Barthel", r.CalificacionBarthel),
-            ("Karnofsky", r.Karnofsky),
-            ("FAST", r.Fast),
-            ("Rankin", r.Rankin),
-            ("Disnea mMRC", r.DisneaMmrc),
-            ("NYHA", r.Nyha),
-            ("Braden", r.Braden?.ToString(CultureInfo.InvariantCulture)),
-            ("Riesgo de lesión de piel", r.RiesgoLesionPiel),
-            ("Morse", r.EscalaMorse?.ToString(CultureInfo.InvariantCulture)),
-            ("Riesgo de caída", r.RiesgoCaida),
-            ("MIPRES pañales", EsSi(r.MipresPanales) ? Unir("Sí", r.EstadoMipresPanales) : null),
-            ("MIPRES nutrición", EsSi(r.MipresNutricion) ? Unir("Sí", r.EstadoMipresNutricion) : null));
+            ("Barthel auditado", r.BarthelAuditado),
+            ("Fecha de auditoría", FechaTexto(r.FechaAuditoria)));
 
         ingreso.Servicios = Servicios(
             (EsSi(r.EducacionPlanCuidados), "Educación en plan de cuidados", null),
@@ -392,7 +388,6 @@ public partial class HojaVidaPacienteService
         CensoClinicaHeridasRecord r,
         int numeroIngreso,
         DatosCenso datos,
-        IReadOnlyDictionary<(string, long), CensoPacientePrograma> episodios,
         IReadOnlyList<ClinicaHeridasSeguimientoRow> seguimientos,
         DateTime hoy)
     {
@@ -413,18 +408,13 @@ public partial class HojaVidaPacienteService
             Cie10 = Texto(r.CodigoCie10),
             Diagnostico = Texto(r.DiagnosticoDescriptivo),
             Asegurador = Texto(r.Asegurador),
-            Profesional = Texto(r.AuxiliarEnfermeriaAsignado),
-            ProfesionalRol = "Auxiliar de enfermería"
+            Observacion = Texto(r.Observacion)
         };
-
-        episodios.TryGetValue((CensoProgramas.ClinicaHeridas, r.Id), out var episodio);
-        ingreso.Recepcion = episodio is { TieneRecepcion: true } ? Recepcion(episodio) : null;
 
         CalcularEstancia(ingreso, hoy);
 
         ingreso.Datos = Datos(
             ("Fuente de ingreso", r.FuenteIngreso),
-            ("Programa al que pertenece", r.ProgramaPertenece),
             ("Fecha de valoración", FechaTexto(r.FechaValoracion)),
             ("Duración del tratamiento", r.DuracionTratamientoDias is { } d ? HojaVidaFormato.Dias(d) : null),
             ("Frecuencia de visita", r.FrecuenciaVisita),
@@ -555,7 +545,6 @@ public partial class HojaVidaPacienteService
     private static HojaVidaIngreso IngresoNpt(
         CensoNptRecord r,
         DatosCenso datos,
-        IReadOnlyDictionary<(string, long), CensoPacientePrograma> episodios,
         DateTime hoy)
     {
         var cerrado = CensoPacienteService.EsProgramaCerrado(r.Estado, r.FechaEgreso);
@@ -574,12 +563,8 @@ public partial class HojaVidaPacienteService
             Cie10 = Texto(r.CodigoCie10),
             Diagnostico = Texto(r.DiagnosticoDescriptivo),
             Asegurador = Texto(r.Asegurador),
-            Profesional = Texto(r.AuxiliarEnfermeriaAsignado),
-            ProfesionalRol = "Auxiliar de enfermería"
+            Observacion = Texto(r.Observacion)
         };
-
-        episodios.TryGetValue((CensoProgramas.Npt, r.Id), out var episodio);
-        ingreso.Recepcion = episodio is { TieneRecepcion: true } ? Recepcion(episodio) : null;
 
         CalcularEstancia(ingreso, hoy);
 
@@ -602,9 +587,11 @@ public partial class HojaVidaPacienteService
             };
         }
 
+        ingreso.Controles = Controles(hoy, ingreso.Situacion,
+            ("Curación del catéter PICC/CC", FechaValida(r.FechaUltimaCuracionPicc), null, null));
+
         ingreso.Datos = Datos(
             ("Fecha de valoración", FechaTexto(r.FechaValoracion)),
-            ("Última curación del PICC/CC", FechaTexto(r.FechaUltimaCuracionPicc)),
             ("Llamada de bienvenida", r.LlamadaBienvenida),
             ("Equipo en comodato", EsSi(r.EquipoComodato)
                 ? Unir(r.DescripcionEquipo, Texto(r.NumeroPlacaEquipos) is { } placa ? $"placa {placa}" : null,
@@ -649,7 +636,6 @@ public partial class HojaVidaPacienteService
     private static HojaVidaIngreso IngresoTerapia(
         CensoTerapiaAmbulatoriaRecord r,
         DatosCenso datos,
-        IReadOnlyDictionary<(string, long), CensoPacientePrograma> episodios,
         DateTime hoy)
     {
         var cerrado = CensoPacienteService.EsTerapiaCerrada(r.EstadoPaciente, r.EstadoAlta);
@@ -666,8 +652,6 @@ public partial class HojaVidaPacienteService
             MotivoAlta = cerrado ? Texto(r.MotivoAlta) : null,
             Cie10 = Texto(r.CodigoCie10),
             Diagnostico = Texto(r.DiagnosticoDescriptivo),
-            Profesional = Texto(r.Fisioterapeuta),
-            ProfesionalRol = "Fisioterapeuta"
         };
 
         if (cerrado)
@@ -680,9 +664,6 @@ public partial class HojaVidaPacienteService
                 ingreso.FechaAltaEstimada = true;
             }
         }
-
-        episodios.TryGetValue((CensoProgramas.TerapiaAmbulatoria, r.Id), out var episodio);
-        ingreso.Recepcion = episodio is { TieneRecepcion: true } ? Recepcion(episodio) : null;
 
         CalcularEstancia(ingreso, hoy);
 
@@ -745,15 +726,6 @@ public partial class HojaVidaPacienteService
             ingreso.DiasEstancia = (f - inicio).Days;
         }
     }
-
-    private static HojaVidaRecepcion Recepcion(CensoPacientePrograma episodio) => new()
-    {
-        FechaSolicitud = FechaValida(episodio.FechaIngreso),
-        HoraSolicitud = episodio.HoraIngreso,
-        MinutosRespuesta = episodio.IndicadorTiempoRespuestaMinutos is > 0 ? episodio.IndicadorTiempoRespuestaMinutos : null,
-        RecibidoPor = Texto(episodio.NombreRecepcionaCaso),
-        KardexPor = Texto(episodio.NombreRealizaKardex)
-    };
 
     private static HojaVidaDespacho Despacho(string documento, string? estado, DateTime? enviadoUtc) => new()
     {
@@ -818,6 +790,95 @@ public partial class HojaVidaPacienteService
             .Where(f => f.Activo)
             .Select(f => new HojaVidaServicio(f.Nombre, Texto(f.Detalle)))
             .ToList();
+
+    /// <summary>
+    /// Controles con fecha: se muestran los que tienen algún dato, y en una atención en curso se
+    /// calcula cuánto falta para el próximo (en negativo si ya pasó).
+    /// </summary>
+    private static IReadOnlyList<HojaVidaControl> Controles(
+        DateTime hoy,
+        HojaVidaSituacion situacion,
+        params (string Nombre, DateTime? Ultimo, DateTime? Proximo, string? Detalle)[] filas) =>
+        filas
+            .Where(f => f.Ultimo is not null || f.Proximo is not null)
+            .Select(f => new HojaVidaControl(f.Nombre, f.Ultimo, f.Proximo, Texto(f.Detalle))
+            {
+                DiasParaProximo = situacion == HojaVidaSituacion.EnCurso && f.Proximo is { } proximo
+                    ? (proximo - hoy).Days
+                    : null
+            })
+            .ToList();
+
+    /// <summary>Fecha en la que se vence una prescripción de N meses.</summary>
+    private static DateTime? Vence(DateTime? desde, int? meses) =>
+        FechaValida(desde) is { } f && meses is > 0 ? f.AddMonths(meses.Value) : null;
+
+    private static IReadOnlyList<HojaVidaEscala> Escalas(params HojaVidaEscala?[] escalas) =>
+        escalas.OfType<HojaVidaEscala>().ToList();
+
+    // Rangos de las escalas tal como se usan en la práctica clínica. El texto es para quien no las
+    // conoce: el número solo no le dice nada a quien lee la hoja de vida.
+
+    private static HojaVidaEscala? Barthel(string? valor) => Puntaje(valor) is not { } n ? null : new HojaVidaEscala(
+        "Barthel", $"{n} de 100",
+        n <= 20 ? "Dependencia total para las actividades diarias"
+        : n <= 60 ? "Dependencia grave"
+        : n <= 90 ? "Dependencia moderada"
+        : n < 100 ? "Dependencia leve"
+        : "Independiente",
+        n <= 60 ? "alto" : n <= 90 ? "medio" : "bajo") { Porcion = n / 100.0 };
+
+    private static HojaVidaEscala? Karnofsky(string? valor) => Puntaje(valor) is not { } n ? null : new HojaVidaEscala(
+        "Karnofsky", $"{n} de 100",
+        n >= 80 ? "Hace su vida normal"
+        : n >= 50 ? "No puede trabajar, se vale en casa con ayuda"
+        : "Necesita cuidado permanente",
+        n >= 80 ? "bajo" : n >= 50 ? "medio" : "alto") { Porcion = n / 100.0 };
+
+    private static HojaVidaEscala? Braden(int? valor, string? riesgo) => valor is not { } n || n <= 0 ? null : new HojaVidaEscala(
+        "Braden", $"{n} de 23",
+        Texto(riesgo) ?? (n <= 12 ? "Riesgo alto de lesiones en la piel"
+            : n <= 14 ? "Riesgo moderado de lesiones en la piel"
+            : n <= 18 ? "Riesgo leve de lesiones en la piel"
+            : "Sin riesgo de lesiones en la piel"),
+        n <= 12 ? "alto" : n <= 18 ? "medio" : "bajo") { Porcion = n / 23.0 };
+
+    private static HojaVidaEscala? Morse(int? valor, string? riesgo) => valor is not { } n || n < 0 ? null : new HojaVidaEscala(
+        "Morse", $"{n} de 125",
+        Texto(riesgo) ?? (n >= 45 ? "Riesgo alto de caídas" : n >= 25 ? "Riesgo moderado de caídas" : "Riesgo bajo de caídas"),
+        n >= 45 ? "alto" : n >= 25 ? "medio" : "bajo") { Porcion = n / 125.0 };
+
+    private static HojaVidaEscala? Fast(string? valor) => Puntaje(valor) is not { } n ? null : new HojaVidaEscala(
+        "FAST", $"{n} de 7",
+        n >= 6 ? "Demencia avanzada" : n >= 4 ? "Demencia moderada" : "Deterioro leve",
+        n >= 6 ? "alto" : n >= 4 ? "medio" : "bajo") { Porcion = n / 7.0 };
+
+    private static HojaVidaEscala? Rankin(string? valor) => Puntaje(valor) is not { } n ? null : new HojaVidaEscala(
+        "Rankin", $"{n} de 6",
+        n >= 4 ? "Discapacidad grave: necesita ayuda permanente"
+        : n >= 2 ? "Discapacidad moderada"
+        : "Sin discapacidad significativa",
+        n >= 4 ? "alto" : n >= 2 ? "medio" : "bajo") { Porcion = n / 6.0 };
+
+    private static HojaVidaEscala? Mmrc(string? valor) => Puntaje(valor) is not { } n ? null : new HojaVidaEscala(
+        "Disnea mMRC", $"{n} de 4",
+        n >= 3 ? "Se ahoga al caminar pocos metros" : n >= 1 ? "Se ahoga al subir una cuesta o al apurarse" : "Solo se ahoga con ejercicio fuerte",
+        n >= 3 ? "alto" : n >= 1 ? "medio" : "bajo") { Porcion = n / 4.0 };
+
+    private static HojaVidaEscala? Nyha(string? valor) => Puntaje(valor) is not { } n ? null : new HojaVidaEscala(
+        "NYHA", $"Clase {n}",
+        n >= 4 ? "Síntomas del corazón incluso en reposo"
+        : n == 3 ? "Síntomas con actividad leve"
+        : n == 2 ? "Síntomas con actividad normal"
+        : "Sin límites en la actividad",
+        n >= 3 ? "alto" : n == 2 ? "medio" : "bajo") { Porcion = n / 4.0 };
+
+    /// <summary>El puntaje guardado como texto ("40", "40%"); null si no es un número.</summary>
+    private static int? Puntaje(string? valor)
+    {
+        var limpio = Texto(valor)?.TrimEnd('%', ' ');
+        return int.TryParse(limpio, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : null;
+    }
 
     private static IReadOnlyList<HojaVidaDato> Datos(params (string Etiqueta, string? Valor)[] filas) =>
         filas

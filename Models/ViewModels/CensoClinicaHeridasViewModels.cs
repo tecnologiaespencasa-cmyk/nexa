@@ -115,10 +115,6 @@ public class CensoClinicaHeridasViewModel : ICensoRegistroEditable
     [Display(Name = "Fecha de valoración")]
     public DateTime FechaValoracion { get; set; } = DateTime.Today;
 
-    [Required(ErrorMessage = "Selecciona el programa al que pertenece.")]
-    [Display(Name = "Programa al que pertenece")]
-    public string ProgramaPertenece { get; set; } = string.Empty;
-
     [StringLength(120, ErrorMessage = "El auxiliar de enfermería asignado no puede superar 120 caracteres.")]
     [Display(Name = "Auxiliar de enfermería asignado")]
     public string? AuxiliarEnfermeriaAsignado { get; set; }
@@ -258,7 +254,6 @@ public class CensoClinicaHeridasViewModel : ICensoRegistroEditable
     public IReadOnlyList<SelectListItem> MunicipioResidenciaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> ZonaDireccionOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> LlamadaBienvenidaOptions { get; set; } = [];
-    public IReadOnlyList<SelectListItem> ProgramaPerteneceOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AuxiliarEnfermeriaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> SiNoOptions { get; set; } = [];
     public IReadOnlyList<string> ApositoMedicamentoOptions { get; set; } = [];

@@ -30,12 +30,6 @@ public partial class CensoController
         "Efectivo",
         "No efectivo"
     ];
-    private static readonly string[] ClinicaHeridasProgramaValues =
-    [
-        "Agudo",
-        "Cronico",
-        "NPT"
-    ];
     private static readonly string[] ClinicaHeridasSiNoValues = ["Si", "No"];
 
     // Catalogo de insumos de clinica de heridas (seccion 3). Para agregar o retirar un aposito basta
@@ -1331,7 +1325,6 @@ public partial class CensoController
         model.MunicipioResidenciaOptions = BuildOptions(MunicipiosResidenciaValues);
         model.ZonaDireccionOptions = BuildOptions(ZonaDireccionValues);
         model.LlamadaBienvenidaOptions = BuildOptions(ClinicaHeridasLlamadaBienvenidaValues);
-        model.ProgramaPerteneceOptions = BuildOptions(ClinicaHeridasProgramaValues);
         model.AuxiliarEnfermeriaOptions = await GetOpsAssistantOptionsAsync(cancellationToken);
         model.SiNoOptions = BuildOptions(ClinicaHeridasSiNoValues);
         model.ApositoMedicamentoOptions = ClinicaHeridasApositoMedicamentoValues;
@@ -1437,7 +1430,6 @@ public partial class CensoController
         model.Observacion = NormalizeOptionalClinicaHeridasText(model.Observacion);
         model.CodigoCie10 = NormalizeCie10(model.CodigoCie10);
         model.DiagnosticoDescriptivo = NormalizeOptionalClinicaHeridasText(model.DiagnosticoDescriptivo);
-        model.ProgramaPertenece = model.ProgramaPertenece?.Trim() ?? string.Empty;
         model.AuxiliarEnfermeriaAsignado = NormalizeOptionalClinicaHeridasText(model.AuxiliarEnfermeriaAsignado);
         NormalizeClinicaHeridasManejoHeridaModel(model);
         model.EquipoComodato = string.IsNullOrWhiteSpace(model.EquipoComodato) ? null : model.EquipoComodato.Trim();
@@ -1580,11 +1572,6 @@ public partial class CensoController
             ModelState.AddModelError(
                 nameof(model.CodigoCie10),
                 "Selecciona un diagnóstico del listado de clínica de heridas.");
-        }
-
-        if (!ClinicaHeridasProgramaValues.Contains(model.ProgramaPertenece, StringComparer.OrdinalIgnoreCase))
-        {
-            ModelState.AddModelError(nameof(model.ProgramaPertenece), "Selecciona un programa válido.");
         }
 
         if (!string.IsNullOrWhiteSpace(model.LlamadaBienvenida)
@@ -1834,7 +1821,6 @@ public partial class CensoController
         record.CodigoCie10 = model.CodigoCie10;
         record.DiagnosticoDescriptivo = model.DiagnosticoDescriptivo ?? string.Empty;
         record.FechaValoracion = model.FechaValoracion.Date;
-        record.ProgramaPertenece = model.ProgramaPertenece;
         record.AuxiliarEnfermeriaAsignado = model.AuxiliarEnfermeriaAsignado;
         record.EquipoComodato = model.EquipoComodato;
         record.NumeroPlacaEquipos = model.NumeroPlacaEquipos;
@@ -1903,7 +1889,6 @@ public partial class CensoController
         model.CodigoCie10 = record.CodigoCie10;
         model.DiagnosticoDescriptivo = record.DiagnosticoDescriptivo;
         model.FechaValoracion = record.FechaValoracion.Date;
-        model.ProgramaPertenece = record.ProgramaPertenece;
         model.AuxiliarEnfermeriaAsignado = record.AuxiliarEnfermeriaAsignado;
         model.Picc = record.Picc;
         model.Vac = record.Vac;

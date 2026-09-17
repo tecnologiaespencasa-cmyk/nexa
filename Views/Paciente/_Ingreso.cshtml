@@ -93,22 +93,6 @@
                 {
                     <div><dt>Asegurador</dt><dd>@Model.Asegurador</dd></div>
                 }
-                @if (Model.Profesional is not null)
-                {
-                    <div><dt>@(Model.ProfesionalRol ?? "Profesional")</dt><dd>@Model.Profesional</dd></div>
-                }
-                @if (Model.Recepcion?.RecibidoPor is not null)
-                {
-                    <div><dt>Recibió el caso</dt><dd>@Model.Recepcion.RecibidoPor</dd></div>
-                }
-                @if (Model.Recepcion?.MinutosRespuesta is { } minutos)
-                {
-                    <div><dt>Tiempo de respuesta</dt><dd class="hv-num">@HojaVidaFormato.Minutos(minutos)</dd></div>
-                }
-                @if (Model.Recepcion?.KardexPor is not null)
-                {
-                    <div><dt>Hizo el kardex</dt><dd>@Model.Recepcion.KardexPor</dd></div>
-                }
                 @if (Model.MotivoAlta is not null && Model.Situacion == HojaVidaSituacion.Cerrada && Model.MotivoAlta != Model.EstadoCenso)
                 {
                     <div><dt>Motivo del alta</dt><dd>@Model.MotivoAlta</dd></div>
@@ -127,6 +111,27 @@
                         Llegó por una <strong>ronda intramural</strong> en @ronda.Ips, reportada el @HojaVidaFormato.Fecha(ronda.Fecha)@(ronda.ReportadoPor is not null ? $" por {ronda.ReportadoPor}" : string.Empty).
                     </span>
                 </p>
+            }
+
+            @if (Model.Escalas.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo"><i class="bi bi-clipboard2-pulse" aria-hidden="true"></i> Cómo está el paciente</h3>
+                    <ul class="hv-escalas">
+                        @foreach (var escala in Model.Escalas)
+                        {
+                            <li class="hv-escala hv-escala--@(escala.Nivel ?? "bajo")">
+                                <span class="hv-escala__nombre">@escala.Nombre</span>
+                                <span class="hv-escala__valor hv-num">@escala.Valor</span>
+                                @if (escala.Porcion is { } porcion)
+                                {
+                                    <span class="hv-escala__barra" style="--p:@((porcion * 100).ToString("0.#", inv))%" aria-hidden="true"></span>
+                                }
+                                <span class="hv-escala__texto">@escala.Interpretacion</span>
+                            </li>
+                        }
+                    </ul>
+                </section>
             }
 
             @if (Model.Medicamentos.Count > 0)
@@ -433,6 +438,43 @@
                 </section>
             }
 
+            @if (Model.Controles.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo"><i class="bi bi-calendar-event" aria-hidden="true"></i> Controles y cambios</h3>
+                    <ul class="hv-controles">
+                        @foreach (var control in Model.Controles)
+                        {
+                            <li class="hv-control @(control.Vencido ? "hv-control--vencido" : null)">
+                                <span class="hv-control__nombre">@control.Nombre</span>
+                                @if (control.DiasParaProximo is { } faltan)
+                                {
+                                    <span class="hv-chip @(faltan < 0 ? "hv-chip--pendiente" : faltan <= 7 ? "hv-chip--proximo" : "hv-chip--cerrada")">
+                                        @(faltan < 0
+                                            ? $"Vencido hace {HojaVidaFormato.Dias(-faltan).ToLowerInvariant()}"
+                                            : faltan == 0 ? "Es hoy" : $"En {HojaVidaFormato.Dias(faltan).ToLowerInvariant()}")
+                                    </span>
+                                }
+                                <span class="hv-control__fechas">
+                                    @if (control.Ultimo is not null)
+                                    {
+                                        <span>Último: <span class="hv-num">@HojaVidaFormato.Fecha(control.Ultimo)</span></span>
+                                    }
+                                    @if (control.Proximo is not null)
+                                    {
+                                        <span>Próximo: <span class="hv-num">@HojaVidaFormato.Fecha(control.Proximo)</span></span>
+                                    }
+                                    @if (control.Detalle is not null)
+                                    {
+                                        <span class="hv-tenue">@control.Detalle</span>
+                                    }
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
             @if (Model.Hospitalizaciones.Count > 0)
             {
                 <section class="hv-bloque">
@@ -512,6 +554,14 @@
                 </section>
             }
 
+            @if (Model.Observacion is not null)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo"><i class="bi bi-chat-left-text" aria-hidden="true"></i> Observación del equipo</h3>
+                    <p class="hv-observacion">@Model.Observacion</p>
+                </section>
+            }
+
             @if (Model.Datos.Count > 0)
             {
                 <section class="hv-bloque">
@@ -525,7 +575,7 @@
                 </section>
             }
 
-            @if (!Model.TieneDetalle && Model.Asegurador is null && Model.Profesional is null)
+            @if (!Model.TieneDetalle && Model.Asegurador is null)
             {
                 <p class="hv-tenue">Este ingreso todavía no tiene datos diligenciados en el censo.</p>
             }

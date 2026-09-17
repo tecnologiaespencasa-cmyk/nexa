@@ -176,14 +176,7 @@
                                         <input asp-for="FechaValoracion" type="date" class="form-control" />
                                         <span asp-validation-for="FechaValoracion" class="text-danger"></span>
                                     </div>
-                                    <div class="col-lg-4">
-                                        <label asp-for="ProgramaPertenece" class="form-label"></label>@RequiredMark()
-                                        <select asp-for="ProgramaPertenece" asp-items="Model.ProgramaPerteneceOptions" class="form-select">
-                                            <option value="" disabled hidden>Selecciona...</option>
-                                        </select>
-                                        <span asp-validation-for="ProgramaPertenece" class="text-danger"></span>
-                                    </div>
-                                    <div class="col-lg-4">
+                                    <div class="col-lg-6">
                                         <label asp-for="AuxiliarEnfermeriaAsignado" class="form-label"></label>
                                         <input asp-for="AuxiliarEnfermeriaAsignado" class="form-control" maxlength="120" id="heridasAuxiliarEnfermeriaInput" list="heridasAuxiliarEnfermeriaOptions" autocomplete="off" placeholder="Buscar auxiliar asignado" />
                                         <datalist id="heridasAuxiliarEnfermeriaOptions">

@@ -88,10 +88,6 @@ public class CensoClinicaHeridasRecord
 
     public DateTime FechaValoracion { get; set; }
 
-    [Required]
-    [StringLength(20)]
-    public string ProgramaPertenece { get; set; } = string.Empty;
-
     [StringLength(120)]
     public string? AuxiliarEnfermeriaAsignado { get; set; }
 

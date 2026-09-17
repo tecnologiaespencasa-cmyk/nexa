@@ -143,7 +143,7 @@ public partial class HojaVidaPacienteService : IHojaVidaPacienteService
             .ThenByDescending(x => x.RegistroId ?? 0)
             .ToList();
 
-        model.Identidad = ConstruirIdentidad(datos, novedades.Filas, rondas.Filas, doc, hoy);
+        model.Identidad = ConstruirIdentidad(datos, model.Ingresos, novedades.Filas, rondas.Filas, doc, hoy);
         model.Estado = ConstruirEstadoGeneral(ingresos, datos, model.Novedades, hoy);
         model.Resumen = ConstruirResumen(model, hoy);
         model.Alertas = ConstruirAlertas(model, datos, hoy);
@@ -417,6 +417,11 @@ public partial class HojaVidaPacienteService : IHojaVidaPacienteService
                 TipoAislamiento = x.TipoAislamiento,
                 CateterismoOSv = x.CateterismoOSv,
                 CateterPicc = x.CateterPicc,
+                NumeroCalibreSonda = x.NumeroCalibreSonda,
+                FechaUltimoCambioSonda = x.FechaUltimoCambioSonda,
+                FechaProximoCambioSonda = x.FechaProximoCambioSonda,
+                FechaUltimaCuracionPicc = x.FechaUltimaCuracionPicc,
+                ObservacionesPlanManejo = x.ObservacionesPlanManejo,
                 FechaAlta = x.FechaAlta,
                 NombreQuienGestionaAlta = x.NombreQuienGestionaAlta,
                 AltaTardia = x.AltaTardia,
