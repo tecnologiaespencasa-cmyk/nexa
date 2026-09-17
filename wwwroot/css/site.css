@@ -1045,10 +1045,16 @@ body {
   width: auto;
 }
 
+/* min-width:0 es necesario: sin el, el ancho "automatico" de este contenedor
+   se recalcula segun cuantos modulos del nav esten visibles en cada momento
+   (min-width:auto por defecto en flex usa el contenido como piso), lo que
+   hacia que el script de desbordamiento midiera un ancho disponible distinto
+   al real y dejara el ultimo modulo pegado al bloque de perfil. */
 .intranet-navbar-collapse {
   align-items: center;
   gap: 0.9rem;
   justify-content: space-between;
+  min-width: 0;
 }
 
 /* Una sola linea: la lista ocupa el espacio restante y nunca envuelve.

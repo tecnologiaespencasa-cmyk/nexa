@@ -2134,6 +2134,19 @@
   text-transform: none;
 }
 
+/* Reserva el alto de dos líneas en toda etiqueta de esta rejilla: sin esto, una etiqueta larga
+   ("Frecuencia de cambio de sonda nasogástrica") que se parte en dos empuja su campo hacia abajo
+   mientras sus vecinas de una sola línea se quedan más arriba, y la fila de campos queda
+   escalonada en vez de alineada. align-items:flex-end ancla el texto (una o dos líneas) contra
+   el borde inferior de esa altura reservada, pegado a su campo -sin esto, una etiqueta corta
+   dejaba un hueco enorme entre el texto y el campo, porque min-height solo reserva el espacio,
+   no reubica el texto dentro de él. */
+.censo-field-section__grid > [class*="col-"] > .form-label {
+  display: flex;
+  align-items: flex-end;
+  min-height: 4rem;
+}
+
 .censo-page .form-control,
 .censo-page .form-select {
   background: #ffffff !important;

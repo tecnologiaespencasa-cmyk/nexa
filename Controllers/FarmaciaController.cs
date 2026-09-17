@@ -422,7 +422,10 @@ public partial class FarmaciaController : Controller
         agudizacion.FarmaciaNombreRecibe = nombreRecibe;
         agudizacion.FarmaciaFirmaEntregaDataUrl = model.FirmaEntregaDataUrl.Trim();
         agudizacion.FarmaciaFirmaRecibeDataUrl = model.FirmaRecibeDataUrl.Trim();
-        agudizacion.FarmaciaFechaHoraRecepcionUtc = DateTime.SpecifyKind(model.FechaHoraRecepcion, DateTimeKind.Local).ToUniversalTime();
+        // El valor viene de un <input type="datetime-local"> sin zona: es hora Colombia tal
+        // cual la escribió el usuario. DateTimeKind.Local dependía de la zona del SERVIDOR
+        // (en producción, UTC), no de Bogotá, así que la hora guardada quedaba corrida.
+        agudizacion.FarmaciaFechaHoraRecepcionUtc = ColombiaTime.ConvertToUtc(model.FechaHoraRecepcion);
         agudizacion.FarmaciaFirmaActualizadaAtUtc = DateTime.UtcNow;
         agudizacion.FarmaciaEstado = FarmaciaEstados.Despachado;
 
@@ -640,7 +643,10 @@ public partial class FarmaciaController : Controller
         record.FarmaciaNombreRecibe = nombreRecibe;
         record.FarmaciaFirmaEntregaDataUrl = model.FirmaEntregaDataUrl.Trim();
         record.FarmaciaFirmaRecibeDataUrl = model.FirmaRecibeDataUrl.Trim();
-        record.FarmaciaFechaHoraRecepcionUtc = DateTime.SpecifyKind(model.FechaHoraRecepcion, DateTimeKind.Local).ToUniversalTime();
+        // El valor viene de un <input type="datetime-local"> sin zona: es hora Colombia tal
+        // cual la escribió el usuario. DateTimeKind.Local dependía de la zona del SERVIDOR
+        // (en producción, UTC), no de Bogotá, así que la hora guardada quedaba corrida.
+        record.FarmaciaFechaHoraRecepcionUtc = ColombiaTime.ConvertToUtc(model.FechaHoraRecepcion);
         record.FarmaciaFirmaActualizadaAtUtc = DateTime.UtcNow;
         record.FarmaciaEstado = FarmaciaEstados.Despachado;
 

@@ -388,7 +388,10 @@ public partial class FarmaciaController
         kardex.FarmaciaNombreRecibe = nombreRecibe;
         kardex.FarmaciaFirmaEntregaDataUrl = model.FirmaEntregaDataUrl.Trim();
         kardex.FarmaciaFirmaRecibeDataUrl = model.FirmaRecibeDataUrl.Trim();
-        kardex.FarmaciaFechaHoraRecepcionUtc = DateTime.SpecifyKind(model.FechaHoraRecepcion, DateTimeKind.Local).ToUniversalTime();
+        // El valor viene de un <input type="datetime-local"> sin zona: es hora Colombia tal
+        // cual la escribió el usuario. DateTimeKind.Local dependía de la zona del SERVIDOR
+        // (en producción, UTC), no de Bogotá, así que la hora guardada quedaba corrida.
+        kardex.FarmaciaFechaHoraRecepcionUtc = ColombiaTime.ConvertToUtc(model.FechaHoraRecepcion);
         kardex.FarmaciaFirmaActualizadaAtUtc = DateTime.UtcNow;
         kardex.FarmaciaEstado = FarmaciaEstados.Despachado;
         kardex.UpdatedAtUtc = DateTime.UtcNow;
