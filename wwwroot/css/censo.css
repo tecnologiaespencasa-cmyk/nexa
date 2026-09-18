@@ -2140,11 +2140,25 @@
    escalonada en vez de alineada. align-items:flex-end ancla el texto (una o dos líneas) contra
    el borde inferior de esa altura reservada, pegado a su campo -sin esto, una etiqueta corta
    dejaba un hueco enorme entre el texto y el campo, porque min-height solo reserva el espacio,
-   no reubica el texto dentro de él. */
+   no reubica el texto dentro de él.
+
+   inline-flex, no flex: el asterisco de RequiredMark es un <span> HERMANO que viene después de
+   </label>, no un hijo; con flex (de bloque) el label ocupa toda la fila y empuja ese span a su
+   propia línea.
+
+   max-width reserva sitio para ese asterisco: aun en inline-flex, cuando el texto de la etiqueta
+   necesita partirse en dos líneas para caber, el navegador puede calcular el ancho del label
+   igual al ancho completo de la columna (ajustándose al máximo disponible), sin dejar hueco para
+   nada más en esa línea -el asterisco, que sigue siendo un hermano en flujo normal, no cabía y
+   saltaba a su propia línea. Con max-width reservando 16px el label nunca ocupa el 100%, así que
+   siempre queda sitio para el asterisco justo después. Esto rompió el asterisco en TODO el censo
+   (comparte esta clase Datos básicos del paciente, agudos, crónicos, heridas, NPT y terapia) hasta
+   que se detectó y corrigió el 2026-09-18. */
 .censo-field-section__grid > [class*="col-"] > .form-label {
-  display: flex;
+  display: inline-flex;
   align-items: flex-end;
   min-height: 4rem;
+  max-width: calc(100% - 16px);
 }
 
 .censo-page .form-control,
