@@ -1,0 +1,79 @@
+@model ReportesDashboardViewModel
+@{
+    var t = Model.Terapia;
+    var activo = Model.Vista == t.Vista;
+    var baseIngresos = $"{ReportesFormato.Entero(t.IngresosPeriodo)} {(t.IngresosPeriodo == 1 ? "ingreso" : "ingresos")} del periodo";
+}
+<section class="rp-panel" role="tabpanel" id="rp-panel-terapia" aria-labelledby="rp-tab-terapia"
+         data-programa="@t.Programa" hidden="@(!activo)">
+    <header class="rp-panel__cabeza">
+        <div class="rp-panel__titulo">
+            <h2>Terapia ambulatoria</h2>
+            <p>
+                Un ingreso se cuenta por su fecha de ingreso, igual que en el tabulado (no por la fecha de inicio del
+                tratamiento, que puede ser posterior). Activos hoy: paciente Activo y alta sin cerrar.
+            </p>
+        </div>
+    </header>
+
+    <div class="rp-cifras">
+        <div class="rp-cifra">
+            <strong data-rp-cifra="terapia-activos-panel">@ReportesFormato.Entero(t.ActivosHoy)</strong>
+            <span>@ReportesFormato.Plural(t.ActivosHoy, "activo hoy", "activos hoy")</span>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="terapia-ingresos-panel">@ReportesFormato.Entero(t.IngresosPeriodo)</strong>
+            <span>@ReportesFormato.Plural(t.IngresosPeriodo, "ingreso", "ingresos") en el periodo</span>
+            <small>@ReportesFormato.Decimal(t.PromedioIngresosDia) por día en promedio</small>
+        </div>
+        @foreach (var segmento in t.EstadoGestion)
+        {
+            <div class="rp-cifra @(segmento.Tono == "alerta" ? "rp-cifra--alerta" : null)">
+                <strong>@ReportesFormato.Entero(segmento.Valor)</strong>
+                <span>@segmento.Etiqueta.ToLowerInvariant()</span>
+                <small>@ReportesFormato.Porcentaje(segmento.Porcentaje) de los ingresos</small>
+            </div>
+        }
+    </div>
+
+    <div class="rp-rejilla">
+        <article class="rp-tarjeta rp-c-8">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Ingresos por @Model.Granularidad</h3>
+                <p class="rp-base">Base: @baseIngresos</p>
+            </header>
+            @{
+                ViewData["IdSerie"] = "terapia-ingresos";
+                ViewData["UnidadSerie"] = "Ingresos";
+            }
+            <partial name="_RpColumnas" model="t.Ingresos" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Estado de la gestión</h3>
+                <p class="rp-base">Base: @baseIngresos</p>
+            </header>
+            <partial name="_RpDona" model='new ReportesDonaViewModel(t.EstadoGestion, t.IngresosPeriodo, t.IngresosPeriodo == 1 ? "ingreso" : "ingresos")' />
+        </article>
+
+        <article class="rp-tarjeta rp-c-6">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Terapias que pide cada ingreso</h3>
+                <p class="rp-base">Base: @baseIngresos</p>
+            </header>
+            <partial name="_RpBarras" model="t.TerapiasSolicitadas" />
+            <p class="rp-nota">Un ingreso puede pedir varias terapias: cada porcentaje es sobre los ingresos y la lista no suma 100 %.</p>
+        </article>
+
+        <article class="rp-tarjeta rp-c-6">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Activos por fisioterapeuta</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(t.ActivosHoy, "activo hoy", "activos hoy")</p>
+            </header>
+            <div class="rp-desplazable">
+                <partial name="_RpBarras" model="t.ActivosPorFisioterapeuta" />
+            </div>
+        </article>
+    </div>
+</section>

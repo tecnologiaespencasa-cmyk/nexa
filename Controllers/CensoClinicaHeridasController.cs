@@ -88,7 +88,8 @@ public partial class CensoController
 
     // Catalogo CIE10 propio del programa: clinica de heridas solo admite estos diagnosticos, no el
     // catalogo general del censo de agudos. Para agregar o retirar uno basta con editar esta lista.
-    private static readonly IReadOnlyDictionary<string, string> ClinicaHeridasCie10Values =
+    // Es interno y no privado porque Reportes rotula los diagnosticos por codigo con esta misma lista.
+    internal static readonly IReadOnlyDictionary<string, string> ClinicaHeridasCie10Values =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["E105"] = "DIABETES MELLITUS, NO ESPECIFICADA CON COMPLICACIONES CIRCULATORIAS PERIFÉRICAS",

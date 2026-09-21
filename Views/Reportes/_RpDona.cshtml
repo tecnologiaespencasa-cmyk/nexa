@@ -1,0 +1,51 @@
+@model ReportesDonaViewModel
+@using System.Globalization
+@*
+    Dona para partes de un todo con pocas categorías. El anillo mide 100 de circunferencia (r = 15,9155),
+    así cada segmento ocupa exactamente su porcentaje. Al lado, la leyenda con cifra y porcentaje: el color
+    nunca es la única pista.
+*@
+@{
+    var inv = CultureInfo.InvariantCulture;
+    var visibles = Model.Segmentos.Where(x => x.Valor > 0).ToList();
+    var hueco = visibles.Count > 1 ? 0.8 : 0;
+    var acumulado = 0d;
+}
+@if (visibles.Count == 0)
+{
+    <p class="rp-vacio">Sin registros para mostrar.</p>
+}
+else
+{
+    <div class="rp-dona">
+        <div class="rp-dona__grafico">
+            <svg viewBox="0 0 42 42" aria-hidden="true" focusable="false">
+                <circle class="rp-dona__pista" cx="21" cy="21" r="15.9155" />
+                @foreach (var segmento in visibles)
+                {
+                    var largo = Math.Max(segmento.Porcentaje - hueco, 0.6);
+                    <circle class="rp-dona__segmento rp-trazo--@segmento.Tono" cx="21" cy="21" r="15.9155"
+                            stroke-dasharray="@largo.ToString("0.###", inv) @((100 - largo).ToString("0.###", inv))"
+                            stroke-dashoffset="@((25 - acumulado).ToString("0.###", inv))"
+                            data-rp-tip="@segmento.Etiqueta · @ReportesFormato.Entero(segmento.Valor) (@ReportesFormato.Porcentaje(segmento.Porcentaje))" />
+                    acumulado += segmento.Porcentaje;
+                }
+            </svg>
+            <div class="rp-dona__centro">
+                <strong>@ReportesFormato.Entero(Model.Total)</strong>
+                <span>@Model.Rotulo</span>
+            </div>
+        </div>
+        <ul class="rp-apilada__leyenda rp-dona__leyenda">
+            @foreach (var segmento in Model.Segmentos.Where(x => x.Valor > 0))
+            {
+                <li>
+                    <i class="rp-tono--@segmento.Tono" aria-hidden="true"></i>
+                    <span>@segmento.Etiqueta</span>
+                    <strong>@ReportesFormato.Entero(segmento.Valor)</strong>
+                    <small>@ReportesFormato.Porcentaje(segmento.Porcentaje)</small>
+                </li>
+            }
+        </ul>
+    </div>
+}

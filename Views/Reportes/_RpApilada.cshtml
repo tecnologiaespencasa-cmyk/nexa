@@ -1,0 +1,33 @@
+@model IReadOnlyList<ReportesSegmentoViewModel>
+@*
+    Parte de un todo en una sola barra. Cada segmento crece en proporción a su valor (flex-grow), con
+    una separación de 2 px; la leyenda de abajo repite cifra y porcentaje, así que el color nunca es la
+    única pista.
+*@
+@if (Model.Count == 0)
+{
+    <p class="rp-vacio">Sin registros para mostrar.</p>
+}
+else
+{
+    <div class="rp-apilada">
+        <div class="rp-apilada__barra" aria-hidden="true">
+            @foreach (var segmento in Model)
+            {
+                <span class="rp-tono--@segmento.Tono" style="flex-grow:@segmento.Valor"
+                      data-rp-tip="@segmento.Etiqueta · @ReportesFormato.Entero(segmento.Valor) (@ReportesFormato.Porcentaje(segmento.Porcentaje))"></span>
+            }
+        </div>
+        <ul class="rp-apilada__leyenda">
+            @foreach (var segmento in Model)
+            {
+                <li>
+                    <i class="rp-tono--@segmento.Tono" aria-hidden="true"></i>
+                    <span>@segmento.Etiqueta</span>
+                    <strong>@ReportesFormato.Entero(segmento.Valor)</strong>
+                    <small>@ReportesFormato.Porcentaje(segmento.Porcentaje)</small>
+                </li>
+            }
+        </ul>
+    </div>
+}

@@ -1,0 +1,96 @@
+@model ReportesDashboardViewModel
+@{
+    var c = Model.Cronicos;
+    var activo = Model.Vista == c.Vista;
+    var baseActivos = $"{ReportesFormato.Entero(c.ActivosHoy)} {(c.ActivosHoy == 1 ? "paciente activo" : "pacientes activos")} hoy";
+    var lineaFlujo = ReportesLineaViewModel.DeFlujo("cronicos-flujo", c.Flujo);
+}
+<section class="rp-panel" role="tabpanel" id="rp-panel-cronicos" aria-labelledby="rp-tab-cronicos"
+         data-programa="@c.Programa" hidden="@(!activo)">
+    <header class="rp-panel__cabeza">
+        <div class="rp-panel__titulo">
+            <h2>Crónicos</h2>
+            <p>
+                Activos hoy son los pacientes sin fecha de egreso y con estado distinto de Inactivo, igual que en el informe
+                de pacientes activos. Los ingresos se cuentan por fecha de ingreso y los egresos por fecha de egreso.
+            </p>
+        </div>
+    </header>
+
+    <div class="rp-cifras">
+        <div class="rp-cifra">
+            <strong data-rp-cifra="cronicos-activos-panel">@ReportesFormato.Entero(c.ActivosHoy)</strong>
+            <span>@ReportesFormato.Plural(c.ActivosHoy, "activo hoy", "activos hoy")</span>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="cronicos-ingresos-panel">@ReportesFormato.Entero(c.IngresosPeriodo)</strong>
+            <span>@ReportesFormato.Plural(c.IngresosPeriodo, "ingreso", "ingresos") en el periodo</span>
+            <small>@ReportesFormato.Decimal(c.PromedioIngresosDia) por día en promedio</small>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="cronicos-egresos">@ReportesFormato.Entero(c.EgresosPeriodo)</strong>
+            <span>@ReportesFormato.Plural(c.EgresosPeriodo, "egreso", "egresos") en el periodo</span>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="cronicos-agudizaciones">@ReportesFormato.Entero(c.AgudizacionesRegistradas)</strong>
+            <span>@ReportesFormato.Plural(c.AgudizacionesRegistradas, "agudización registrada", "agudizaciones registradas")</span>
+            <small>por la fecha en que se registraron</small>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="cronicos-hospitalizaciones">@ReportesFormato.Entero(c.HospitalizacionesRegistradas)</strong>
+            <span>@ReportesFormato.Plural(c.HospitalizacionesRegistradas, "hospitalización registrada", "hospitalizaciones registradas")</span>
+            <small>por la fecha en que se registraron</small>
+        </div>
+    </div>
+
+    <div class="rp-rejilla">
+        <article class="rp-tarjeta rp-c-8">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Ingresos y egresos por @Model.Granularidad</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(c.IngresosPeriodo, "ingreso", "ingresos") y @ReportesFormato.Cantidad(c.EgresosPeriodo, "egreso", "egresos") del periodo</p>
+            </header>
+            <partial name="_RpLinea" model="lineaFlujo" />
+            @if (c.InactivosSinFechaEgreso > 0)
+            {
+                <p class="rp-nota">
+                    @ReportesFormato.Entero(c.InactivosSinFechaEgreso)
+                    @(c.InactivosSinFechaEgreso == 1 ? "paciente inactivo no tiene" : "pacientes inactivos no tienen")
+                    fecha de egreso registrada: no se puede ubicar en ningún periodo y no se cuenta como egreso.
+                </p>
+            }
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Motivos de egreso</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(c.EgresosPeriodo, "egreso", "egresos") del periodo</p>
+            </header>
+            <partial name="_RpBarras" model="c.MotivosEgreso" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Tiempo en el programa</h3>
+                <p class="rp-base">Base: @baseActivos</p>
+            </header>
+            <partial name="_RpHistograma" model="c.Antiguedad" />
+            <p class="rp-nota">Meses calendario cumplidos desde la fecha de ingreso al programa.</p>
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Patología crónica</h3>
+                <p class="rp-base">Base: @baseActivos</p>
+            </header>
+            <partial name="_RpBarras" model="c.Patologia" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Municipio de residencia</h3>
+                <p class="rp-base">Base: @baseActivos</p>
+            </header>
+            <partial name="_RpBarras" model="c.MunicipiosActivos" />
+        </article>
+    </div>
+</section>

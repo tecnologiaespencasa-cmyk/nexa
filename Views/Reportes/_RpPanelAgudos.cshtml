@@ -1,0 +1,269 @@
+@model ReportesDashboardViewModel
+@{
+    var a = Model.Agudos;
+    var activo = Model.Vista == a.Vista;
+    var baseIngresos = $"{ReportesFormato.Entero(a.IngresosPeriodo)} {(a.IngresosPeriodo == 1 ? "ingreso" : "ingresos")} del periodo";
+    var lineaIngresos = ReportesLineaViewModel.DeSerie("agudos-ingresos", a.Ingresos, "Ingresos", "ingresos por día");
+}
+<section class="rp-panel" role="tabpanel" id="rp-panel-agudos" aria-labelledby="rp-tab-agudos"
+         data-programa="@a.Programa" hidden="@(!activo)">
+    <header class="rp-panel__cabeza">
+        <div class="rp-panel__titulo">
+            <h2>Agudos</h2>
+            <p>
+                Un ingreso es una atención con fecha de ingreso en el periodo; las canceladas y rechazadas no cuentan.
+                Activos hoy son las atenciones en estado Aceptado activo, Aceptado crónico o Activo estancia prolongada,
+                igual que en el informe de pacientes activos.
+            </p>
+        </div>
+        <div class="rp-panel__filtros" role="group" aria-label="Filtros propios de agudos">
+            <label class="rp-campo">
+                <span>Gestión</span>
+                <select name="EstadoGestion" form="rpFiltros" asp-items="Model.FilterOptions.EstadosGestion"></select>
+            </label>
+            <label class="rp-campo rp-campo--ancho">
+                <span>Estado de la atención</span>
+                <select name="EstadoCenso" form="rpFiltros" asp-items="Model.FilterOptions.EstadosCenso"></select>
+            </label>
+            <button type="submit" form="rpFiltros" class="rp-boton rp-boton--quieto">Aplicar</button>
+        </div>
+    </header>
+
+    <div class="rp-cifras">
+        <div class="rp-cifra">
+            <strong data-rp-cifra="agudos-ingresos-panel">@ReportesFormato.Entero(a.IngresosPeriodo)</strong>
+            <span>@ReportesFormato.Plural(a.IngresosPeriodo, "ingreso", "ingresos") en el periodo</span>
+            <small>@ReportesFormato.Decimal(a.PromedioIngresosDia) por día en promedio</small>
+        </div>
+        <div class="rp-cifra rp-cifra--alerta">
+            <strong data-rp-cifra="agudos-pendientes">@ReportesFormato.Entero(a.GestionPendiente)</strong>
+            <span>con gestión pendiente</span>
+            <small>@ReportesFormato.Porcentaje(a.IngresosPeriodo == 0 ? 0 : Math.Round(a.GestionPendiente * 100d / a.IngresosPeriodo, 1)) de los ingresos</small>
+        </div>
+        <div class="rp-cifra rp-cifra--alerta">
+            <strong data-rp-cifra="agudos-sinautorizacion">@ReportesFormato.Entero(a.SinAutorizacion)</strong>
+            <span>sin autorización del evento</span>
+            <small>@ReportesFormato.Porcentaje(a.IngresosPeriodo == 0 ? 0 : Math.Round(a.SinAutorizacion * 100d / a.IngresosPeriodo, 1)) de los ingresos</small>
+        </div>
+        <div class="rp-cifra rp-cifra--critico">
+            <strong data-rp-cifra="agudos-criticos">@ReportesFormato.Entero(a.Criticos)</strong>
+            <span>@ReportesFormato.Plural(a.Criticos, "crítico", "críticos")</span>
+            <small>sin autorización y con gestión pendiente a la vez</small>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="agudos-activos-panel">@ReportesFormato.Entero(a.ActivosHoy)</strong>
+            <span>@ReportesFormato.Plural(a.ActivosHoy, "activo hoy", "activos hoy")</span>
+            <small>
+                @if (a.ActivosSinAuxiliar == 0)
+                {
+                    @:todos con auxiliar asignado
+                }
+                else
+                {
+                    @($"{ReportesFormato.Entero(a.ActivosSinAuxiliar)} sin auxiliar asignado")
+                }
+            </small>
+        </div>
+    </div>
+
+    <div class="rp-rejilla">
+        <article class="rp-tarjeta rp-c-8">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Ingresos por @Model.Granularidad</h3>
+                <p class="rp-base">Base: @baseIngresos</p>
+            </header>
+            <partial name="_RpLinea" model="lineaIngresos" />
+            @if (a.CanceladosRechazadosPeriodo > 0)
+            {
+                <p class="rp-nota">
+                    No incluye @ReportesFormato.Entero(a.CanceladosRechazadosPeriodo)
+                    @(a.CanceladosRechazadosPeriodo == 1 ? "atención cancelada o rechazada" : "atenciones canceladas o rechazadas")
+                    con fecha de ingreso en el periodo; el tabulado del final sí las lista.
+                </p>
+            }
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Gestión y autorización</h3>
+                <p class="rp-base">Base: @baseIngresos</p>
+            </header>
+            <h4 class="rp-subtitulo">Estado de la gestión del caso</h4>
+            <partial name="_RpApilada" model="a.Gestion" />
+            <h4 class="rp-subtitulo">Autorización del evento</h4>
+            <partial name="_RpApilada" model="a.Autorizacion" />
+            @if (a.Criticos > 0)
+            {
+                <p class="rp-aviso rp-aviso--critico">
+                    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 2.5 18.5 17h-17z" /><path d="M10 8v4.2M10 14.4v.1" /></svg>
+                    <span><strong>@ReportesFormato.Entero(a.Criticos)</strong> @(a.Criticos == 1 ? "ingreso sigue" : "ingresos siguen") sin autorización y con la gestión pendiente.</span>
+                </p>
+            }
+        </article>
+
+        <article class="rp-tarjeta rp-c-8">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Registros para revisar</h3>
+                <p class="rp-base">
+                    @if (a.TotalConAlerta == 0)
+                    {
+                        @:Ningún ingreso del periodo tiene alertas.
+                    }
+                    else
+                    {
+                        @($"Se muestran {Math.Min(15, a.TotalConAlerta)} de {ReportesFormato.Entero(a.TotalConAlerta)} ingresos con alerta: primero los que no tienen autorización y, entre ellos, los más antiguos.")
+                    }
+                </p>
+            </header>
+            @if (a.RegistrosPrioritarios.Count > 0)
+            {
+                <div class="rp-tabla-caja rp-desplazable">
+                    <table class="rp-tabla">
+                        <thead>
+                            <tr>
+                                <th scope="col">Paciente</th>
+                                <th scope="col">Ingreso</th>
+                                <th scope="col">Municipio</th>
+                                <th scope="col">Auxiliar asignado</th>
+                                <th scope="col">Alerta</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var fila in a.RegistrosPrioritarios)
+                            {
+                                var dias = (Model.Hoy - fila.FechaIngreso.Date).Days;
+                                <tr>
+                                    <td>
+                                        <a class="rp-paciente" asp-controller="Censo" asp-action="Index"
+                                           asp-route-cedulaPaciente="@fila.NumeroIdentificacion" asp-route-programa="AGUDOS"
+                                           title="Abrir en el censo">@fila.Paciente</a>
+                                        <span class="rp-dato">@fila.Documento</span>
+                                    </td>
+                                    <td>
+                                        <span class="rp-dato">@fila.FechaIngreso.ToString("dd/MM/yyyy")</span>
+                                        <small class="rp-tenue">@(dias == 0 ? "hoy" : dias == 1 ? "hace 1 día" : $"hace {dias} días")</small>
+                                    </td>
+                                    <td>@fila.Municipio</td>
+                                    <td>
+                                        @if (fila.AuxiliarAsignado is null)
+                                        {
+                                            <span class="rp-tenue">Sin asignar</span>
+                                        }
+                                        else
+                                        {
+                                            @fila.AuxiliarAsignado
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="rp-alerta @(fila.SinAutorizacion && fila.GestionPendiente ? "rp-alerta--critico" : null)">@fila.Alerta</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            <p class="rp-nota">La columna muestra solo el auxiliar asignado en el censo. Quien recibe el caso o hace el kardex es personal administrativo y no aparece aquí.</p>
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Activos por auxiliar asignado</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(a.ActivosHoy, "activo hoy", "activos hoy") · @ReportesFormato.Cantidad(a.AuxiliaresConPacientes, "auxiliar con pacientes", "auxiliares con pacientes")</p>
+            </header>
+            @if (a.ActivosSinAuxiliar > 0)
+            {
+                <p class="rp-aviso rp-aviso--alerta">
+                    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8" /><path d="M10 6v4.5M10 13.6v.1" /></svg>
+                    <span><strong>@ReportesFormato.Entero(a.ActivosSinAuxiliar)</strong> @(a.ActivosSinAuxiliar == 1 ? "paciente activo no tiene" : "pacientes activos no tienen") auxiliar asignado.</span>
+                </p>
+            }
+            <div class="rp-desplazable">
+                <partial name="_RpBarras" model="a.ActivosPorAuxiliar" />
+            </div>
+        </article>
+
+        <article class="rp-tarjeta rp-c-6">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Calendario de ingresos</h3>
+                <p class="rp-base">Base: @baseIngresos · cada casilla es un día y trae su cifra</p>
+            </header>
+            <partial name="_RpCalendario" model="a.Calendario" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-3">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Ingresos por municipio</h3>
+                <p class="rp-base">Base: @baseIngresos</p>
+            </header>
+            @if (a.Municipios.Count == 0)
+            {
+                <p class="rp-vacio">Sin registros para mostrar.</p>
+            }
+            else
+            {
+                <div class="rp-tabla-caja rp-desplazable">
+                    <table class="rp-tabla rp-tabla--cifras">
+                        <thead>
+                            <tr>
+                                <th scope="col">Municipio</th>
+                                <th scope="col" class="rp-num">Ingresos</th>
+                                <th scope="col" class="rp-num" title="Gestión pendiente">Pend.</th>
+                                <th scope="col" class="rp-num" title="Sin autorización">Sin aut.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var fila in a.Municipios)
+                            {
+                                <tr class="@(fila.NoParametrizado ? "is-secundaria" : null)">
+                                    <th scope="row">
+                                        @fila.Municipio
+                                        <span class="rp-mini-barra" aria-hidden="true"><span style="width:@(Math.Max(fila.Barra, 1.5).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></span></span>
+                                    </th>
+                                    <td class="rp-num">@ReportesFormato.Entero(fila.Ingresos)</td>
+                                    <td class="rp-num">@ReportesFormato.Entero(fila.GestionPendiente)</td>
+                                    <td class="rp-num">@ReportesFormato.Entero(fila.SinAutorizacion)</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th scope="row">Total</th>
+                                <td class="rp-num">@ReportesFormato.Entero(a.Municipios.Sum(x => x.Ingresos))</td>
+                                <td class="rp-num">@ReportesFormato.Entero(a.Municipios.Sum(x => x.GestionPendiente))</td>
+                                <td class="rp-num">@ReportesFormato.Entero(a.Municipios.Sum(x => x.SinAutorizacion))</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+        </article>
+
+        <article class="rp-tarjeta rp-c-3">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Estado actual de esos ingresos</h3>
+                <p class="rp-base">Base: @baseIngresos</p>
+            </header>
+            <partial name="_RpBarras" model="a.EstadoActual" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-6">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Perfil de los ingresos</h3>
+                <p class="rp-base">Base: @baseIngresos</p>
+            </header>
+            <h4 class="rp-subtitulo">Aseguradora</h4>
+            <partial name="_RpApilada" model="a.Aseguradora" />
+            <h4 class="rp-subtitulo">Clasificación del riesgo</h4>
+            <partial name="_RpApilada" model="a.Riesgo" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-6">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Sin autorización, por quien recibió el caso</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(a.SinAutorizacion, "ingreso sin autorización", "ingresos sin autorización")</p>
+            </header>
+            <partial name="_RpBarras" model="a.SinAutorizacionPorRecepcion" />
+        </article>
+    </div>
+</section>

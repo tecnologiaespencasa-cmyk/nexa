@@ -15,8 +15,8 @@ public class PortalNovedadRepository : IPortalNovedadRepository
     }
 
     public async Task<IReadOnlyList<PortalNovedadRow>> GetNovedadesAsync(
-        DateTime desde,
-        DateTime hasta,
+        DateTime desdeUtc,
+        DateTime hastaUtcExclusivo,
         string? categoria,
         string? auxiliar,
         CancellationToken cancellationToken = default)
@@ -49,8 +49,10 @@ public class PortalNovedadRepository : IPortalNovedadRepository
                   )
             order by "createdAt" desc;
             """;
-        command.Parameters.AddWithValue("desde", NpgsqlDbType.Timestamp, desde.Date);
-        command.Parameters.AddWithValue("hasta", NpgsqlDbType.Timestamp, hasta.Date.AddDays(1));
+        // "createdAt" es timestamp sin zona con la hora UTC (así la escribe Prisma). Los límites llegan
+        // ya en UTC y se comparan tal cual: sin truncarlos a fecha, que los correría cinco horas.
+        command.Parameters.AddWithValue("desde", NpgsqlDbType.Timestamp, DateTime.SpecifyKind(desdeUtc, DateTimeKind.Unspecified));
+        command.Parameters.AddWithValue("hasta", NpgsqlDbType.Timestamp, DateTime.SpecifyKind(hastaUtcExclusivo, DateTimeKind.Unspecified));
         command.Parameters.AddWithValue("categoria", NpgsqlDbType.Text, string.IsNullOrWhiteSpace(categoria) ? DBNull.Value : categoria);
         command.Parameters.AddWithValue("auxiliar", NpgsqlDbType.Text, string.IsNullOrWhiteSpace(auxiliar) ? DBNull.Value : auxiliar);
 

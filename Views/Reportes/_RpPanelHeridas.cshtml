@@ -1,0 +1,100 @@
+@model ReportesDashboardViewModel
+@{
+    var h = Model.Heridas;
+    var activo = Model.Vista == h.Vista;
+    var baseActivos = $"{ReportesFormato.Entero(h.ActivosHoy)} {(h.ActivosHoy == 1 ? "paciente activo" : "pacientes activos")} hoy";
+    var lineaFlujo = ReportesLineaViewModel.DeFlujo("heridas-flujo", h.Flujo);
+}
+<section class="rp-panel" role="tabpanel" id="rp-panel-heridas" aria-labelledby="rp-tab-heridas"
+         data-programa="@h.Programa" hidden="@(!activo)">
+    <header class="rp-panel__cabeza">
+        <div class="rp-panel__titulo">
+            <h2>Clínica de heridas</h2>
+            <p>
+                Activos hoy son los pacientes en estado Activo y sin fecha de egreso, igual que en el informe de pacientes
+                activos. VAC no es un programa aparte: es el campo VAC en Sí de un paciente activo de este programa.
+            </p>
+        </div>
+    </header>
+
+    <div class="rp-cifras">
+        <div class="rp-cifra">
+            <strong data-rp-cifra="heridas-activos-panel">@ReportesFormato.Entero(h.ActivosHoy)</strong>
+            <span>@ReportesFormato.Plural(h.ActivosHoy, "activo hoy", "activos hoy")</span>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="heridas-vac">@ReportesFormato.Entero(h.ActivosConVac)</strong>
+            <span>con VAC</span>
+            <small>@ReportesFormato.Porcentaje(h.ActivosHoy == 0 ? 0 : Math.Round(h.ActivosConVac * 100d / h.ActivosHoy, 1)) de los activos</small>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="heridas-ingresos-panel">@ReportesFormato.Entero(h.IngresosPeriodo)</strong>
+            <span>@ReportesFormato.Plural(h.IngresosPeriodo, "ingreso", "ingresos") en el periodo</span>
+            <small>@ReportesFormato.Decimal(h.PromedioIngresosDia) por día en promedio</small>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="heridas-egresos">@ReportesFormato.Entero(h.EgresosPeriodo)</strong>
+            <span>@ReportesFormato.Plural(h.EgresosPeriodo, "egreso", "egresos") en el periodo</span>
+        </div>
+        <div class="rp-cifra @(h.ActivosSinAuxiliar > 0 ? "rp-cifra--alerta" : null)">
+            <strong data-rp-cifra="heridas-sinauxiliar">@ReportesFormato.Entero(h.ActivosSinAuxiliar)</strong>
+            <span>@ReportesFormato.Plural(h.ActivosSinAuxiliar, "activo sin auxiliar asignado", "activos sin auxiliar asignado")</span>
+        </div>
+    </div>
+
+    <div class="rp-rejilla">
+        <article class="rp-tarjeta rp-c-8">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Ingresos y egresos por @Model.Granularidad</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(h.IngresosPeriodo, "ingreso", "ingresos") y @ReportesFormato.Cantidad(h.EgresosPeriodo, "egreso", "egresos") del periodo</p>
+            </header>
+            <partial name="_RpLinea" model="lineaFlujo" />
+            @if (h.InactivosSinFechaEgreso > 0)
+            {
+                <p class="rp-nota">
+                    @ReportesFormato.Entero(h.InactivosSinFechaEgreso)
+                    @(h.InactivosSinFechaEgreso == 1 ? "paciente que ya no está activo no tiene" : "pacientes que ya no están activos no tienen")
+                    fecha de egreso registrada: no se puede ubicar en ningún periodo y no se cuenta como egreso.
+                </p>
+            }
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Motivos de egreso</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(h.EgresosPeriodo, "egreso", "egresos") del periodo</p>
+            </header>
+            <partial name="_RpBarras" model="h.MotivosEgreso" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Diagnóstico CIE-10</h3>
+                <p class="rp-base">Base: @baseActivos</p>
+            </header>
+            <partial name="_RpBarras" model="h.Diagnosticos" />
+            <p class="rp-nota">Agrupado por código; la descripción es la del catálogo del programa.</p>
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Activos por auxiliar asignado</h3>
+                <p class="rp-base">Base: @baseActivos</p>
+            </header>
+            <div class="rp-desplazable">
+                <partial name="_RpBarras" model="h.ActivosPorAuxiliar" />
+            </div>
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Fuente y frecuencia</h3>
+                <p class="rp-base">Fuente: @ReportesFormato.Cantidad(h.IngresosPeriodo, "ingreso", "ingresos") del periodo · frecuencia: @baseActivos</p>
+            </header>
+            <h4 class="rp-subtitulo">Fuente de ingreso</h4>
+            <partial name="_RpApilada" model="h.FuenteIngreso" />
+            <h4 class="rp-subtitulo">Frecuencia de visita</h4>
+            <partial name="_RpBarras" model="h.FrecuenciaVisita" />
+        </article>
+    </div>
+</section>

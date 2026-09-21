@@ -55,7 +55,17 @@ public partial class CensoController
                     .Where(x => string.IsNullOrEmpty(doc) || x.NumeroIdentificacion == doc)
                     .OrderBy(x => x.Id)
                     .ToListAsync(cancellationToken);
-                return ExportarPorReflexion(registros, "Clinica de heridas", "censo_clinica_heridas");
+
+                // Los programas que cada paciente tiene agregados hoy (ver CensoController.ProgramasAgregados.cs).
+                var programasAgregados = await ProgramasAgregadosAsync(
+                    _context,
+                    registros.Select(x => ((string?)x.NumeroIdentificacion, x.CensoPacienteId)).ToList(),
+                    cancellationToken);
+                return ExportarPorReflexion(
+                    registros,
+                    "Clinica de heridas",
+                    "censo_clinica_heridas",
+                    ("NombrePaciente", "Programas agregados", x => programasAgregados(x.NumeroIdentificacion, x.CensoPacienteId)));
             }
             case CensoProgramas.Npt:
             {
@@ -151,7 +161,14 @@ public partial class CensoController
     /// Arma un exportable con todas las propiedades de la entidad. Se usa en los programas que no
     /// tenían exportable propio, para que el archivo salga con la información completa.
     /// </summary>
-    private FileContentResult ExportarPorReflexion<T>(IReadOnlyList<T> registros, string hoja, string archivo)
+    /// <param name="extra">
+    /// Columna calculada opcional (no existe en la tabla) y la propiedad después de la cual se ubica.
+    /// </param>
+    private FileContentResult ExportarPorReflexion<T>(
+        IReadOnlyList<T> registros,
+        string hoja,
+        string archivo,
+        (string DespuesDe, string Titulo, Func<T, string?> Valor)? extra = null)
     {
         var propiedades = typeof(T).GetProperties()
             .Where(x => x.PropertyType.IsPrimitive
@@ -165,12 +182,28 @@ public partial class CensoController
             .ToArray();
 
         var headers = propiedades.Select(HumanizarColumna).ToList();
-        var filas = registros.Select(registro => (IReadOnlyList<string?>)propiedades
+        var filas = registros.Select(registro => propiedades
             .Select(propiedad => FormatearValor(propiedad.GetValue(registro)))
             .ToList())
             .ToList();
 
-        var libro = ExcelWorkbookWriter.BuildTableWorkbook(hoja, headers, filas, DateTime.UtcNow);
+        if (extra is { } columna)
+        {
+            var posicion = Array.FindIndex(propiedades, x => x.Name == columna.DespuesDe) + 1;
+            if (posicion <= 0)
+            {
+                posicion = headers.Count;
+            }
+
+            headers.Insert(posicion, columna.Titulo);
+            for (var i = 0; i < registros.Count; i++)
+            {
+                filas[i].Insert(posicion, columna.Valor(registros[i]));
+            }
+        }
+
+        var libro = ExcelWorkbookWriter.BuildTableWorkbook(
+            hoja, headers, filas.Select(x => (IReadOnlyList<string?>)x).ToList(), DateTime.UtcNow);
         return File(
             libro,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

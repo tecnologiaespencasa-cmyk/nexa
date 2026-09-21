@@ -1,10 +1,9 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using Nexa.Data;
+using Nexa.Data.Entities;
 using Nexa.Data.Repositories.Interfaces;
-using Nexa.Data.Repositories.Models;
 using Nexa.Helpers;
-using Nexa.Models.Reports;
 using Nexa.Models.Security;
 using Nexa.Models.ViewModels;
 using Nexa.Services.Interfaces;
@@ -15,344 +14,172 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Nexa.Controllers;
 
+/// <summary>
+/// Tablero de reportes: los cinco censos más las novedades del Portal Administrativo.
+///
+/// Cada programa se arma en su propio archivo parcial (ReportesController.Agudos.cs, .Cronicos.cs,
+/// .Heridas.cs, .Npt.cs, .Terapia.cs, .Portal.cs). Este archivo solo resuelve el periodo, los filtros
+/// y las piezas comunes de gráfico.
+///
+/// Reglas que valen para todo el tablero:
+/// - "Hoy" es la fecha de Colombia, no la del reloj del servidor.
+/// - Los periodos son por fecha calendario, cerrados en ambos extremos: del Desde al Hasta, ambos incluidos.
+/// - "Activos hoy" usa la misma regla de cada censo que el informe de pacientes activos
+///   (CensoController.ExportarPacientesActivos), para que el tablero y el informe no se contradigan.
+/// - Cada lista suma exactamente la base que declara su panel; lo que no cabe se pliega en "Otros".
+/// </summary>
 [Authorize(Policy = SystemPermissions.Reportes)]
-public class ReportesController : Controller
+public partial class ReportesController : Controller
 {
     private const string VistaDia = "dia";
     private const string VistaSemana = "semana";
     private const string VistaMes = "mes";
-    private const string ProgramaAgudos = "Agudos";
-    private const string ProgramaTerapiasAmbulatorias = "Terapias ambulatorias";
-    private const string TerapiaAmbulatoriaEstadoGestionCompleta = "Gestión completa";
     private const string MunicipioNoParametrizado = "NO PARAMETRIZADO";
+    private const string SinDato = "Sin dato";
 
-    private static readonly IReadOnlyDictionary<string, string> UnparameterizedLocationAliasValues =
-        new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["ALTAVISTA"] = "Altavista",
-            ["PALMITAS"] = "Palmitas",
-            ["SANANTONIODEPRADO"] = "San Antonio de Prado",
-            ["SANCRISTOBAL"] = "San Cristóbal",
-            ["SANTAELENA"] = "Santa Elena"
-        };
+    private static readonly CultureInfo Cultura = CultureInfo.GetCultureInfo("es-CO");
 
-    private static readonly string[] DashboardPalette =
-    [
-        "#2563eb",
-        "#0f766e",
-        "#ea580c",
-        "#db2777",
-        "#7c3aed",
-        "#0891b2",
-        "#ca8a04",
-        "#475569"
-    ];
+    private static readonly string[] DiasCortos = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"];
 
-    private static readonly IReadOnlyDictionary<string, string> CategoriaNovedadLabels =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["PACIENTE"] = "Paciente",
-            ["RUTA"] = "Ruta",
-            ["PROCESO_FARMACEUTICO"] = "Proceso farmacéutico",
-            ["LLAMADA_URGENTE"] = "Llamada urgente"
-        };
-
-    private readonly ApplicationDbContext _context;
+    private readonly DbContextOptions<ApplicationDbContext> _opcionesContexto;
     private readonly IPortalNovedadRepository _portalNovedadRepository;
-
     private readonly ICensoTabuladoService _censoTabuladoService;
+    private readonly ILogger<ReportesController> _logger;
 
     public ReportesController(
-        ApplicationDbContext context,
+        DbContextOptions<ApplicationDbContext> opcionesContexto,
         IPortalNovedadRepository portalNovedadRepository,
-        ICensoTabuladoService censoTabuladoService)
+        ICensoTabuladoService censoTabuladoService,
+        ILogger<ReportesController> logger)
     {
-        _context = context;
+        _opcionesContexto = opcionesContexto;
         _portalNovedadRepository = portalNovedadRepository;
         _censoTabuladoService = censoTabuladoService;
+        _logger = logger;
     }
 
     public async Task<IActionResult> Index(
         ReportesFilterViewModel filters,
         string? cedulaPaciente,
         string? programaFiltro,
-        DateTime? tabuladoDesde,
-        DateTime? tabuladoHasta,
+        DateTime? fechaIngresoDesde,
+        DateTime? fechaIngresoHasta,
         CancellationToken cancellationToken)
     {
         // El tabulado del censo trae sus propios parametros: se consulta por documento, por programa
-        // y por rango de ingreso, al margen de los filtros del tablero.
+        // y por rango de ingreso, al margen de los filtros del tablero. Los nombres son los que envía
+        // su formulario (_CensoTabulado.cshtml): fechaIngresoDesde / fechaIngresoHasta.
         var tabulado = new CensoUnificadoViewModel
         {
             CedulaFiltro = cedulaPaciente,
             ProgramaFiltro = programaFiltro,
-            FechaIngresoFiltroDesde = tabuladoDesde?.Date,
-            FechaIngresoFiltroHasta = tabuladoHasta?.Date
+            FechaIngresoFiltroDesde = fechaIngresoDesde?.Date,
+            FechaIngresoFiltroHasta = fechaIngresoHasta?.Date
         };
-        await _censoTabuladoService.ConstruirAsync(tabulado, cancellationToken);
+        var ahora = ColombiaTime.Convert(DateTime.UtcNow);
+        var hoy = ahora.Date;
+        var f = NormalizeFilters(filters, hoy);
+        var periodo = new Periodo(f.Desde!.Value, f.Hasta!.Value);
 
-        var normalizedFilters = NormalizeFilters(filters);
-        var censoRows = ShouldIncludeAgudos(normalizedFilters.Programa)
-            ? await ApplyBaseFilters(_context.Censos.AsNoTracking(), normalizedFilters, _context)
-                .Select(x => new ReportesCensoRow
-                {
-                    Id = x.Id,
-                    FechaIngreso = x.FechaIngreso,
-                    NombrePaciente = x.NombrePaciente,
-                    TipoIdentificacion = x.TipoIdentificacion,
-                    NumeroIdentificacion = x.NumeroIdentificacion,
-                    NombreRecepcionaCaso = x.NombreRecepcionaCaso,
-                    NombreRealizaKardex = x.NombreRealizaKardex,
-                    AuxiliarAsignado = x.AuxiliarAsignado,
-                    MunicipioResidencia = x.MunicipioResidencia,
-                    Barrio = x.Barrio,
-                    Direccion = x.Direccion,
-                    Estado = x.Estado,
-                    AutorizacionEvento = x.AutorizacionEvento,
-                    GestionCompletaPendiente = x.GestionCompletaPendiente,
-                    CreatedAtUtc = x.CreatedAtUtc
-                })
-                .ToListAsync(cancellationToken)
-            : [];
+        // Las consultas no dependen unas de otras y casi todo su tiempo es la ida y vuelta a la base:
+        // cada programa corre en paralelo con su propio contexto (un DbContext no admite consultas
+        // simultáneas). El tabulado usa el contexto de la petición, que nadie más toca aquí.
+        var tabuladoTask = _censoTabuladoService.ConstruirAsync(tabulado, cancellationToken);
+        var agudosTask = ConContextoPropioAsync(c => ConstruirAgudosAsync(c, f, periodo, hoy, cancellationToken));
+        var cronicosTask = ConContextoPropioAsync(c => ConstruirCronicosAsync(c, f, periodo, hoy, cancellationToken));
+        var heridasTask = ConContextoPropioAsync(c => ConstruirHeridasAsync(c, f, periodo, hoy, cancellationToken));
+        var nptTask = ConContextoPropioAsync(c => ConstruirNptAsync(c, f, periodo, hoy, cancellationToken));
+        var terapiaTask = ConContextoPropioAsync(c => ConstruirTerapiaAsync(c, f, periodo, hoy, cancellationToken));
+        var opcionesTask = ConContextoPropioAsync(c => BuildFilterOptionsAsync(c, f, cancellationToken));
+        var portalTask = ConstruirPortalAsync(f, periodo, ahora, cancellationToken);
 
-        var terapiaRows = ShouldIncludeTerapiasAmbulatorias(normalizedFilters.Programa)
-            ? await ApplyTerapiaAmbulatoriaFilters(_context.CensoTerapiasAmbulatorias.AsNoTracking(), normalizedFilters)
-                .Select(x => new ReportesTerapiaAmbulatoriaRow
-                {
-                    Id = x.Id,
-                    FechaInicio = x.FechaInicio,
-                    NombrePaciente = x.NombrePaciente,
-                    TipoIdentificacion = x.TipoIdentificacion,
-                    NumeroIdentificacion = x.NumeroIdentificacion,
-                    MunicipioResidencia = x.MunicipioResidencia,
-                    TipoTerapia = x.TipoTerapia,
-                    SegundoTratamientoTipoTerapia = x.SegundoTratamientoTipoTerapia,
-                    TercerTratamientoTipoTerapia = x.TercerTratamientoTipoTerapia,
-                    EstadoGestion = x.EstadoGestion,
-                    CreatedAtUtc = x.CreatedAtUtc
-                })
-                .ToListAsync(cancellationToken)
-            : [];
+        await Task.WhenAll(tabuladoTask, agudosTask, cronicosTask, heridasTask, nptTask, terapiaTask, opcionesTask, portalTask);
 
-        var portalRows = await _portalNovedadRepository.GetNovedadesAsync(
-            normalizedFilters.Desde!.Value,
-            normalizedFilters.Hasta!.Value,
-            normalizedFilters.TipoNovedad,
-            null,
-            cancellationToken);
+        var agudos = agudosTask.Result;
+        var cronicos = cronicosTask.Result;
+        var heridas = heridasTask.Result;
+        var npt = nptTask.Result;
+        var terapia = terapiaTask.Result;
+        var portal = portalTask.Result;
 
-        var totalRegistrosCenso = censoRows.Count;
-        var totalEventosPendientesSinAutorizacion = censoRows.Count(IsWithoutAuthorization);
-        var totalGestionesPendientes = censoRows.Count(IsPendingManagement);
-        var totalGestionesCompletas = Math.Max(totalRegistrosCenso - totalGestionesPendientes, 0);
-        var totalPendientesCriticos = censoRows.Count(x => IsPendingManagement(x) && IsWithoutAuthorization(x));
-        var resolvedPortalRows = portalRows
-            .Where(IsResolved)
-            .Where(x => x.UpdatedAt > x.CreatedAt)
+        // Un paciente puede estar activo en dos programas a la vez (p. ej. agudos y clínica de heridas):
+        // la suma de los cinco programas cuenta atenciones, esta cifra cuenta personas.
+        // Se cuentan programas distintos por documento: dos registros activos del mismo programa (un
+        // duplicado) no hacen que el paciente "esté en dos programas".
+        var programasPorPaciente = new[]
+            {
+                (Programa: agudos.Modelo.Programa, agudos.DocumentosActivos),
+                (Programa: cronicos.Modelo.Programa, cronicos.DocumentosActivos),
+                (Programa: heridas.Modelo.Programa, heridas.DocumentosActivos),
+                (Programa: npt.Modelo.Programa, npt.DocumentosActivos),
+                (Programa: terapia.Modelo.Programa, terapia.DocumentosActivos)
+            }
+            .SelectMany(x => x.DocumentosActivos.Select(d => (Documento: NormalizarDocumento(d), x.Programa)))
+            .Where(x => x.Documento.Length > 0)
+            .GroupBy(x => x.Documento, StringComparer.Ordinal)
+            .Select(g => g.Select(x => x.Programa).Distinct(StringComparer.Ordinal).Count())
             .ToList();
-
-        var promedioResolucionHoras = resolvedPortalRows.Count == 0
-            ? (double?)null
-            : resolvedPortalRows.Average(x => (x.UpdatedAt - x.CreatedAt).TotalHours);
-        var totalDiasPeriodo = Math.Max(
-            1,
-            (normalizedFilters.Hasta!.Value.Date - normalizedFilters.Desde!.Value.Date).Days + 1);
-
-        var filterOptions = await BuildFilterOptionsAsync(normalizedFilters, cancellationToken);
 
         var model = new ReportesDashboardViewModel
         {
-            GeneratedAtLocal = DateTime.Now,
-            Filters = normalizedFilters,
-            FilterOptions = filterOptions,
-            TotalRegistrosCenso = totalRegistrosCenso,
-            TotalNovedades = portalRows.Count,
-            TotalEventosPendientesSinAutorizacion = totalEventosPendientesSinAutorizacion,
-            TotalGestionesPendientes = totalGestionesPendientes,
-            TotalGestionesCompletas = totalGestionesCompletas,
-            TotalPendientesCriticos = totalPendientesCriticos,
-            TotalIngresosPeriodo = censoRows.Count,
-            TotalIngresosTerapiaAmbulatoriaPeriodo = terapiaRows.Count,
-            PromedioNovedadesPorDia = portalRows.Count / totalDiasPeriodo,
-            PromedioIngresosPorDia = censoRows.Count / totalDiasPeriodo,
-            PromedioIngresosTerapiaAmbulatoriaPorDia = terapiaRows.Count / totalDiasPeriodo,
-            TotalNovedadesResueltas = resolvedPortalRows.Count,
-            PorcentajeGestionPendiente = totalRegistrosCenso == 0 ? 0 : Math.Round(totalGestionesPendientes * 100d / totalRegistrosCenso, 2),
-            PorcentajeResolucionNovedades = portalRows.Count == 0 ? 0 : Math.Round(resolvedPortalRows.Count * 100d / portalRows.Count, 2),
-            PromedioResolucionHoras = promedioResolucionHoras,
-            NovedadesPorDia = BuildTrend(portalRows.Select(x => x.CreatedAt), normalizedFilters),
-            IngresosPorDia = BuildTrend(censoRows.Select(x => x.FechaIngreso), normalizedFilters),
-            IngresosTerapiaAmbulatoriaPorDia = BuildTrend(terapiaRows.Select(x => x.FechaInicio), normalizedFilters),
-            NovedadesPorTipo = BuildPortalCategoryCounts(
-                portalRows,
-                portalRows.Count,
-                normalizedFilters.TipoNovedad),
-            IngresosTerapiaAmbulatoriaPorTipo = BuildTerapiaAmbulatoriaTypeCounts(terapiaRows),
-            EventosPendientesPorAuxiliar = BuildCategoryCounts(
-                censoRows
-                    .Where(IsWithoutAuthorization)
-                    .GroupBy(x => NormalizeLabel(x.NombreRecepcionaCaso, "Sin responsable de recepción"))
-                    .Select(x => (x.Key, x.Count())),
-                totalEventosPendientesSinAutorizacion),
-            GestionPendientePorMunicipio = BuildCategoryCounts(
-                censoRows
-                    .Where(IsPendingManagement)
-                    .GroupBy(x => NormalizeLabel(x.MunicipioResidencia, "Sin municipio"))
-                    .Select(x => (x.Key, x.Count())),
-                totalGestionesPendientes)
-                .Take(8)
-                .ToList(),
-            ResolucionPorTipo = BuildResolutionByType(resolvedPortalRows, normalizedFilters.TipoNovedad),
-            FocosOperativos = BuildOperationalFocus(censoRows),
-            FocosNoParametrizados = BuildUnparameterizedOperationalFocus(censoRows),
-            RegistrosPrioritarios = BuildPriorityRecords(censoRows),
-            ActiveFilterLabels = BuildActiveFilterLabels(normalizedFilters),
+            GeneradoLocal = ahora,
+            Hoy = hoy,
+            Filters = f,
+            FilterOptions = opcionesTask.Result,
+            Presets = BuildPresets(hoy, periodo),
+            PeriodoTexto = FormatearPeriodo(periodo),
+            DiasPeriodo = periodo.Dias,
+            Granularidad = periodo.Vista switch { VistaMes => "mes", VistaSemana => "semana", _ => "día" },
+            Vista = f.Vista!,
+            PacientesUnicosActivos = programasPorPaciente.Count,
+            PacientesEnVariosProgramas = programasPorPaciente.Count(x => x > 1),
+            Agudos = agudos.Modelo,
+            Cronicos = cronicos.Modelo,
+            Heridas = heridas.Modelo,
+            Npt = npt.Modelo,
+            Terapia = terapia.Modelo,
+            Portal = portal,
+            ActiveFilterLabels = BuildActiveFilterLabels(f),
+            RutaTablero = BuildRutaTablero(f),
             TabuladoCenso = tabulado
         };
 
         return View(model);
     }
 
-    private static IQueryable<Data.Entities.CensoRecord> ApplyBaseFilters(
-        IQueryable<Data.Entities.CensoRecord> query,
-        ReportesFilterViewModel filters,
-        ApplicationDbContext context)
+    private async Task<T> ConContextoPropioAsync<T>(Func<ApplicationDbContext, Task<T>> consulta)
     {
-        // Mismo criterio de visibilidad que la pantalla del censo y sus exportables: las copias internas de
-        // despacho a farmacia no son atenciones reales y contarlas infla todos los indicadores del tablero.
-        query = query.Where(CensoVisibility.EditableRecord(context));
-        query = ExcludeCancelledAndRejected(query);
-
-        if (filters.Desde.HasValue)
-        {
-            query = query.Where(x => x.FechaIngreso >= filters.Desde.Value.Date);
-        }
-
-        if (filters.Hasta.HasValue)
-        {
-            query = query.Where(x => x.FechaIngreso <= filters.Hasta.Value.Date);
-        }
-
-        if (!string.IsNullOrWhiteSpace(filters.Municipio))
-        {
-            query = query.Where(x => x.MunicipioResidencia == filters.Municipio);
-        }
-
-        if (!string.IsNullOrWhiteSpace(filters.EstadoGestion))
-        {
-            query = query.Where(x => x.GestionCompletaPendiente == filters.EstadoGestion);
-        }
-
-        if (!string.IsNullOrWhiteSpace(filters.EstadoCenso))
-        {
-            query = query.Where(x => x.Estado == filters.EstadoCenso);
-        }
-
-        return query;
+        await using var contexto = new ApplicationDbContext(_opcionesContexto);
+        return await consulta(contexto);
     }
 
-    private static IQueryable<Data.Entities.CensoTerapiaAmbulatoriaRecord> ApplyTerapiaAmbulatoriaFilters(
-        IQueryable<Data.Entities.CensoTerapiaAmbulatoriaRecord> query,
-        ReportesFilterViewModel filters)
+    /// <summary>Resultado de un programa: su modelo y los documentos activos hoy, para contar personas únicas.</summary>
+    private sealed record ResultadoPrograma<T>(T Modelo, IReadOnlyList<string> DocumentosActivos);
+
+    // ==========================================================================================
+    // Periodo
+    // ==========================================================================================
+
+    /// <summary>Periodo del tablero: fechas calendario, ambos extremos incluidos.</summary>
+    private readonly record struct Periodo(DateTime Desde, DateTime Hasta)
     {
-        if (filters.Desde.HasValue)
-        {
-            query = query.Where(x => x.FechaInicio >= filters.Desde.Value.Date);
-        }
+        /// <summary>Límite superior abierto para las consultas: el día siguiente al Hasta.</summary>
+        public DateTime HastaExclusivo => Hasta.AddDays(1);
 
-        if (filters.Hasta.HasValue)
-        {
-            query = query.Where(x => x.FechaInicio <= filters.Hasta.Value.Date);
-        }
+        public int Dias => (Hasta - Desde).Days + 1;
 
-        if (!string.IsNullOrWhiteSpace(filters.Municipio))
-        {
-            query = query.Where(x => x.MunicipioResidencia == filters.Municipio);
-        }
+        public string Vista => Dias > 120 ? VistaMes : Dias > 45 ? VistaSemana : VistaDia;
 
-        if (string.Equals(filters.EstadoGestion, "Completa", StringComparison.OrdinalIgnoreCase))
-        {
-            query = query.Where(x => x.EstadoGestion == TerapiaAmbulatoriaEstadoGestionCompleta);
-        }
-        else if (string.Equals(filters.EstadoGestion, "Pendiente", StringComparison.OrdinalIgnoreCase))
-        {
-            query = query.Where(x => x.EstadoGestion != TerapiaAmbulatoriaEstadoGestionCompleta);
-        }
+        public bool Contiene(DateTime fecha) => fecha.Date >= Desde && fecha.Date <= Hasta;
 
-        return query;
+        /// <summary>El periodo inmediatamente anterior, del mismo largo.</summary>
+        public Periodo Anterior => new(Desde.AddDays(-Dias), Desde.AddDays(-1));
     }
 
-    private async Task<ReportesFilterOptionsViewModel> BuildFilterOptionsAsync(
-        ReportesFilterViewModel filters,
-        CancellationToken cancellationToken)
+    private static ReportesFilterViewModel NormalizeFilters(ReportesFilterViewModel filters, DateTime hoy)
     {
-        // Las opciones de filtro se calculan sobre el mismo universo que los indicadores para no ofrecer
-        // valores que solo existen en copias internas de despacho a farmacia (filtrarlos daría cero).
-        var municipiosCenso = await _context.Censos
-            .AsNoTracking()
-            .Where(CensoVisibility.EditableRecord(_context))
-            .Where(x => x.MunicipioResidencia != string.Empty)
-            .Select(x => x.MunicipioResidencia)
-            .Distinct()
-            .OrderBy(x => x)
-            .ToListAsync(cancellationToken);
-
-        var municipiosTerapiaAmbulatoria = await _context.CensoTerapiasAmbulatorias
-            .AsNoTracking()
-            .Where(x => x.MunicipioResidencia != null && x.MunicipioResidencia != string.Empty)
-            .Select(x => x.MunicipioResidencia!)
-            .Distinct()
-            .OrderBy(x => x)
-            .ToListAsync(cancellationToken);
-
-        var municipios = municipiosCenso
-            .Concat(municipiosTerapiaAmbulatoria)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(x => x)
-            .ToList();
-
-        var estadosCenso = await ExcludeCancelledAndRejected(
-                _context.Censos.AsNoTracking().Where(CensoVisibility.EditableRecord(_context)))
-            .Where(x => x.Estado != null && x.Estado != string.Empty)
-            .Select(x => x.Estado!)
-            .Distinct()
-            .OrderBy(x => x)
-            .ToListAsync(cancellationToken);
-
-        var categoriasPortal = await _portalNovedadRepository.GetCategoriasAsync(cancellationToken);
-
-        return new ReportesFilterOptionsViewModel
-        {
-            Municipios = BuildSelectOptions(municipios, filters.Municipio, "Todos"),
-            Programas = BuildSelectOptions(
-                [
-                    (ProgramaAgudos, ProgramaAgudos),
-                    (ProgramaTerapiasAmbulatorias, ProgramaTerapiasAmbulatorias)
-                ],
-                filters.Programa,
-                "Todos"),
-            EstadosGestion = BuildSelectOptions(["Pendiente", "Completa"], filters.EstadoGestion, "Todos"),
-            EstadosCenso = BuildSelectOptions(estadosCenso, filters.EstadoCenso, "Todos"),
-            TiposNovedad = BuildSelectOptions(
-                categoriasPortal.Select(x => (x, GetCategoriaLabel(x))),
-                filters.TipoNovedad,
-                "Todas")
-        };
-    }
-
-    private static IQueryable<Data.Entities.CensoRecord> ExcludeCancelledAndRejected(
-        IQueryable<Data.Entities.CensoRecord> query)
-    {
-        return query.Where(x => x.Estado == null
-            || (!EF.Functions.ILike(x.Estado, "%cancelado%")
-                && !EF.Functions.ILike(x.Estado, "%rechazado%")));
-    }
-
-    private static ReportesFilterViewModel NormalizeFilters(ReportesFilterViewModel filters)
-    {
-        var today = DateTime.Today;
-        var desde = filters.Desde?.Date ?? today.AddDays(-13);
-        var hasta = filters.Hasta?.Date ?? today;
+        var desde = filters.Desde?.Date ?? hoy.AddDays(-13);
+        var hasta = filters.Hasta?.Date ?? hoy;
 
         if (desde > hasta)
         {
@@ -364,527 +191,536 @@ public class ReportesController : Controller
             Desde = desde,
             Hasta = hasta,
             Municipio = NormalizeText(filters.Municipio),
-            Programa = NormalizeProgramFilter(filters.Programa),
+            Vista = ReportesVistas.Normalizar(filters.Vista, filters.Programa),
             EstadoGestion = NormalizeText(filters.EstadoGestion),
             EstadoCenso = NormalizeText(filters.EstadoCenso),
-            TipoNovedad = NormalizeText(filters.TipoNovedad),
+            TipoNovedad = NormalizeText(filters.TipoNovedad)
         };
     }
 
-    private static ReportesTrendSeriesViewModel BuildTrend(IEnumerable<DateTime> dates, ReportesFilterViewModel filters)
+    private static IReadOnlyList<ReportesPresetViewModel> BuildPresets(DateTime hoy, Periodo actual)
     {
-        var desde = filters.Desde ?? DateTime.Today.AddDays(-13);
-        var hasta = filters.Hasta ?? DateTime.Today;
-        var vista = ResolveTrendView(desde, hasta);
-        var grouped = dates
-            .Where(x => x.Date >= desde.Date && x.Date <= hasta.Date)
-            .GroupBy(x => GetPeriodStart(x.Date, vista))
-            .ToDictionary(x => x.Key, x => x.Count());
+        var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
+        var rangos = new (string Etiqueta, DateTime Desde, DateTime Hasta)[]
+        {
+            ("Hoy", hoy, hoy),
+            ("7 días", hoy.AddDays(-6), hoy),
+            ("14 días", hoy.AddDays(-13), hoy),
+            ("30 días", hoy.AddDays(-29), hoy),
+            ("Este mes", inicioMes, hoy),
+            ("Mes anterior", inicioMes.AddMonths(-1), inicioMes.AddDays(-1))
+        };
 
-        var points = EnumeratePeriods(desde.Date, hasta.Date, vista)
-            .Select(period =>
+        return rangos
+            .Select(x => new ReportesPresetViewModel
             {
-                grouped.TryGetValue(period, out var value);
-                return new ReportesTrendPointViewModel
-                {
-                    Date = period,
-                    Label = FormatPeriodLabel(period, vista),
-                    Value = value
-                };
+                Etiqueta = x.Etiqueta,
+                Desde = x.Desde,
+                Hasta = x.Hasta,
+                Activo = x.Desde == actual.Desde && x.Hasta == actual.Hasta
             })
             .ToList();
+    }
 
-        var scaleMax = CalculateTrendScaleMax(points.Max(x => x.Value));
-        return new ReportesTrendSeriesViewModel
+    private static string FormatearPeriodo(Periodo p)
+    {
+        if (p.Desde == p.Hasta)
         {
-            ScaleMax = scaleMax,
-            ScaleTicks = Enumerable.Range(0, 6)
-                .Select(index => scaleMax - (scaleMax / 5 * index))
-                .ToList(),
-            Points = points
-                .Select(x => new ReportesTrendPointViewModel
-                {
-                    Date = x.Date,
-                    Label = x.Label,
-                    Value = x.Value,
-                    Percentage = Math.Round(x.Value * 100d / scaleMax, 2)
-                })
-                .ToList()
+            return p.Desde.ToString("dddd d 'de' MMMM 'de' yyyy", Cultura);
+        }
+
+        var desde = p.Desde.Year == p.Hasta.Year
+            ? p.Desde.Month == p.Hasta.Month
+                ? p.Desde.ToString("%d", Cultura)
+                : p.Desde.ToString("d 'de' MMMM", Cultura)
+            : p.Desde.ToString("d 'de' MMMM 'de' yyyy", Cultura);
+
+        return $"Del {desde} al {p.Hasta.ToString("d 'de' MMMM 'de' yyyy", Cultura)}";
+    }
+
+    // ==========================================================================================
+    // Filtros
+    // ==========================================================================================
+
+    private async Task<ReportesFilterOptionsViewModel> BuildFilterOptionsAsync(
+        ApplicationDbContext contexto,
+        ReportesFilterViewModel filters,
+        CancellationToken cancellationToken)
+    {
+        // Municipios de los cinco censos. Las opciones de agudos se toman sobre el mismo universo que
+        // los indicadores para no ofrecer valores que solo existen en copias internas de despacho a
+        // farmacia (filtrarlos daría cero).
+        var municipios = new List<string>();
+        municipios.AddRange(await contexto.Censos.AsNoTracking()
+            .Where(CensoVisibility.EditableRecord(contexto))
+            .Where(x => x.MunicipioResidencia != string.Empty)
+            .Select(x => x.MunicipioResidencia)
+            .Distinct()
+            .ToListAsync(cancellationToken));
+        municipios.AddRange(await contexto.CensoCronicos.AsNoTracking()
+            .Where(x => x.MunicipioResidencia != null && x.MunicipioResidencia != string.Empty)
+            .Select(x => x.MunicipioResidencia!)
+            .Distinct()
+            .ToListAsync(cancellationToken));
+        municipios.AddRange(await contexto.CensoClinicaHeridas.AsNoTracking()
+            .Where(x => x.MunicipioResidencia != null && x.MunicipioResidencia != string.Empty)
+            .Select(x => x.MunicipioResidencia!)
+            .Distinct()
+            .ToListAsync(cancellationToken));
+        municipios.AddRange(await contexto.CensoNpt.AsNoTracking()
+            .Where(x => x.MunicipioResidencia != null && x.MunicipioResidencia != string.Empty)
+            .Select(x => x.MunicipioResidencia!)
+            .Distinct()
+            .ToListAsync(cancellationToken));
+        municipios.AddRange(await contexto.CensoTerapiasAmbulatorias.AsNoTracking()
+            .Where(x => x.MunicipioResidencia != null && x.MunicipioResidencia != string.Empty)
+            .Select(x => x.MunicipioResidencia!)
+            .Distinct()
+            .ToListAsync(cancellationToken));
+
+        var estadosCenso = await ExcludeCancelledAndRejected(
+                contexto.Censos.AsNoTracking().Where(CensoVisibility.EditableRecord(contexto)))
+            .Where(x => x.Estado != null && x.Estado != string.Empty)
+            .Select(x => x.Estado!)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        IReadOnlyList<string> categoriasPortal;
+        try
+        {
+            categoriasPortal = await _portalNovedadRepository.GetCategoriasAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "No se pudieron leer las categorías de novedades del portal.");
+            categoriasPortal = [];
+        }
+
+        return new ReportesFilterOptionsViewModel
+        {
+            Municipios = BuildSelectOptions(municipios.Select(x => (x, EtiquetaMunicipio(x))), filters.Municipio, "Todos"),
+            EstadosGestion = BuildSelectOptions([("Pendiente", "Pendiente"), ("Completa", "Completa")], filters.EstadoGestion, "Todas", ordenar: false),
+            EstadosCenso = BuildSelectOptions(estadosCenso.Select(x => (x, EtiquetaEstadoAgudos(x))), filters.EstadoCenso, "Todos"),
+            TiposNovedad = BuildSelectOptions(categoriasPortal.Select(x => (x, EtiquetaCategoriaNovedad(x))), filters.TipoNovedad, "Todos", ordenar: false)
         };
     }
 
-    private static int CalculateTrendScaleMax(int highestValue)
+    private static IReadOnlyList<SelectListItem> BuildSelectOptions(
+        IEnumerable<(string Value, string Text)> values,
+        string? selected,
+        string emptyText,
+        bool ordenar = true)
     {
-        if (highestValue <= 100)
+        var options = new List<SelectListItem>
         {
-            return 100;
+            new() { Value = string.Empty, Text = emptyText, Selected = string.IsNullOrWhiteSpace(selected) }
+        };
+
+        var items = values
+            .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+            .Select(x => (Value: x.Value.Trim(), x.Text))
+            .DistinctBy(x => x.Value, StringComparer.OrdinalIgnoreCase);
+        if (ordenar)
+        {
+            items = items.OrderBy(x => x.Text, StringComparer.Create(Cultura, ignoreCase: true));
         }
 
-        var rawStep = highestValue / 5d;
-        var magnitude = Math.Pow(10, Math.Floor(Math.Log10(rawStep)));
-        var normalizedStep = rawStep / magnitude;
-        var niceStep = normalizedStep <= 1
-            ? 1
-            : normalizedStep <= 2
-                ? 2
-                : normalizedStep <= 5
-                    ? 5
-                    : 10;
-        var step = Math.Max(1, (int)(niceStep * magnitude));
-
-        return Math.Max(100, (int)Math.Ceiling(highestValue / (double)step) * step);
-    }
-
-    private static List<ReportesCategoryCountViewModel> BuildCategoryCounts(
-        IEnumerable<(string Label, int Value)> values,
-        int total)
-    {
-        return values
-            .Where(x => x.Value > 0)
-            .OrderByDescending(x => x.Value)
-            .ThenBy(x => x.Label)
-            .Select((x, index) => new ReportesCategoryCountViewModel
-            {
-                Label = NormalizeLabel(x.Label, "Sin dato"),
-                Value = x.Value,
-                Percentage = total == 0 ? 0 : Math.Round(x.Value * 100d / total, 2),
-                Color = DashboardPalette[index % DashboardPalette.Length]
-            })
-            .ToList();
-    }
-
-    private static List<ReportesCategoryCountViewModel> BuildPortalCategoryCounts(
-        IReadOnlyList<PortalNovedadRow> rows,
-        int total,
-        string? selectedCategory)
-    {
-        var categories = GetVisiblePortalCategories(selectedCategory);
-        var counts = rows
-            .GroupBy(x => x.Categoria, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
-
-        return categories
-            .Select(category => new
-            {
-                Label = GetCategoriaLabel(category),
-                Value = counts.GetValueOrDefault(category)
-            })
-            .OrderByDescending(x => x.Value)
-            .ThenBy(x => x.Label)
-            .Select((x, index) => new ReportesCategoryCountViewModel
-            {
-                Label = x.Label,
-                Value = x.Value,
-                Percentage = total == 0 ? 0 : Math.Round(x.Value * 100d / total, 2),
-                Color = DashboardPalette[index % DashboardPalette.Length]
-            })
-            .ToList();
-    }
-
-    private static List<ReportesResolutionByTypeViewModel> BuildResolutionByType(
-        IReadOnlyList<PortalNovedadRow> resolvedRows,
-        string? selectedCategory)
-    {
-        var groupedRows = resolvedRows
-            .GroupBy(x => x.Categoria, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(x => x.Key, x => x.ToList(), StringComparer.OrdinalIgnoreCase);
-        var resolvedByType = GetVisiblePortalCategories(selectedCategory)
-            .Select(category =>
-            {
-                groupedRows.TryGetValue(category, out var categoryRows);
-                categoryRows ??= [];
-                return new
-                {
-                    Type = GetCategoriaLabel(category),
-                    Count = categoryRows.Count,
-                    Average = categoryRows.Count == 0
-                        ? (double?)null
-                        : categoryRows.Average(item => (item.UpdatedAt - item.CreatedAt).TotalHours)
-                };
-            })
-            .OrderByDescending(x => x.Count)
-            .ThenBy(x => x.Type)
-            .ToList();
-
-        var maxAverage = Math.Max(1, resolvedByType.Max(x => x.Average ?? 0));
-        return resolvedByType
-            .Select(x => new ReportesResolutionByTypeViewModel
-            {
-                Type = x.Type,
-                ResolvedCount = x.Count,
-                AverageHours = x.Average,
-                Percentage = x.Average.HasValue
-                    ? Math.Round(x.Average.Value * 100d / maxAverage, 2)
-                    : 0
-            })
-            .ToList();
-    }
-
-    private static List<ReportesCategoryCountViewModel> BuildTerapiaAmbulatoriaTypeCounts(
-        IReadOnlyList<ReportesTerapiaAmbulatoriaRow> rows)
-    {
-        var types = rows
-            .SelectMany(row => EnumerateTherapyTypes(
-                row.TipoTerapia,
-                row.SegundoTratamientoTipoTerapia,
-                row.TercerTratamientoTipoTerapia))
-            .ToList();
-
-        return BuildCategoryCounts(
-            types
-                .GroupBy(x => x, StringComparer.OrdinalIgnoreCase)
-                .Select(x => (x.Key, x.Count())),
-            types.Count);
-    }
-
-    private static IEnumerable<string> EnumerateTherapyTypes(params string?[] values)
-    {
-        return values
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .SelectMany(x => x!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            .Where(x => !string.IsNullOrWhiteSpace(x));
-    }
-
-    private static IReadOnlyList<string> GetVisiblePortalCategories(string? selectedCategory)
-    {
-        return string.IsNullOrWhiteSpace(selectedCategory)
-            ? CategoriaNovedadLabels.Keys.ToList()
-            : [selectedCategory];
-    }
-
-    private static List<ReportesOperationalFocusViewModel> BuildOperationalFocus(IReadOnlyList<ReportesCensoRow> rows)
-    {
-        var focus = rows
-            .Where(row => !IsNoParametrizado(row.MunicipioResidencia))
-            .GroupBy(row => NormalizeLabel(row.MunicipioResidencia, "Sin municipio"), StringComparer.OrdinalIgnoreCase)
-            .Select(group =>
-            {
-                var records = group.ToList();
-                var pending = records.Count(IsPendingManagement);
-                var withoutAuthorization = records.Count(IsWithoutAuthorization);
-                var score = pending * 3d + withoutAuthorization * 4d + records.Count * 0.25d;
-
-                return new ReportesOperationalFocusViewModel
-                {
-                    Label = group.Key,
-                    Records = records.Count,
-                    PendingManagement = pending,
-                    WithoutAuthorization = withoutAuthorization,
-                    RiskScore = score
-                };
-            })
-            .OrderByDescending(x => x.RiskScore)
-            .ThenBy(x => x.Label)
-            .Take(8)
-            .ToList();
-
-        var max = Math.Max(1, focus.Count == 0 ? 1 : focus.Max(x => x.RiskScore));
-        return focus
-            .Select(x => new ReportesOperationalFocusViewModel
-            {
-                Label = x.Label,
-                Records = x.Records,
-                PendingManagement = x.PendingManagement,
-                WithoutAuthorization = x.WithoutAuthorization,
-                RiskScore = x.RiskScore,
-                Percentage = Math.Round(x.RiskScore * 100d / max, 2)
-            })
-            .ToList();
-    }
-
-    private static List<ReportesOperationalFocusViewModel> BuildUnparameterizedOperationalFocus(IReadOnlyList<ReportesCensoRow> rows)
-    {
-        var focus = rows
-            .Where(row => IsNoParametrizado(row.MunicipioResidencia))
-            .GroupBy(ResolveUnparameterizedLocation, StringComparer.OrdinalIgnoreCase)
-            .Select(group =>
-            {
-                var records = group.ToList();
-                var pending = records.Count(IsPendingManagement);
-                var withoutAuthorization = records.Count(IsWithoutAuthorization);
-                var score = pending * 3d + withoutAuthorization * 4d + records.Count * 0.25d;
-
-                return new ReportesOperationalFocusViewModel
-                {
-                    Label = group.Key,
-                    Records = records.Count,
-                    PendingManagement = pending,
-                    WithoutAuthorization = withoutAuthorization,
-                    RiskScore = score
-                };
-            })
-            .OrderByDescending(x => x.RiskScore)
-            .ThenBy(x => x.Label)
-            .Take(8)
-            .ToList();
-
-        var max = Math.Max(1, focus.Count == 0 ? 1 : focus.Max(x => x.RiskScore));
-        return focus
-            .Select(x => new ReportesOperationalFocusViewModel
-            {
-                Label = x.Label,
-                Records = x.Records,
-                PendingManagement = x.PendingManagement,
-                WithoutAuthorization = x.WithoutAuthorization,
-                RiskScore = x.RiskScore,
-                Percentage = Math.Round(x.RiskScore * 100d / max, 2)
-            })
-            .ToList();
-    }
-
-    private static string ResolveUnparameterizedLocation(ReportesCensoRow row)
-    {
-        return ResolveUnparameterizedLocationAlias(row.Barrio)
-            ?? ResolveUnparameterizedLocationAlias(row.Direccion)
-            ?? "No parametrizado";
-    }
-
-    private static string? ResolveUnparameterizedLocationAlias(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
+        options.AddRange(items.Select(x => new SelectListItem
         {
-            return null;
-        }
+            Value = x.Value,
+            Text = x.Text,
+            Selected = string.Equals(x.Value, selected, StringComparison.OrdinalIgnoreCase)
+        }));
 
-        var key = NormalizeMunicipalityKey(value);
-        foreach (var alias in UnparameterizedLocationAliasValues)
-        {
-            if (key.Contains(alias.Key, StringComparison.Ordinal))
-            {
-                return alias.Value;
-            }
-        }
-
-        return null;
-    }
-
-    private static bool IsNoParametrizado(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value)
-            || string.Equals(NormalizeMunicipalityKey(value), NormalizeMunicipalityKey(MunicipioNoParametrizado), StringComparison.Ordinal);
-    }
-
-    private static List<ReportesRecentRecordViewModel> BuildPriorityRecords(IReadOnlyList<ReportesCensoRow> rows)
-    {
-        return rows
-            .Select(row =>
-            {
-                var score = (IsWithoutAuthorization(row) ? 5 : 0)
-                    + (IsPendingManagement(row) ? 4 : 0)
-                    + (string.Equals(row.Estado, "Aceptado activo", StringComparison.OrdinalIgnoreCase) ? 1 : 0);
-
-                return new
-                {
-                    Row = row,
-                    Score = score
-                };
-            })
-            .Where(x => x.Score > 0)
-            .OrderByDescending(x => x.Score)
-            .ThenByDescending(x => x.Row.CreatedAtUtc)
-            .Take(12)
-            .Select(x => new ReportesRecentRecordViewModel
-            {
-                Id = x.Row.Id,
-                Paciente = NormalizeLabel(x.Row.NombrePaciente, "Sin paciente"),
-                Documento = $"{x.Row.TipoIdentificacion} {x.Row.NumeroIdentificacion}".Trim(),
-                Municipio = NormalizeLabel(x.Row.MunicipioResidencia, "Sin municipio"),
-                Auxiliar = NormalizeLabel(FirstNonEmpty(x.Row.AuxiliarAsignado, x.Row.NombreRealizaKardex), "Sin auxiliar"),
-                EstadoGestion = NormalizeLabel(x.Row.GestionCompletaPendiente, "Sin estado"),
-                Alerta = BuildCensoAlert(x.Row),
-                FechaBase = x.Row.FechaIngreso,
-                SinAutorizacion = IsWithoutAuthorization(x.Row)
-            })
-            .ToList();
+        return options;
     }
 
     private static IReadOnlyList<string> BuildActiveFilterLabels(ReportesFilterViewModel filters)
     {
         var labels = new List<string>();
 
-        if (filters.Desde.HasValue && filters.Hasta.HasValue)
-        {
-            labels.Add($"{filters.Desde:dd/MM/yyyy} - {filters.Hasta:dd/MM/yyyy}");
-        }
-
         if (!string.IsNullOrWhiteSpace(filters.Municipio))
         {
-            labels.Add(filters.Municipio);
-        }
-
-        if (!string.IsNullOrWhiteSpace(filters.Programa))
-        {
-            labels.Add($"Programa: {filters.Programa}");
+            labels.Add($"Municipio: {filters.Municipio}");
         }
 
         if (!string.IsNullOrWhiteSpace(filters.EstadoGestion))
         {
-            labels.Add(filters.EstadoGestion);
+            labels.Add($"Agudos · gestión {filters.EstadoGestion.ToLowerInvariant()}");
         }
 
         if (!string.IsNullOrWhiteSpace(filters.EstadoCenso))
         {
-            labels.Add(filters.EstadoCenso);
+            labels.Add($"Agudos · {EtiquetaEstadoAgudos(filters.EstadoCenso)}");
         }
 
         if (!string.IsNullOrWhiteSpace(filters.TipoNovedad))
         {
-            labels.Add(GetCategoriaLabel(filters.TipoNovedad));
+            labels.Add($"Portal · {EtiquetaCategoriaNovedad(filters.TipoNovedad)}");
         }
 
         return labels;
     }
 
-    private static IReadOnlyList<SelectListItem> BuildSelectOptions(
-        IEnumerable<string> values,
-        string? selected,
-        string emptyText)
+    private static IReadOnlyDictionary<string, string> BuildRutaTablero(ReportesFilterViewModel f)
     {
-        var options = new List<SelectListItem>
+        var ruta = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            new() { Value = string.Empty, Text = emptyText, Selected = string.IsNullOrWhiteSpace(selected) }
+            ["Desde"] = f.Desde!.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["Hasta"] = f.Hasta!.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["Vista"] = f.Vista!
         };
-
-        options.AddRange(values
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Select(x => x.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(x => x)
-            .Select(x => new SelectListItem
+        void Agregar(string clave, string? valor)
+        {
+            if (!string.IsNullOrWhiteSpace(valor))
             {
-                Value = x,
-                Text = x,
-                Selected = string.Equals(x, selected, StringComparison.OrdinalIgnoreCase)
-            }));
+                ruta[clave] = valor;
+            }
+        }
 
-        return options;
+        Agregar("Municipio", f.Municipio);
+        Agregar("EstadoGestion", f.EstadoGestion);
+        Agregar("EstadoCenso", f.EstadoCenso);
+        Agregar("TipoNovedad", f.TipoNovedad);
+        return ruta;
     }
 
-    private static IReadOnlyList<SelectListItem> BuildSelectOptions(
-        IEnumerable<(string Value, string Text)> values,
-        string? selected,
-        string emptyText)
+    // ==========================================================================================
+    // Series
+    // ==========================================================================================
+
+    /// <summary>
+    /// Serie de conteos por día, semana o mes. Las semanas empiezan el lunes y, como los meses, se
+    /// recortan al periodo: la primera barra de "Sem 01/09" en un periodo que empieza el 03/09 cuenta
+    /// solo del 03 en adelante, y así lo dice su rótulo emergente.
+    /// </summary>
+    private static ReportesSerieViewModel ConstruirSerie(IEnumerable<DateTime> fechas, Periodo p)
     {
-        var options = new List<SelectListItem>
+        var agrupado = fechas
+            .Where(p.Contiene)
+            .GroupBy(x => InicioDeTramo(x.Date, p.Vista))
+            .ToDictionary(x => x.Key, x => x.Count());
+
+        var tramos = EnumerarTramos(p).ToList();
+        var maximo = tramos.Count == 0 ? 0 : tramos.Max(t => agrupado.GetValueOrDefault(t.Inicio));
+        var escala = EscalaAmigable(maximo);
+
+        return new ReportesSerieViewModel
         {
-            new() { Value = string.Empty, Text = emptyText, Selected = string.IsNullOrWhiteSpace(selected) }
+            Vista = p.Vista,
+            EscalaMaxima = escala.Maximo,
+            Marcas = escala.Marcas,
+            Puntos = tramos
+                .Select(t =>
+                {
+                    var valor = agrupado.GetValueOrDefault(t.Inicio);
+                    return new ReportesPuntoViewModel
+                    {
+                        Inicio = t.Inicio,
+                        Etiqueta = t.Etiqueta,
+                        Dia = t.Dia,
+                        Rango = t.Rango,
+                        FinDeSemana = t.FinDeSemana,
+                        Valor = valor,
+                        Altura = escala.Maximo == 0 ? 0 : Math.Round(valor * 100d / escala.Maximo, 2)
+                    };
+                })
+                .ToList()
         };
-
-        options.AddRange(values
-            .OrderBy(x => x.Text)
-            .Select(x => new SelectListItem
-            {
-                Value = x.Value,
-                Text = x.Text,
-                Selected = string.Equals(x.Value, selected, StringComparison.OrdinalIgnoreCase)
-            }));
-
-        return options;
     }
 
-    private static IEnumerable<DateTime> EnumeratePeriods(DateTime desde, DateTime hasta, string vista)
+    /// <summary>Ingresos (hacia arriba) y egresos (hacia abajo) sobre una sola escala simétrica.</summary>
+    private static ReportesFlujoViewModel ConstruirFlujo(IEnumerable<DateTime> ingresos, IEnumerable<DateTime> egresos, Periodo p)
     {
-        var current = GetPeriodStart(desde, vista);
-        var final = GetPeriodStart(hasta, vista);
+        var entradas = ingresos.Where(p.Contiene)
+            .GroupBy(x => InicioDeTramo(x.Date, p.Vista))
+            .ToDictionary(x => x.Key, x => x.Count());
+        var salidas = egresos.Where(p.Contiene)
+            .GroupBy(x => InicioDeTramo(x.Date, p.Vista))
+            .ToDictionary(x => x.Key, x => x.Count());
 
-        while (current <= final)
+        var tramos = EnumerarTramos(p).ToList();
+        var maximo = tramos.Count == 0
+            ? 0
+            : tramos.Max(t => Math.Max(entradas.GetValueOrDefault(t.Inicio), salidas.GetValueOrDefault(t.Inicio)));
+        var escala = EscalaAmigable(maximo).Maximo;
+
+        return new ReportesFlujoViewModel
         {
-            yield return current;
-            current = vista switch
+            Vista = p.Vista,
+            EscalaMaxima = escala,
+            Puntos = tramos
+                .Select(t =>
+                {
+                    var i = entradas.GetValueOrDefault(t.Inicio);
+                    var e = salidas.GetValueOrDefault(t.Inicio);
+                    return new ReportesFlujoPuntoViewModel
+                    {
+                        Etiqueta = t.Etiqueta,
+                        Dia = t.Dia,
+                        Rango = t.Rango,
+                        FinDeSemana = t.FinDeSemana,
+                        Ingresos = i,
+                        Egresos = e,
+                        AlturaIngresos = escala == 0 ? 0 : Math.Round(i * 100d / escala, 2),
+                        AlturaEgresos = escala == 0 ? 0 : Math.Round(e * 100d / escala, 2)
+                    };
+                })
+                .ToList()
+        };
+    }
+
+    /// <summary>
+    /// Calendario de un periodo de hasta 120 días: una fila por semana, de lunes a domingo, con la cifra
+    /// de cada día. Los días fuera del periodo quedan en blanco y no suman al total de su semana.
+    /// </summary>
+    private static ReportesCalendarioViewModel ConstruirCalendario(IEnumerable<DateTime> fechas, Periodo p)
+    {
+        if (p.Dias > 120)
+        {
+            return new ReportesCalendarioViewModel { Disponible = false };
+        }
+
+        var porDia = fechas
+            .Where(p.Contiene)
+            .GroupBy(x => x.Date)
+            .ToDictionary(g => g.Key, g => g.Count());
+        var maximo = porDia.Count == 0 ? 0 : porDia.Values.Max();
+
+        var semanas = new List<ReportesCalendarioSemanaViewModel>();
+        for (var lunes = InicioDeTramo(p.Desde, VistaSemana); lunes <= p.Hasta; lunes = lunes.AddDays(7))
+        {
+            semanas.Add(new ReportesCalendarioSemanaViewModel
             {
-                VistaMes => current.AddMonths(1),
-                VistaSemana => current.AddDays(7),
-                _ => current.AddDays(1)
+                Lunes = lunes,
+                Dias = Enumerable.Range(0, 7)
+                    .Select(i =>
+                    {
+                        var fecha = lunes.AddDays(i);
+                        var enPeriodo = p.Contiene(fecha);
+                        var valor = enPeriodo ? porDia.GetValueOrDefault(fecha) : 0;
+                        return new ReportesCalendarioDiaViewModel
+                        {
+                            Fecha = fecha,
+                            EnPeriodo = enPeriodo,
+                            Valor = valor,
+                            Nivel = valor == 0 || maximo == 0 ? 0 : Math.Clamp((int)Math.Ceiling(valor * 4d / maximo), 1, 4)
+                        };
+                    })
+                    .ToList()
+            });
+        }
+
+        return new ReportesCalendarioViewModel
+        {
+            Disponible = true,
+            Maximo = maximo,
+            Semanas = semanas
+        };
+    }
+
+    private sealed record Tramo(DateTime Inicio, string Etiqueta, string? Dia, string Rango, bool FinDeSemana);
+
+    private static IEnumerable<Tramo> EnumerarTramos(Periodo p)
+    {
+        var actual = InicioDeTramo(p.Desde, p.Vista);
+        var final = InicioDeTramo(p.Hasta, p.Vista);
+
+        while (actual <= final)
+        {
+            var siguiente = p.Vista switch
+            {
+                VistaMes => actual.AddMonths(1),
+                VistaSemana => actual.AddDays(7),
+                _ => actual.AddDays(1)
             };
+
+            // Rango real que cubre la barra dentro del periodo consultado.
+            var desde = actual < p.Desde ? p.Desde : actual;
+            var hasta = siguiente.AddDays(-1) > p.Hasta ? p.Hasta : siguiente.AddDays(-1);
+
+            yield return p.Vista switch
+            {
+                VistaMes => new Tramo(
+                    actual,
+                    Capitalizar(actual.ToString("MMM yy", Cultura).Replace(".", string.Empty)),
+                    null,
+                    $"{desde:dd/MM/yyyy} – {hasta:dd/MM/yyyy}",
+                    false),
+                VistaSemana => new Tramo(
+                    actual,
+                    $"Sem {actual:dd/MM}",
+                    null,
+                    $"{desde:dd/MM/yyyy} – {hasta:dd/MM/yyyy}",
+                    false),
+                _ => new Tramo(
+                    actual,
+                    actual.ToString("dd/MM", CultureInfo.InvariantCulture),
+                    DiasCortos[(int)actual.DayOfWeek],
+                    actual.ToString("dddd d 'de' MMMM", Cultura),
+                    actual.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            };
+
+            actual = siguiente;
         }
     }
 
-    private static DateTime GetPeriodStart(DateTime date, string vista)
+    private static DateTime InicioDeTramo(DateTime fecha, string vista) => vista switch
     {
-        return vista switch
-        {
-            VistaMes => new DateTime(date.Year, date.Month, 1),
-            VistaSemana => date.AddDays(-(((int)date.DayOfWeek + 6) % 7)).Date,
-            _ => date.Date
-        };
-    }
+        VistaMes => new DateTime(fecha.Year, fecha.Month, 1),
+        VistaSemana => fecha.AddDays(-(((int)fecha.DayOfWeek + 6) % 7)).Date,
+        _ => fecha.Date
+    };
 
-    private static string ResolveTrendView(DateTime desde, DateTime hasta)
+    /// <summary>
+    /// Escala con tope redondo y pocas marcas enteras. Antes la escala nunca bajaba de 100, así que
+    /// una serie de 0 a 8 ingresos se dibujaba pegada al piso.
+    /// </summary>
+    private static (int Maximo, IReadOnlyList<int> Marcas) EscalaAmigable(int maximo)
     {
-        var totalDays = Math.Max(1, (hasta.Date - desde.Date).TotalDays + 1);
-        return totalDays > 120
-            ? VistaMes
-            : totalDays > 45
-                ? VistaSemana
-                : VistaDia;
-    }
-
-    private static string FormatPeriodLabel(DateTime date, string vista)
-    {
-        var culture = CultureInfo.GetCultureInfo("es-CO");
-        return vista switch
+        if (maximo <= 0)
         {
-            VistaMes => date.ToString("MMM yy", culture),
-            VistaSemana => $"Sem {date:dd/MM}",
-            _ => date.ToString("dd/MM", culture)
-        };
-    }
-
-    private static string GetCategoriaLabel(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return "Sin tipo";
+            return (0, [0]);
         }
 
-        return CategoriaNovedadLabels.TryGetValue(value, out var label)
-            ? label
-            : CultureInfo.GetCultureInfo("es-CO").TextInfo.ToTitleCase(value.Replace('_', ' ').ToLowerInvariant());
-    }
+        var pasoCrudo = maximo / 5d;
+        var magnitud = Math.Pow(10, Math.Floor(Math.Log10(pasoCrudo)));
+        var normalizado = pasoCrudo / magnitud;
+        var factor = normalizado <= 1 ? 1d
+            : normalizado <= 2 ? 2d
+            : normalizado <= 2.5 && magnitud >= 10 ? 2.5d
+            : normalizado <= 5 ? 5d
+            : 10d;
+        var paso = Math.Max(1, (int)Math.Round(factor * magnitud));
+        var tope = (int)Math.Ceiling(maximo / (double)paso) * paso;
 
-    private static string BuildCensoAlert(ReportesCensoRow row)
-    {
-        var withoutAuthorization = IsWithoutAuthorization(row);
-        var pending = IsPendingManagement(row);
-
-        return (withoutAuthorization, pending) switch
+        var marcas = new List<int>();
+        for (var valor = tope; valor >= 0; valor -= paso)
         {
-            (true, true) => "Sin autorización y pendiente",
-            (true, false) => "Sin autorización",
-            (false, true) => "Gestión pendiente",
-            _ => "Revisar caso"
-        };
+            marcas.Add(valor);
+        }
+
+        return (tope, marcas);
     }
 
-    private static bool IsResolved(PortalNovedadRow row)
+    // ==========================================================================================
+    // Listas de categorías
+    // ==========================================================================================
+
+    /// <summary>
+    /// Convierte conteos en filas de barras. Ordena de mayor a menor, deja al final las categorías
+    /// secundarias ("Sin dato") y pliega lo que pase de <paramref name="maximoFilas"/> en una fila
+    /// "Otros" para que la lista siempre sume lo mismo que su base.
+    /// </summary>
+    private static List<ReportesCategoriaViewModel> ConstruirCategorias(
+        IEnumerable<(string Etiqueta, int Valor)> conteos,
+        int baseTotal,
+        int maximoFilas = 8,
+        Func<string, string?>? detalle = null,
+        Func<string, bool>? esSecundaria = null,
+        string? etiquetaOtros = null,
+        bool conservarOrden = false)
     {
-        return string.Equals(row.Estado, "RESUELTA", StringComparison.OrdinalIgnoreCase);
+        var filas = conteos
+            .Where(x => x.Valor > 0)
+            .Select(x => (x.Etiqueta, x.Valor, Secundaria: esSecundaria?.Invoke(x.Etiqueta) ?? x.Etiqueta == SinDato))
+            .ToList();
+
+        if (!conservarOrden)
+        {
+            filas = filas
+                .OrderBy(x => x.Secundaria)
+                .ThenByDescending(x => x.Valor)
+                .ThenBy(x => x.Etiqueta, StringComparer.Create(Cultura, ignoreCase: true))
+                .ToList();
+        }
+
+        var principales = filas.Where(x => !x.Secundaria).ToList();
+        var secundarias = filas.Where(x => x.Secundaria).ToList();
+
+        var resultado = new List<(string Etiqueta, int Valor, bool Secundaria, string? Detalle)>();
+        if (principales.Count > maximoFilas)
+        {
+            var visibles = principales.Take(maximoFilas - 1).ToList();
+            var resto = principales.Skip(maximoFilas - 1).ToList();
+            resultado.AddRange(visibles.Select(x => (x.Etiqueta, x.Valor, false, detalle?.Invoke(x.Etiqueta))));
+            resultado.Add((
+                etiquetaOtros ?? $"Otros ({resto.Count})",
+                resto.Sum(x => x.Valor),
+                true,
+                string.Join(", ", resto.Select(x => x.Etiqueta))));
+        }
+        else
+        {
+            resultado.AddRange(principales.Select(x => (x.Etiqueta, x.Valor, false, detalle?.Invoke(x.Etiqueta))));
+        }
+
+        resultado.AddRange(secundarias.Select(x => (x.Etiqueta, x.Valor, true, detalle?.Invoke(x.Etiqueta))));
+
+        var mayor = resultado.Count == 0 ? 0 : resultado.Max(x => x.Valor);
+        return resultado
+            .Select(x => new ReportesCategoriaViewModel
+            {
+                Etiqueta = x.Etiqueta,
+                Detalle = x.Detalle,
+                Valor = x.Valor,
+                Porcentaje = baseTotal == 0 ? 0 : Math.Round(x.Valor * 100d / baseTotal, 1),
+                Barra = mayor == 0 ? 0 : Math.Round(x.Valor * 100d / mayor, 2),
+                Secundaria = x.Secundaria
+            })
+            .ToList();
     }
 
-    private static bool IsWithoutAuthorization(ReportesCensoRow row)
+    /// <summary>Segmentos de una barra apilada. Los segmentos en cero no se dibujan.</summary>
+    private static List<ReportesSegmentoViewModel> ConstruirSegmentos(params (string Etiqueta, int Valor, string Tono)[] partes)
     {
-        return string.IsNullOrWhiteSpace(row.AutorizacionEvento);
+        var total = partes.Sum(x => x.Valor);
+        return partes
+            .Where(x => x.Valor > 0)
+            .Select(x => new ReportesSegmentoViewModel
+            {
+                Etiqueta = x.Etiqueta,
+                Valor = x.Valor,
+                Tono = x.Tono,
+                Porcentaje = total == 0 ? 0 : Math.Round(x.Valor * 100d / total, 1)
+            })
+            .ToList();
     }
 
-    private static bool IsPendingManagement(ReportesCensoRow row)
+    /// <summary>Agrupa sin distinguir mayúsculas ni espacios sobrantes y rotula los vacíos como <see cref="SinDato"/>.</summary>
+    private static IEnumerable<(string Etiqueta, int Valor)> Contar(
+        IEnumerable<string?> valores,
+        Func<string, string>? etiquetar = null,
+        string vacio = SinDato)
     {
-        return string.Equals(row.GestionCompletaPendiente, "Pendiente", StringComparison.OrdinalIgnoreCase);
+        return valores
+            .Select(x => string.IsNullOrWhiteSpace(x) ? null : x.Trim())
+            .GroupBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .Select(g => (
+                g.Key is null ? vacio : etiquetar?.Invoke(g.First()!) ?? g.First()!,
+                g.Count()));
     }
 
-    private static string? FirstNonEmpty(params string?[] values)
-    {
-        return values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
-    }
+    // ==========================================================================================
+    // Utilidades
+    // ==========================================================================================
 
-    private static string NormalizeLabel(string? value, string fallback)
-    {
-        return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-    }
+    private static double Promedio(int total, int dias) =>
+        dias <= 0 ? 0 : Math.Round(total / (double)dias, 1);
 
-    private static string? NormalizeText(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
+    private static string NormalizarDocumento(string? documento) =>
+        (documento ?? string.Empty).Trim().ToUpperInvariant();
+
+    private static string? NormalizeText(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string Capitalizar(string valor) =>
+        string.IsNullOrEmpty(valor) ? valor : char.ToUpper(valor[0], Cultura) + valor[1..];
+
+    private static string Documento(string tipo, string numero) => $"{tipo} {numero}".Trim();
+
+    private static bool EsIgual(string? valor, string esperado) =>
+        string.Equals(valor?.Trim(), esperado, StringComparison.OrdinalIgnoreCase);
 
     private static string NormalizeMunicipalityKey(string value)
     {
@@ -892,8 +728,7 @@ public class ReportesController : Controller
         var sb = new StringBuilder();
         foreach (var c in normalized)
         {
-            var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
-            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
             {
                 sb.Append(c);
             }
@@ -906,67 +741,15 @@ public class ReportesController : Controller
             .ToUpperInvariant();
     }
 
-    private static string? NormalizeProgramFilter(string? value)
+    /// <summary>Etiqueta con tildes de un municipio en mayúsculas sostenidas (los censos lo guardan sin tilde).</summary>
+    private static string EtiquetaMunicipio(string municipio) => municipio.Trim().ToUpperInvariant() switch
     {
-        var normalized = NormalizeText(value);
-        if (normalized is null)
-        {
-            return null;
-        }
-
-        if (string.Equals(normalized, ProgramaAgudos, StringComparison.OrdinalIgnoreCase))
-        {
-            return ProgramaAgudos;
-        }
-
-        return string.Equals(normalized, ProgramaTerapiasAmbulatorias, StringComparison.OrdinalIgnoreCase)
-            ? ProgramaTerapiasAmbulatorias
-            : null;
-    }
-
-    private static bool ShouldIncludeAgudos(string? programa)
-    {
-        return string.IsNullOrWhiteSpace(programa)
-            || string.Equals(programa, ProgramaAgudos, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool ShouldIncludeTerapiasAmbulatorias(string? programa)
-    {
-        return string.IsNullOrWhiteSpace(programa)
-            || string.Equals(programa, ProgramaTerapiasAmbulatorias, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private sealed class ReportesCensoRow
-    {
-        public long Id { get; init; }
-        public DateTime FechaIngreso { get; init; }
-        public string NombrePaciente { get; init; } = string.Empty;
-        public string TipoIdentificacion { get; init; } = string.Empty;
-        public string NumeroIdentificacion { get; init; } = string.Empty;
-        public string NombreRecepcionaCaso { get; init; } = string.Empty;
-        public string NombreRealizaKardex { get; init; } = string.Empty;
-        public string? AuxiliarAsignado { get; init; }
-        public string MunicipioResidencia { get; init; } = string.Empty;
-        public string Barrio { get; init; } = string.Empty;
-        public string Direccion { get; init; } = string.Empty;
-        public string? Estado { get; init; }
-        public string? AutorizacionEvento { get; init; }
-        public string GestionCompletaPendiente { get; init; } = string.Empty;
-        public DateTime CreatedAtUtc { get; init; }
-    }
-
-    private sealed class ReportesTerapiaAmbulatoriaRow
-    {
-        public long Id { get; init; }
-        public DateTime FechaInicio { get; init; }
-        public string NombrePaciente { get; init; } = string.Empty;
-        public string TipoIdentificacion { get; init; } = string.Empty;
-        public string NumeroIdentificacion { get; init; } = string.Empty;
-        public string? MunicipioResidencia { get; init; }
-        public string TipoTerapia { get; init; } = string.Empty;
-        public string? SegundoTratamientoTipoTerapia { get; init; }
-        public string? TercerTratamientoTipoTerapia { get; init; }
-        public string EstadoGestion { get; init; } = string.Empty;
-        public DateTime CreatedAtUtc { get; init; }
-    }
+        "MEDELLIN" => "MEDELLÍN",
+        "SAN CRISTOBAL" => "SAN CRISTÓBAL",
+        "AMAGA" => "AMAGÁ",
+        "DON MATIAS" => "DON MATÍAS",
+        "GUATAPE" => "GUATAPÉ",
+        "LA UNION" => "LA UNIÓN",
+        _ => municipio.Trim()
+    };
 }

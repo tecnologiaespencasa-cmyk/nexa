@@ -1,0 +1,142 @@
+@model ReportesDashboardViewModel
+@{
+    var n = Model.Npt;
+    var activo = Model.Vista == n.Vista;
+}
+<section class="rp-panel" role="tabpanel" id="rp-panel-npt" aria-labelledby="rp-tab-npt"
+         data-programa="@n.Programa" hidden="@(!activo)">
+    <header class="rp-panel__cabeza">
+        <div class="rp-panel__titulo">
+            <h2>Nutrición parenteral (NPT)</h2>
+            <p>
+                Activos hoy son los pacientes en estado Activo y sin fecha de egreso, igual que en el informe de pacientes
+                activos. El programa tiene pocos pacientes, así que el panel los lista uno por uno en lugar de graficarlos.
+            </p>
+        </div>
+    </header>
+
+    <div class="rp-cifras">
+        <div class="rp-cifra">
+            <strong data-rp-cifra="npt-activos-panel">@ReportesFormato.Entero(n.ActivosHoy)</strong>
+            <span>@ReportesFormato.Plural(n.ActivosHoy, "activo hoy", "activos hoy")</span>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="npt-ingresos-panel">@ReportesFormato.Entero(n.IngresosPeriodo)</strong>
+            <span>@ReportesFormato.Plural(n.IngresosPeriodo, "ingreso", "ingresos") en el periodo</span>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="npt-egresos">@ReportesFormato.Entero(n.EgresosPeriodo)</strong>
+            <span>@ReportesFormato.Plural(n.EgresosPeriodo, "egreso", "egresos") en el periodo</span>
+        </div>
+    </div>
+
+    <div class="rp-rejilla">
+        <article class="rp-tarjeta rp-c-8">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Pacientes activos hoy</h3>
+                <p class="rp-base">Ordenados por fecha de ingreso, del más antiguo al más reciente</p>
+            </header>
+            @if (n.PacientesActivos.Count == 0)
+            {
+                <p class="rp-vacio">No hay pacientes activos en NPT.</p>
+            }
+            else
+            {
+                <div class="rp-tabla-caja">
+                    <table class="rp-tabla">
+                        <thead>
+                            <tr>
+                                <th scope="col">Paciente</th>
+                                <th scope="col">Ingreso</th>
+                                <th scope="col" class="rp-num">Días</th>
+                                <th scope="col">Diagnóstico</th>
+                                <th scope="col">Auxiliar asignado</th>
+                                <th scope="col">Municipio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var fila in n.PacientesActivos)
+                            {
+                                <tr>
+                                    <td>
+                                        <a class="rp-paciente" asp-controller="Censo" asp-action="Index"
+                                           asp-route-cedulaPaciente="@fila.NumeroIdentificacion" asp-route-programa="NPT"
+                                           title="Abrir en el censo">@fila.Paciente</a>
+                                        <span class="rp-dato">@fila.Documento</span>
+                                    </td>
+                                    <td><span class="rp-dato">@fila.Fecha.ToString("dd/MM/yyyy")</span></td>
+                                    <td class="rp-num">@fila.Dias</td>
+                                    <td>@(fila.Diagnostico ?? "—")</td>
+                                    <td>@if (fila.Auxiliar is null) { <span class="rp-tenue">Sin asignar</span> } else { @fila.Auxiliar }</td>
+                                    <td>@(fila.Municipio ?? "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="rp-nota">Días en el programa: desde la fecha de ingreso hasta hoy, igual que los días de estancia del informe de pacientes activos.</p>
+            }
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Ingresos del periodo</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(n.IngresosPeriodo, "ingreso", "ingresos")</p>
+            </header>
+            @if (n.IngresosDelPeriodo.Count == 0)
+            {
+                <p class="rp-vacio">Sin ingresos en el periodo.</p>
+            }
+            else
+            {
+                <ul class="rp-lista">
+                    @foreach (var fila in n.IngresosDelPeriodo)
+                    {
+                        <li>
+                            <span class="rp-dato">@fila.Fecha.ToString("dd/MM/yyyy")</span>
+                            <span>@fila.Paciente <small class="rp-tenue">@fila.Documento</small></span>
+                            <b class="rp-etiqueta @(fila.Detalle == "Activo" ? "rp-etiqueta--ok" : null)">@fila.Detalle</b>
+                        </li>
+                    }
+                </ul>
+            }
+        </article>
+
+        <article class="rp-tarjeta rp-c-12">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Egresos del periodo</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(n.EgresosPeriodo, "egreso", "egresos")</p>
+            </header>
+            @if (n.EgresosDelPeriodo.Count == 0)
+            {
+                <p class="rp-vacio">Sin egresos en el periodo.</p>
+            }
+            else
+            {
+                <div class="rp-tabla-caja">
+                    <table class="rp-tabla">
+                        <thead>
+                            <tr>
+                                <th scope="col">Paciente</th>
+                                <th scope="col">Egreso</th>
+                                <th scope="col" class="rp-num">Días en el programa</th>
+                                <th scope="col">Motivo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var fila in n.EgresosDelPeriodo)
+                            {
+                                <tr>
+                                    <td>@fila.Paciente <span class="rp-dato">@fila.Documento</span></td>
+                                    <td><span class="rp-dato">@fila.Fecha.ToString("dd/MM/yyyy")</span></td>
+                                    <td class="rp-num">@fila.Dias</td>
+                                    <td>@fila.Detalle</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </article>
+    </div>
+</section>

@@ -1,0 +1,101 @@
+@model ReportesSerieViewModel
+@using System.Globalization
+@*
+    Columnas por día, semana o mes, siempre al ancho de la tarjeta (sin barra de desplazamiento).
+    - Hasta 16 columnas: cada una lleva su cifra y su fecha.
+    - Más de 16: la cifra se ve al señalar la columna y en "Ver las cifras"; la fecha se rotula solo en
+      los lunes (vista por día) o cada pocas columnas (semana o mes), para que los rótulos no se monten.
+    El color lo hereda del panel (variable --prog del programa).
+*@
+@{
+    var inv = CultureInfo.InvariantCulture;
+    var n = Model.Puntos.Count;
+    var conCifras = n <= 16;
+    var paso = (int)Math.Ceiling(n / 12d);
+    var primerLunes = Model.Puntos.ToList().FindIndex(p => p.Dia == "Lu");
+    // Con muchos días se rotulan los lunes; el primer día solo si el primer lunes queda lejos.
+    bool RotuloVisible(int i) => n <= 16
+        || (Model.EsDiaria
+            ? Model.Puntos[i].Dia == "Lu" || (i == 0 && (primerLunes < 0 || primerLunes >= 4))
+            : i % paso == 0);
+    var id = ViewData["IdSerie"] as string ?? "serie";
+    var unidad = ViewData["UnidadSerie"] as string ?? "Registros";
+}
+@if (Model.Maximo == 0)
+{
+    <p class="rp-vacio">Sin registros en el periodo.</p>
+}
+else
+{
+    <div class="rp-columnas @(conCifras ? null : "rp-columnas--densa")" style="--n:@n">
+        <div class="rp-columnas__eje" aria-hidden="true">
+            @foreach (var marca in Model.Marcas)
+            {
+                <span style="--y:@((marca * 100d / Model.EscalaMaxima).ToString("0.##", inv))%">@marca</span>
+            }
+        </div>
+        <div class="rp-columnas__lienzo">
+            <div class="rp-columnas__rejilla" aria-hidden="true">
+                @* Sábado y domingo seguidos se sombrean como una sola banda. *@
+                @for (var i = 0; i < n; i++)
+                {
+                    if (!Model.Puntos[i].FinDeSemana) { continue; }
+                    var desde = i;
+                    while (i + 1 < n && Model.Puntos[i + 1].FinDeSemana) { i++; }
+                    <b class="rp-columnas__finde" style="left:@((desde * 100d / n).ToString("0.###", inv))%;width:@(((i - desde + 1) * 100d / n).ToString("0.###", inv))%"></b>
+                }
+                @foreach (var marca in Model.Marcas.Where(x => x > 0))
+                {
+                    <i style="--y:@((marca * 100d / Model.EscalaMaxima).ToString("0.##", inv))%"></i>
+                }
+            </div>
+            <ol class="rp-columnas__serie">
+                @for (var i = 0; i < n; i++)
+                {
+                    var punto = Model.Puntos[i];
+                    <li class="rp-col @(punto.Valor == 0 ? "is-cero" : null)"
+                        data-rp-tip="@punto.Rango · @ReportesFormato.Entero(punto.Valor)">
+                        <span class="rp-col__area"><span class="rp-col__barra" style="--h:@punto.Altura.ToString("0.##", inv)%"></span></span>
+                        @if (conCifras)
+                        {
+                            <span class="rp-col__valor">@ReportesFormato.Entero(punto.Valor)</span>
+                        }
+                        <span class="rp-col__fecha @(i % 2 == 1 ? "rp-x-impar" : null)">@if (RotuloVisible(i))
+                        {
+                            if (punto.Dia is not null) { <small>@punto.Dia</small> }
+                            @punto.Etiqueta
+                        }</span>
+                    </li>
+                }
+            </ol>
+        </div>
+    </div>
+    <details class="rp-datos">
+        <summary>Ver las cifras de cada @Model.NombreTramo</summary>
+        <div class="rp-tabla-caja rp-desplazable">
+            <table class="rp-tabla rp-tabla--cifras" id="tabla-@id">
+                <thead>
+                    <tr>
+                        <th scope="col">@(Model.EsDiaria ? "Día" : Model.Vista == "semana" ? "Semana" : "Mes")</th>
+                        <th scope="col" class="rp-num">@unidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var punto in Model.Puntos)
+                    {
+                        <tr>
+                            <th scope="row">@punto.Rango</th>
+                            <td class="rp-num">@ReportesFormato.Entero(punto.Valor)</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th scope="row">Total</th>
+                        <td class="rp-num">@ReportesFormato.Entero(Model.Total)</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </details>
+}

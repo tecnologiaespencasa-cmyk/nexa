@@ -1,0 +1,161 @@
+@model ReportesLineaViewModel
+@*
+    Gráfico de líneas. Todo se dibuja en porcentajes sobre el ancho del lienzo:
+    - la línea y el área son un SVG estirado (el trazo no se deforma: vector-effect);
+    - los puntos, las cifras, las marcas y los rótulos son HTML, así se leen nítidos a cualquier ancho;
+    - cada tramo tiene una franja invisible que, al señalarla, dice la fecha y la cifra exacta.
+    Debajo, "Ver las cifras" despliega la tabla con el valor de cada tramo.
+*@
+@{
+    var m = Model;
+    string C(double v) => ReportesLineaViewModel.Css(v);
+}
+@if (!m.HayDatos)
+{
+    <p class="rp-vacio">Sin registros en el periodo.</p>
+}
+else
+{
+    <div class="rp-linea @(m.N > 16 ? "rp-linea--densa" : null)" style="--n:@m.N">
+        <div class="rp-linea__eje" aria-hidden="true">
+            @foreach (var marca in m.Marcas)
+            {
+                <span style="bottom:@C(m.Y(marca))%">@m.FormatearMarca(marca)</span>
+            }
+        </div>
+        <div class="rp-linea__marco">
+            <div class="rp-linea__lienzo">
+                @foreach (var banda in m.BandasFinDeSemana())
+                {
+                    <i class="rp-linea__finde" style="left:@C(banda.Izquierda)%;width:@C(banda.Ancho)%" aria-hidden="true"></i>
+                }
+                @foreach (var marca in m.Marcas.Where(x => x > 0))
+                {
+                    <i class="rp-linea__rejilla" style="bottom:@C(m.Y(marca))%" aria-hidden="true"></i>
+                }
+
+                <svg class="rp-linea__svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                    @if (m.Area() is { } area)
+                    {
+                        <path class="rp-linea__area" d="@area" />
+                    }
+                    @for (var s = m.Series.Count - 1; s >= 0; s--)
+                    {
+                        <path class="rp-linea__trazo rp-linea__trazo--@m.Series[s].Clase" d="@m.Trazo(s)" vector-effect="non-scaling-stroke" />
+                    }
+                </svg>
+
+                @if (m.Referencia is { } referencia)
+                {
+                    <div class="rp-linea__referencia" style="bottom:@C(m.Y(referencia))%" aria-hidden="true"></div>
+                }
+
+                @for (var s = 0; s < m.Series.Count; s++)
+                {
+                    var serie = m.Series[s];
+                    for (var i = 0; i < m.N; i++)
+                    {
+                        if (serie.Valores[i] is not { } valor)
+                        {
+                            continue;
+                        }
+
+                        var conCifra = m.CifraVisible(s, i);
+                        if (m.N <= 31 || conCifra)
+                        {
+                            <span class="rp-linea__punto rp-linea__punto--@serie.Clase" style="left:@C(m.X(i))%;bottom:@C(m.Y(valor))%" aria-hidden="true"></span>
+                        }
+                        if (conCifra)
+                        {
+                            var bordeCifra = m.X(i) < 6 ? "is-inicio" : m.X(i) > 94 ? "is-fin" : null;
+                            <span class="rp-linea__cifra rp-linea__cifra--@serie.Clase @bordeCifra" style="left:@C(m.X(i))%;bottom:@C(m.Y(valor))%" aria-hidden="true">@m.Formatear(valor)</span>
+                        }
+                    }
+                }
+
+                <ol class="rp-linea__zonas" aria-hidden="true">
+                    @for (var i = 0; i < m.N; i++)
+                    {
+                        <li data-rp-tip="@m.Rotulo(i)"></li>
+                    }
+                </ol>
+            </div>
+            <div class="rp-linea__x" aria-hidden="true">
+                @for (var i = 0; i < m.N; i++)
+                {
+                    if (!m.RotuloVisible(i))
+                    {
+                        continue;
+                    }
+                    var tramo = m.Tramos[i];
+                    var borde = m.X(i) < 3 ? "is-inicio" : m.X(i) > 97 ? "is-fin" : null;
+                    <span class="@(i % 2 == 1 && m.N <= 16 ? "rp-x-impar" : null) @borde" style="left:@C(m.X(i))%">@if (tramo.Dia is not null) { <small>@tramo.Dia</small> }@tramo.Etiqueta</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="rp-linea__pie">
+        @if (m.Series.Count > 1 || m.Referencia is not null)
+        {
+            <ul class="rp-leyenda" aria-label="Leyenda">
+                @foreach (var serie in m.Series)
+                {
+                    <li><i class="rp-leyenda__linea rp-leyenda__linea--@serie.Clase"></i>@serie.Nombre @if (serie.TotalTexto is not null) { <strong>@serie.TotalTexto</strong> }</li>
+                }
+                @if (m.Referencia is not null)
+                {
+                    <li><i class="rp-leyenda__linea rp-leyenda__linea--referencia"></i>@m.ReferenciaTexto</li>
+                }
+            </ul>
+        }
+        <details class="rp-datos">
+            <summary>Ver las cifras de cada @m.NombreTramo.ToLowerInvariant()</summary>
+            <div class="rp-tabla-caja rp-desplazable">
+                <table class="rp-tabla rp-tabla--cifras" id="tabla-@m.Id">
+                    <thead>
+                        <tr>
+                            <th scope="col">@m.NombreTramo</th>
+                            @foreach (var serie in m.Series)
+                            {
+                                <th scope="col" class="rp-num">@serie.Nombre</th>
+                            }
+                            @if (m.Extra is not null)
+                            {
+                                <th scope="col" class="rp-num">@m.ExtraTitulo</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < m.N; i++)
+                        {
+                            <tr>
+                                <th scope="row">@m.Tramos[i].Rango</th>
+                                @foreach (var serie in m.Series)
+                                {
+                                    <td class="rp-num">@m.Formatear(serie.Valores[i])</td>
+                                }
+                                @if (m.Extra is not null)
+                                {
+                                    <td class="rp-num">@m.Extra[i]</td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                    @if (!m.EnHoras)
+                    {
+                        <tfoot>
+                            <tr>
+                                <th scope="row">Total</th>
+                                @foreach (var serie in m.Series)
+                                {
+                                    <td class="rp-num">@ReportesFormato.Entero((int)serie.Valores.Sum(v => v ?? 0))</td>
+                                }
+                            </tr>
+                        </tfoot>
+                    }
+                </table>
+            </div>
+        </details>
+    </div>
+}

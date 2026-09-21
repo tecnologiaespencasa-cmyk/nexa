@@ -1,0 +1,30 @@
+@model IReadOnlyList<ReportesCategoriaViewModel>
+@*
+    Lista de barras horizontales. El largo es relativo a la categoría mayor; la cifra y el porcentaje
+    sobre la base del panel van escritos al lado. "Sin dato" y "Otros" se apagan para no competir.
+*@
+@if (Model.Count == 0)
+{
+    <p class="rp-vacio">Sin registros para mostrar.</p>
+}
+else
+{
+    <ul class="rp-barras">
+        @foreach (var item in Model)
+        {
+            // Una fila plegada ("Otros") lleva la lista de lo que agrupa como texto emergente, no en línea.
+            var detalleEmergente = item.Secundaria && item.Detalle is not null;
+            <li class="@(item.Secundaria ? "is-secundaria" : null)" title="@(detalleEmergente ? item.Detalle : null)">
+                <span class="rp-barras__etiqueta">
+                    @item.Etiqueta
+                    @if (!detalleEmergente && !string.IsNullOrWhiteSpace(item.Detalle))
+                    {
+                        <small>@item.Detalle</small>
+                    }
+                </span>
+                <span class="rp-barras__valor">@ReportesFormato.Entero(item.Valor) <small>(@ReportesFormato.Porcentaje(item.Porcentaje))</small></span>
+                <span class="rp-barras__pista" aria-hidden="true"><span style="width:@item.BarraCss"></span></span>
+            </li>
+        }
+    </ul>
+}

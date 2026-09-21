@@ -1,493 +1,284 @@
-﻿@model Nexa.Models.ViewModels.ReportesDashboardViewModel
+@model ReportesDashboardViewModel
 @using System.Globalization
+@using Microsoft.AspNetCore.Html
 @{
     ViewData["Title"] = "Reportes";
 
-    var culture = new CultureInfo("es-CO");
-    var desdeValue = Model.Filters.Desde?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-    var hastaValue = Model.Filters.Hasta?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-    var gestionTotal = Model.TotalGestionesPendientes + Model.TotalGestionesCompletas;
-    var gestionPendienteShare = gestionTotal == 0 ? 0 : Math.Round(Model.TotalGestionesPendientes * 100d / gestionTotal, 2);
-    var gestionCompletaShare = gestionTotal == 0 ? 0 : Math.Round(Model.TotalGestionesCompletas * 100d / gestionTotal, 2);
+    var culture = CultureInfo.GetCultureInfo("es-CO");
+    var inv = CultureInfo.InvariantCulture;
+    var desdeValue = Model.Filters.Desde?.ToString("yyyy-MM-dd", inv);
+    var hastaValue = Model.Filters.Hasta?.ToString("yyyy-MM-dd", inv);
+
+    // El tabulado conserva el tablero y el tablero conserva el tabulado al navegar.
+    ViewData["RutaTablero"] = Model.RutaTablero;
+
+    // TEMPORAL: aviso "Tablero en construcción" (interruptor en ReportesController.EnConstruccion.cs).
+    var enConstruccion = Nexa.Controllers.ReportesController.TableroEnConstruccion;
+    var tab = Model.TabuladoCenso;
+
+    Dictionary<string, string> Ruta(params (string Clave, string? Valor)[] cambios)
+    {
+        var ruta = new Dictionary<string, string>(Model.RutaTablero);
+        if (!string.IsNullOrWhiteSpace(tab.CedulaFiltro)) ruta["cedulaPaciente"] = tab.CedulaFiltro!;
+        if (!string.IsNullOrWhiteSpace(tab.ProgramaFiltro)) ruta["programaFiltro"] = tab.ProgramaFiltro!;
+        if (tab.FechaIngresoFiltroDesde.HasValue) ruta["fechaIngresoDesde"] = tab.FechaIngresoFiltroDesde.Value.ToString("yyyy-MM-dd", inv);
+        if (tab.FechaIngresoFiltroHasta.HasValue) ruta["fechaIngresoHasta"] = tab.FechaIngresoFiltroHasta.Value.ToString("yyyy-MM-dd", inv);
+        foreach (var (clave, valor) in cambios)
+        {
+            if (string.IsNullOrWhiteSpace(valor)) ruta.Remove(clave); else ruta[clave] = valor;
+        }
+        return ruta;
+    }
+
+    string Comparacion(int actual, int anterior, int dias)
+    {
+        var referencia = dias == 1 ? "el día anterior" : $"los {dias} días anteriores";
+        var diferencia = actual - anterior;
+        return diferencia switch
+        {
+            0 => $"Igual que {referencia} ({ReportesFormato.Entero(anterior)})",
+            > 0 => $"{ReportesFormato.Entero(diferencia)} más que {referencia} ({ReportesFormato.Entero(anterior)})",
+            _ => $"{ReportesFormato.Entero(-diferencia)} menos que {referencia} ({ReportesFormato.Entero(anterior)})"
+        };
+    }
+
+    // Miniatura de la serie: una línea con título, el punto más alto marcado con su cifra y las fechas de
+    // inicio y fin. Cada programa con su propia escala: muestra la forma de la serie; la magnitud está en
+    // la cifra grande de la ficha y en su panel.
+    IHtmlContent Miniatura(ReportesSerieViewModel serie, string que)
+    {
+        var enc = System.Text.Encodings.Web.HtmlEncoder.Default;
+        var n = serie.Puntos.Count;
+        if (n == 0 || serie.Maximo == 0)
+        {
+            return new HtmlString($"<span class=\"rp-mini rp-mini--vacia\">Sin {enc.Encode(que.ToLowerInvariant())} en el periodo</span>");
+        }
+
+        var max = serie.Maximo;
+        double X(int i) => n == 1 ? 50 : i * 100d / (n - 1);
+        double Y(int v) => 100 - v * 86d / max;
+        string C(double v) => v.ToString("0.###", inv);
+        var linea = new System.Text.StringBuilder();
+        for (var i = 0; i < n; i++)
+        {
+            linea.Append(i == 0 ? "M" : " L").Append(C(X(i))).Append(' ').Append(C(Y(serie.Puntos[i].Valor)));
+        }
+        var area = $"M{C(X(0))} 100 L{linea.ToString()[1..]} L{C(X(n - 1))} 100 Z";
+        var pico = serie.Puntos.ToList().FindIndex(x => x.Valor == max);
+        var primero = serie.Puntos[0];
+        var ultimo = serie.Puntos[n - 1];
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append("<span class=\"rp-mini\" aria-hidden=\"true\">");
+        sb.Append($"<span class=\"rp-mini__cabeza\"><span>{enc.Encode(que)} por {serie.NombreTramo}</span><span>máximo <b>{ReportesFormato.Entero(max)}</b></span></span>");
+        sb.Append("<span class=\"rp-mini__lienzo\">");
+        sb.Append("<svg viewBox=\"0 0 100 100\" preserveAspectRatio=\"none\" focusable=\"false\">");
+        sb.Append($"<path class=\"rp-mini__area\" d=\"{area}\"/>");
+        sb.Append($"<path class=\"rp-mini__linea\" d=\"{linea}\" vector-effect=\"non-scaling-stroke\"/>");
+        sb.Append("</svg>");
+        sb.Append($"<i class=\"rp-mini__pico\" style=\"left:{C(X(pico))}%;bottom:{C(100 - Y(max))}%\"></i>");
+        sb.Append("</span>");
+        sb.Append($"<span class=\"rp-mini__pie\"><span>{enc.Encode(primero.Dia is null ? primero.Etiqueta : primero.Dia + " " + primero.Etiqueta)}</span><span>{enc.Encode(ultimo.Dia is null ? ultimo.Etiqueta : ultimo.Dia + " " + ultimo.Etiqueta)}</span></span>");
+        sb.Append("</span>");
+        return new HtmlString(sb.ToString());
+    }
 }
 
 @section Styles {
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..100,500..800&family=Atkinson+Hyperlegible+Mono:wght@400;600&family=Atkinson+Hyperlegible+Next:ital,wght@0,400;0,600;0,700;1,400&display=swap" />
     <link rel="stylesheet" href="~/css/censo.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/censo-unificado.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/reportes.css" asp-append-version="true" />
 }
 
-<div class="reportes-shell mt-4 mb-5">
-    <section class="reportes-command">
-        <div class="reportes-title-block">
-            <span class="reportes-kicker">Centro de mando</span>
-            <h1>Reportes dinámicos integrados</h1>
-            <p>Integra el censo operativo con las novedades del Portal Administrativo para priorizar gestión, autorización y tiempos de respuesta.</p>
+<div class="rp" data-rp>
+    @* TEMPORAL: con el aviso activo, todo el tablero queda difuminado e inerte (sin clics ni teclado);
+       el tabulado y sus exportables, fuera de este bloque, siguen funcionando. *@
+    <div class="rp-obra @(enConstruccion ? "is-activa" : null)">
+    <div class="rp-obra__contenido" inert="@enConstruccion" aria-hidden="@(enConstruccion ? "true" : null)">
+    <header class="rp-cabecera">
+        <div class="rp-cabecera__titulo">
+            <span class="rp-cabecera__marca">Reportes</span>
+            <h1>@Model.PeriodoTexto</h1>
+            <p>
+                @Model.DiasPeriodo @(Model.DiasPeriodo == 1 ? "día" : "días") · series por @Model.Granularidad
+                · censo de agudos, crónicos, clínica de heridas, NPT y terapia ambulatoria, más el Portal Administrativo
+            </p>
         </div>
-        <div class="reportes-generated-at">
-            <span>Actualizado</span>
-            <strong>@Model.GeneratedAtLocal.ToString("dd 'de' MMMM yyyy, hh:mm tt", culture)</strong>
-        </div>
-    </section>
+        <p class="rp-cabecera__hora">
+            Consultado el <time datetime="@Model.GeneradoLocal.ToString("s", inv)">@Model.GeneradoLocal.ToString("d 'de' MMMM, h:mm tt", culture)</time>
+            <span>hora de Colombia</span>
+        </p>
+    </header>
 
-    <form class="reportes-filter-bar" method="get" asp-controller="Reportes" asp-action="Index">
-        <label>
-            <span>Desde</span>
-            <input type="date" name="Desde" value="@desdeValue" />
-        </label>
-        <label>
-            <span>Hasta</span>
-            <input type="date" name="Hasta" value="@hastaValue" />
-        </label>
-        <label>
-            <span>Municipio</span>
-            <select name="Municipio" asp-items="Model.FilterOptions.Municipios"></select>
-        </label>
-        <label>
-            <span>Programa</span>
-            <select name="Programa" asp-items="Model.FilterOptions.Programas"></select>
-        </label>
-        <label>
-            <span>Gestión</span>
-            <select name="EstadoGestion" asp-items="Model.FilterOptions.EstadosGestion"></select>
-        </label>
-        <label>
-            <span>Tipo de novedad</span>
-            <select name="TipoNovedad" asp-items="Model.FilterOptions.TiposNovedad"></select>
-        </label>
-        <label>
-            <span>Estado Censo Agudos</span>
-            <select name="EstadoCenso" asp-items="Model.FilterOptions.EstadosCenso"></select>
-        </label>
-        <div class="reportes-filter-actions">
-            <button type="submit">Aplicar</button>
-            <a asp-controller="Reportes" asp-action="Index">Limpiar</a>
+    <form id="rpFiltros" class="rp-filtros" method="get" asp-controller="Reportes" asp-action="Index" aria-label="Filtros del tablero">
+        <input type="hidden" name="Vista" value="@Model.Vista" data-rp-vista-input />
+        @* Filtros propios de los paneles: viven en su panel (atributo form) pero viajan con este formulario. *@
+        @if (!string.IsNullOrWhiteSpace(tab.CedulaFiltro)) { <input type="hidden" name="cedulaPaciente" value="@tab.CedulaFiltro" /> }
+        @if (!string.IsNullOrWhiteSpace(tab.ProgramaFiltro)) { <input type="hidden" name="programaFiltro" value="@tab.ProgramaFiltro" /> }
+        @if (tab.FechaIngresoFiltroDesde.HasValue) { <input type="hidden" name="fechaIngresoDesde" value="@tab.FechaIngresoFiltroDesde.Value.ToString("yyyy-MM-dd", inv)" /> }
+        @if (tab.FechaIngresoFiltroHasta.HasValue) { <input type="hidden" name="fechaIngresoHasta" value="@tab.FechaIngresoFiltroHasta.Value.ToString("yyyy-MM-dd", inv)" /> }
+
+        <div class="rp-filtros__rapidos" role="group" aria-label="Periodos rápidos">
+            @foreach (var preset in Model.Presets)
+            {
+                <a class="rp-rapido @(preset.Activo ? "is-activo" : null)"
+                   aria-current="@(preset.Activo ? "true" : null)"
+                   asp-controller="Reportes" asp-action="Index"
+                   asp-all-route-data="@Ruta(("Desde", preset.Desde.ToString("yyyy-MM-dd", inv)), ("Hasta", preset.Hasta.ToString("yyyy-MM-dd", inv)))"
+                   data-rp-conserva-vista>@preset.Etiqueta</a>
+            }
+        </div>
+        <div class="rp-filtros__campos">
+            <label class="rp-campo">
+                <span>Desde</span>
+                <input type="date" name="Desde" value="@desdeValue" max="@Model.Hoy.ToString("yyyy-MM-dd", inv)" />
+            </label>
+            <label class="rp-campo">
+                <span>Hasta</span>
+                <input type="date" name="Hasta" value="@hastaValue" max="@Model.Hoy.ToString("yyyy-MM-dd", inv)" />
+            </label>
+            <label class="rp-campo rp-campo--ancho">
+                <span>Municipio</span>
+                <select name="Municipio" asp-items="Model.FilterOptions.Municipios"></select>
+            </label>
+            <div class="rp-filtros__acciones">
+                <button type="submit" class="rp-boton">Aplicar</button>
+                <a class="rp-boton rp-boton--quieto" asp-controller="Reportes" asp-action="Index" asp-route-Vista="@Model.Vista" data-rp-conserva-vista>Limpiar</a>
+            </div>
         </div>
     </form>
 
     @if (Model.ActiveFilterLabels.Count > 0)
     {
-        <div class="reportes-filter-chips" aria-label="Filtros activos">
-            @foreach (var filter in Model.ActiveFilterLabels)
+        <div class="rp-aplicados" aria-label="Filtros aplicados">
+            <span>Filtrado por</span>
+            @foreach (var etiqueta in Model.ActiveFilterLabels)
             {
-                <span>@filter</span>
+                <b>@etiqueta</b>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.Filters.Municipio))
+            {
+                <em>El Portal Administrativo no registra municipio: su panel no se filtra por municipio.</em>
             }
         </div>
     }
 
-    <section class="reportes-kpi-grid">
-        <article class="reportes-kpi-card reportes-kpi-card--ink">
-            <span class="reportes-source reportes-source--censo">Censo Agudos</span>
-            <span class="reportes-kpi-title">Registros analizados</span>
-            <strong class="reportes-kpi-value">@Model.TotalRegistrosCenso.ToString("N0", culture)</strong>
-            <span class="reportes-kpi-caption">Base filtrada del tablero</span>
-        </article>
-        <article class="reportes-kpi-card">
-            <span class="reportes-source reportes-source--portal">Portal Administrativo</span>
-            <span class="reportes-kpi-title">Novedades reportadas</span>
-            <strong class="reportes-kpi-value">@Model.TotalNovedades.ToString("N0", culture)</strong>
-            <span class="reportes-kpi-caption">@Model.PorcentajeResolucionNovedades.ToString("0.##", culture)% con cierre</span>
-        </article>
-        <article class="reportes-kpi-card">
-            <span class="reportes-source reportes-source--censo">Censo Agudos</span>
-            <span class="reportes-kpi-title">Sin autorización</span>
-            <strong class="reportes-kpi-value">@Model.TotalEventosPendientesSinAutorizacion.ToString("N0", culture)</strong>
-            <span class="reportes-kpi-caption">Eventos pendientes de autorización</span>
-        </article>
-        <article class="reportes-kpi-card">
-            <span class="reportes-source reportes-source--censo">Censo Agudos</span>
-            <span class="reportes-kpi-title">Gestión pendiente</span>
-            <strong class="reportes-kpi-value">@Model.TotalGestionesPendientes.ToString("N0", culture)</strong>
-            <span class="reportes-kpi-caption">@Model.PorcentajeGestionPendiente.ToString("0.##", culture)% del periodo</span>
-        </article>
-        <article class="reportes-kpi-card">
-            <span class="reportes-source reportes-source--portal">Portal Administrativo</span>
-            <span class="reportes-kpi-title">Resolución promedio</span>
-            <strong class="reportes-kpi-value">@Model.PromedioResolucionDisplay</strong>
-            <span class="reportes-kpi-caption">@Model.TotalNovedadesResueltas.ToString("N0", culture) novedades resueltas</span>
-        </article>
-    </section>
-
-    <section class="reportes-grid reportes-grid--wide-left">
-        <article class="reportes-card">
-            <div class="reportes-card-header">
-                <div>
-                    <span>Portal Administrativo</span>
-                    <h2>Novedades reportadas por día</h2>
-                </div>
-                <div class="reportes-chart-metrics">
-                    <div>
-                        <span>Total</span>
-                        <strong>@Model.TotalNovedades.ToString("N0", culture)</strong>
-                    </div>
-                    <div class="reportes-chart-average">
-                        <span>Promedio por día</span>
-                        <strong>@Model.PromedioNovedadesPorDia.ToString("N0", culture)</strong>
-                    </div>
-                </div>
+    <section class="rp-censo" aria-labelledby="rpCensoTitulo">
+        <h2 id="rpCensoTitulo" class="rp-visual-oculto">Censo de hoy por programa</h2>
+        <div class="rp-tablero" role="tablist" aria-label="Programas del tablero">
+            <div class="rp-unicos">
+                <span class="rp-unicos__rotulo">Censo de hoy</span>
+                <strong data-rp-cifra="unicos">@ReportesFormato.Entero(Model.PacientesUnicosActivos)</strong>
+                <span>@ReportesFormato.Plural(Model.PacientesUnicosActivos, "paciente activo", "pacientes activos")</span>
+                <small>
+                    @if (Model.PacientesEnVariosProgramas == 0)
+                    {
+                        @:Ninguno está en más de un programa a la vez.
+                    }
+                    else
+                    {
+                        @ReportesFormato.Entero(Model.PacientesEnVariosProgramas)
+                        @(Model.PacientesEnVariosProgramas == 1 ? " está en más de un programa a la vez: por eso la suma de los programas da más." : " están en más de un programa a la vez: por eso la suma de los programas da más.")
+                    }
+                </small>
+                <time datetime="@Model.Hoy.ToString("yyyy-MM-dd", inv)">@Model.Hoy.ToString("dddd d 'de' MMMM", culture)</time>
             </div>
 
-            @if (Model.TotalNovedades == 0)
+            @foreach (var programa in Model.ProgramasCenso)
             {
-                <p class="reportes-empty">Sin novedades para el filtro actual.</p>
-            }
-            else
-            {
-                <div class="reportes-chart-frame">
-                    <div class="reportes-y-axis" aria-label="Escala de 0 a @Model.NovedadesPorDia.ScaleMax">
-                        @foreach (var tick in Model.NovedadesPorDia.ScaleTicks)
+                var activo = programa.Vista == Model.Vista;
+                <a class="rp-ficha @(activo ? "is-activa" : null)"
+                   role="tab"
+                   id="rp-tab-@programa.Vista"
+                   aria-controls="rp-panel-@programa.Vista"
+                   aria-selected="@(activo ? "true" : "false")"
+                   tabindex="@(activo ? "0" : "-1")"
+                   data-programa="@programa.Programa"
+                   data-rp-vista="@programa.Vista"
+                   asp-controller="Reportes" asp-action="Index"
+                   asp-all-route-data="@Ruta(("Vista", programa.Vista))">
+                    <span class="rp-ficha__nombre">@programa.Nombre</span>
+                    <span class="rp-ficha__activos"><strong data-rp-cifra="@programa.Vista-activos">@ReportesFormato.Entero(programa.ActivosHoy)</strong> @ReportesFormato.Plural(programa.ActivosHoy, "activo hoy", "activos hoy")</span>
+                    <span class="rp-ficha__ingresos">
+                        <strong data-rp-cifra="@programa.Vista-ingresos">@ReportesFormato.Entero(programa.IngresosPeriodo)</strong>
+                        @(programa.IngresosPeriodo == 1 ? "ingreso" : "ingresos") en el periodo@(programa.FiltrosPropios ? "*" : null)
+                    </span>
+                    @Miniatura(programa.Ingresos, "Ingresos")
+                    <span class="rp-ficha__pie">
+                        @Comparacion(programa.IngresosPeriodo, programa.IngresosPeriodoAnterior, Model.DiasPeriodo)
+                        @if (!string.IsNullOrWhiteSpace(programa.Destacado))
                         {
-                            <span>@tick.ToString("N0", culture)</span>
+                            <b>@programa.Destacado</b>
                         }
-                    </div>
-                    <div class="reportes-column-chart">
-                        @foreach (var point in Model.NovedadesPorDia.Points)
-                        {
-                            <div class="reportes-column">
-                                <div class="reportes-column-track">
-                                    <span style="height:@point.Percentage.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
-                                </div>
-                                <strong>@point.Value.ToString("N0", culture)</strong>
-                                <small>@point.Label</small>
-                            </div>
-                        }
-                    </div>
-                </div>
+                    </span>
+                </a>
             }
 
-        </article>
-
-        <article class="reportes-card">
-            <div class="reportes-card-header">
-                <div>
-                    <span>Portal Administrativo</span>
-                    <h2>Novedades por tipo</h2>
-                </div>
-            </div>
-
-            @if (Model.NovedadesPorTipo.Count == 0)
-            {
-                <p class="reportes-empty">Sin novedades para el filtro actual.</p>
+            @{
+                var portalActivo = Model.Vista == ReportesVistas.Portal;
             }
-            else
-            {
-                <ul class="reportes-bars">
-                    @foreach (var item in Model.NovedadesPorTipo)
-                    {
-                        <li>
-                            <div>
-                                <strong>@item.Label</strong>
-                                <span>@item.Value.ToString("N0", culture) (@item.Percentage.ToString("0.##", culture)%)</span>
-                            </div>
-                            <div class="reportes-bar-track">
-                                <span style="width:@item.BarWidthCss; background:@item.Color"></span>
-                            </div>
-                        </li>
-                    }
-                </ul>
-            }
-        </article>
+            <a class="rp-ficha rp-ficha--portal @(portalActivo ? "is-activa" : null)"
+               role="tab"
+               id="rp-tab-portal"
+               aria-controls="rp-panel-portal"
+               aria-selected="@(portalActivo ? "true" : "false")"
+               tabindex="@(portalActivo ? "0" : "-1")"
+               data-programa="PORTAL"
+               data-rp-vista="portal"
+               asp-controller="Reportes" asp-action="Index"
+               asp-all-route-data="@Ruta(("Vista", ReportesVistas.Portal))">
+                <span class="rp-ficha__nombre">Portal Administrativo</span>
+                @if (Model.Portal.Error is not null)
+                {
+                    <span class="rp-ficha__activos">Sin conexión</span>
+                    <span class="rp-ficha__pie">No se pudo consultar el portal.</span>
+                }
+                else
+                {
+                    <span class="rp-ficha__activos"><strong data-rp-cifra="portal-total">@ReportesFormato.Entero(Model.Portal.Total)</strong> @ReportesFormato.Plural(Model.Portal.Total, "novedad", "novedades")</span>
+                    <span class="rp-ficha__ingresos"><strong>@ReportesFormato.Entero(Model.Portal.Pendientes)</strong> @(Model.Portal.Pendientes == 1 ? "pendiente" : "pendientes") de resolver@(Model.Portal.FiltradoPorTipo ? "*" : null)</span>
+                    @Miniatura(Model.Portal.PorDia, "Novedades")
+                    <span class="rp-ficha__pie">
+                        <span>Tiempo de resolución promedio: <b data-rp-cifra="portal-tiempo-ficha">@Model.Portal.PromedioHastaCierreTexto</b></span>
+                        <span>@ReportesFormato.Porcentaje(Model.Portal.PorcentajeResueltas) resueltas</span>
+                    </span>
+                }
+            </a>
+        </div>
+        @if (Model.ProgramasCenso.Any(x => x.FiltrosPropios) || Model.Portal.FiltradoPorTipo)
+        {
+            <p class="rp-asterisco">* Cifra recortada por un filtro propio del panel (ver "Filtrado por").</p>
+        }
     </section>
 
-    <section class="reportes-grid reportes-grid--even">
-        <article class="reportes-card">
-            <div class="reportes-card-header">
-                <div>
-                    <span>Censo Agudos</span>
-                    <h2>Ingresos por día</h2>
-                </div>
-                <div class="reportes-chart-metrics">
-                    <div>
-                        <span>Total</span>
-                        <strong>@Model.TotalIngresosPeriodo.ToString("N0", culture)</strong>
-                    </div>
-                    <div class="reportes-chart-average">
-                        <span>Promedio por día</span>
-                        <strong>@Model.PromedioIngresosPorDia.ToString("N0", culture)</strong>
-                    </div>
-                </div>
-            </div>
-
-            <div class="reportes-chart-frame">
-                <div class="reportes-y-axis" aria-label="Escala de 0 a @Model.IngresosPorDia.ScaleMax">
-                    @foreach (var tick in Model.IngresosPorDia.ScaleTicks)
-                    {
-                        <span>@tick.ToString("N0", culture)</span>
-                    }
-                </div>
-                <div class="reportes-column-chart reportes-column-chart--compact">
-                    @foreach (var point in Model.IngresosPorDia.Points)
-                    {
-                        <div class="reportes-column reportes-column--green">
-                            <div class="reportes-column-track">
-                                <span style="height:@point.Percentage.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
-                            </div>
-                            <strong>@point.Value.ToString("N0", culture)</strong>
-                            <small>@point.Label</small>
-                        </div>
-                    }
-                </div>
-            </div>
-        </article>
-
-        <article class="reportes-card">
-            <div class="reportes-card-header">
-                <div>
-                    <span>Censo Agudos</span>
-                    <h2>Gestión pendiente vs completa</h2>
-                </div>
-            </div>
-
-            <div class="reportes-progress-track">
-                <span class="reportes-progress-segment reportes-progress-segment--pending" style="width:@gestionPendienteShare.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
-                <span class="reportes-progress-segment reportes-progress-segment--complete" style="width:@gestionCompletaShare.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
-            </div>
-
-            <div class="reportes-progress-metrics">
-                <div>
-                    <strong>@Model.TotalGestionesPendientes.ToString("N0", culture)</strong>
-                    <span>Pendiente (@gestionPendienteShare.ToString("0.##", culture)%)</span>
-                </div>
-                <div>
-                    <strong>@Model.TotalGestionesCompletas.ToString("N0", culture)</strong>
-                    <span>Completa (@gestionCompletaShare.ToString("0.##", culture)%)</span>
-                </div>
-            </div>
-
-            <div class="reportes-alert-strip">
-                <strong>@Model.TotalPendientesCriticos.ToString("N0", culture)</strong>
-                <span>pendientes críticos: sin autorización y con gestión pendiente.</span>
-            </div>
-        </article>
-    </section>
-
-    <section class="reportes-grid reportes-grid--wide-left">
-        <article class="reportes-card">
-            <div class="reportes-card-header">
-                <div>
-                    <span>Terapias ambulatorias</span>
-                    <h2>Ingresos por día</h2>
-                </div>
-                <div class="reportes-chart-metrics">
-                    <div>
-                        <span>Total</span>
-                        <strong>@Model.TotalIngresosTerapiaAmbulatoriaPeriodo.ToString("N0", culture)</strong>
-                    </div>
-                    <div class="reportes-chart-average">
-                        <span>Promedio por día</span>
-                        <strong>@Model.PromedioIngresosTerapiaAmbulatoriaPorDia.ToString("N0", culture)</strong>
-                    </div>
-                </div>
-            </div>
-
-            <div class="reportes-chart-frame">
-                <div class="reportes-y-axis" aria-label="Escala de 0 a @Model.IngresosTerapiaAmbulatoriaPorDia.ScaleMax">
-                    @foreach (var tick in Model.IngresosTerapiaAmbulatoriaPorDia.ScaleTicks)
-                    {
-                        <span>@tick.ToString("N0", culture)</span>
-                    }
-                </div>
-                <div class="reportes-column-chart reportes-column-chart--compact">
-                    @foreach (var point in Model.IngresosTerapiaAmbulatoriaPorDia.Points)
-                    {
-                        <div class="reportes-column reportes-column--therapy">
-                            <div class="reportes-column-track">
-                                <span style="height:@point.Percentage.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
-                            </div>
-                            <strong>@point.Value.ToString("N0", culture)</strong>
-                            <small>@point.Label</small>
-                        </div>
-                    }
-                </div>
-            </div>
-        </article>
-
-        <article class="reportes-card">
-            <div class="reportes-card-header">
-                <div>
-                    <span>Terapias ambulatorias</span>
-                    <h2>Ingresos por tipo</h2>
-                </div>
-            </div>
-
-            @if (Model.IngresosTerapiaAmbulatoriaPorTipo.Count == 0)
-            {
-                <p class="reportes-empty">Sin ingresos por tipo para el filtro actual.</p>
-            }
-            else
-            {
-                <ul class="reportes-bars">
-                    @foreach (var item in Model.IngresosTerapiaAmbulatoriaPorTipo)
-                    {
-                        <li>
-                            <div>
-                                <strong>@item.Label</strong>
-                                <span>@item.Value.ToString("N0", culture) (@item.Percentage.ToString("0.##", culture)%)</span>
-                            </div>
-                            <div class="reportes-bar-track">
-                                <span style="width:@item.BarWidthCss; background:@item.Color"></span>
-                            </div>
-                        </li>
-                    }
-                </ul>
-            }
-        </article>
-    </section>
-
-    <section class="reportes-grid reportes-grid--even">
-        <article class="reportes-card">
-            <div class="reportes-card-header">
-                <div>
-                    <span>Portal Administrativo</span>
-                    <h2>Promedio por tipo de novedad</h2>
-                </div>
-            </div>
-
-            @if (Model.ResolucionPorTipo.Count == 0)
-            {
-                <p class="reportes-empty">No hay novedades resueltas para el filtro actual.</p>
-            }
-            else
-            {
-                <ul class="reportes-resolution-list">
-                    @foreach (var item in Model.ResolucionPorTipo)
-                    {
-                        <li>
-                            <div>
-                                <strong>@item.Type</strong>
-                                <span>@item.ResolvedCount.ToString("N0", culture) resueltas</span>
-                            </div>
-                            <div class="reportes-resolution-meter">
-                                <span style="width:@item.BarWidthCss"></span>
-                            </div>
-                            <em>@item.AverageDisplay</em>
-                        </li>
-                    }
-                </ul>
-            }
-        </article>
-
-        <article class="reportes-card">
-            <div class="reportes-card-header">
-                <div>
-                    <span>Censo Agudos</span>
-                    <h2>Eventos sin autorización por responsable</h2>
-                </div>
-            </div>
-
-            @if (Model.EventosPendientesPorAuxiliar.Count == 0)
-            {
-                <p class="reportes-empty">No hay eventos sin autorización para el filtro actual.</p>
-            }
-            else
-            {
-                <ul class="reportes-bars">
-                    @foreach (var item in Model.EventosPendientesPorAuxiliar.Take(10))
-                    {
-                        <li>
-                            <div>
-                                <strong>@item.Label</strong>
-                                <span>@item.Value.ToString("N0", culture) eventos</span>
-                            </div>
-                            <div class="reportes-bar-track">
-                                <span style="width:@item.BarWidthCss; background:@item.Color"></span>
-                            </div>
-                        </li>
-                    }
-                </ul>
-            }
-        </article>
-    </section>
-
-    <section class="reportes-grid reportes-grid--wide-right">
-        <article class="reportes-card">
-            <div class="reportes-card-header">
-                <div>
-                    <span>Censo Agudos</span>
-                    <h2>Focos operativos por municipio</h2>
-                </div>
-            </div>
-
-            @if (Model.FocosOperativos.Count == 0)
-            {
-                <p class="reportes-empty">Sin focos operativos para mostrar.</p>
-            }
-            else
-            {
-                <div class="reportes-focus-list">
-                    @foreach (var item in Model.FocosOperativos)
-                    {
-                        <article>
-                            <div class="reportes-focus-title">
-                                <strong>@item.Label</strong>
-                                <span>@item.Records.ToString("N0", culture) casos</span>
-                            </div>
-                            <div class="reportes-focus-meter">
-                                <span style="width:@Math.Max(5, item.Percentage).ToString("0.##", CultureInfo.InvariantCulture)%"></span>
-                            </div>
-                            <div class="reportes-focus-stats">
-                                <span>@item.PendingManagement.ToString("N0", culture) pendientes</span>
-                                <span>@item.WithoutAuthorization.ToString("N0", culture) sin autorización</span>
-                            </div>
-                        </article>
-                    }
-                </div>
-            }
-        </article>
-
-        <article class="reportes-card">
-            <div class="reportes-card-header">
-                <div>
-                    <span>Censo Agudos</span>
-                    <h2>Registros para revisar</h2>
-                </div>
-            </div>
-
-            @if (Model.RegistrosPrioritarios.Count == 0)
-            {
-                <p class="reportes-empty">No hay registros prioritarios para el filtro actual.</p>
-            }
-            else
-            {
-                <div class="reportes-table-wrap">
-                    <table class="reportes-table">
-                        <thead>
-                            <tr>
-                                <th>Paciente</th>
-                                <th>Municipio</th>
-                                <th>Auxiliar</th>
-                                <th>Alerta</th>
-                                <th>Gestión</th>
-                                <th>Ingreso</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var row in Model.RegistrosPrioritarios)
-                            {
-                                <tr>
-                                    <td>
-                                        <strong>@row.Paciente</strong>
-                                        <span>@row.Documento</span>
-                                    </td>
-                                    <td>@row.Municipio</td>
-                                    <td>@row.Auxiliar</td>
-                                    <td>
-                                        <span class="reportes-status @(row.SinAutorizacion ? "is-warning" : null)">@row.Alerta</span>
-                                    </td>
-                                    <td>@row.EstadoGestion</td>
-                                    <td>@row.FechaBase.ToString("dd/MM/yyyy", culture)</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </article>
-    </section>
+    <div class="rp-paneles">
+        <partial name="_RpPanelAgudos" model="Model" />
+        <partial name="_RpPanelCronicos" model="Model" />
+        <partial name="_RpPanelHeridas" model="Model" />
+        <partial name="_RpPanelNpt" model="Model" />
+        <partial name="_RpPanelTerapia" model="Model" />
+        <partial name="_RpPanelPortal" model="Model" />
+    </div>
+    </div>
+    @if (enConstruccion)
+    {
+        <partial name="_RpEnConstruccion" />
+    }
+    </div>
+    @* /TEMPORAL *@
 
     @* Tabulado unificado del censo. Vive aqui, al final de reportes, porque es consulta de
        historial: la pantalla del paciente no tiene por que cargar miles de filas. *@
-    <section class="censo-unificado reportes-tabulado">
+    <section id="tabulado" class="censo-unificado reportes-tabulado rp-tabulado">
         <partial name="/Views/Censo/_CensoTabulado.cshtml" model="Model.TabuladoCenso" />
     </section>
+
+    <div class="rp-tip" role="tooltip" hidden data-rp-tip-caja></div>
 </div>
+
+@section Scripts {
+    <script src="~/js/reportes.js" asp-append-version="true"></script>
+}

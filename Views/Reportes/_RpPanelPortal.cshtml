@@ -1,0 +1,124 @@
+@model ReportesDashboardViewModel
+@{
+    var p = Model.Portal;
+    var activo = Model.Vista == p.Vista;
+    var baseNovedades = $"{ReportesFormato.Entero(p.Total)} {(p.Total == 1 ? "novedad creada" : "novedades creadas")} en el periodo";
+    var lineaNovedades = ReportesLineaViewModel.DeSerie("portal-novedades", p.PorDia, "Novedades", "novedades por día");
+    var lineaResolucion = ReportesLineaViewModel.DeHoras("portal-resolucion", p.ResolucionPorDia, "Tiempo de resolución promedio");
+}
+<section class="rp-panel" role="tabpanel" id="rp-panel-portal" aria-labelledby="rp-tab-portal"
+         data-programa="PORTAL" hidden="@(!activo)">
+    <header class="rp-panel__cabeza">
+        <div class="rp-panel__titulo">
+            <h2>Novedades del Portal Administrativo</h2>
+            <p>
+                Novedades creadas en el periodo, ubicadas en su día según la hora de Colombia. El portal no registra
+                municipio, así que este panel no cambia con ese filtro.
+            </p>
+        </div>
+        <div class="rp-panel__filtros" role="group" aria-label="Filtro propio del portal">
+            <label class="rp-campo rp-campo--ancho">
+                <span>Tipo de novedad</span>
+                <select name="TipoNovedad" form="rpFiltros" asp-items="Model.FilterOptions.TiposNovedad"></select>
+            </label>
+            <button type="submit" form="rpFiltros" class="rp-boton rp-boton--quieto">Aplicar</button>
+        </div>
+    </header>
+
+    @if (p.Error is not null)
+    {
+        <p class="rp-aviso rp-aviso--critico">
+            <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 2.5 18.5 17h-17z" /><path d="M10 8v4.2M10 14.4v.1" /></svg>
+            <span>@p.Error</span>
+        </p>
+    }
+    else
+    {
+        <div class="rp-cifras">
+            <div class="rp-cifra">
+                <strong data-rp-cifra="portal-total-panel">@ReportesFormato.Entero(p.Total)</strong>
+                <span>@ReportesFormato.Plural(p.Total, "novedad", "novedades") en el periodo</span>
+                <small>@ReportesFormato.Decimal(p.PromedioPorDia) por día en promedio</small>
+            </div>
+            <div class="rp-cifra">
+                <strong data-rp-cifra="portal-resueltas">@ReportesFormato.Entero(p.Resueltas)</strong>
+                <span>@ReportesFormato.Plural(p.Resueltas, "resuelta", "resueltas")</span>
+                <small>@ReportesFormato.Porcentaje(p.PorcentajeResueltas) del total</small>
+            </div>
+            <div class="rp-cifra @(p.Pendientes > 0 ? "rp-cifra--alerta" : null)">
+                <strong data-rp-cifra="portal-pendientes">@ReportesFormato.Entero(p.Pendientes)</strong>
+                <span>@ReportesFormato.Plural(p.Pendientes, "pendiente", "pendientes") de resolver</span>
+                @if (p.DiasPendienteMasAntigua.HasValue)
+                {
+                    <small>la más antigua se creó hace @(p.DiasPendienteMasAntigua == 1 ? "1 día" : $"{p.DiasPendienteMasAntigua} días")</small>
+                }
+            </div>
+            <div class="rp-cifra">
+                <strong data-rp-cifra="portal-tiempo">@p.PromedioHastaCierreTexto</strong>
+                <span>tiempo de resolución promedio</span>
+                <small>de las novedades resueltas</small>
+            </div>
+        </div>
+
+        <div class="rp-rejilla">
+            <article class="rp-tarjeta rp-c-6">
+                <header class="rp-tarjeta__cabeza">
+                    <h3>Novedades por @Model.Granularidad</h3>
+                    <p class="rp-base">Base: @baseNovedades</p>
+                </header>
+                <partial name="_RpLinea" model="lineaNovedades" />
+            </article>
+
+            <article class="rp-tarjeta rp-c-3">
+                <header class="rp-tarjeta__cabeza">
+                    <h3>Novedades por tipo</h3>
+                    <p class="rp-base">Base: @baseNovedades</p>
+                </header>
+                <partial name="_RpBarras" model="p.PorTipo" />
+            </article>
+
+            <article class="rp-tarjeta rp-c-3">
+                <header class="rp-tarjeta__cabeza">
+                    <h3>Prioridad</h3>
+                    <p class="rp-base">Base: @baseNovedades</p>
+                </header>
+                <partial name="_RpDona" model='new ReportesDonaViewModel(p.Prioridad, p.Total, p.Total == 1 ? "novedad" : "novedades")' />
+            </article>
+
+            <article class="rp-tarjeta rp-c-8">
+                <header class="rp-tarjeta__cabeza">
+                    <h3>Tiempo de resolución promedio por @Model.Granularidad</h3>
+                    <p class="rp-base">Base: @ReportesFormato.Cantidad(p.Resueltas, "novedad resuelta", "novedades resueltas"), según el día en que se creó cada una</p>
+                </header>
+                <partial name="_RpLinea" model="lineaResolucion" />
+                <p class="rp-nota">Un día sin novedades resueltas no tiene promedio: la línea se corta ahí en vez de marcar cero horas.</p>
+            </article>
+
+            <article class="rp-tarjeta rp-c-4">
+                <header class="rp-tarjeta__cabeza">
+                    <h3>Tiempo de resolución promedio por tipo</h3>
+                    <p class="rp-base">Base: @ReportesFormato.Cantidad(p.Resueltas, "novedad resuelta", "novedades resueltas")</p>
+                </header>
+                @if (p.TiempoPorTipo.All(x => x.Resueltas == 0))
+                {
+                    <p class="rp-vacio">No hay novedades resueltas en el periodo.</p>
+                }
+                else
+                {
+                    <ul class="rp-tiempos">
+                        @foreach (var fila in p.TiempoPorTipo)
+                        {
+                            <li class="@(fila.Resueltas == 0 ? "is-secundaria" : null)">
+                                <span class="rp-tiempos__tipo">@fila.Tipo <small>@ReportesFormato.Entero(fila.Resueltas) @(fila.Resueltas == 1 ? "resuelta" : "resueltas")</small></span>
+                                <span class="rp-barras__pista" aria-hidden="true"><span style="width:@fila.BarraCss"></span></span>
+                                <strong>@fila.PromedioTexto</strong>
+                            </li>
+                        }
+                    </ul>
+                }
+                <p class="rp-nota">El portal no guarda la hora exacta de resolución: el tiempo se mide desde que se creó la novedad hasta su última actualización.</p>
+            </article>
+
+        </div>
+    }
+</section>

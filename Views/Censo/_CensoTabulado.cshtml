@@ -27,6 +27,26 @@
             .ToArray();
 
     var hayDetalle = Model.ProgramaFiltro is not null && Model.RegistrosDetalle.Count > 0;
+
+    // Filtros del tablero de Reportes (periodo, municipio, panel abierto). Viajan en cada enlace y en el
+    // formulario del tabulado para que consultar el historial no devuelva el tablero a su rango por omisión.
+    var rutaTablero = ViewData["RutaTablero"] as IReadOnlyDictionary<string, string>;
+    Dictionary<string, string> RutaTabulado(params (string Clave, string? Valor)[] propios)
+    {
+        var ruta = rutaTablero is null
+            ? new Dictionary<string, string>()
+            : new Dictionary<string, string>(rutaTablero);
+        foreach (var (clave, valor) in propios)
+        {
+            if (!string.IsNullOrWhiteSpace(valor))
+            {
+                ruta[clave] = valor;
+            }
+        }
+        return ruta;
+    }
+    var desdeTexto = Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd");
+    var hastaTexto = Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd");
 }
 
 <section class="censo-history-shell" aria-labelledby="censoTabuladoTitulo">
@@ -67,9 +87,13 @@ else
                    asp-route-cedulaPaciente="@Model.CedulaFiltro" download>Descargar Excel</a>
             </div>
 }
-            <form method="get" asp-controller="Reportes" asp-action="Index" class="censo-history-filter" aria-label="Filtro por rango de fecha de ingreso">
+            <form method="get" asp-controller="Reportes" asp-action="Index" asp-fragment="tabulado" class="censo-history-filter" aria-label="Filtro por rango de fecha de ingreso">
                 <input type="hidden" name="cedulaPaciente" value="@Model.CedulaFiltro" />
                 <input type="hidden" name="programaFiltro" value="@Model.ProgramaFiltro" />
+@foreach (var parametro in RutaTabulado())
+{
+                <input type="hidden" name="@parametro.Key" value="@parametro.Value" />
+}
                 <div class="censo-history-filter__grid">
                     <div class="censo-history-filter__field">
                         <label for="fechaIngresoDesde">Fecha de ingreso desde</label>
@@ -85,9 +109,8 @@ else
                 <div class="censo-history-filter__actions">
                     <button type="submit" class="btn btn-primary censo-history-filter__submit">Filtrar rango</button>
                     <a class="btn btn-outline-secondary censo-history-filter__reset"
-                       asp-controller="Reportes" asp-action="Index"
-                       asp-route-cedulaPaciente="@Model.CedulaFiltro"
-                       asp-route-programaFiltro="@Model.ProgramaFiltro">Limpiar rango</a>
+                       asp-controller="Reportes" asp-action="Index" asp-fragment="tabulado"
+                       asp-all-route-data="@RutaTabulado(("cedulaPaciente", Model.CedulaFiltro), ("programaFiltro", Model.ProgramaFiltro))">Limpiar rango</a>
                 </div>
             </form>
         </div>
@@ -96,10 +119,8 @@ else
     @* Chips de programa: el mismo lenguaje de color del carril y del navegador lateral. *@
     <div class="censo-filtro-programas" role="group" aria-label="Filtrar el tabulado por programa">
         <a class="censo-filtro-programas__chip @(Model.ProgramaFiltro is null ? "active" : null)"
-           asp-controller="Reportes" asp-action="Index"
-           asp-route-cedulaPaciente="@Model.CedulaFiltro"
-           asp-route-fechaIngresoDesde="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")"
-           asp-route-fechaIngresoHasta="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")">
+           asp-controller="Reportes" asp-action="Index" asp-fragment="tabulado"
+           asp-all-route-data="@RutaTabulado(("cedulaPaciente", Model.CedulaFiltro), ("fechaIngresoDesde", desdeTexto), ("fechaIngresoHasta", hastaTexto))">
             Todos
             <span class="censo-filtro-programas__conteo">@Model.ConteoPorPrograma.Values.Sum()</span>
         </a>
@@ -108,11 +129,8 @@ else
     var conteo = Model.ConteoPorPrograma.TryGetValue(programa, out var n) ? n : 0;
         <a class="censo-filtro-programas__chip @(Model.ProgramaFiltro == programa ? "active" : null)"
            data-programa="@programa"
-           asp-controller="Reportes" asp-action="Index"
-           asp-route-cedulaPaciente="@Model.CedulaFiltro"
-           asp-route-programaFiltro="@programa"
-           asp-route-fechaIngresoDesde="@Model.FechaIngresoFiltroDesde?.ToString("yyyy-MM-dd")"
-           asp-route-fechaIngresoHasta="@Model.FechaIngresoFiltroHasta?.ToString("yyyy-MM-dd")">
+           asp-controller="Reportes" asp-action="Index" asp-fragment="tabulado"
+           asp-all-route-data="@RutaTabulado(("cedulaPaciente", Model.CedulaFiltro), ("programaFiltro", programa), ("fechaIngresoDesde", desdeTexto), ("fechaIngresoHasta", hastaTexto))">
             @CensoProgramas.NombreCorto(programa)
             <span class="censo-filtro-programas__conteo">@conteo</span>
         </a>

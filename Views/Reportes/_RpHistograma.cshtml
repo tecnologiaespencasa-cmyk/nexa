@@ -1,0 +1,25 @@
+@model IReadOnlyList<ReportesCategoriaViewModel>
+@using System.Globalization
+@*
+    Histograma para tramos ordenados (p. ej. tiempo en el programa): columnas verticales en el orden de
+    los tramos, con la cifra encima y el porcentaje debajo del rótulo. Conserva los tramos en cero.
+*@
+@if (Model.Sum(x => x.Valor) == 0)
+{
+    <p class="rp-vacio">Sin registros para mostrar.</p>
+}
+else
+{
+    <ol class="rp-histograma" style="--n:@Model.Count">
+        @foreach (var tramo in Model)
+        {
+            <li data-rp-tip="@tramo.Etiqueta · @ReportesFormato.Entero(tramo.Valor) (@ReportesFormato.Porcentaje(tramo.Porcentaje))">
+                <span class="rp-histograma__area" style="--h:@tramo.Barra.ToString("0.##", CultureInfo.InvariantCulture)">
+                    <span class="rp-histograma__barra"></span>
+                    <strong>@ReportesFormato.Entero(tramo.Valor)</strong>
+                </span>
+                <span class="rp-histograma__rotulo">@tramo.Etiqueta<small>@ReportesFormato.Porcentaje(tramo.Porcentaje)</small></span>
+            </li>
+        }
+    </ol>
+}
