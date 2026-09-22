@@ -576,6 +576,18 @@ body.page-paciente {
     font-weight: 600;
 }
 
+.hv-ficha__tiempo {
+    color: var(--hv-tinta);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.hv-ficha__tiempo i {
+    color: var(--hv-rojo-hondo);
+    font-size: 0.9em;
+    margin-right: 0.2rem;
+}
+
 .hv-ficha__diagnostico {
     align-items: baseline;
     display: flex;
@@ -1643,15 +1655,6 @@ body.page-paciente {
 .hv-chip--proximo {
     background: var(--hv-info-tenue);
     color: var(--hv-info);
-}
-
-.hv-observacion {
-    background: var(--hv-hoja-2);
-    border-radius: 10px;
-    font-size: 0.92rem;
-    margin: 0;
-    padding: 0.7rem 0.85rem;
-    white-space: pre-line;
 }
 
 /* Tablas */

@@ -190,9 +190,6 @@ public class HojaVidaIngreso
     /// <summary>Controles con fecha de vencimiento: cambio de sonda, curación del catéter…</summary>
     public IReadOnlyList<HojaVidaControl> Controles { get; set; } = [];
 
-    /// <summary>Observación escrita por quien diligenció el censo.</summary>
-    public string? Observacion { get; set; }
-
     /// <summary>Datos propios del programa que no tienen sección aparte (clasificación, fuente…).</summary>
     public IReadOnlyList<HojaVidaDato> Datos { get; set; } = [];
 
@@ -233,8 +230,7 @@ public class HojaVidaIngreso
         Medicamentos.Count > 0 || Prorrogas.Count > 0 || Agudizaciones.Count > 0 || Servicios.Count > 0
         || Insumos.Count > 0 || PlanesHeridas.Count > 0 || Terapias.Count > 0 || Npt is not null
         || Hospitalizaciones.Count > 0 || Despachos.Count > 0 || EvolucionHerida is not null
-        || Novedades.Count > 0 || Datos.Count > 0 || Escalas.Count > 0 || Controles.Count > 0
-        || Observacion is not null;
+        || Novedades.Count > 0 || Datos.Count > 0 || Escalas.Count > 0 || Controles.Count > 0;
 }
 
 /// <summary>

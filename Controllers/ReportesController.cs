@@ -92,33 +92,11 @@ public partial class ReportesController : Controller
         var terapiaTask = ConContextoPropioAsync(c => ConstruirTerapiaAsync(c, f, periodo, hoy, cancellationToken));
         var opcionesTask = ConContextoPropioAsync(c => BuildFilterOptionsAsync(c, f, cancellationToken));
         var portalTask = ConstruirPortalAsync(f, periodo, ahora, cancellationToken);
+        var censoHoyTask = ConContextoPropioAsync(c => ConstruirCensoHoyAsync(c, cancellationToken));
+        var portalHoyTask = ConstruirPortalHoyAsync(cancellationToken);
 
-        await Task.WhenAll(tabuladoTask, agudosTask, cronicosTask, heridasTask, nptTask, terapiaTask, opcionesTask, portalTask);
-
-        var agudos = agudosTask.Result;
-        var cronicos = cronicosTask.Result;
-        var heridas = heridasTask.Result;
-        var npt = nptTask.Result;
-        var terapia = terapiaTask.Result;
-        var portal = portalTask.Result;
-
-        // Un paciente puede estar activo en dos programas a la vez (p. ej. agudos y clínica de heridas):
-        // la suma de los cinco programas cuenta atenciones, esta cifra cuenta personas.
-        // Se cuentan programas distintos por documento: dos registros activos del mismo programa (un
-        // duplicado) no hacen que el paciente "esté en dos programas".
-        var programasPorPaciente = new[]
-            {
-                (Programa: agudos.Modelo.Programa, agudos.DocumentosActivos),
-                (Programa: cronicos.Modelo.Programa, cronicos.DocumentosActivos),
-                (Programa: heridas.Modelo.Programa, heridas.DocumentosActivos),
-                (Programa: npt.Modelo.Programa, npt.DocumentosActivos),
-                (Programa: terapia.Modelo.Programa, terapia.DocumentosActivos)
-            }
-            .SelectMany(x => x.DocumentosActivos.Select(d => (Documento: NormalizarDocumento(d), x.Programa)))
-            .Where(x => x.Documento.Length > 0)
-            .GroupBy(x => x.Documento, StringComparer.Ordinal)
-            .Select(g => g.Select(x => x.Programa).Distinct(StringComparer.Ordinal).Count())
-            .ToList();
+        await Task.WhenAll(tabuladoTask, agudosTask, cronicosTask, heridasTask, nptTask, terapiaTask, opcionesTask, portalTask,
+            censoHoyTask, portalHoyTask);
 
         var model = new ReportesDashboardViewModel
         {
@@ -131,14 +109,14 @@ public partial class ReportesController : Controller
             DiasPeriodo = periodo.Dias,
             Granularidad = periodo.Vista switch { VistaMes => "mes", VistaSemana => "semana", _ => "día" },
             Vista = f.Vista!,
-            PacientesUnicosActivos = programasPorPaciente.Count,
-            PacientesEnVariosProgramas = programasPorPaciente.Count(x => x > 1),
-            Agudos = agudos.Modelo,
-            Cronicos = cronicos.Modelo,
-            Heridas = heridas.Modelo,
-            Npt = npt.Modelo,
-            Terapia = terapia.Modelo,
-            Portal = portal,
+            CensoHoy = censoHoyTask.Result,
+            PortalHoy = portalHoyTask.Result,
+            Agudos = agudosTask.Result,
+            Cronicos = cronicosTask.Result,
+            Heridas = heridasTask.Result,
+            Npt = nptTask.Result,
+            Terapia = terapiaTask.Result,
+            Portal = portalTask.Result,
             ActiveFilterLabels = BuildActiveFilterLabels(f),
             RutaTablero = BuildRutaTablero(f),
             TabuladoCenso = tabulado
@@ -152,9 +130,6 @@ public partial class ReportesController : Controller
         await using var contexto = new ApplicationDbContext(_opcionesContexto);
         return await consulta(contexto);
     }
-
-    /// <summary>Resultado de un programa: su modelo y los documentos activos hoy, para contar personas únicas.</summary>
-    private sealed record ResultadoPrograma<T>(T Modelo, IReadOnlyList<string> DocumentosActivos);
 
     // ==========================================================================================
     // Periodo
@@ -471,8 +446,9 @@ public partial class ReportesController : Controller
     }
 
     /// <summary>
-    /// Calendario de un periodo de hasta 120 días: una fila por semana, de lunes a domingo, con la cifra
-    /// de cada día. Los días fuera del periodo quedan en blanco y no suman al total de su semana.
+    /// Calendario de un periodo de hasta 120 días: un bloque por cada mes que toca el periodo, con sus
+    /// semanas de lunes a domingo. Solo los días dentro del periodo llevan cifra y tono; los demás días
+    /// del mes se muestran como en cualquier calendario, sin datos.
     /// </summary>
     private static ReportesCalendarioViewModel ConstruirCalendario(IEnumerable<DateTime> fechas, Periodo p)
     {
@@ -485,37 +461,45 @@ public partial class ReportesController : Controller
             .Where(p.Contiene)
             .GroupBy(x => x.Date)
             .ToDictionary(g => g.Key, g => g.Count());
-        var maximo = porDia.Count == 0 ? 0 : porDia.Values.Max();
 
-        var semanas = new List<ReportesCalendarioSemanaViewModel>();
-        for (var lunes = InicioDeTramo(p.Desde, VistaSemana); lunes <= p.Hasta; lunes = lunes.AddDays(7))
+        var meses = new List<ReportesCalendarioMesViewModel>();
+        for (var mes = new DateTime(p.Desde.Year, p.Desde.Month, 1); mes <= p.Hasta; mes = mes.AddMonths(1))
         {
-            semanas.Add(new ReportesCalendarioSemanaViewModel
+            var finMes = mes.AddMonths(1).AddDays(-1);
+            var semanas = new List<IReadOnlyList<ReportesCalendarioDiaViewModel>>();
+            for (var lunes = InicioDeTramo(mes, VistaSemana); lunes <= finMes; lunes = lunes.AddDays(7))
             {
-                Lunes = lunes,
-                Dias = Enumerable.Range(0, 7)
+                semanas.Add(Enumerable.Range(0, 7)
                     .Select(i =>
                     {
                         var fecha = lunes.AddDays(i);
-                        var enPeriodo = p.Contiene(fecha);
+                        var enMes = fecha.Month == mes.Month && fecha.Year == mes.Year;
+                        var enPeriodo = enMes && p.Contiene(fecha);
                         var valor = enPeriodo ? porDia.GetValueOrDefault(fecha) : 0;
                         return new ReportesCalendarioDiaViewModel
                         {
                             Fecha = fecha,
+                            EnMes = enMes,
                             EnPeriodo = enPeriodo,
                             Valor = valor,
-                            Nivel = valor == 0 || maximo == 0 ? 0 : Math.Clamp((int)Math.Ceiling(valor * 4d / maximo), 1, 4)
+                            Nivel = enPeriodo ? ReportesCalendarioViewModel.NivelDe(valor) : 0
                         };
                     })
-                    .ToList()
+                    .ToList());
+            }
+
+            meses.Add(new ReportesCalendarioMesViewModel
+            {
+                Mes = mes,
+                Nombre = Capitalizar(mes.ToString("MMMM 'de' yyyy", Cultura)),
+                Semanas = semanas
             });
         }
 
         return new ReportesCalendarioViewModel
         {
             Disponible = true,
-            Maximo = maximo,
-            Semanas = semanas
+            Meses = meses
         };
     }
 

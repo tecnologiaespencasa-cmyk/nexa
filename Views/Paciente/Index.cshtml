@@ -109,9 +109,16 @@
                         {
                             <span>@Model.Identidad.Asegurador</span>
                         }
-                        @if (Model.Identidad.Municipio is not null)
+                        @* El tiempo con nosotros va en la línea del nombre: es lo primero que se pregunta al
+                           abrir la hoja. El municipio sigue en "Contacto y ubicación". *@
+                        @if (Model.Estado.IngresosEfectivos > 0)
                         {
-                            <span>@Model.Identidad.Municipio</span>
+                            <span class="hv-ficha__tiempo">
+                                <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                                @(Model.Estado.DiasTotales > 0
+                                    ? $"{HojaVidaFormato.Dias(Model.Estado.DiasTotales)} con nosotros"
+                                    : Model.Estado.Activo ? "Ingresó hoy" : "Menos de un día con nosotros")
+                            </span>
                         }
                     </span></p>
                     @if (Model.Identidad.DiagnosticoActual is not null || Model.Identidad.Cie10Actual is not null)

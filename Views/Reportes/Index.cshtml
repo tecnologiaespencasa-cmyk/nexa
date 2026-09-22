@@ -15,6 +15,7 @@
     // TEMPORAL: aviso "Tablero en construcción" (interruptor en ReportesController.EnConstruccion.cs).
     var enConstruccion = Nexa.Controllers.ReportesController.TableroEnConstruccion;
     var tab = Model.TabuladoCenso;
+    var hoy = Model.CensoHoy;
 
     Dictionary<string, string> Ruta(params (string Clave, string? Valor)[] cambios)
     {
@@ -42,45 +43,48 @@
         };
     }
 
-    // Miniatura de la serie: una línea con título, el punto más alto marcado con su cifra y las fechas de
-    // inicio y fin. Cada programa con su propia escala: muestra la forma de la serie; la magnitud está en
-    // la cifra grande de la ficha y en su panel.
-    IHtmlContent Miniatura(ReportesSerieViewModel serie, string que)
+    // Chispa: la forma de la serie del programa, sin rótulos ni cifras (la cifra ya está al lado).
+    // Cada programa con su propia escala: muestra el ritmo del periodo, no la magnitud.
+    IHtmlContent Chispa(ReportesSerieViewModel serie)
     {
-        var enc = System.Text.Encodings.Web.HtmlEncoder.Default;
         var n = serie.Puntos.Count;
         if (n == 0 || serie.Maximo == 0)
         {
-            return new HtmlString($"<span class=\"rp-mini rp-mini--vacia\">Sin {enc.Encode(que.ToLowerInvariant())} en el periodo</span>");
+            return HtmlString.Empty;
         }
 
-        var max = serie.Maximo;
         double X(int i) => n == 1 ? 50 : i * 100d / (n - 1);
-        double Y(int v) => 100 - v * 86d / max;
+        double Y(int v) => 100 - v * 86d / serie.Maximo;
         string C(double v) => v.ToString("0.###", inv);
+
         var linea = new System.Text.StringBuilder();
         for (var i = 0; i < n; i++)
         {
             linea.Append(i == 0 ? "M" : " L").Append(C(X(i))).Append(' ').Append(C(Y(serie.Puntos[i].Valor)));
         }
         var area = $"M{C(X(0))} 100 L{linea.ToString()[1..]} L{C(X(n - 1))} 100 Z";
-        var pico = serie.Puntos.ToList().FindIndex(x => x.Valor == max);
-        var primero = serie.Puntos[0];
-        var ultimo = serie.Puntos[n - 1];
+        var pico = serie.Puntos.ToList().FindIndex(x => x.Valor == serie.Maximo);
 
         var sb = new System.Text.StringBuilder();
-        sb.Append("<span class=\"rp-mini\" aria-hidden=\"true\">");
-        sb.Append($"<span class=\"rp-mini__cabeza\"><span>{enc.Encode(que)} por {serie.NombreTramo}</span><span>máximo <b>{ReportesFormato.Entero(max)}</b></span></span>");
-        sb.Append("<span class=\"rp-mini__lienzo\">");
+        sb.Append($"<span class=\"rp-chispa\" aria-hidden=\"true\" data-rp-chispa=\"{string.Join(",", serie.Puntos.Select(x => x.Valor))}\">");
         sb.Append("<svg viewBox=\"0 0 100 100\" preserveAspectRatio=\"none\" focusable=\"false\">");
-        sb.Append($"<path class=\"rp-mini__area\" d=\"{area}\"/>");
-        sb.Append($"<path class=\"rp-mini__linea\" d=\"{linea}\" vector-effect=\"non-scaling-stroke\"/>");
+        sb.Append($"<path class=\"rp-chispa__area\" d=\"{area}\"/>");
+        sb.Append($"<path class=\"rp-chispa__linea\" d=\"{linea}\" vector-effect=\"non-scaling-stroke\"/>");
         sb.Append("</svg>");
-        sb.Append($"<i class=\"rp-mini__pico\" style=\"left:{C(X(pico))}%;bottom:{C(100 - Y(max))}%\"></i>");
-        sb.Append("</span>");
-        sb.Append($"<span class=\"rp-mini__pie\"><span>{enc.Encode(primero.Dia is null ? primero.Etiqueta : primero.Dia + " " + primero.Etiqueta)}</span><span>{enc.Encode(ultimo.Dia is null ? ultimo.Etiqueta : ultimo.Dia + " " + ultimo.Etiqueta)}</span></span>");
+        sb.Append($"<i class=\"rp-chispa__pico\" style=\"left:{C(X(pico))}%;bottom:{C(100 - Y(serie.Maximo))}%\"></i>");
         sb.Append("</span>");
         return new HtmlString(sb.ToString());
+    }
+
+    string Hace(DateTime fecha)
+    {
+        var dias = (Model.Hoy - fecha.Date).Days;
+        return dias switch
+        {
+            <= 0 => $"de hoy, {fecha.ToString("h:mm tt", culture)}",
+            1 => $"de ayer, {fecha.ToString("h:mm tt", culture)}",
+            _ => $"del {fecha.ToString("d 'de' MMMM", culture)} (hace {dias} días)"
+        };
     }
 }
 
@@ -98,13 +102,16 @@
        el tabulado y sus exportables, fuera de este bloque, siguen funcionando. *@
     <div class="rp-obra @(enConstruccion ? "is-activa" : null)">
     <div class="rp-obra__contenido" inert="@enConstruccion" aria-hidden="@(enConstruccion ? "true" : null)">
+
+    @* Arriba, lo que no depende de ningún filtro: el censo de hoy. Debajo de los filtros, todo lo que
+       sí cambia con ellos. Por eso las tarjetas van primero. *@
     <header class="rp-cabecera">
         <div class="rp-cabecera__titulo">
             <span class="rp-cabecera__marca">Reportes</span>
-            <h1>@Model.PeriodoTexto</h1>
+            <h1 id="rpCensoTitulo">Censo de hoy</h1>
             <p>
-                @Model.DiasPeriodo @(Model.DiasPeriodo == 1 ? "día" : "días") · series por @Model.Granularidad
-                · censo de agudos, crónicos, clínica de heridas, NPT y terapia ambulatoria, más el Portal Administrativo
+                <time datetime="@Model.Hoy.ToString("yyyy-MM-dd", inv)" class="rp-mayuscula">@Model.Hoy.ToString("dddd d 'de' MMMM", culture)</time>
+                · Lo que está activo en este momento. No cambia con las fechas ni con el municipio.
             </p>
         </div>
         <p class="rp-cabecera__hora">
@@ -113,141 +120,282 @@
         </p>
     </header>
 
-    <form id="rpFiltros" class="rp-filtros" method="get" asp-controller="Reportes" asp-action="Index" aria-label="Filtros del tablero">
-        <input type="hidden" name="Vista" value="@Model.Vista" data-rp-vista-input />
-        @* Filtros propios de los paneles: viven en su panel (atributo form) pero viajan con este formulario. *@
-        @if (!string.IsNullOrWhiteSpace(tab.CedulaFiltro)) { <input type="hidden" name="cedulaPaciente" value="@tab.CedulaFiltro" /> }
-        @if (!string.IsNullOrWhiteSpace(tab.ProgramaFiltro)) { <input type="hidden" name="programaFiltro" value="@tab.ProgramaFiltro" /> }
-        @if (tab.FechaIngresoFiltroDesde.HasValue) { <input type="hidden" name="fechaIngresoDesde" value="@tab.FechaIngresoFiltroDesde.Value.ToString("yyyy-MM-dd", inv)" /> }
-        @if (tab.FechaIngresoFiltroHasta.HasValue) { <input type="hidden" name="fechaIngresoHasta" value="@tab.FechaIngresoFiltroHasta.Value.ToString("yyyy-MM-dd", inv)" /> }
-
-        <div class="rp-filtros__rapidos" role="group" aria-label="Periodos rápidos">
-            @foreach (var preset in Model.Presets)
-            {
-                <a class="rp-rapido @(preset.Activo ? "is-activo" : null)"
-                   aria-current="@(preset.Activo ? "true" : null)"
-                   asp-controller="Reportes" asp-action="Index"
-                   asp-all-route-data="@Ruta(("Desde", preset.Desde.ToString("yyyy-MM-dd", inv)), ("Hasta", preset.Hasta.ToString("yyyy-MM-dd", inv)))"
-                   data-rp-conserva-vista>@preset.Etiqueta</a>
-            }
-        </div>
-        <div class="rp-filtros__campos">
-            <label class="rp-campo">
-                <span>Desde</span>
-                <input type="date" name="Desde" value="@desdeValue" max="@Model.Hoy.ToString("yyyy-MM-dd", inv)" />
-            </label>
-            <label class="rp-campo">
-                <span>Hasta</span>
-                <input type="date" name="Hasta" value="@hastaValue" max="@Model.Hoy.ToString("yyyy-MM-dd", inv)" />
-            </label>
-            <label class="rp-campo rp-campo--ancho">
-                <span>Municipio</span>
-                <select name="Municipio" asp-items="Model.FilterOptions.Municipios"></select>
-            </label>
-            <div class="rp-filtros__acciones">
-                <button type="submit" class="rp-boton">Aplicar</button>
-                <a class="rp-boton rp-boton--quieto" asp-controller="Reportes" asp-action="Index" asp-route-Vista="@Model.Vista" data-rp-conserva-vista>Limpiar</a>
-            </div>
-        </div>
-    </form>
-
-    @if (Model.ActiveFilterLabels.Count > 0)
-    {
-        <div class="rp-aplicados" aria-label="Filtros aplicados">
-            <span>Filtrado por</span>
-            @foreach (var etiqueta in Model.ActiveFilterLabels)
-            {
-                <b>@etiqueta</b>
-            }
-            @if (!string.IsNullOrWhiteSpace(Model.Filters.Municipio))
-            {
-                <em>El Portal Administrativo no registra municipio: su panel no se filtra por municipio.</em>
-            }
-        </div>
-    }
-
     <section class="rp-censo" aria-labelledby="rpCensoTitulo">
-        <h2 id="rpCensoTitulo" class="rp-visual-oculto">Censo de hoy por programa</h2>
-        <div class="rp-tablero" role="tablist" aria-label="Programas del tablero">
+        <div class="rp-tablero">
             <div class="rp-unicos">
-                <span class="rp-unicos__rotulo">Censo de hoy</span>
-                <strong data-rp-cifra="unicos">@ReportesFormato.Entero(Model.PacientesUnicosActivos)</strong>
-                <span>@ReportesFormato.Plural(Model.PacientesUnicosActivos, "paciente activo", "pacientes activos")</span>
+                <span class="rp-unicos__rotulo">Personas</span>
+                <strong data-rp-cifra="unicos">@ReportesFormato.Entero(hoy.PacientesUnicos)</strong>
+                <span>@ReportesFormato.Plural(hoy.PacientesUnicos, "paciente activo", "pacientes activos")</span>
                 <small>
-                    @if (Model.PacientesEnVariosProgramas == 0)
+                    @if (hoy.PacientesEnVariosProgramas > 0)
                     {
-                        @:Ninguno está en más de un programa a la vez.
+                        @($"Cada paciente cuenta una vez: {ReportesFormato.Entero(hoy.PacientesEnVariosProgramas)} {(hoy.PacientesEnVariosProgramas == 1 ? "está" : "están")} en dos o más programas.")
                     }
                     else
                     {
-                        @ReportesFormato.Entero(Model.PacientesEnVariosProgramas)
-                        @(Model.PacientesEnVariosProgramas == 1 ? " está en más de un programa a la vez: por eso la suma de los programas da más." : " están en más de un programa a la vez: por eso la suma de los programas da más.")
+                        @:Cada paciente cuenta una vez; ninguno está en dos programas.
                     }
                 </small>
-                <time datetime="@Model.Hoy.ToString("yyyy-MM-dd", inv)">@Model.Hoy.ToString("dddd d 'de' MMMM", culture)</time>
+                @if (hoy.Combinaciones.Count > 0)
+                {
+                    <button type="button" class="rp-unicos__boton" aria-expanded="false" aria-controls="rpCombos" data-rp-combos>
+                        Ver en qué programas
+                        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 6l4 4 4-4" /></svg>
+                    </button>
+                }
             </div>
 
-            @foreach (var programa in Model.ProgramasCenso)
-            {
-                var activo = programa.Vista == Model.Vista;
-                <a class="rp-ficha @(activo ? "is-activa" : null)"
+            <div class="rp-fichas" role="tablist" aria-label="Programas: elija uno para ver su detalle debajo de los filtros">
+                @foreach (var programa in hoy.Programas)
+                {
+                    var activo = programa.Vista == Model.Vista;
+                    <a class="rp-ficha @(activo ? "is-activa" : null)"
+                       role="tab"
+                       id="rp-tab-@programa.Vista"
+                       aria-controls="rp-panel-@programa.Vista"
+                       aria-selected="@(activo ? "true" : "false")"
+                       tabindex="@(activo ? "0" : "-1")"
+                       data-programa="@programa.Programa"
+                       data-rp-vista="@programa.Vista"
+                       asp-controller="Reportes" asp-action="Index"
+                       asp-all-route-data="@Ruta(("Vista", programa.Vista))">
+                        <span class="rp-ficha__nombre">@programa.Nombre</span>
+                        <span class="rp-ficha__activos"><strong data-rp-cifra="@programa.Vista-activos">@ReportesFormato.Entero(programa.Activos)</strong> @ReportesFormato.Plural(programa.Activos, "activo hoy", "activos hoy")</span>
+                        <span class="rp-ficha__detalle">
+                            <span>
+                                @if (programa.EnOtroPrograma == 0)
+                                {
+                                    @:Ninguno está en otro programa
+                                }
+                                else
+                                {
+                                    <b data-rp-cifra="@programa.Vista-otro">@ReportesFormato.Entero(programa.EnOtroPrograma)</b>
+                                    @(programa.EnOtroPrograma == 1 ? " también está en otro programa" : " también están en otro programa")
+                                }
+                            </span>
+                            @if (!string.IsNullOrWhiteSpace(programa.Destacado))
+                            {
+                                <span data-rp-cifra="@programa.Vista-destacado">@programa.Destacado</span>
+                            }
+                        </span>
+                        <span class="rp-ficha__ir" aria-hidden="true">
+                            <span class="rp-ficha__ir-ver">Ver detalle</span>
+                            <span class="rp-ficha__ir-viendo">Viendo el detalle</span>
+                            <svg viewBox="0 0 16 16" focusable="false"><path d="M8 3v9M4 8.5l4 4 4-4" /></svg>
+                        </span>
+                    </a>
+                }
+
+                @{
+                    var portalActivo = Model.Vista == ReportesVistas.Portal;
+                }
+                <a class="rp-ficha rp-ficha--portal @(portalActivo ? "is-activa" : null)"
                    role="tab"
-                   id="rp-tab-@programa.Vista"
-                   aria-controls="rp-panel-@programa.Vista"
-                   aria-selected="@(activo ? "true" : "false")"
-                   tabindex="@(activo ? "0" : "-1")"
-                   data-programa="@programa.Programa"
-                   data-rp-vista="@programa.Vista"
+                   id="rp-tab-portal"
+                   aria-controls="rp-panel-portal"
+                   aria-selected="@(portalActivo ? "true" : "false")"
+                   tabindex="@(portalActivo ? "0" : "-1")"
+                   data-programa="PORTAL"
+                   data-rp-vista="portal"
                    asp-controller="Reportes" asp-action="Index"
-                   asp-all-route-data="@Ruta(("Vista", programa.Vista))">
-                    <span class="rp-ficha__nombre">@programa.Nombre</span>
-                    <span class="rp-ficha__activos"><strong data-rp-cifra="@programa.Vista-activos">@ReportesFormato.Entero(programa.ActivosHoy)</strong> @ReportesFormato.Plural(programa.ActivosHoy, "activo hoy", "activos hoy")</span>
-                    <span class="rp-ficha__ingresos">
-                        <strong data-rp-cifra="@programa.Vista-ingresos">@ReportesFormato.Entero(programa.IngresosPeriodo)</strong>
-                        @(programa.IngresosPeriodo == 1 ? "ingreso" : "ingresos") en el periodo@(programa.FiltrosPropios ? "*" : null)
-                    </span>
-                    @Miniatura(programa.Ingresos, "Ingresos")
-                    <span class="rp-ficha__pie">
-                        @Comparacion(programa.IngresosPeriodo, programa.IngresosPeriodoAnterior, Model.DiasPeriodo)
-                        @if (!string.IsNullOrWhiteSpace(programa.Destacado))
-                        {
-                            <b>@programa.Destacado</b>
-                        }
+                   asp-all-route-data="@Ruta(("Vista", ReportesVistas.Portal))">
+                    <span class="rp-ficha__nombre">Portal Administrativo</span>
+                    @if (Model.PortalHoy.Error)
+                    {
+                        <span class="rp-ficha__activos">Sin conexión</span>
+                        <span class="rp-ficha__detalle"><span>No se pudo consultar el portal.</span></span>
+                    }
+                    else
+                    {
+                        <span class="rp-ficha__activos"><strong data-rp-cifra="portal-pendientes-hoy">@ReportesFormato.Entero(Model.PortalHoy.Pendientes)</strong> @(Model.PortalHoy.Pendientes == 1 ? "novedad sin resolver" : "novedades sin resolver")</span>
+                        <span class="rp-ficha__detalle">
+                            <span>
+                                @if (Model.PortalHoy.PendienteMasAntigua is { } antigua)
+                                {
+                                    @($"La más antigua es {Hace(antigua)}")
+                                }
+                                else
+                                {
+                                    @:Ninguna pendiente
+                                }
+                            </span>
+                        </span>
+                    }
+                    <span class="rp-ficha__ir" aria-hidden="true">
+                        <span class="rp-ficha__ir-ver">Ver detalle</span>
+                        <span class="rp-ficha__ir-viendo">Viendo el detalle</span>
+                        <svg viewBox="0 0 16 16" focusable="false"><path d="M8 3v9M4 8.5l4 4 4-4" /></svg>
                     </span>
                 </a>
-            }
+            </div>
+        </div>
 
-            @{
-                var portalActivo = Model.Vista == ReportesVistas.Portal;
+        @if (hoy.Combinaciones.Count > 0)
+        {
+            <div class="rp-combos" id="rpCombos" role="region" aria-labelledby="rpCombosTitulo" hidden>
+                <div>
+                <p class="rp-combos__titulo" id="rpCombosTitulo">
+                    @ReportesFormato.Entero(hoy.PacientesEnVariosProgramas)
+                    @(hoy.PacientesEnVariosProgramas == 1 ? "paciente está" : "pacientes están") en más de un programa
+                </p>
+                <p class="rp-combos__nota">
+                    Cada uno suma en la tarjeta de cada programa donde está activo; en "pacientes activos" cuenta una sola vez.
+                    Ningún programa tiene prioridad sobre otro.
+                </p>
+                <ul class="rp-combos__lista">
+                    @foreach (var combinacion in hoy.Combinaciones)
+                    {
+                        <li>
+                            <span class="rp-combos__programas">
+                                @for (var i = 0; i < combinacion.Programas.Count; i++)
+                                {
+                                    if (i > 0)
+                                    {
+                                        <span class="rp-combos__mas" aria-hidden="true">+</span>
+                                    }
+                                    <span class="rp-combos__programa" data-programa="@combinacion.Claves[i]">@combinacion.Programas[i]</span>
+                                }
+                            </span>
+                            <b data-rp-combo="@combinacion.Texto">@ReportesFormato.Entero(combinacion.Pacientes)</b>
+                        </li>
+                    }
+                </ul>
+                <p class="rp-combos__pie">
+                    En un solo programa: <b data-rp-cifra="unicos-un-programa">@ReportesFormato.Entero(hoy.PacientesUnicos - hoy.PacientesEnVariosProgramas)</b>
+                </p>
+                </div>
+
+                @* La cuenta completa, de la suma de las tarjetas a las personas. Cada renglón es una causa. *@
+                <div>
+                <p class="rp-combos__titulo">De la suma de las tarjetas a los pacientes</p>
+                <dl class="rp-cuenta">
+                    <div>
+                        <dt>Atenciones activas en las cinco tarjetas</dt>
+                        <dd data-rp-cifra="suma-tarjetas">@ReportesFormato.Entero(hoy.SumaDeTarjetas)</dd>
+                    </div>
+                    <div>
+                        <dt>
+                            Pacientes que cuentan en más de una tarjeta
+                            <small>(quien está en tres programas cuenta dos veces de más)</small>
+                        </dt>
+                        <dd data-rp-cifra="cuenta-otros">− @ReportesFormato.Entero(hoy.CuentasEnOtrosProgramas)</dd>
+                    </div>
+                    @if (hoy.AtencionesRepetidasEnUnPrograma > 0)
+                    {
+                        <div>
+                            <dt>Atenciones repetidas de un mismo paciente en un programa <small>(p. ej. dos terapias activas)</small></dt>
+                            <dd data-rp-cifra="cuenta-repetidas">− @ReportesFormato.Entero(hoy.AtencionesRepetidasEnUnPrograma)</dd>
+                        </div>
+                    }
+                    @if (hoy.AtencionesSinDocumento > 0)
+                    {
+                        <div>
+                            <dt>Atenciones sin número de documento</dt>
+                            <dd data-rp-cifra="cuenta-sindocumento">− @ReportesFormato.Entero(hoy.AtencionesSinDocumento)</dd>
+                        </div>
+                    }
+                    <div class="rp-cuenta__total">
+                        <dt>Pacientes activos</dt>
+                        <dd>@ReportesFormato.Entero(hoy.PacientesUnicos)</dd>
+                    </div>
+                </dl>
+                </div>
+            </div>
+        }
+    </section>
+
+    <section class="rp-periodo" aria-labelledby="rpPeriodoTitulo">
+        <header class="rp-periodo__cabeza">
+            <div>
+                <span class="rp-periodo__marca">Periodo consultado</span>
+                <h2 id="rpPeriodoTitulo">@Model.PeriodoTexto</h2>
+            </div>
+        </header>
+
+        <form id="rpFiltros" class="rp-filtros" method="get" asp-controller="Reportes" asp-action="Index" aria-label="Filtros del periodo">
+            <input type="hidden" name="Vista" value="@Model.Vista" data-rp-vista-input />
+            @* Filtros propios de los paneles: viven en su panel (atributo form) pero viajan con este formulario. *@
+            @if (!string.IsNullOrWhiteSpace(tab.CedulaFiltro)) { <input type="hidden" name="cedulaPaciente" value="@tab.CedulaFiltro" /> }
+            @if (!string.IsNullOrWhiteSpace(tab.ProgramaFiltro)) { <input type="hidden" name="programaFiltro" value="@tab.ProgramaFiltro" /> }
+            @if (tab.FechaIngresoFiltroDesde.HasValue) { <input type="hidden" name="fechaIngresoDesde" value="@tab.FechaIngresoFiltroDesde.Value.ToString("yyyy-MM-dd", inv)" /> }
+            @if (tab.FechaIngresoFiltroHasta.HasValue) { <input type="hidden" name="fechaIngresoHasta" value="@tab.FechaIngresoFiltroHasta.Value.ToString("yyyy-MM-dd", inv)" /> }
+
+            <div class="rp-filtros__rapidos" role="group" aria-label="Periodos rápidos">
+                @foreach (var preset in Model.Presets)
+                {
+                    <a class="rp-rapido @(preset.Activo ? "is-activo" : null)"
+                       aria-current="@(preset.Activo ? "true" : null)"
+                       asp-controller="Reportes" asp-action="Index"
+                       asp-all-route-data="@Ruta(("Desde", preset.Desde.ToString("yyyy-MM-dd", inv)), ("Hasta", preset.Hasta.ToString("yyyy-MM-dd", inv)))"
+                       data-rp-conserva-vista>@preset.Etiqueta</a>
+                }
+            </div>
+            <div class="rp-filtros__campos">
+                <label class="rp-campo">
+                    <span>Desde</span>
+                    <input type="date" name="Desde" value="@desdeValue" max="@Model.Hoy.ToString("yyyy-MM-dd", inv)" />
+                </label>
+                <label class="rp-campo">
+                    <span>Hasta</span>
+                    <input type="date" name="Hasta" value="@hastaValue" max="@Model.Hoy.ToString("yyyy-MM-dd", inv)" />
+                </label>
+                <label class="rp-campo rp-campo--ancho">
+                    <span>Municipio</span>
+                    <select name="Municipio" asp-items="Model.FilterOptions.Municipios"></select>
+                </label>
+                <div class="rp-filtros__acciones">
+                    <button type="submit" class="rp-boton">Aplicar</button>
+                    <a class="rp-boton rp-boton--quieto" asp-controller="Reportes" asp-action="Index" asp-route-Vista="@Model.Vista" data-rp-conserva-vista>Limpiar</a>
+                </div>
+            </div>
+        </form>
+
+        @if (Model.ActiveFilterLabels.Count > 0)
+        {
+            <div class="rp-aplicados" aria-label="Filtros aplicados">
+                <span>Filtrado por</span>
+                @foreach (var etiqueta in Model.ActiveFilterLabels)
+                {
+                    <b>@etiqueta</b>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.Filters.Municipio))
+                {
+                    <em>El Portal Administrativo no registra municipio: su panel no se filtra por municipio.</em>
+                }
+            </div>
+        }
+
+        <h3 class="rp-resumen__titulo">En el periodo</h3>
+        <ul class="rp-resumen">
+            @foreach (var programa in Model.ProgramasCenso)
+            {
+                <li data-programa="@programa.Programa">
+                    <span class="rp-resumen__nombre">@programa.Nombre</span>
+                    <span class="rp-resumen__cifra">
+                        <strong data-rp-cifra="@programa.Vista-ingresos">@ReportesFormato.Entero(programa.IngresosPeriodo)</strong>
+                        @(programa.IngresosPeriodo == 1 ? "ingreso" : "ingresos")@(programa.FiltrosPropios ? "*" : null)
+                    </span>
+                    <small>@Comparacion(programa.IngresosPeriodo, programa.IngresosPeriodoAnterior, Model.DiasPeriodo)</small>
+                    @Chispa(programa.Ingresos)
+                </li>
             }
-            <a class="rp-ficha rp-ficha--portal @(portalActivo ? "is-activa" : null)"
-               role="tab"
-               id="rp-tab-portal"
-               aria-controls="rp-panel-portal"
-               aria-selected="@(portalActivo ? "true" : "false")"
-               tabindex="@(portalActivo ? "0" : "-1")"
-               data-programa="PORTAL"
-               data-rp-vista="portal"
-               asp-controller="Reportes" asp-action="Index"
-               asp-all-route-data="@Ruta(("Vista", ReportesVistas.Portal))">
-                <span class="rp-ficha__nombre">Portal Administrativo</span>
+            <li data-programa="PORTAL">
+                <span class="rp-resumen__nombre">Portal Administrativo</span>
                 @if (Model.Portal.Error is not null)
                 {
-                    <span class="rp-ficha__activos">Sin conexión</span>
-                    <span class="rp-ficha__pie">No se pudo consultar el portal.</span>
+                    <span class="rp-resumen__cifra">Sin conexión</span>
                 }
                 else
                 {
-                    <span class="rp-ficha__activos"><strong data-rp-cifra="portal-total">@ReportesFormato.Entero(Model.Portal.Total)</strong> @ReportesFormato.Plural(Model.Portal.Total, "novedad", "novedades")</span>
-                    <span class="rp-ficha__ingresos"><strong>@ReportesFormato.Entero(Model.Portal.Pendientes)</strong> @(Model.Portal.Pendientes == 1 ? "pendiente" : "pendientes") de resolver@(Model.Portal.FiltradoPorTipo ? "*" : null)</span>
-                    @Miniatura(Model.Portal.PorDia, "Novedades")
-                    <span class="rp-ficha__pie">
-                        <span>Tiempo de resolución promedio: <b data-rp-cifra="portal-tiempo-ficha">@Model.Portal.PromedioHastaCierreTexto</b></span>
-                        <span>@ReportesFormato.Porcentaje(Model.Portal.PorcentajeResueltas) resueltas</span>
+                    <span class="rp-resumen__cifra">
+                        <strong data-rp-cifra="portal-total">@ReportesFormato.Entero(Model.Portal.Total)</strong>
+                        @(Model.Portal.Total == 1 ? "novedad" : "novedades")@(Model.Portal.FiltradoPorTipo ? "*" : null)
                     </span>
+                    <small>Tiempo de resolución promedio: <b data-rp-cifra="portal-tiempo-ficha">@Model.Portal.PromedioHastaCierreTexto</b></small>
+                    @Chispa(Model.Portal.PorDia)
                 }
-            </a>
-        </div>
+            </li>
+        </ul>
         @if (Model.ProgramasCenso.Any(x => x.FiltrosPropios) || Model.Portal.FiltradoPorTipo)
         {
             <p class="rp-asterisco">* Cifra recortada por un filtro propio del panel (ver "Filtrado por").</p>

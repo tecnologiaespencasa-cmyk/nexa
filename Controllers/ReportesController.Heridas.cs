@@ -13,7 +13,7 @@ namespace Nexa.Controllers;
 /// </summary>
 public partial class ReportesController
 {
-    private async Task<ResultadoPrograma<ReportesHeridasViewModel>> ConstruirHeridasAsync(
+    private async Task<ReportesHeridasViewModel> ConstruirHeridasAsync(
         ApplicationDbContext contexto,
         ReportesFilterViewModel f,
         Periodo p,
@@ -44,10 +44,7 @@ public partial class ReportesController
             })
             .ToListAsync(ct);
 
-        var activos = filas
-            .Where(x => !CensoVisibility.HayEgreso(x.FechaEgreso)
-                && string.Equals(x.Estado, "Activo", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        var activos = filas.Where(x => EsActivoSinEgreso(x.FechaEgreso, x.Estado)).ToList();
         var ingresos = filas.Where(x => p.Contiene(x.FechaIngresoPrograma)).ToList();
         var egresos = filas
             .Where(x => CensoVisibility.HayEgreso(x.FechaEgreso) && p.Contiene(x.FechaEgreso!.Value))
@@ -79,7 +76,6 @@ public partial class ReportesController
             IngresosPeriodoAnterior = filas.Count(x => p.Anterior.Contiene(x.FechaIngresoPrograma)),
             PromedioIngresosDia = Promedio(ingresos.Count, p.Dias),
             Ingresos = ConstruirSerie(ingresos.Select(x => x.FechaIngresoPrograma), p),
-            Destacado = $"{ReportesFormato.Entero(conVac)} con VAC",
             ActivosConVac = conVac,
             EgresosPeriodo = egresos.Count,
             InactivosSinFechaEgreso = filas.Count(x => !CensoVisibility.HayEgreso(x.FechaEgreso)
@@ -115,8 +111,6 @@ public partial class ReportesController
                 esSecundaria: x => x == "Sin frecuencia registrada")
         };
 
-        return new ResultadoPrograma<ReportesHeridasViewModel>(
-            modelo,
-            activos.Select(x => x.NumeroIdentificacion).ToList());
+        return modelo;
     }
 }

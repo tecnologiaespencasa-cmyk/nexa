@@ -15,7 +15,7 @@ namespace Nexa.Controllers;
 /// </summary>
 public partial class ReportesController
 {
-    private async Task<ResultadoPrograma<ReportesTerapiaViewModel>> ConstruirTerapiaAsync(
+    private async Task<ReportesTerapiaViewModel> ConstruirTerapiaAsync(
         ApplicationDbContext contexto,
         ReportesFilterViewModel f,
         Periodo p,
@@ -44,10 +44,7 @@ public partial class ReportesController
             })
             .ToListAsync(ct);
 
-        var activos = filas
-            .Where(x => string.Equals(x.EstadoPaciente, "Activo", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(x.EstadoAlta, "Cerrado", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        var activos = filas.Where(x => EsTerapiaActiva(x.EstadoPaciente, x.EstadoAlta)).ToList();
         var ingresos = filas.Where(x => p.Contiene(x.FechaIngreso)).ToList();
 
         // Un ingreso puede pedir varias terapias (el campo guarda una lista separada por comas, y hay
@@ -85,9 +82,7 @@ public partial class ReportesController
             ActivosSinFisioterapeuta = activos.Count(x => string.IsNullOrWhiteSpace(x.Fisioterapeuta))
         };
 
-        return new ResultadoPrograma<ReportesTerapiaViewModel>(
-            modelo,
-            activos.Select(x => x.NumeroIdentificacion).ToList());
+        return modelo;
     }
 
     private static HashSet<string> TiposDeTerapia(params string?[] campos)

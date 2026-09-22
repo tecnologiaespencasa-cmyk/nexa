@@ -77,6 +77,24 @@ public class PortalNovedadRepository : IPortalNovedadRepository
         return rows;
     }
 
+    public async Task<(int Pendientes, DateTime? MasAntiguaUtc)> GetPendientesAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(NeonConnectionString.FromConfiguration(_configuration));
+        await connection.OpenAsync(cancellationToken);
+
+        // Misma regla que el panel: pendiente es toda novedad que no está RESUELTA.
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            select count(*)::int, min("createdAt")
+            from public."Novedad"
+            where estado::text <> 'RESUELTA';
+            """;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        await reader.ReadAsync(cancellationToken);
+        return (reader.GetInt32(0), reader.IsDBNull(1) ? null : reader.GetDateTime(1));
+    }
+
     public async Task<IReadOnlyList<string>> GetCategoriasAsync(CancellationToken cancellationToken = default)
     {
         var categorias = new List<string>();

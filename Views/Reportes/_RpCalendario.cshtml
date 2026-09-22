@@ -1,62 +1,84 @@
 @model ReportesCalendarioViewModel
 @using System.Globalization
 @*
-    Calendario: una fila por semana, de lunes a domingo, con la cifra de cada día escrita en su casilla.
-    El tono solo refuerza la cifra (más oscuro = más ingresos, frente al día con más ingresos del periodo).
-    Los días fuera del periodo quedan en blanco y no suman al total de la semana.
+    Calendario de ingresos, con la forma de un calendario de pared: un bloque por mes, semanas de lunes
+    a domingo. En cada día del periodo, el número grande es la fecha y la etiqueta pequeña, los
+    ingresos. Tres tonos con umbrales fijos: menos de 20, de 20 a 30 y más de 30 ingresos.
+    Los días del mes fuera del periodo se ven apagados y sin cifra.
 *@
 @{
     var cultura = CultureInfo.GetCultureInfo("es-CO");
+    var inv = CultureInfo.InvariantCulture;
     string[] dias = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"];
 }
 @if (!Model.Disponible)
 {
     <p class="rp-vacio">El calendario se muestra para periodos de hasta 120 días. Elija un periodo más corto para verlo.</p>
 }
-else if (Model.Maximo == 0)
+else if (Model.Total == 0)
 {
     <p class="rp-vacio">Sin ingresos en el periodo.</p>
 }
 else
 {
-    <div class="rp-calendario">
-        <table class="rp-calendario__tabla" id="tabla-calendario">
-            <thead>
-                <tr>
-                    <th scope="col">Semana del</th>
-                    @foreach (var dia in dias)
-                    {
-                        <th scope="col">@dia</th>
-                    }
-                    <th scope="col" class="rp-calendario__total">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var semana in Model.Semanas)
-                {
-                    <tr>
-                        <th scope="row">@semana.Lunes.ToString("dd/MM", CultureInfo.InvariantCulture)</th>
-                        @foreach (var dia in semana.Dias)
+    <div class="rp-cal">
+        <ul class="rp-cal__leyenda" aria-label="Tonos de ingresos por día">
+            <li><i class="rp-cal--n1" aria-hidden="true"></i>Menos de @ReportesCalendarioViewModel.UmbralMedio</li>
+            <li><i class="rp-cal--n2" aria-hidden="true"></i>De @ReportesCalendarioViewModel.UmbralMedio a @ReportesCalendarioViewModel.UmbralAlto</li>
+            <li><i class="rp-cal--n3" aria-hidden="true"></i>Más de @ReportesCalendarioViewModel.UmbralAlto</li>
+            <li class="rp-cal__clave">
+                <span class="rp-cal__muestra" aria-hidden="true"><b>15</b><span>34</span></span>
+                Número grande: el día · etiqueta: ingresos
+            </li>
+        </ul>
+
+        <div class="rp-cal__meses">
+            @foreach (var mes in Model.Meses)
+            {
+                <table class="rp-cal__mes" id="calendario-@mes.Mes.ToString("yyyy-MM", inv)">
+                    <caption>
+                        <div class="rp-cal__titulo">
+                            <span>@mes.Nombre</span>
+                            <small>@ReportesFormato.Cantidad(mes.TotalPeriodo, "ingreso", "ingresos") en el periodo</small>
+                        </div>
+                    </caption>
+                    <thead>
+                        <tr>
+                            @foreach (var dia in dias)
+                            {
+                                <th scope="col" class="@(dia is "Sá" or "Do" ? "is-finde" : null)">@dia</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var semana in mes.Semanas)
                         {
-                            if (!dia.EnPeriodo)
-                            {
-                                <td class="rp-calendario__fuera" aria-label="Fuera del periodo"></td>
-                            }
-                            else
-                            {
-                                <td class="rp-calendario__dia rp-nivel-@dia.Nivel"
-                                    data-rp-tip="@dia.Fecha.ToString("dddd d 'de' MMMM", cultura) · @ReportesFormato.Cantidad(dia.Valor, "ingreso", "ingresos")">@ReportesFormato.Entero(dia.Valor)</td>
-                            }
+                            <tr>
+                                @foreach (var dia in semana)
+                                {
+                                    if (!dia.EnMes)
+                                    {
+                                        <td class="rp-cal__vacio" aria-hidden="true"></td>
+                                    }
+                                    else if (!dia.EnPeriodo)
+                                    {
+                                        <td class="rp-cal__dia is-fuera" title="Fuera del periodo consultado"><b>@dia.Fecha.Day</b></td>
+                                    }
+                                    else
+                                    {
+                                        <td class="rp-cal__dia rp-cal--n@(dia.Nivel)"
+                                            data-dia="@dia.Fecha.ToString("yyyy-MM-dd", inv)" data-ingresos="@dia.Valor"
+                                            data-rp-tip="@dia.Fecha.ToString("dddd d 'de' MMMM", cultura) · @ReportesFormato.Cantidad(dia.Valor, "ingreso", "ingresos")">
+                                            <b>@dia.Fecha.Day</b>
+                                            <span><span class="rp-visual-oculto">ingresos: </span>@ReportesFormato.Entero(dia.Valor)</span>
+                                        </td>
+                                    }
+                                }
+                            </tr>
                         }
-                        <td class="rp-calendario__total rp-num">@ReportesFormato.Entero(semana.Total)</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-        <p class="rp-calendario__escala" aria-hidden="true">
-            <span>Menos</span>
-            <i class="rp-nivel-0"></i><i class="rp-nivel-1"></i><i class="rp-nivel-2"></i><i class="rp-nivel-3"></i><i class="rp-nivel-4"></i>
-            <span>Más (el día más alto: @ReportesFormato.Entero(Model.Maximo))</span>
-        </p>
+                    </tbody>
+                </table>
+            }
+        </div>
     </div>
 }

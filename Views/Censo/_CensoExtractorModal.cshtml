@@ -87,6 +87,24 @@
                                     </button>
                                 </div>
                                 <div class="censo-extractor-result__body">
+                                    @* Sale solo si la remisión menciona clínica de heridas, curaciones o celulitis. *@
+                                    <section id="extractorHeridasAviso" class="censo-extractor-heridas" role="alert" hidden>
+                                        <div class="censo-extractor-heridas__head">
+                                            <span class="censo-extractor-heridas__icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="m10.5 20.5-7-7a4.95 4.95 0 1 1 7-7l7 7a4.95 4.95 0 1 1-7 7Z"></path>
+                                                    <path d="M10 10h.01M14 14h.01M12 12h.01"></path>
+                                                </svg>
+                                            </span>
+                                            <div>
+                                                <p class="censo-extractor-heridas__eyebrow">Paciente candidato para clínica de heridas</p>
+                                                <h6 class="censo-extractor-heridas__title">Por favor revisar</h6>
+                                            </div>
+                                        </div>
+                                        <p class="censo-extractor-heridas__lead" id="extractorHeridasLead"></p>
+                                        <ul class="censo-extractor-heridas__evidencia" id="extractorHeridasEvidencia"></ul>
+                                        <p class="censo-extractor-heridas__correo" id="extractorHeridasCorreo"></p>
+                                    </section>
                                     <div id="extractorFields"></div>
                                     <div id="extractorMedsSection" class="censo-extractor-group d-none">
                                         <div class="censo-extractor-group__header">

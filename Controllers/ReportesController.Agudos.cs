@@ -25,7 +25,7 @@ public partial class ReportesController
             ["SANTAELENA"] = "Santa Elena"
         };
 
-    private async Task<ResultadoPrograma<ReportesAgudosViewModel>> ConstruirAgudosAsync(
+    private async Task<ReportesAgudosViewModel> ConstruirAgudosAsync(
         ApplicationDbContext contexto,
         ReportesFilterViewModel f,
         Periodo p,
@@ -76,7 +76,7 @@ public partial class ReportesController
             .CountAsync(ct);
 
         var activos = await SoloAgudosActivos(visibles)
-            .Select(x => new { x.NumeroIdentificacion, x.AuxiliarAsignado })
+            .Select(x => new { x.AuxiliarAsignado })
             .ToListAsync(ct);
 
         var total = filas.Count;
@@ -126,9 +126,11 @@ public partial class ReportesController
                     && !EsIgual(x.ClasificacionRiesgo, "Medio")
                     && !EsIgual(x.ClasificacionRiesgo, "Alto")), "neutro")),
             Municipios = ConstruirMunicipiosAgudos(filas),
+            // Hasta cuatro personas y el resto en "Otros": se dibuja como dona.
             SinAutorizacionPorRecepcion = ConstruirCategorias(
                 Contar(filas.Where(EsSinAutorizacion).Select(x => x.NombreRecepcionaCaso), NombrePropio),
-                sinAutorizacion),
+                sinAutorizacion,
+                maximoFilas: 4),
             ActivosPorAuxiliar = ConstruirCategorias(
                 Contar(activos.Select(x => x.AuxiliarAsignado), vacio: "Sin auxiliar asignado"),
                 activos.Count,
@@ -136,6 +138,19 @@ public partial class ReportesController
                 esSecundaria: x => x == "Sin auxiliar asignado"),
             ActivosSinAuxiliar = sinAuxiliar,
             AuxiliaresConPacientes = activos
+                .Where(x => !string.IsNullOrWhiteSpace(x.AuxiliarAsignado))
+                .Select(x => x.AuxiliarAsignado!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count(),
+            // Lo mismo sobre los ingresos del periodo: sigue las fechas. El auxiliar es el que el
+            // registro tiene asignado hoy (el censo no guarda el historial de asignaciones).
+            IngresosPorAuxiliar = ConstruirCategorias(
+                Contar(filas.Select(x => x.AuxiliarAsignado), vacio: "Sin auxiliar asignado"),
+                total,
+                maximoFilas: int.MaxValue,
+                esSecundaria: x => x == "Sin auxiliar asignado"),
+            IngresosSinAuxiliar = filas.Count(x => string.IsNullOrWhiteSpace(x.AuxiliarAsignado)),
+            AuxiliaresConIngresos = filas
                 .Where(x => !string.IsNullOrWhiteSpace(x.AuxiliarAsignado))
                 .Select(x => x.AuxiliarAsignado!.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -171,9 +186,7 @@ public partial class ReportesController
                 .ToList()
         };
 
-        return new ResultadoPrograma<ReportesAgudosViewModel>(
-            modelo,
-            activos.Select(x => x.NumeroIdentificacion).ToList());
+        return modelo;
     }
 
     /// <summary>

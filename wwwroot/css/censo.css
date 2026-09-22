@@ -3516,6 +3516,125 @@ input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
   background: var(--ext-surface);
 }
 
+/* ── Aviso: candidato a clínica de heridas ──
+   Usa el verde de clínica de heridas (el mismo del carril y del correo a programas especiales)
+   para que se lea como "esto es de heridas" antes de leer el texto. Lo que lo distingue es la
+   evidencia: el pedazo de la remisión con la palabra marcada como con resaltador. */
+.censo-extractor-heridas {
+  --heridas: #0f9d76;
+  --heridas-strong: #0b7a5c;
+  --heridas-wash: #eef9f4;
+  border: 1px solid rgba(15, 157, 118, 0.28);
+  border-left: 5px solid var(--heridas);
+  border-radius: 0.85rem;
+  background: var(--heridas-wash);
+  padding: 1rem 1.15rem 0.95rem;
+  color: var(--ext-ink);
+}
+
+.censo-extractor-heridas__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.censo-extractor-heridas__icon {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.7rem;
+  background: var(--heridas);
+  color: #fff;
+}
+
+.censo-extractor-heridas__eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--heridas-strong);
+}
+
+.censo-extractor-heridas__title {
+  margin: 0.1rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ext-ink);
+}
+
+.censo-extractor-heridas__lead {
+  margin: 0.75rem 0 0;
+  font-size: 0.88rem;
+}
+
+.censo-extractor-heridas__evidencia {
+  list-style: none;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.censo-extractor-heridas__evidencia li {
+  background: #fff;
+  border: 1px solid rgba(15, 157, 118, 0.18);
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.censo-extractor-heridas__palabra {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--heridas-strong);
+}
+
+.censo-extractor-heridas__cita {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--ext-ink-soft);
+  quotes: none;
+  overflow-wrap: anywhere;
+}
+
+.censo-extractor-heridas__cita mark {
+  padding: 0 0.12em;
+  color: var(--ext-ink);
+  font-weight: 700;
+  background: linear-gradient(transparent 45%, rgba(15, 157, 118, 0.32) 45%);
+}
+
+.censo-extractor-heridas__correo {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--heridas-strong);
+}
+
+.censo-extractor-heridas__correo::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.censo-extractor-heridas__correo.is-fallido {
+  color: #a15c00;
+}
+
 #extractorFields {
   display: flex;
   flex-direction: column;

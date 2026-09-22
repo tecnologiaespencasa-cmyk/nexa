@@ -13,7 +13,7 @@ namespace Nexa.Controllers;
 /// </summary>
 public partial class ReportesController
 {
-    private async Task<ResultadoPrograma<ReportesNptViewModel>> ConstruirNptAsync(
+    private async Task<ReportesNptViewModel> ConstruirNptAsync(
         ApplicationDbContext contexto,
         ReportesFilterViewModel f,
         Periodo p,
@@ -44,10 +44,7 @@ public partial class ReportesController
             })
             .ToListAsync(ct);
 
-        var activos = filas
-            .Where(x => !CensoVisibility.HayEgreso(x.FechaEgreso)
-                && string.Equals(x.Estado, "Activo", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        var activos = filas.Where(x => EsActivoSinEgreso(x.FechaEgreso, x.Estado)).ToList();
         var ingresos = filas.Where(x => p.Contiene(x.FechaIngresoPrograma)).ToList();
         var egresos = filas
             .Where(x => CensoVisibility.HayEgreso(x.FechaEgreso) && p.Contiene(x.FechaEgreso!.Value))
@@ -112,8 +109,6 @@ public partial class ReportesController
                 .ToList()
         };
 
-        return new ResultadoPrograma<ReportesNptViewModel>(
-            modelo,
-            activos.Select(x => x.NumeroIdentificacion).ToList());
+        return modelo;
     }
 }

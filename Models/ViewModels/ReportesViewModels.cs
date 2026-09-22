@@ -61,9 +61,10 @@ public class ReportesDashboardViewModel
 
     public string Vista { get; init; } = ReportesVistas.Agudos;
 
-    public int PacientesUnicosActivos { get; init; }
+    /// <summary>Tarjetas de arriba: la foto de hoy, sin ningún filtro.</summary>
+    public ReportesCensoHoyViewModel CensoHoy { get; init; } = new();
 
-    public int PacientesEnVariosProgramas { get; init; }
+    public ReportesPortalHoyViewModel PortalHoy { get; init; } = new();
 
     public ReportesAgudosViewModel Agudos { get; init; } = new();
 
@@ -93,6 +94,80 @@ public class ReportesDashboardViewModel
 
     public IEnumerable<ReportesProgramaViewModel> ProgramasCenso =>
         [Agudos, Cronicos, Heridas, Npt, Terapia];
+}
+
+/// <summary>
+/// "Censo de hoy": activos de cada programa en este momento, sin filtros de fecha ni de municipio.
+/// Las tarjetas cuentan atenciones (registros activos); <see cref="PacientesUnicos"/> cuenta personas.
+/// </summary>
+public sealed class ReportesCensoHoyViewModel
+{
+    public IReadOnlyList<ReportesCensoHoyProgramaViewModel> Programas { get; init; } = [];
+
+    public int PacientesUnicos { get; init; }
+
+    public int PacientesEnVariosProgramas { get; init; }
+
+    /// <summary>Suma de las cinco tarjetas: da más que las personas cuando alguien está en varios programas.</summary>
+    public int SumaDeTarjetas => Programas.Sum(x => x.Activos);
+
+    /// <summary>
+    /// Veces que un paciente cuenta en una tarjeta además de la primera (quien está en tres programas
+    /// suma dos). Con las dos siguientes explica exactamente la diferencia:
+    /// <see cref="SumaDeTarjetas"/> = <see cref="PacientesUnicos"/> + estas tres.
+    /// </summary>
+    public int CuentasEnOtrosProgramas { get; init; }
+
+    /// <summary>Atenciones activas de más de un mismo paciente dentro de un mismo programa (p. ej. dos terapias).</summary>
+    public int AtencionesRepetidasEnUnPrograma { get; init; }
+
+    /// <summary>Atenciones activas sin número de documento: suman en su tarjeta pero no se pueden contar como persona.</summary>
+    public int AtencionesSinDocumento { get; init; }
+
+    /// <summary>Solo las combinaciones de dos o más programas, de la más frecuente a la menos.</summary>
+    public IReadOnlyList<ReportesCombinacionViewModel> Combinaciones { get; init; } = [];
+}
+
+public sealed class ReportesCensoHoyProgramaViewModel
+{
+    /// <summary>Clave de <c>CensoProgramas</c>; pinta el color del programa.</summary>
+    public string Programa { get; init; } = string.Empty;
+
+    public string Vista { get; init; } = string.Empty;
+
+    public string Nombre { get; init; } = string.Empty;
+
+    public int Activos { get; init; }
+
+    /// <summary>Personas activas en este programa que además están activas en otro.</summary>
+    public int EnOtroPrograma { get; init; }
+
+    /// <summary>Dato de estado de hoy (p. ej. "6 con VAC").</summary>
+    public string? Destacado { get; init; }
+}
+
+public sealed class ReportesCombinacionViewModel
+{
+    /// <summary>Nombres de los programas, en el orden de las tarjetas.</summary>
+    public IReadOnlyList<string> Programas { get; init; } = [];
+
+    /// <summary>Claves de <c>CensoProgramas</c> de esos mismos programas, para pintar su color.</summary>
+    public IReadOnlyList<string> Claves { get; init; } = [];
+
+    public int Pacientes { get; init; }
+
+    public string Texto => string.Join(" + ", Programas);
+}
+
+public sealed class ReportesPortalHoyViewModel
+{
+    /// <summary>Novedades sin resolver ahora mismo, sin importar cuándo se crearon.</summary>
+    public int Pendientes { get; init; }
+
+    /// <summary>Creación (hora de Colombia) de la pendiente más antigua.</summary>
+    public DateTime? PendienteMasAntigua { get; init; }
+
+    public bool Error { get; init; }
 }
 
 public class ReportesFilterViewModel
@@ -517,38 +592,83 @@ public sealed class ReportesLineaViewModel
 }
 
 /// <summary>Parte de un todo en forma de dona, con su total al centro.</summary>
-public sealed record ReportesDonaViewModel(IReadOnlyList<ReportesSegmentoViewModel> Segmentos, int Total, string Rotulo);
-
-/// <summary>Calendario de ingresos: una fila por semana (lunes a domingo) y la cifra de cada día.</summary>
-public sealed class ReportesCalendarioViewModel
+public sealed record ReportesDonaViewModel(IReadOnlyList<ReportesSegmentoViewModel> Segmentos, int Total, string Rotulo)
 {
-    /// <summary>Solo se arma para periodos de hasta 120 días; más largo sería una tabla ilegible.</summary>
-    public bool Disponible { get; init; }
-
-    public int Maximo { get; init; }
-
-    public IReadOnlyList<ReportesCalendarioSemanaViewModel> Semanas { get; init; } = [];
+    /// <summary>
+    /// Dona a partir de una lista de categorías ya ordenada de mayor a menor: cada categoría toma un tono
+    /// de pizarra por su puesto, "Otros (N)" el último tono y "Sin dato" el neutro. Pensada para listas
+    /// de hasta cuatro categorías principales (<c>maximoFilas: 4</c>).
+    /// </summary>
+    public static ReportesDonaViewModel DeCategorias(IReadOnlyList<ReportesCategoriaViewModel> categorias, int total, string rotulo)
+    {
+        string[] tonos = ["n1", "n2", "n3", "n4"];
+        var puesto = 0;
+        var segmentos = categorias
+            .Where(x => x.Valor > 0)
+            .Select(x => new ReportesSegmentoViewModel
+            {
+                Etiqueta = x.Etiqueta,
+                Valor = x.Valor,
+                Porcentaje = x.Porcentaje,
+                Tono = x.Etiqueta.StartsWith("Otros (", StringComparison.Ordinal) ? "n4"
+                    : x.Secundaria ? "neutro"
+                    : tonos[Math.Min(puesto++, tonos.Length - 1)]
+            })
+            .ToList();
+        return new ReportesDonaViewModel(segmentos, total, rotulo);
+    }
 }
 
-public sealed class ReportesCalendarioSemanaViewModel
+/// <summary>
+/// Calendario de ingresos con forma de calendario: un bloque por mes, semanas de lunes a domingo.
+/// Cada día del periodo lleva su número de ingresos y uno de tres tonos fijos (no relativos al
+/// periodo, para que el mismo tono signifique lo mismo cualquier semana).
+/// </summary>
+public sealed class ReportesCalendarioViewModel
 {
-    public DateTime Lunes { get; init; }
+    /// <summary>Menos de este número de ingresos en el día: tono suave.</summary>
+    public const int UmbralMedio = 20;
 
-    public IReadOnlyList<ReportesCalendarioDiaViewModel> Dias { get; init; } = [];
+    /// <summary>Más de este número de ingresos en el día: tono fuerte. De 20 a 30 inclusive: tono medio.</summary>
+    public const int UmbralAlto = 30;
 
-    /// <summary>Suma de los días de esa semana que caen dentro del periodo.</summary>
-    public int Total => Dias.Where(d => d.EnPeriodo).Sum(d => d.Valor);
+    /// <summary>Solo se arma para periodos de hasta 120 días (cuatro o cinco meses).</summary>
+    public bool Disponible { get; init; }
+
+    public IReadOnlyList<ReportesCalendarioMesViewModel> Meses { get; init; } = [];
+
+    public int Total => Meses.Sum(m => m.TotalPeriodo);
+
+    /// <summary>1 suave (menos de 20), 2 medio (20 a 30), 3 fuerte (más de 30).</summary>
+    public static int NivelDe(int ingresos) =>
+        ingresos < UmbralMedio ? 1 : ingresos <= UmbralAlto ? 2 : 3;
+}
+
+public sealed class ReportesCalendarioMesViewModel
+{
+    public DateTime Mes { get; init; }
+
+    public string Nombre { get; init; } = string.Empty;
+
+    /// <summary>Semanas completas de lunes a domingo que cubren el mes.</summary>
+    public IReadOnlyList<IReadOnlyList<ReportesCalendarioDiaViewModel>> Semanas { get; init; } = [];
+
+    /// <summary>Ingresos del mes que caen dentro del periodo consultado.</summary>
+    public int TotalPeriodo => Semanas.SelectMany(s => s).Where(d => d.EnMes && d.EnPeriodo).Sum(d => d.Valor);
 }
 
 public sealed class ReportesCalendarioDiaViewModel
 {
     public DateTime Fecha { get; init; }
 
+    /// <summary>El día pertenece al mes del bloque (los de relleno de la primera y última semana, no).</summary>
+    public bool EnMes { get; init; }
+
     public bool EnPeriodo { get; init; }
 
     public int Valor { get; init; }
 
-    /// <summary>0 sin ingresos; 1 a 4 según la cifra frente al día con más ingresos.</summary>
+    /// <summary>0 fuera del periodo; 1 a 3 según <see cref="ReportesCalendarioViewModel.NivelDe"/>.</summary>
     public int Nivel { get; init; }
 }
 
@@ -631,9 +751,6 @@ public abstract class ReportesProgramaViewModel
 
     public ReportesSerieViewModel Ingresos { get; init; } = new();
 
-    /// <summary>Dato adicional del tablero (p. ej. "8 con VAC").</summary>
-    public string? Destacado { get; init; }
-
     /// <summary>El panel tiene filtros propios aplicados, así que su conteo de ingresos está recortado.</summary>
     public bool FiltrosPropios { get; init; }
 }
@@ -675,6 +792,13 @@ public class ReportesAgudosViewModel : ReportesProgramaViewModel
     public int ActivosSinAuxiliar { get; init; }
 
     public int AuxiliaresConPacientes { get; init; }
+
+    /// <summary>Ingresos del periodo según el auxiliar asignado hoy en cada registro.</summary>
+    public IReadOnlyList<ReportesCategoriaViewModel> IngresosPorAuxiliar { get; init; } = [];
+
+    public int IngresosSinAuxiliar { get; init; }
+
+    public int AuxiliaresConIngresos { get; init; }
 
     public IReadOnlyList<ReportesRegistroRevisarViewModel> RegistrosPrioritarios { get; init; } = [];
 

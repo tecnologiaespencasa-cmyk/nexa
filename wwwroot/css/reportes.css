@@ -3,9 +3,10 @@
    --------------------------------------------------------------------------
    Idea visual: la pizarra de censo de la operación. Arriba, "Censo de hoy":
    una ficha por programa, cada una con el color que el programa tiene en toda
-   la intranet. Cada ficha es a la vez resumen y pestaña: al elegirla, su panel
-   de detalle se abre debajo, enmarcado en el mismo color. Así caben los cinco
-   programas y el portal sin una página interminable.
+   la intranet, con lo que está activo ahora (no mira ningún filtro). Debajo,
+   el periodo consultado con sus filtros y un resumen, y al final el panel del
+   programa elegido: todo lo que va después de los filtros cambia con ellos.
+   Cada ficha es también la pestaña de su panel y lo dice ("Ver detalle").
 
    Reglas de lectura
    - Cada tarjeta dice sobre qué cuenta ("Base: …"): activos hoy, ingresos del
@@ -64,6 +65,7 @@ body.page-reportes {
     --rp-n1: #2b4152;
     --rp-n2: #6a8295;
     --rp-n3: #a9bac7;
+    --rp-n4: #c0cdd8;
     --rp-neutro: #d3dbe1;
     --rp-egreso: #7a8a97;
 
@@ -114,7 +116,7 @@ body.page-reportes {
 }
 
 /* --------------------------------------------------------------------------
-   Cabecera
+   Cabecera: "Censo de hoy"
    -------------------------------------------------------------------------- */
 
 .rp-cabecera {
@@ -126,7 +128,8 @@ body.page-reportes {
     margin-bottom: 14px;
 }
 
-.rp-cabecera__marca {
+.rp-cabecera__marca,
+.rp-periodo__marca {
     color: var(--rp-rojo);
     font-family: var(--rp-f-titulo);
     font-size: 0.8rem;
@@ -151,6 +154,19 @@ body.page-reportes {
     margin: 0;
 }
 
+.rp-cabecera__titulo time {
+    color: var(--rp-tinta);
+    font-weight: 700;
+}
+
+.rp-mayuscula {
+    display: inline-block;
+}
+
+.rp-mayuscula::first-letter {
+    text-transform: uppercase;
+}
+
 .rp-cabecera__hora {
     display: grid;
     text-align: right;
@@ -166,20 +182,430 @@ body.page-reportes {
 }
 
 /* --------------------------------------------------------------------------
-   Filtros
+   Censo de hoy: tarjetas que no cambian con los filtros y que abren su panel
    -------------------------------------------------------------------------- */
 
-.rp-filtros {
-    align-items: end;
+.rp-censo {
+    margin-bottom: 22px;
+    position: relative;
+}
+
+.rp-tablero {
+    align-items: stretch;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(190px, 0.9fr) minmax(0, 6fr);
+}
+
+.rp-fichas {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.rp-unicos {
+    align-content: start;
+    background: var(--rp-tinta);
+    border-radius: var(--rp-radio);
+    color: #dfe7ec;
+    display: grid;
+    gap: 2px;
+    padding: 14px 16px;
+}
+
+.rp-unicos__rotulo {
+    color: #ff9f86;
+    font-family: var(--rp-f-titulo);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.rp-unicos strong {
+    color: #ffffff;
+    font-family: var(--rp-f-titulo);
+    font-size: clamp(2.4rem, 3.2vw, 3.1rem);
+    font-stretch: 72%;
+    font-weight: 700;
+    line-height: 1;
+    margin-top: 6px;
+}
+
+.rp-unicos > span {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.rp-unicos small {
+    color: #b9c7d1;
+    font-size: 0.76rem;
+    line-height: 1.35;
+    margin-top: 4px;
+}
+
+.rp-unicos__boton {
+    align-items: center;
+    align-self: end;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+    color: #ffffff;
+    cursor: pointer;
+    display: inline-flex;
+    font: 700 0.78rem var(--rp-f-texto);
+    gap: 6px;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding: 6px 10px;
+}
+
+.rp-unicos__boton:hover,
+.rp-unicos__boton[aria-expanded="true"] {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+.rp-unicos__boton svg {
+    fill: none;
+    height: 14px;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+    transition: transform 0.15s ease;
+    width: 14px;
+}
+
+.rp-unicos__boton[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+}
+
+/* Cada tarjeta es un botón grande: se levanta al pasar el cursor y termina en "Ver detalle".
+   La elegida se enmarca en el color de su programa y su pie dice "Viendo el detalle". */
+.rp-ficha {
     background: var(--rp-hoja);
     border: 1px solid var(--rp-linea);
     border-radius: var(--rp-radio);
+    box-shadow: inset 0 4px 0 color-mix(in oklab, var(--prog) 50%, #ffffff);
+    color: var(--rp-tinta);
+    cursor: pointer;
+    display: grid;
+    gap: 3px;
+    grid-template-rows: auto auto 1fr auto;
+    min-width: 0;
+    padding: 15px 14px 0;
+    position: relative;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.rp-ficha:hover {
+    border-color: color-mix(in oklab, var(--prog) 55%, var(--rp-linea));
+    box-shadow: inset 0 4px 0 var(--prog), 0 12px 24px -16px rgba(19, 32, 43, 0.55);
+    color: var(--rp-tinta);
+    transform: translateY(-2px);
+}
+
+.rp-ficha.is-activa {
+    border-color: var(--prog);
+    box-shadow: inset 0 5px 0 var(--prog), 0 0 0 1px var(--prog), 0 14px 28px -18px rgba(19, 32, 43, 0.6);
+    transform: none;
+}
+
+.rp-ficha__nombre {
+    align-items: center;
+    display: flex;
+    font-family: var(--rp-f-titulo);
+    font-size: 0.98rem;
+    font-stretch: 88%;
+    font-weight: 700;
+    gap: 7px;
+    line-height: 1.15;
+}
+
+.rp-ficha__nombre::before {
+    background: var(--prog);
+    border-radius: 50%;
+    content: "";
+    flex: 0 0 auto;
+    height: 9px;
+    width: 9px;
+}
+
+.rp-ficha__activos {
+    align-items: baseline;
+    color: var(--rp-tinta-2);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.84rem;
+    gap: 0 7px;
+}
+
+.rp-ficha__activos strong {
+    color: var(--rp-tinta);
+    font-family: var(--rp-f-titulo);
+    font-size: clamp(2.1rem, 2.6vw, 2.65rem);
+    font-stretch: 72%;
+    font-weight: 700;
+    line-height: 1.02;
+}
+
+.rp-ficha__detalle {
+    align-content: start;
+    color: var(--rp-tinta-3);
+    display: grid;
+    font-size: 0.78rem;
+    gap: 2px;
+    line-height: 1.3;
+}
+
+.rp-ficha__detalle b {
+    color: var(--rp-tinta);
+    font-weight: 700;
+}
+
+.rp-ficha__ir {
+    align-items: center;
+    border-radius: 0 0 calc(var(--rp-radio) - 1px) calc(var(--rp-radio) - 1px);
+    border-top: 1px solid var(--rp-linea-suave);
+    color: var(--rp-tinta-2);
+    display: flex;
+    font-size: 0.8rem;
+    font-weight: 700;
+    gap: 6px;
+    justify-content: space-between;
+    margin: 12px -14px 0;
+    padding: 8px 14px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.rp-ficha__ir svg {
+    fill: none;
+    flex: 0 0 auto;
+    height: 16px;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+    transition: transform 0.15s ease;
+    width: 16px;
+}
+
+.rp-ficha__ir-viendo {
+    display: none;
+}
+
+.rp-ficha:hover .rp-ficha__ir {
+    background: color-mix(in oklab, var(--prog) 9%, #ffffff);
+    color: color-mix(in oklab, var(--prog) 72%, #000000);
+}
+
+.rp-ficha:hover .rp-ficha__ir svg {
+    transform: translateY(2px);
+}
+
+.rp-ficha.is-activa .rp-ficha__ir {
+    background: color-mix(in oklab, var(--prog) 80%, #000000);
+    border-top-color: transparent;
+    color: #ffffff;
+}
+
+.rp-ficha.is-activa .rp-ficha__ir-ver {
+    display: none;
+}
+
+.rp-ficha.is-activa .rp-ficha__ir-viendo {
+    display: inline;
+}
+
+/* Programas en los que están los pacientes que cuentan en más de una tarjeta. */
+.rp-combos {
+    background: var(--rp-hoja);
+    border: 1px solid var(--rp-linea);
+    border-radius: var(--rp-radio);
+    box-shadow: 0 24px 48px -20px rgba(19, 32, 43, 0.5);
+    left: 0;
+    max-width: calc(100vw - 2 * var(--rp-gutter));
+    display: grid;
+    gap: 16px 28px;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    padding: 16px 18px 14px;
+    position: absolute;
+    top: calc(100% - 14px);
+    width: 780px;
+    z-index: 30;
+}
+
+.rp-combos[hidden] {
+    display: none;
+}
+
+/* De la suma de las tarjetas a los pacientes: una resta renglón por renglón. */
+.rp-cuenta {
+    display: grid;
+    margin: 10px 0 0;
+}
+
+.rp-cuenta > div {
+    align-items: baseline;
+    border-top: 1px solid var(--rp-linea-suave);
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    padding: 7px 0;
+}
+
+.rp-cuenta dt {
+    font-size: 0.84rem;
+    font-weight: 600;
+}
+
+.rp-cuenta dt small {
+    color: var(--rp-tinta-3);
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 400;
+}
+
+.rp-cuenta dd {
+    font-family: var(--rp-f-dato);
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.rp-cuenta__total {
+    border-top: 2px solid var(--rp-tinta) !important;
+}
+
+.rp-cuenta__total dt,
+.rp-cuenta__total dd {
+    font-weight: 700;
+}
+
+.rp-combos__titulo {
+    font-family: var(--rp-f-titulo);
+    font-size: 1.05rem;
+    font-stretch: 88%;
+    font-weight: 700;
+    margin: 0;
+}
+
+.rp-combos__nota {
+    color: var(--rp-tinta-3);
+    font-size: 0.8rem;
+    margin: 4px 0 12px;
+}
+
+.rp-combos__lista {
+    display: grid;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.rp-combos__lista li {
+    align-items: center;
+    border-top: 1px solid var(--rp-linea-suave);
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    padding: 7px 0;
+}
+
+.rp-combos__lista b {
+    font-family: var(--rp-f-dato);
+    font-size: 0.95rem;
+}
+
+.rp-combos__programas {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.84rem;
+    gap: 4px 6px;
+}
+
+.rp-combos__programa {
+    align-items: center;
+    display: inline-flex;
+    font-weight: 600;
+    gap: 5px;
+}
+
+.rp-combos__programa::before {
+    background: var(--prog);
+    border-radius: 50%;
+    content: "";
+    height: 8px;
+    width: 8px;
+}
+
+.rp-combos__mas {
+    color: var(--rp-tinta-3);
+}
+
+.rp-combos__pie {
+    border-top: 1px solid var(--rp-linea);
+    color: var(--rp-tinta-3);
+    font-size: 0.84rem;
+    margin: 0;
+    padding-top: 8px;
+}
+
+.rp-combos__pie b {
+    color: var(--rp-tinta);
+    font-family: var(--rp-f-dato);
+}
+
+/* --------------------------------------------------------------------------
+   Periodo consultado: filtros y resumen de lo que sí cambia con ellos
+   -------------------------------------------------------------------------- */
+
+.rp-periodo {
+    background: var(--rp-hoja);
+    border: 1px solid var(--rp-linea);
+    border-radius: 18px;
+    margin-bottom: 14px;
+    padding: 16px 18px 14px;
+}
+
+.rp-periodo__cabeza {
+    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 24px;
+    justify-content: space-between;
+}
+
+.rp-periodo__marca {
+    color: var(--rp-tinta-3);
+}
+
+.rp-periodo h2 {
+    font-family: var(--rp-f-titulo);
+    font-size: clamp(1.35rem, 1.9vw, 1.8rem);
+    font-stretch: 82%;
+    font-weight: 700;
+    line-height: 1.1;
+    margin: 2px 0 0;
+}
+
+.rp-periodo__cabeza p {
+    color: var(--rp-tinta-3);
+    font-size: 0.84rem;
+    margin: 0;
+}
+
+.rp-filtros {
+    align-items: end;
     display: flex;
     flex-wrap: wrap;
     gap: 12px 20px;
     justify-content: space-between;
-    margin-bottom: 10px;
-    padding: 12px 14px;
+    margin: 14px 0 10px;
 }
 
 .rp-filtros__rapidos {
@@ -262,8 +688,8 @@ body.page-reportes {
 .rp-campo input:focus,
 .rp-campo select:focus {
     border-color: var(--rp-tinta-2);
-    outline: none;
     box-shadow: 0 0 0 3px rgba(19, 32, 43, 0.12);
+    outline: none;
 }
 
 .rp-filtros__acciones {
@@ -316,7 +742,7 @@ body.page-reportes {
 }
 
 .rp-aplicados b {
-    background: var(--rp-hoja);
+    background: var(--rp-hoja-2);
     border: 1px solid var(--rp-linea);
     border-radius: 999px;
     font-weight: 700;
@@ -328,185 +754,75 @@ body.page-reportes {
     font-size: 0.8rem;
 }
 
-/* --------------------------------------------------------------------------
-   Censo de hoy: fichas que también son pestañas
-   -------------------------------------------------------------------------- */
-
-.rp-censo {
-    margin-top: 14px;
-}
-
-.rp-tablero {
-    align-items: stretch;
-    display: grid;
-    gap: 8px;
-    grid-template-columns: minmax(200px, 0.95fr) repeat(6, minmax(172px, 1fr));
-    overflow-x: auto;
-    padding-top: 2px;
-    scrollbar-width: thin;
-}
-
-.rp-unicos {
-    background: var(--rp-tinta);
-    border-radius: var(--rp-radio) var(--rp-radio) 0 0;
-    color: #dfe7ec;
-    display: grid;
-    align-content: start;
-    gap: 2px;
-    padding: 14px 16px 12px;
-}
-
-.rp-unicos__rotulo {
-    color: #ff9f86;
+/* Resumen del periodo: una fila, un programa por columna, sin aspecto de botón. */
+.rp-resumen__titulo {
+    border-top: 1px solid var(--rp-linea-suave);
+    color: var(--rp-tinta-3);
     font-family: var(--rp-f-titulo);
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     font-weight: 700;
     letter-spacing: 0.12em;
+    margin: 4px 0 8px;
+    padding-top: 12px;
     text-transform: uppercase;
 }
 
-.rp-unicos strong {
-    color: #ffffff;
-    font-family: var(--rp-f-titulo);
-    font-size: clamp(2.4rem, 3.2vw, 3.1rem);
-    font-stretch: 72%;
-    font-weight: 700;
-    line-height: 1;
-    margin-top: 6px;
-}
-
-.rp-unicos > span {
-    color: #ffffff;
-    font-weight: 700;
-}
-
-.rp-unicos small {
-    color: #b9c7d1;
-    font-size: 0.76rem;
-    line-height: 1.35;
-    margin-top: 4px;
-}
-
-.rp-unicos time {
-    color: #93a6b4;
-    font-family: var(--rp-f-dato);
-    font-size: 0.74rem;
-    margin-top: 6px;
-}
-
-.rp-unicos time::first-letter {
-    text-transform: uppercase;
-}
-
-.rp-ficha {
-    background: rgba(255, 255, 255, 0.5);
-    border: 1px solid var(--rp-linea);
-    border-bottom: 0;
-    border-radius: var(--rp-radio) var(--rp-radio) 0 0;
-    border-top: 4px solid color-mix(in oklab, var(--prog) 45%, #ffffff);
-    color: var(--rp-tinta);
+.rp-resumen {
     display: grid;
-    gap: 3px;
-    grid-template-rows: auto auto auto 1fr auto;
-    padding: 11px 14px 10px;
-    position: relative;
-    text-decoration: none;
-    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    gap: 10px 0;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    list-style: none;
+    margin: 0;
+    padding: 0;
 }
 
-.rp-ficha:hover {
-    background: rgba(255, 255, 255, 0.92);
-    color: var(--rp-tinta);
+.rp-resumen li {
+    align-content: start;
+    border-left: 3px solid var(--prog);
+    display: grid;
+    gap: 1px;
+    padding: 1px 12px;
 }
 
-/* La ficha elegida toma el color pleno de su programa y el mismo blanco del panel que abre. */
-.rp-ficha.is-activa {
-    background: var(--rp-hoja);
-    border-color: color-mix(in oklab, var(--prog) 35%, var(--rp-linea));
-    border-top: 7px solid var(--prog);
-    box-shadow: 0 -12px 26px -16px rgba(19, 32, 43, 0.4);
-    padding-top: 8px;
-}
-
-.rp-ficha__nombre {
-    align-items: center;
-    display: flex;
-    font-family: var(--rp-f-titulo);
-    font-size: 0.98rem;
-    font-stretch: 88%;
-    font-weight: 700;
-    gap: 7px;
-}
-
-.rp-ficha__nombre::before {
-    background: var(--prog);
-    border-radius: 50%;
-    content: "";
-    flex: 0 0 auto;
-    height: 9px;
-    width: 9px;
-}
-
-.rp-ficha__activos {
-    align-items: baseline;
+.rp-resumen__nombre {
     color: var(--rp-tinta-2);
-    display: flex;
-    flex-wrap: wrap;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.rp-resumen__cifra {
+    color: var(--rp-tinta-2);
     font-size: 0.84rem;
-    gap: 0 7px;
 }
 
-.rp-ficha__activos strong {
+.rp-resumen__cifra strong {
     color: var(--rp-tinta);
     font-family: var(--rp-f-titulo);
-    font-size: clamp(2.1rem, 2.6vw, 2.65rem);
-    font-stretch: 72%;
+    font-size: 1.55rem;
+    font-stretch: 76%;
     font-weight: 700;
-    line-height: 1.02;
+    line-height: 1.1;
 }
 
-.rp-ficha__ingresos {
-    color: var(--rp-tinta-2);
-    font-size: 0.82rem;
-}
-
-.rp-ficha__ingresos strong {
-    color: var(--rp-tinta);
-    font-family: var(--rp-f-titulo);
-    font-size: 1.1rem;
-    font-stretch: 85%;
-    font-weight: 700;
-}
-
-/* Miniatura: línea con título, máximo marcado y fechas de inicio y fin. */
-.rp-mini {
-    align-self: end;
-    display: grid;
-    gap: 2px;
-    margin-top: 8px;
-}
-
-.rp-mini__cabeza {
+.rp-resumen small {
     color: var(--rp-tinta-3);
-    display: flex;
-    font-size: 0.72rem;
-    gap: 8px;
-    justify-content: space-between;
+    font-size: 0.74rem;
+    line-height: 1.3;
 }
 
-.rp-mini__cabeza b {
+.rp-resumen small b {
     color: var(--rp-tinta);
-    font-family: var(--rp-f-dato);
 }
 
-.rp-mini__lienzo {
+/* Chispa: la forma de la serie del programa, sin ejes ni cifras. El punto marca el día más alto. */
+.rp-chispa {
     display: block;
     height: 34px;
-    margin: 4px 3px 0;
+    margin-top: 6px;
     position: relative;
 }
 
-.rp-mini__lienzo svg {
+.rp-chispa svg {
     height: 100%;
     inset: 0;
     overflow: visible;
@@ -514,18 +830,18 @@ body.page-reportes {
     width: 100%;
 }
 
-.rp-mini__area {
+.rp-chispa__area {
     fill: color-mix(in oklab, var(--prog) 15%, transparent);
 }
 
-.rp-mini__linea {
+.rp-chispa__linea {
     fill: none;
     stroke: var(--prog);
     stroke-linejoin: round;
     stroke-width: 2;
 }
 
-.rp-mini__pico {
+.rp-chispa__pico {
     background: var(--prog);
     border: 1.5px solid #ffffff;
     border-radius: 50%;
@@ -536,41 +852,10 @@ body.page-reportes {
     width: 8px;
 }
 
-.rp-mini__pie {
-    color: var(--rp-tinta-3);
-    display: flex;
-    font: 0.66rem var(--rp-f-dato);
-    justify-content: space-between;
-}
-
-.rp-mini--vacia {
-    align-self: end;
-    color: var(--rp-tinta-3);
-    font-size: 0.76rem;
-    font-style: italic;
-    margin-top: 8px;
-}
-
-.rp-ficha__pie {
-    border-top: 1px solid var(--rp-linea-suave);
-    color: var(--rp-tinta-3);
-    display: grid;
-    font-size: 0.74rem;
-    gap: 2px;
-    line-height: 1.3;
-    margin-top: 6px;
-    padding-top: 6px;
-}
-
-.rp-ficha__pie b {
-    color: var(--rp-tinta);
-    font-weight: 700;
-}
-
 .rp-asterisco {
     color: var(--rp-tinta-3);
     font-size: 0.78rem;
-    margin: 6px 0 0;
+    margin: 8px 0 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -580,8 +865,8 @@ body.page-reportes {
 .rp-panel {
     background: var(--rp-hoja);
     border: 1px solid var(--rp-linea);
-    border-radius: 0 0 20px 20px;
-    border-top: 3px solid var(--prog);
+    border-radius: 20px;
+    border-top: 5px solid var(--prog);
     padding: clamp(16px, 1.8vw, 28px);
 }
 
@@ -715,6 +1000,50 @@ body.page-reportes {
     color: var(--rp-tinta-3);
     font-size: 0.78rem;
     margin: 3px 0 0;
+}
+
+/* Tarjeta con selector (p. ej. "Ingresos del periodo / Activos hoy"). */
+.rp-tarjeta__cabeza--con-control {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.rp-segmento {
+    background: var(--rp-hoja-2);
+    border: 1px solid var(--rp-linea);
+    border-radius: 9px;
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+}
+
+.rp-segmento button {
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    color: var(--rp-tinta-2);
+    cursor: pointer;
+    font: 700 0.78rem var(--rp-f-texto);
+    padding: 5px 10px;
+    white-space: nowrap;
+}
+
+.rp-segmento button:hover {
+    background: var(--rp-hoja);
+    color: var(--rp-tinta);
+}
+
+.rp-segmento button[aria-pressed="true"] {
+    background: var(--rp-tinta);
+    color: #ffffff;
+}
+
+[data-rp-alterna-vista] > .rp-base {
+    margin: 0 0 4px;
 }
 
 .rp-subtitulo {
@@ -1202,6 +1531,7 @@ body.page-reportes {
 .rp-trazo--n1 { stroke: var(--rp-n1); }
 .rp-trazo--n2 { stroke: var(--rp-n2); }
 .rp-trazo--n3 { stroke: var(--rp-n3); }
+.rp-trazo--n4 { stroke: var(--rp-n4); }
 
 .rp-dona__centro {
     align-content: center;
@@ -1230,88 +1560,173 @@ body.page-reportes {
 }
 
 /* --------------------------------------------------------------------------
-   Calendario de ingresos
+   Calendario de ingresos: un calendario de pared por mes
    -------------------------------------------------------------------------- */
 
-.rp-calendario {
-    overflow-x: auto;
+.rp-cal {
+    display: grid;
+    gap: 14px;
 }
 
-.rp-calendario__tabla {
-    border-collapse: separate;
-    border-spacing: 3px;
-    font: 0.82rem var(--rp-f-dato);
-    width: 100%;
-}
-
-.rp-calendario__tabla thead th {
-    color: var(--rp-tinta-3);
-    font: 700 0.72rem var(--rp-f-texto);
-    padding: 2px 0 4px;
-    text-align: center;
-}
-
-.rp-calendario__tabla thead th:first-child {
-    text-align: left;
-}
-
-.rp-calendario__tabla tbody th {
-    color: var(--rp-tinta-3);
-    font-size: 0.74rem;
-    font-weight: 400;
-    padding-right: 6px;
-    text-align: left;
-    white-space: nowrap;
-}
-
-.rp-calendario__dia {
-    border-radius: 6px;
-    font-weight: 700;
-    min-width: 2.2em;
-    padding: 7px 0;
-    text-align: center;
-}
-
-.rp-calendario__fuera {
-    background: transparent;
-}
-
-.rp-calendario__total {
-    color: var(--rp-tinta);
-    font-weight: 700;
-    padding-left: 10px;
-    text-align: right;
-}
-
-.rp-nivel-0 { background: var(--rp-hoja-2); color: var(--rp-tinta-3); }
-.rp-nivel-1 { background: color-mix(in oklab, var(--prog) 14%, #ffffff); color: var(--rp-tinta); }
-.rp-nivel-2 { background: color-mix(in oklab, var(--prog) 30%, #ffffff); color: var(--rp-tinta); }
-.rp-nivel-3 { background: color-mix(in oklab, var(--prog) 50%, #ffffff); color: var(--rp-tinta); }
-.rp-nivel-4 { background: color-mix(in oklab, var(--prog) 86%, #000000); color: #ffffff; }
-
-.rp-calendario__escala {
+.rp-cal__leyenda {
     align-items: center;
-    color: var(--rp-tinta-3);
+    color: var(--rp-tinta-2);
     display: flex;
     flex-wrap: wrap;
-    font-size: 0.74rem;
-    gap: 4px;
-    margin: 10px 0 0;
+    font-size: 0.8rem;
+    gap: 6px 16px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
 }
 
-.rp-calendario__escala i {
-    border-radius: 3px;
+.rp-cal__leyenda li {
+    align-items: center;
+    display: inline-flex;
+    gap: 6px;
+}
+
+.rp-cal__leyenda i {
+    border-radius: 4px;
     display: inline-block;
     height: 14px;
     width: 14px;
 }
 
-.rp-calendario__escala span:first-child {
-    margin-right: 2px;
+.rp-cal__clave {
+    color: var(--rp-tinta-3);
+    margin-left: auto;
 }
 
-.rp-calendario__escala span:last-child {
-    margin-left: 4px;
+.rp-cal__muestra {
+    align-items: flex-start;
+    background: var(--rp-hoja-2);
+    border: 1px solid var(--rp-linea);
+    border-radius: 6px;
+    display: inline-flex;
+    gap: 4px;
+    padding: 2px 4px;
+}
+
+.rp-cal__muestra b {
+    font-family: var(--rp-f-titulo);
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
+.rp-cal__muestra span {
+    background: #ffffff;
+    border-radius: 999px;
+    font: 700 0.66rem var(--rp-f-dato);
+    padding: 0 4px;
+}
+
+.rp-cal__meses {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+}
+
+.rp-cal__mes {
+    border-collapse: separate;
+    border-spacing: 4px;
+    table-layout: fixed;
+    width: 100%;
+}
+
+/* El caption sigue siendo caption (un display: flex lo saca de la tabla y lo pinta debajo de los
+   días de la semana); la fila flexible va en un div interior. */
+.rp-cal__mes caption {
+    caption-side: top;
+    padding: 0 4px 4px;
+}
+
+.rp-cal__titulo {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+    justify-content: space-between;
+}
+
+.rp-cal__mes caption span {
+    color: var(--rp-tinta);
+    font-family: var(--rp-f-titulo);
+    font-size: 1.02rem;
+    font-stretch: 88%;
+    font-weight: 700;
+}
+
+.rp-cal__mes caption small {
+    color: var(--rp-tinta-3);
+    font-size: 0.76rem;
+}
+
+.rp-cal__mes thead th {
+    color: var(--rp-tinta-3);
+    font: 700 0.72rem var(--rp-f-texto);
+    letter-spacing: 0.03em;
+    padding: 2px 0;
+    text-align: center;
+}
+
+.rp-cal__mes thead th.is-finde {
+    color: var(--rp-tinta-2);
+}
+
+.rp-cal__dia {
+    border-radius: 8px;
+    height: 56px;
+    padding: 5px 6px;
+    position: relative;
+    vertical-align: top;
+}
+
+/* El día: número grande arriba a la izquierda. */
+.rp-cal__dia > b {
+    display: block;
+    font-family: var(--rp-f-titulo);
+    font-size: 1.1rem;
+    font-stretch: 85%;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* Los ingresos: etiqueta pequeña abajo a la derecha, sobre blanco para distinguirla del día. */
+.rp-cal__dia > span {
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 999px;
+    bottom: 5px;
+    color: var(--rp-tinta);
+    font: 700 0.76rem var(--rp-f-dato);
+    line-height: 1.35;
+    padding: 0 6px;
+    position: absolute;
+    right: 5px;
+}
+
+.rp-cal__dia.is-fuera {
+    background: transparent;
+    border: 1px dashed var(--rp-linea);
+    color: var(--rp-tinta-3);
+}
+
+.rp-cal__dia.is-fuera > b {
+    font-weight: 500;
+    opacity: 0.7;
+}
+
+.rp-cal__vacio {
+    background: transparent;
+}
+
+/* Tres tonos fijos: menos de 20, de 20 a 30, más de 30 ingresos en el día. */
+.rp-cal--n1 { background: color-mix(in oklab, var(--prog) 20%, #ffffff); color: var(--rp-tinta); }
+.rp-cal--n2 { background: color-mix(in oklab, var(--prog) 42%, #ffffff); color: var(--rp-tinta); }
+.rp-cal--n3 { background: color-mix(in oklab, var(--prog) 86%, #000000); color: #ffffff; }
+
+.rp-cal__dia[data-rp-tip]:hover {
+    box-shadow: 0 0 0 2px var(--rp-tinta-2);
 }
 
 /* --------------------------------------------------------------------------
@@ -1543,6 +1958,7 @@ body.page-reportes {
 .rp-tono--n1 { background: var(--rp-n1); }
 .rp-tono--n2 { background: var(--rp-n2); }
 .rp-tono--n3 { background: var(--rp-n3); }
+.rp-tono--n4 { background: var(--rp-n4); }
 
 /* --------------------------------------------------------------------------
    Tablas y listas
@@ -1822,9 +2238,62 @@ td > .rp-tenue:only-child {
         grid-column: span 3;
     }
 
+    /* Las tres donas siguen en una misma fila. */
+    .rp-c-4.rp-tercio {
+        grid-column: span 2;
+    }
+
     .rp-c-8,
     .rp-c-12 {
         grid-column: span 6;
+    }
+}
+
+/* Sin ancho para siete columnas: "Personas" pasa arriba y las fichas quedan en una fila de seis. */
+@media (max-width: 1279.98px) {
+    .rp-tablero {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .rp-unicos {
+        align-items: baseline;
+        column-gap: 12px;
+        grid-template-columns: auto auto minmax(0, 1fr) auto;
+    }
+
+    .rp-unicos__rotulo {
+        grid-column: 1 / -1;
+    }
+
+    .rp-unicos strong {
+        margin-top: 2px;
+    }
+
+    .rp-unicos small {
+        margin-top: 0;
+    }
+
+    .rp-unicos__boton {
+        align-self: center;
+        margin-top: 0;
+    }
+
+    .rp-combos {
+        box-shadow: none;
+        margin-top: 10px;
+        max-width: none;
+        position: static;
+        width: auto;
+    }
+
+    .rp-resumen {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1099.98px) {
+    .rp-fichas {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
@@ -1878,8 +2347,27 @@ td > .rp-tenue:only-child {
         flex: 1 1 0;
     }
 
-    .rp-tablero {
-        grid-template-columns: repeat(7, minmax(160px, 1fr));
+    .rp-fichas,
+    .rp-resumen {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .rp-combos {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .rp-unicos {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .rp-unicos small,
+    .rp-unicos__boton {
+        grid-column: 1 / -1;
+    }
+
+    .rp-unicos__boton {
+        justify-self: start;
+        margin-top: 6px;
     }
 
     .rp-columnas {
@@ -1901,13 +2389,23 @@ td > .rp-tenue:only-child {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .rp-ficha {
+    .rp-ficha,
+    .rp-ficha__ir,
+    .rp-ficha__ir svg {
         transition: none;
+    }
+
+    .rp-ficha:hover,
+    .rp-ficha:hover .rp-ficha__ir svg {
+        transform: none;
     }
 }
 
 @media print {
     .rp-filtros,
+    .rp-ficha__ir,
+    .rp-unicos__boton,
+    .rp-combos,
     .rp-panel__filtros,
     .rp-tabulado,
     .rp-tip {

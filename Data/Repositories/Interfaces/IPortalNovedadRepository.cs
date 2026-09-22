@@ -16,6 +16,12 @@ public interface IPortalNovedadRepository
         string? auxiliar,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Novedades sin resolver en este momento, sin importar cuándo se crearon, y la fecha de creación
+    /// (UTC) de la más antigua.
+    /// </summary>
+    Task<(int Pendientes, DateTime? MasAntiguaUtc)> GetPendientesAsync(CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<string>> GetCategoriasAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<string>> GetAuxiliaresAsync(CancellationToken cancellationToken = default);

@@ -100,7 +100,6 @@ public partial class HojaVidaPacienteService
             Cie10 = Texto(r.CodigoCie10),
             Diagnostico = Texto(r.DiagnosticoDescriptivo),
             Asegurador = Texto(r.Asegurador),
-            Observacion = Texto(r.ObservacionesPlanManejo),
             QuienGestionaAlta = Texto(r.NombreQuienGestionaAlta)
         };
 
@@ -191,7 +190,6 @@ public partial class HojaVidaPacienteService
             ("Fin del tratamiento", FechaTexto(r.FechaFinTratamiento)),
             ("Aplicaciones totales", r.AplicacionesTotales),
             ("Días de tratamiento IV", r.DiasTratamientoIv),
-            ("Llamada de bienvenida", r.EstadoLlamadaBienvenida),
             ("Alta tardía", EsSi(r.AltaTardia) ? "Sí" : null),
             ("Devolución de productos", Unir(r.MotivoNovedadDevolucionProductos, r.EstadoDevolucionServicioFarmaceutico)));
 
@@ -303,8 +301,6 @@ public partial class HojaVidaPacienteService
                 Vence(r.FechaUltimaPrescripcionNutricion, r.TiempoPrescripcionNutricionMeses),
                 Texto(r.EstadoMipresNutricion)));
 
-        ingreso.Observacion = Texto(r.ObservacionCambioSonda);
-
         ingreso.Datos = Datos(
             ("Fuente de ingreso", r.FuenteIngreso),
             ("Clasificación del caso", r.ClasificacionCaso),
@@ -407,8 +403,7 @@ public partial class HojaVidaPacienteService
             MotivoAlta = cerrado ? Texto(r.MotivoEgreso) ?? Texto(r.Estado) : null,
             Cie10 = Texto(r.CodigoCie10),
             Diagnostico = Texto(r.DiagnosticoDescriptivo),
-            Asegurador = Texto(r.Asegurador),
-            Observacion = Texto(r.Observacion)
+            Asegurador = Texto(r.Asegurador)
         };
 
         CalcularEstancia(ingreso, hoy);
@@ -418,7 +413,6 @@ public partial class HojaVidaPacienteService
             ("Fecha de valoración", FechaTexto(r.FechaValoracion)),
             ("Duración del tratamiento", r.DuracionTratamientoDias is { } d ? HojaVidaFormato.Dias(d) : null),
             ("Frecuencia de visita", r.FrecuenciaVisita),
-            ("Llamada de bienvenida", r.LlamadaBienvenida),
             ("Equipo en comodato", EsSi(r.EquipoComodato)
                 ? Unir(Texto(r.NumeroPlacaEquipos) is { } placa ? $"Placa {placa}" : null,
                     FechaValida(r.FechaEntregaEquipo) is { } entrega ? $"entregado el {HojaVidaFormato.Fecha(entrega)}" : null,
@@ -562,8 +556,7 @@ public partial class HojaVidaPacienteService
             MotivoAlta = cerrado ? Texto(r.MotivoEgreso) ?? Texto(r.Estado) : null,
             Cie10 = Texto(r.CodigoCie10),
             Diagnostico = Texto(r.DiagnosticoDescriptivo),
-            Asegurador = Texto(r.Asegurador),
-            Observacion = Texto(r.Observacion)
+            Asegurador = Texto(r.Asegurador)
         };
 
         CalcularEstancia(ingreso, hoy);
@@ -592,7 +585,6 @@ public partial class HojaVidaPacienteService
 
         ingreso.Datos = Datos(
             ("Fecha de valoración", FechaTexto(r.FechaValoracion)),
-            ("Llamada de bienvenida", r.LlamadaBienvenida),
             ("Equipo en comodato", EsSi(r.EquipoComodato)
                 ? Unir(r.DescripcionEquipo, Texto(r.NumeroPlacaEquipos) is { } placa ? $"placa {placa}" : null,
                     FechaValida(r.FechaDevolucionEquipo) is { } devolucion ? $"devuelto el {HojaVidaFormato.Fecha(devolucion)}" : "sin devolver")

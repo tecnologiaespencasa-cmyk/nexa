@@ -38,6 +38,10 @@
             const whatsappBtnText = document.getElementById("extractorWhatsappBtnText");
             const copiarCensoBtn = document.getElementById("extractorCopiarCensoBtn");
             const reiniciarBtn = document.getElementById("extractorReiniciarBtn");
+            const heridasAviso = document.getElementById("extractorHeridasAviso");
+            const heridasLead = document.getElementById("extractorHeridasLead");
+            const heridasEvidencia = document.getElementById("extractorHeridasEvidencia");
+            const heridasCorreo = document.getElementById("extractorHeridasCorreo");
 
             const unidadOptions = ["Miligramos", "Gramos", "Unidades", "Gotas", "Mililitros"];
             const viaOptions = ["Intravenosa", "Intramuscular", "Subcutánea", "Nebulizada", "Oral"];
@@ -176,6 +180,49 @@
                 });
             };
 
+            // ── Aviso de candidato a clínica de heridas ──
+            // El servidor ya buscó las palabras clave y ya avisó por correo; aquí solo se muestra
+            // lo encontrado, con el pedazo del documento donde aparece cada palabra.
+            const renderHeridasAviso = (candidato) => {
+                if (!heridasAviso) return;
+                const coincidencias = Array.isArray(candidato?.coincidencias) ? candidato.coincidencias : [];
+                heridasAviso.hidden = coincidencias.length === 0;
+                if (heridasEvidencia) heridasEvidencia.innerHTML = "";
+                if (coincidencias.length === 0) return;
+
+                const palabras = coincidencias.map((c) => `“${c.palabraClave}”`);
+                const listado = palabras.length === 1
+                    ? palabras[0]
+                    : `${palabras.slice(0, -1).join(", ")} y ${palabras[palabras.length - 1]}`;
+                if (heridasLead) {
+                    heridasLead.textContent = palabras.length === 1
+                        ? `La remisión contiene la palabra clave ${listado}.`
+                        : `La remisión contiene las palabras clave ${listado}.`;
+                }
+
+                coincidencias.forEach((c) => {
+                    const item = document.createElement("li");
+                    const etiqueta = document.createElement("span");
+                    etiqueta.className = "censo-extractor-heridas__palabra";
+                    etiqueta.textContent = c.palabraClave;
+                    const cita = document.createElement("q");
+                    cita.className = "censo-extractor-heridas__cita";
+                    const marca = document.createElement("mark");
+                    marca.textContent = c.encontrado;
+                    cita.append(c.antes ?? "", marca, c.despues ?? "");
+                    item.append(etiqueta, cita);
+                    heridasEvidencia?.appendChild(item);
+                });
+
+                if (heridasCorreo) {
+                    const enviado = candidato.correoEnviado === true;
+                    heridasCorreo.classList.toggle("is-fallido", !enviado);
+                    heridasCorreo.textContent = enviado
+                        ? "Se avisó por correo a programas especiales."
+                        : (candidato.avisoCorreo || "No se pudo enviar el correo a programas especiales. Avísales por otro medio.");
+                }
+            };
+
             const resetExtractor = () => {
                 stopLoadingAnimation();
                 clearError();
@@ -183,6 +230,7 @@
                 if (fieldsContainer) fieldsContainer.innerHTML = "";
                 if (medsContainer) medsContainer.innerHTML = "";
                 if (medsSection) medsSection.classList.add("d-none");
+                renderHeridasAviso(null);
                 currentMedsCount = 0;
                 if (whatsappBtn) whatsappBtn.classList.add("d-none");
                 if (copiarCensoBtn) copiarCensoBtn.classList.add("d-none");
@@ -439,7 +487,8 @@
                 return data;
             };
 
-            const showResults = (data) => {
+            const showResults = (data, candidatoHeridas) => {
+                renderHeridasAviso(candidatoHeridas);
                 renderFields(data);
                 renderMeds(Array.isArray(data.medicamentos) ? data.medicamentos : []);
                 setLeftPanel(resultPanel);
@@ -521,7 +570,7 @@
                         return;
                     }
 
-                    showResults(result.data ?? {});
+                    showResults(result.data ?? {}, result.candidatoClinicaHeridas);
                 } catch {
                     showError("Error de conexión al extraer los datos. Intenta nuevamente.");
                     setLeftPanel(idlePanel);
@@ -577,7 +626,7 @@
                         return;
                     }
 
-                    showResults(result.data ?? {});
+                    showResults(result.data ?? {}, result.candidatoClinicaHeridas);
                 } catch {
                     showError("Error de conexión al extraer los datos. Intenta nuevamente.");
                     setLeftPanel(idlePanel);

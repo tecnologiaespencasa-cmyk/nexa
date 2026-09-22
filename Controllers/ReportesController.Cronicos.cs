@@ -18,7 +18,7 @@ namespace Nexa.Controllers;
 /// </summary>
 public partial class ReportesController
 {
-    private async Task<ResultadoPrograma<ReportesCronicosViewModel>> ConstruirCronicosAsync(
+    private async Task<ReportesCronicosViewModel> ConstruirCronicosAsync(
         ApplicationDbContext contexto,
         ReportesFilterViewModel f,
         Periodo p,
@@ -45,11 +45,7 @@ public partial class ReportesController
             })
             .ToListAsync(ct);
 
-        bool EsActivo(DateTime? fechaEgreso, string? estado) =>
-            !CensoVisibility.HayEgreso(fechaEgreso)
-            && !string.Equals(estado, "Inactivo", StringComparison.OrdinalIgnoreCase);
-
-        var activos = filas.Where(x => EsActivo(x.FechaEgreso, x.EstadoPaciente)).ToList();
+        var activos = filas.Where(x => EsCronicoActivo(x.FechaEgreso, x.EstadoPaciente)).ToList();
         var ingresos = filas.Where(x => p.Contiene(x.FechaIngreso)).ToList();
         var egresos = filas
             .Where(x => CensoVisibility.HayEgreso(x.FechaEgreso) && p.Contiene(x.FechaEgreso!.Value))
@@ -75,7 +71,6 @@ public partial class ReportesController
             IngresosPeriodoAnterior = filas.Count(x => p.Anterior.Contiene(x.FechaIngreso)),
             PromedioIngresosDia = Promedio(ingresos.Count, p.Dias),
             Ingresos = ConstruirSerie(ingresos.Select(x => x.FechaIngreso), p),
-            Destacado = egresos.Count == 1 ? "1 egreso en el periodo" : $"{ReportesFormato.Entero(egresos.Count)} egresos en el periodo",
             EgresosPeriodo = egresos.Count,
             InactivosSinFechaEgreso = filas.Count(x => !CensoVisibility.HayEgreso(x.FechaEgreso)
                 && string.Equals(x.EstadoPaciente, "Inactivo", StringComparison.OrdinalIgnoreCase)),
@@ -99,9 +94,7 @@ public partial class ReportesController
             HospitalizacionesRegistradas = hospitalizaciones.Count(x => p.Contiene(ColombiaTime.Convert(x)))
         };
 
-        return new ResultadoPrograma<ReportesCronicosViewModel>(
-            modelo,
-            activos.Select(x => x.NumeroIdentificacion).ToList());
+        return modelo;
     }
 
     /// <summary>

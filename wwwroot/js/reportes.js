@@ -1,6 +1,7 @@
 // Reportes: las fichas del "Censo de hoy" funcionan como pestañas y los gráficos muestran el
 // rango exacto de cada barra al señalarla. Sin este archivo la página sigue funcionando: cada
-// ficha es un enlace que recarga la página con su panel abierto.
+// ficha es un enlace que recarga la página con su panel abierto (solo se pierden el selector de
+// auxiliares, que queda en "Ingresos del periodo", y la lista de combinaciones de programas).
 (function () {
     "use strict";
 
@@ -74,6 +75,20 @@
         }
     }
 
+    // Entre las fichas y su panel están los filtros del periodo: si el panel recién abierto queda
+    // fuera de la pantalla, se baja hasta él para que el clic tenga un efecto visible.
+    function mostrarPanel(ficha) {
+        var panel = document.getElementById(ficha.getAttribute("aria-controls"));
+        if (!panel) {
+            return;
+        }
+        var arriba = panel.getBoundingClientRect().top;
+        if (arriba > window.innerHeight - 160) {
+            var suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            window.scrollTo({ top: window.scrollY + arriba - 90, behavior: suave ? "smooth" : "auto" });
+        }
+    }
+
     fichas.forEach(function (ficha, indice) {
         ficha.addEventListener("click", function (evento) {
             // Ctrl/Cmd+clic o clic central: abrir en otra pestaña del navegador, como cualquier enlace.
@@ -83,6 +98,7 @@
 
             evento.preventDefault();
             activar(ficha, false);
+            mostrarPanel(ficha);
         });
 
         ficha.addEventListener("keydown", function (evento) {
@@ -107,6 +123,55 @@
             }
         });
     });
+
+    // ------------------------------------------------------------------------------------------
+    // Tarjetas con selector: muestran una de sus vistas ("Ingresos del periodo" / "Activos hoy").
+    // ------------------------------------------------------------------------------------------
+
+    raiz.querySelectorAll("[data-rp-alterna]").forEach(function (tarjeta) {
+        var botones = tarjeta.querySelectorAll("[data-rp-alterna-boton]");
+        botones.forEach(function (boton) {
+            boton.addEventListener("click", function () {
+                var elegida = boton.getAttribute("data-rp-alterna-boton");
+                botones.forEach(function (otro) {
+                    otro.setAttribute("aria-pressed", otro === boton ? "true" : "false");
+                });
+                tarjeta.querySelectorAll("[data-rp-alterna-vista]").forEach(function (vista) {
+                    vista.hidden = vista.getAttribute("data-rp-alterna-vista") !== elegida;
+                });
+            });
+        });
+    });
+
+    // ------------------------------------------------------------------------------------------
+    // "Ver en qué programas": lista de pacientes que cuentan en más de una tarjeta.
+    // ------------------------------------------------------------------------------------------
+
+    var botonCombos = raiz.querySelector("[data-rp-combos]");
+    var cajaCombos = botonCombos ? document.getElementById(botonCombos.getAttribute("aria-controls")) : null;
+    if (botonCombos && cajaCombos) {
+        var alternarCombos = function (abrir) {
+            botonCombos.setAttribute("aria-expanded", abrir ? "true" : "false");
+            cajaCombos.hidden = !abrir;
+        };
+
+        botonCombos.addEventListener("click", function () {
+            alternarCombos(cajaCombos.hidden);
+        });
+
+        document.addEventListener("click", function (evento) {
+            if (!cajaCombos.hidden && !cajaCombos.contains(evento.target) && !botonCombos.contains(evento.target)) {
+                alternarCombos(false);
+            }
+        });
+
+        document.addEventListener("keydown", function (evento) {
+            if (evento.key === "Escape" && !cajaCombos.hidden) {
+                alternarCombos(false);
+                botonCombos.focus();
+            }
+        });
+    }
 
     // ------------------------------------------------------------------------------------------
     // Rótulo emergente: rango exacto de cada barra. Solo agrega; el valor ya está escrito.

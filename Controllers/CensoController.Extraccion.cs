@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Nexa.Helpers;
 using Nexa.Models.ViewModels;
+using Nexa.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
@@ -83,7 +84,9 @@ public partial class CensoController
             extraccionAuditUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
 
         using var document = JsonDocument.Parse(result.Json);
-        return Json(new { success = true, data = document.RootElement.Clone() });
+        var candidato = await DetectarCandidatoClinicaHeridasAsync(
+            documentText, soloRespuestas: isSpreadsheet, document.RootElement, file.FileName, cancellationToken);
+        return Json(new { success = true, data = document.RootElement.Clone(), candidatoClinicaHeridas = candidato });
     }
 
     [HttpPost]
@@ -116,8 +119,61 @@ public partial class CensoController
             HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
 
         using var document = JsonDocument.Parse(result.Json);
-        return Json(new { success = true, data = document.RootElement.Clone() });
+        var candidato = await DetectarCandidatoClinicaHeridasAsync(
+            documentText, soloRespuestas: false, document.RootElement, "Texto pegado", cancellationToken);
+        return Json(new { success = true, data = document.RootElement.Clone(), candidatoClinicaHeridas = candidato });
     }
+
+    /// <summary>
+    /// Si la remisión menciona clínica de heridas, curaciones o celulitis, avisa por correo a
+    /// programas especiales y devuelve lo encontrado para que el modal lo muestre. El correo es
+    /// obligatorio pero nunca tumba la extracción: si no sale, se dice en pantalla.
+    /// </summary>
+    /// <returns>null si el documento no tiene ninguna de las palabras clave.</returns>
+    private async Task<object?> DetectarCandidatoClinicaHeridasAsync(
+        string documentText,
+        bool soloRespuestas,
+        JsonElement datosExtraidos,
+        string origen,
+        CancellationToken cancellationToken)
+    {
+        var coincidencias = ClinicaHeridasCandidatoDetector.Detectar(documentText, soloRespuestas);
+        if (coincidencias.Count == 0)
+        {
+            return null;
+        }
+
+        var nombre = LeerTexto(datosExtraidos, "nombre");
+        var documento = string.Join(' ', new[]
+        {
+            LeerTexto(datosExtraidos, "tipo_documento"),
+            LeerTexto(datosExtraidos, "documento")
+        }.Where(parte => !string.IsNullOrWhiteSpace(parte)));
+
+        var avisoCorreo = await _censoProgramaNotificationService.NotificarCandidatoClinicaHeridasAsync(
+            new CandidatoClinicaHeridasAviso(nombre, documento, origen, UsuarioActual(), coincidencias),
+            cancellationToken);
+
+        return new
+        {
+            coincidencias = coincidencias.Select(c => new
+            {
+                palabraClave = c.PalabraClave,
+                antes = c.Antes,
+                encontrado = c.Encontrado,
+                despues = c.Despues
+            }),
+            correoEnviado = string.IsNullOrWhiteSpace(avisoCorreo),
+            avisoCorreo = string.IsNullOrWhiteSpace(avisoCorreo) ? null : avisoCorreo
+        };
+    }
+
+    private static string? LeerTexto(JsonElement datos, string propiedad)
+        => datos.ValueKind == JsonValueKind.Object
+            && datos.TryGetProperty(propiedad, out var valor)
+            && valor.ValueKind == JsonValueKind.String
+                ? valor.GetString()?.Trim()
+                : null;
 
     private static string ExtractPdfText(byte[] bytes)
     {
