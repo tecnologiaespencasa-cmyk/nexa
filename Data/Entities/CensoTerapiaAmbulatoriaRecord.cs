@@ -132,9 +132,6 @@ public class CensoTerapiaAmbulatoriaRecord
     [StringLength(80)]
     public string? MotivoAlta { get; set; }
 
-    [StringLength(30)]
-    public string EstadoAlta { get; set; } = "Activo";
-
     public DateTime? AltaNotificacionEnviadaAtUtc { get; set; }
 
     // Vinculo con el maestro de paciente (censo_paciente). Nullable porque las filas historicas

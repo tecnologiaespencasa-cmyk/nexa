@@ -1,6 +1,7 @@
 using Nexa.Data;
 using Nexa.Helpers;
 using Nexa.Models.ViewModels;
+using Nexa.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Nexa.Controllers;
@@ -42,9 +43,9 @@ public partial class ReportesController
             .ToList();
 
         var terapia = (await contexto.CensoTerapiasAmbulatorias.AsNoTracking()
-                .Select(x => new { x.NumeroIdentificacion, x.EstadoPaciente, x.EstadoAlta })
+                .Select(x => new { x.NumeroIdentificacion, x.EstadoPaciente })
                 .ToListAsync(ct))
-            .Where(x => EsTerapiaActiva(x.EstadoPaciente, x.EstadoAlta))
+            .Where(x => EsTerapiaActiva(x.EstadoPaciente))
             .Select(x => x.NumeroIdentificacion)
             .ToList();
 
@@ -154,8 +155,7 @@ public partial class ReportesController
         !CensoVisibility.HayEgreso(fechaEgreso)
         && string.Equals(estado, "Activo", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Terapia ambulatoria: paciente "Activo" y alta distinta de "Cerrado".</summary>
-    private static bool EsTerapiaActiva(string? estadoPaciente, string? estadoAlta) =>
-        string.Equals(estadoPaciente, "Activo", StringComparison.OrdinalIgnoreCase)
-        && !string.Equals(estadoAlta, "Cerrado", StringComparison.OrdinalIgnoreCase);
+    /// <summary>Terapia ambulatoria: paciente "Activo". La misma regla que cierra su episodio.</summary>
+    private static bool EsTerapiaActiva(string? estadoPaciente) =>
+        !CensoPacienteService.EsTerapiaCerrada(estadoPaciente);
 }

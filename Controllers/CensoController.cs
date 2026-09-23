@@ -2570,8 +2570,7 @@ public partial class CensoController : Controller
 
         var terapia = await _context.CensoTerapiasAmbulatorias
             .AsNoTracking()
-            .Where(x => EF.Functions.ILike(x.EstadoPaciente, "Activo")
-                && !EF.Functions.ILike(x.EstadoAlta, "Cerrado"))
+            .Where(x => EF.Functions.ILike(x.EstadoPaciente, "Activo"))
             .Select(x => new CandidatoActivo
             {
                 Programa = CensoProgramas.TerapiaAmbulatoria,

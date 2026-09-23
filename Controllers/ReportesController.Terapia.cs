@@ -11,7 +11,7 @@ namespace Nexa.Controllers;
 /// gráfico usaba <c>FechaInicio</c> (inicio del tratamiento), que puede caer días o semanas después:
 /// un paciente que ingresó el 14/08 con inicio el 18/09 aparecía como ingreso del 18/09.
 ///
-/// Activo hoy: paciente "Activo" y alta distinta de "Cerrado", igual que el informe de pacientes activos.
+/// Activo hoy: paciente "Activo", igual que el informe de pacientes activos.
 /// </summary>
 public partial class ReportesController
 {
@@ -34,7 +34,6 @@ public partial class ReportesController
                 x.Id,
                 x.FechaIngreso,
                 x.EstadoPaciente,
-                x.EstadoAlta,
                 x.TipoTerapia,
                 x.SegundoTratamientoTipoTerapia,
                 x.TercerTratamientoTipoTerapia,
@@ -44,7 +43,7 @@ public partial class ReportesController
             })
             .ToListAsync(ct);
 
-        var activos = filas.Where(x => EsTerapiaActiva(x.EstadoPaciente, x.EstadoAlta)).ToList();
+        var activos = filas.Where(x => EsTerapiaActiva(x.EstadoPaciente)).ToList();
         var ingresos = filas.Where(x => p.Contiene(x.FechaIngreso)).ToList();
 
         // Un ingreso puede pedir varias terapias (el campo guarda una lista separada por comas, y hay

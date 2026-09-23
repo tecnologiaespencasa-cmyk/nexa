@@ -19,6 +19,14 @@
     var estadoGestionInicial = string.IsNullOrWhiteSpace(Model.EstadoGestion)
         ? "Pendiente confirmar datos"
         : Model.EstadoGestion;
+    // Pinta la barra con lo guardado desde el servidor; el script la recalcula en vivo al escribir.
+    var (gestionPasoInicial, gestionClaseInicial) = estadoGestionInicial switch
+    {
+        "Gestión completa" => (3, "is-complete"),
+        "Datos confirmados" => (2, "is-confirmed"),
+        _ => (1, "is-pending")
+    };
+    var hoyColombia = Nexa.Helpers.ColombiaTime.Convert(DateTime.UtcNow).ToString("yyyy-MM-dd");
     var showCurrentPatientBar = Model.EditingRecordId.HasValue
         && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
     var gestionSummaryCards = new[]
@@ -59,24 +67,24 @@
             <input asp-for="DireccionEsValida" type="hidden" id="terapiaDireccionEsValidaInput" />
             <input asp-for="EstadoGestion" type="hidden" id="estadoGestionInput" />
 
-            <section class="censo-gestion-progress is-pending" id="gestionProgress" aria-live="polite">
+            <section class="censo-gestion-progress @gestionClaseInicial" id="gestionProgress" aria-live="polite">
                 <div class="censo-gestion-progress__summary">
                     <span>Estado de gestión</span>
                     <strong id="gestionProgressLabel">@estadoGestionInicial</strong>
                 </div>
-                <div class="censo-gestion-progress__track" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1">
-                    <span class="censo-gestion-progress__step" data-step="1">
+                <div class="censo-gestion-progress__track" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="@gestionPasoInicial">
+                    <span class="censo-gestion-progress__step @(gestionPasoInicial > 1 ? "is-done" : gestionPasoInicial == 1 ? "is-active" : null)" data-step="1">
                         <span>Pendiente</span>
                     </span>
-                    <span class="censo-gestion-progress__step" data-step="2">
+                    <span class="censo-gestion-progress__step @(gestionPasoInicial > 2 ? "is-done" : gestionPasoInicial == 2 ? "is-active" : null)" data-step="2">
                         <span>Confirmado</span>
                     </span>
-                    <span class="censo-gestion-progress__step" data-step="3">
+                    <span class="censo-gestion-progress__step @(gestionPasoInicial == 3 ? "is-active" : null)" data-step="3">
                         <span>Completa</span>
                     </span>
                 </div>
                 <div class="censo-gestion-progress__meta" id="gestionProgressDetail">
-                    Pendiente confirmar datos
+                    @estadoGestionInicial
                 </div>
             </section>
 
@@ -533,87 +541,95 @@
                             </div>
                         </div>
                         <div class="card-body">
-                            @if (!Model.EditingRecordId.HasValue)
-                            {
-                                <div class="alert alert-warning mb-0">
-                                    Guarda o abre un paciente desde el historial para gestionar el alta.
-                                </div>
+                            @{
+                                // Un ingreso nuevo todavía no tiene fila donde guardar el alta por separado:
+                                // la sección muestra lo que se registre en la ventana del alta (vacía mientras
+                                // el paciente esté activo) y eso se guarda con el registro. Sus campos visibles
+                                // son de consulta; los que viajan en el formulario son los ocultos.
+                                var altaSoloConsulta = !Model.EditingRecordId.HasValue;
                             }
-                            else
-                            {
-                                <section class="censo-field-section">
-                                    <div class="censo-field-section__header">
-                                        <span class="censo-field-section__icon" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" focusable="false">
-                                                <rect x="4" y="5" width="16" height="15" rx="2"></rect>
-                                                <path d="M8 3v4"></path>
-                                                <path d="M16 3v4"></path>
-                                                <path d="M4 10h16"></path>
-                                                <path d="m9 15 2 2 4-5"></path>
-                                            </svg>
-                                        </span>
-                                        <h3>Datos de alta</h3>
-                                    </div>
+                            <section class="censo-field-section">
+                                <div class="censo-field-section__header">
+                                    <span class="censo-field-section__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                                            <path d="M8 3v4"></path>
+                                            <path d="M16 3v4"></path>
+                                            <path d="M4 10h16"></path>
+                                            <path d="m9 15 2 2 4-5"></path>
+                                        </svg>
+                                    </span>
+                                    <h3>Datos de alta</h3>
+                                </div>
 
-                                    <div class="row g-3 censo-field-section__grid">
-                                        <div class="col-lg-4">
+                                @if (altaSoloConsulta)
+                                {
+                                    <p class="text-muted small mb-3">
+                                        Se completa al elegir <strong>Alta</strong> en el estado del paciente y se guarda con el registro. Mientras el paciente esté activo, queda vacía.
+                                    </p>
+                                    <input asp-for="FechaAlta" asp-format="{0:yyyy-MM-dd}" type="hidden" id="terapiaFechaAltaInput" />
+                                    <input asp-for="MotivoAlta" type="hidden" id="terapiaMotivoAltaOculto" />
+                                }
+                                else
+                                {
+                                    <p class="text-muted small mb-3">
+                                        Al guardar, el paciente queda en estado <strong>Alta</strong>, la atención de terapia se cierra y se avisa a facturación.
+                                    </p>
+                                }
+
+                                <div class="row g-3 censo-field-section__grid">
+                                    <div class="col-lg-4">
+                                        @if (altaSoloConsulta)
+                                        {
+                                            <label class="form-label" for="terapiaFechaAltaVista">Fecha alta</label>
+                                            <input type="date" class="form-control" id="terapiaFechaAltaVista" value="@Model.FechaAlta?.ToString("yyyy-MM-dd")" readonly />
+                                        }
+                                        else
+                                        {
                                             <label asp-for="FechaAlta" class="form-label"></label>@RequiredMark()
-                                            <input asp-for="FechaAlta" type="date" class="form-control" />
+                                            <input asp-for="FechaAlta" type="date" class="form-control" id="terapiaFechaAltaInput" max="@hoyColombia" />
                                             <span asp-validation-for="FechaAlta" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-label">Motivo alta @RequiredMark()</label>
-                                            <div class="censo-check-grid">
-                                                @for (var index = 0; index < Model.MotivoAltaOptions.Count; index++)
-                                                {
-                                                    var option = Model.MotivoAltaOptions[index];
-                                                    var inputId = $"motivoAlta_{index}";
-                                                    <div class="form-check">
-                                                        <input class="form-check-input"
-                                                               type="radio"
-                                                               id="@inputId"
-                                                               name="MotivoAlta"
-                                                               value="@option.Value"
-                                                               checked="@string.Equals(Model.MotivoAlta, option.Value, StringComparison.OrdinalIgnoreCase)" />
-                                                        <label class="form-check-label" for="@inputId">@option.Text</label>
-                                                    </div>
-                                                }
-                                            </div>
-                                            <span asp-validation-for="MotivoAlta" class="text-danger"></span>
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-label">Estado del alta @RequiredMark()</label>
-                                            <div class="censo-check-grid">
-                                                @for (var index = 0; index < Model.EstadoAltaOptions.Count; index++)
-                                                {
-                                                    var option = Model.EstadoAltaOptions[index];
-                                                    var inputId = $"estadoAlta_{index}";
-                                                    <div class="form-check">
-                                                        <input class="form-check-input"
-                                                               type="radio"
-                                                               id="@inputId"
-                                                               name="EstadoAlta"
-                                                               value="@option.Value"
-                                                               checked="@string.Equals(Model.EstadoAlta, option.Value, StringComparison.OrdinalIgnoreCase)" />
-                                                        <label class="form-check-label" for="@inputId">@option.Text</label>
-                                                    </div>
-                                                }
-                                            </div>
-                                            <span asp-validation-for="EstadoAlta" class="text-danger"></span>
-                                        </div>
+                                        }
                                     </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Motivo alta @(altaSoloConsulta ? null : RequiredMark())</label>
+                                        <div class="censo-check-grid">
+                                            @for (var index = 0; index < Model.MotivoAltaOptions.Count; index++)
+                                            {
+                                                var option = Model.MotivoAltaOptions[index];
+                                                var inputId = altaSoloConsulta ? $"motivoAltaVista_{index}" : $"motivoAlta_{index}";
+                                                <div class="form-check">
+                                                    <input class="form-check-input"
+                                                           type="radio"
+                                                           id="@inputId"
+                                                           name="@(altaSoloConsulta ? "MotivoAltaVista" : "MotivoAlta")"
+                                                           value="@option.Value"
+                                                           checked="@string.Equals(Model.MotivoAlta, option.Value, StringComparison.OrdinalIgnoreCase)"
+                                                           disabled="@altaSoloConsulta" />
+                                                    <label class="form-check-label" for="@inputId">@option.Text</label>
+                                                </div>
+                                            }
+                                        </div>
+                                        @if (!altaSoloConsulta)
+                                        {
+                                            <span asp-validation-for="MotivoAlta" class="text-danger"></span>
+                                        }
+                                    </div>
+                                </div>
 
+                                @if (!altaSoloConsulta)
+                                {
                                     <div class="censo-form-actions censo-form-actions--inline">
                                         <button type="submit" class="btn btn-primary censo-save-button" formaction="@Url.Action("GuardarTerapiaAmbulatoriaGestionAlta", "Censo")" formmethod="post" formnovalidate>
-                                            <span>Actualizar gestión alta</span>
+                                            <span>Guardar alta</span>
                                             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                                                 <path d="M5 12h14"></path>
                                                 <path d="m13 6 6 6-6 6"></path>
                                             </svg>
                                         </button>
                                     </div>
-                                </section>
-                            }
+                                }
+                            </section>
                         </div>
                     </div>
                 </div>

@@ -5578,3 +5578,29 @@ button.herida-fotos__marco:focus-visible {
     width: 100%;
   }
 }
+
+/* Ventana del alta de terapia ambulatoria: el mismo diálogo, con dos campos. El cuerpo del diálogo
+   va centrado; los campos se alinean a la izquierda para leerse como formulario. El modal vive
+   fuera de .censo-page, así que las etiquetas no heredan su estilo y se repite aquí. */
+.terapia-alta-dialogo__campos {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.1rem;
+  text-align: left;
+}
+
+.terapia-alta-dialogo__campos fieldset {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.terapia-alta-dialogo .form-label {
+  color: #283349;
+  float: none;
+  font-size: 0.86rem;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+}

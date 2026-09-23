@@ -753,47 +753,56 @@
                 }
             };
 
+            // Cada campo se busca por su name DENTRO de este formulario. En la pantalla única conviven
+            // los cinco programas: varios ids se repiten en otros formularios y dos ya no existían
+            // (tipoIdentificacionSelect y numeroIdentificacionInput se fueron al maestro), así que con
+            // getElementById la barra se quedaba siempre en "Pendiente". La lista es la misma de
+            // HasTerapiaAmbulatoriaDatosConfirmados en el servidor, para que ambos digan lo mismo.
+            const campoTerapia = (nombre) => form?.querySelector(`[name='${nombre}']`) || null;
+            const marcadosTerapia = (nombre) => form
+                ? form.querySelectorAll(`input[name='${nombre}']:checked`).length
+                : 0;
             const hasFieldValue = (element) => !!String(element?.value || "").trim();
-            const hasOptionalTreatmentData = (switchElement, cantidadElement, frecuenciaElement, typeInputName) => {
+            const hasPositiveNumber = (element) => Number(String(element?.value || "").trim()) > 0;
+            const hasOptionalTreatmentData = (switchElement, cantidadNombre, frecuenciaNombre, tiposNombre) => {
                 if (switchElement?.checked !== true) return true;
-                return hasFieldValue(cantidadElement)
-                    && hasFieldValue(frecuenciaElement)
-                    && document.querySelectorAll(`input[name='${typeInputName}']:checked`).length > 0;
+                return hasPositiveNumber(campoTerapia(cantidadNombre))
+                    && hasFieldValue(campoTerapia(frecuenciaNombre))
+                    && marcadosTerapia(tiposNombre) > 0;
             };
 
-            const hasConfirmedBaseData = () => {
-                const requiredElements = [
-                    document.getElementById("NombrePaciente"),
-                    tipoIdentificacionSelect,
-                    numeroIdentificacionInput,
-                    fechaNacimientoInput,
-                    document.getElementById("CorreoElectronico"),
-                    cantidadInput,
-                    frecuenciaTerapiaSelect,
-                    document.getElementById("NumeroAutorizacion"),
-                    codigoCie10Input,
-                    diagnosticoInput,
-                    document.getElementById("IpsQueRemite"),
-                    document.getElementById("TelefonoPrincipal"),
-                    document.getElementById("TelefonoAdicional1"),
-                    document.getElementById("estadoPacienteSelect"),
-                    document.getElementById("FechaIngreso"),
-                    fechaInicioInput,
-                    fechaFinInput
-                ];
+            const camposRequeridosGestion = [
+                "NombrePaciente",
+                "TipoIdentificacion",
+                "NumeroIdentificacion",
+                "CorreoElectronico",
+                "FrecuenciaTerapia",
+                "CodigoCie10",
+                "DiagnosticoDescriptivo",
+                "NumeroAutorizacion",
+                "IpsQueRemite",
+                "TelefonoPrincipal",
+                "TelefonoAdicional1",
+                "EstadoPaciente",
+                "FechaFin"
+            ];
 
-                const hasRequiredValues = requiredElements.every(hasFieldValue);
-                const hasTipoTerapia = document.querySelectorAll("input[name='TiposTerapiaSeleccionados']:checked").length > 0;
+            const hasConfirmedBaseData = () => {
+                const hasRequiredValues = camposRequeridosGestion.every((nombre) => hasFieldValue(campoTerapia(nombre)))
+                    && hasPositiveNumber(campoTerapia("Cantidad"));
+                const hasTipoTerapia = marcadosTerapia("TiposTerapiaSeleccionados") > 0;
                 const hasSecondTreatment = hasOptionalTreatmentData(
                     segundoTratamientoSwitch,
-                    segundoTratamientoCantidadInput,
-                    segundoTratamientoFrecuenciaSelect,
+                    "SegundoTratamientoCantidad",
+                    "SegundoTratamientoFrecuenciaTerapia",
                     "SegundoTratamientoTiposTerapiaSeleccionados");
-                const hasThirdTreatment = hasOptionalTreatmentData(
-                    tercerTratamientoSwitch,
-                    tercerTratamientoCantidadInput,
-                    tercerTratamientoFrecuenciaSelect,
-                    "TercerTratamientoTiposTerapiaSeleccionados");
+                const hasThirdTreatment = segundoTratamientoSwitch?.checked === true
+                    ? hasOptionalTreatmentData(
+                        tercerTratamientoSwitch,
+                        "TercerTratamientoCantidad",
+                        "TercerTratamientoFrecuenciaTerapia",
+                        "TercerTratamientoTiposTerapiaSeleccionados")
+                    : true;
                 return hasRequiredValues && hasTipoTerapia && hasSecondTreatment && hasThirdTreatment;
             };
 
@@ -852,5 +861,183 @@
                     direccionInput?.focus();
                 }
             });
+
+            // ----- Alta del paciente -----
+            // El alta es solo el Estado del paciente. Al elegir "Alta" se abre una ventana que pide
+            // fecha y motivo, los copia en Gestión alta y los guarda en el acto. Si se cierra sin
+            // guardar, el estado vuelve al que tenía: nunca queda "Alta" en pantalla sin estar
+            // guardado.
+            const guardarAltaUrl = "@Url.Action("GuardarTerapiaAmbulatoriaAlta", "Censo")";
+            const estadoAltaValor = "Alta";
+            const estadoPacienteSelect = campoTerapia("EstadoPaciente");
+            const altaDialogoEl = document.getElementById("terapiaAltaDialogo");
+            const altaDialogo = altaDialogoEl && window.bootstrap
+                ? window.bootstrap.Modal.getOrCreateInstance(altaDialogoEl)
+                : null;
+            const altaFechaInput = document.getElementById("terapiaAltaFecha");
+            const altaGuardarBtn = document.getElementById("terapiaAltaGuardar");
+            const altaErrorEl = document.getElementById("terapiaAltaError");
+            const panelDatosEspecificos = document.getElementById("tab-terapia-datos-especificos");
+            const camposFueraDeHuella = new Set(["EstadoPaciente", "EstadoGestion", "FechaAlta", "MotivoAlta"]);
+
+            let estadoPacienteAnterior = estadoPacienteSelect?.value || "";
+            let altaConfirmada = false;
+
+            const idRegistroTerapia = () => String(campoTerapia("EditingRecordId")?.value || "").trim();
+            const motivoDialogo = () =>
+                altaDialogoEl?.querySelector("input[name='terapiaAltaMotivo']:checked")?.value || "";
+
+            // Lo que guarda "Actualizar registro": si el usuario tocó algo aquí antes de elegir Alta,
+            // el alta se guarda junto con eso en vez de recargar la página y perderlo.
+            const huellaDatosEspecificos = () => panelDatosEspecificos
+                ? Array.from(panelDatosEspecificos.querySelectorAll("input[name], select[name], textarea[name]"))
+                    .filter((control) => control.type !== "file" && !camposFueraDeHuella.has(control.name))
+                    .map((control) => {
+                        const valor = control.type === "checkbox" || control.type === "radio"
+                            ? (control.checked ? control.value : "")
+                            : control.value;
+                        return `${control.name}=${valor}`;
+                    })
+                    .join("&")
+                : "";
+
+            const mostrarErrorAlta = (mensaje) => {
+                if (!altaErrorEl) return;
+                altaErrorEl.textContent = mensaje || "";
+                altaErrorEl.classList.toggle("d-none", !mensaje);
+            };
+
+            // Fecha y motivo del alta dentro de este formulario, en Gestión alta. En un registro guardado
+            // son sus campos editables; en un ingreso nuevo viajan dos ocultos y la sección muestra
+            // copias de consulta (deshabilitadas, no se envían).
+            const camposAltaFormulario = () => ({
+                fecha: form?.querySelector("#terapiaFechaAltaInput") || null,
+                motivos: form ? Array.from(form.querySelectorAll("input[type='radio'][name='MotivoAlta']")) : [],
+                motivoOculto: form?.querySelector("#terapiaMotivoAltaOculto") || null,
+                fechaVista: form?.querySelector("#terapiaFechaAltaVista") || null,
+                motivosVista: form ? Array.from(form.querySelectorAll("input[type='radio'][name='MotivoAltaVista']")) : []
+            });
+
+            const altaEnFormulario = () => {
+                const { fecha, motivos, motivoOculto } = camposAltaFormulario();
+                return {
+                    fecha: fecha?.value || "",
+                    motivo: motivos.find((radio) => radio.checked)?.value || motivoOculto?.value || ""
+                };
+            };
+
+            const escribirAltaEnFormulario = (fechaAlta, motivoAlta) => {
+                const { fecha, motivos, motivoOculto, fechaVista, motivosVista } = camposAltaFormulario();
+                if (fecha) fecha.value = fechaAlta || "";
+                if (fechaVista) fechaVista.value = fechaAlta || "";
+                motivos.forEach((radio) => { radio.checked = radio.value === motivoAlta; });
+                motivosVista.forEach((radio) => { radio.checked = radio.value === motivoAlta; });
+                if (motivoOculto) motivoOculto.value = motivoAlta || "";
+            };
+
+            const copiarAltaAlFormulario = () => escribirAltaEnFormulario(altaFechaInput?.value || "", motivoDialogo());
+
+            // Lo que tenía Gestión alta antes de abrir la ventana: cancelar lo devuelve tal cual.
+            let altaAntesDelDialogo = { fecha: "", motivo: "" };
+
+            const validarDialogoAlta = () => {
+                const fecha = altaFechaInput?.value || "";
+                if (!fecha) return "Selecciona la fecha de alta.";
+                if (altaFechaInput?.max && fecha > altaFechaInput.max) return "La fecha de alta no puede ser futura.";
+                const ingreso = String(campoTerapia("FechaIngreso")?.value || "");
+                if (ingreso && fecha < ingreso) return "La fecha de alta no puede ser anterior a la fecha de ingreso.";
+                if (!motivoDialogo()) return "Selecciona el motivo del alta.";
+                return "";
+            };
+
+            const abrirDialogoAlta = () => {
+                altaAntesDelDialogo = altaEnFormulario();
+                if (altaFechaInput) {
+                    altaFechaInput.value = altaAntesDelDialogo.fecha || altaFechaInput.max || "";
+                }
+                altaDialogoEl?.querySelectorAll("input[name='terapiaAltaMotivo']").forEach((radio) => {
+                    radio.checked = radio.value === altaAntesDelDialogo.motivo;
+                });
+                mostrarErrorAlta("");
+                altaConfirmada = false;
+                altaDialogo?.show();
+            };
+
+            estadoPacienteSelect?.addEventListener("change", () => {
+                const valor = estadoPacienteSelect.value;
+                if (valor === estadoAltaValor && estadoPacienteAnterior !== estadoAltaValor && altaDialogo) {
+                    abrirDialogoAlta();
+                    return;
+                }
+                // Paciente activo = Gestión alta vacía (el servidor también la vacía al guardar).
+                if (valor !== estadoAltaValor && estadoPacienteAnterior === estadoAltaValor) {
+                    escribirAltaEnFormulario("", "");
+                }
+                estadoPacienteAnterior = valor;
+            });
+
+            altaDialogoEl?.addEventListener("shown.bs.modal", () => altaFechaInput?.focus());
+
+            altaDialogoEl?.addEventListener("hidden.bs.modal", () => {
+                if (altaConfirmada || !estadoPacienteSelect) return;
+                estadoPacienteSelect.value = estadoPacienteAnterior;
+                estadoPacienteSelect.dispatchEvent(new Event("change", { bubbles: true }));
+                escribirAltaEnFormulario(altaAntesDelDialogo.fecha, altaAntesDelDialogo.motivo);
+            });
+
+            altaDialogoEl?.addEventListener("change", () => {
+                mostrarErrorAlta("");
+                copiarAltaAlFormulario();
+            });
+
+            altaGuardarBtn?.addEventListener("click", async () => {
+                const error = validarDialogoAlta();
+                if (error) {
+                    mostrarErrorAlta(error);
+                    return;
+                }
+
+                copiarAltaAlFormulario();
+                const registroId = idRegistroTerapia();
+
+                // Registro nuevo, o con otros cambios sin guardar en Datos específicos: se guarda el
+                // formulario entero, que ya lleva el alta. El servidor exige fecha y motivo igual.
+                if (!registroId || huellaDatosEspecificos() !== huellaInicialDatosEspecificos) {
+                    altaConfirmada = true;
+                    estadoPacienteAnterior = estadoAltaValor;
+                    altaDialogo?.hide();
+                    form?.requestSubmit();
+                    return;
+                }
+
+                altaGuardarBtn.disabled = true;
+                try {
+                    const datos = new FormData();
+                    datos.append("id", registroId);
+                    datos.append("fechaAlta", altaFechaInput?.value || "");
+                    datos.append("motivoAlta", motivoDialogo());
+                    if (csrfTokenInput?.value) {
+                        datos.append("__RequestVerificationToken", csrfTokenInput.value);
+                    }
+
+                    const respuesta = await fetch(guardarAltaUrl, { method: "POST", body: datos });
+                    const cuerpo = await respuesta.json().catch(() => ({}));
+                    if (!respuesta.ok) {
+                        mostrarErrorAlta(cuerpo.message || "No se pudo guardar el alta. Intenta de nuevo.");
+                        return;
+                    }
+
+                    altaConfirmada = true;
+                    estadoPacienteAnterior = estadoAltaValor;
+                    window.location.assign(cuerpo.redirectUrl || window.location.href);
+                } catch {
+                    mostrarErrorAlta("No hay conexión con el servidor. El alta no se guardó.");
+                } finally {
+                    altaGuardarBtn.disabled = false;
+                }
+            });
+
+            // Se toma al final, cuando el resto del script ya normalizó los campos al cargar.
+            const huellaInicialDatosEspecificos = huellaDatosEspecificos();
         })();
     </script>

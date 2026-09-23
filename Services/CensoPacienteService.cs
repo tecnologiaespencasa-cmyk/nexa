@@ -786,11 +786,11 @@ public class CensoPacienteService : ICensoPacienteService
 
             var terapia = await _context.CensoTerapiasAmbulatorias
                 .Where(x => x.CensoPacienteId == pacienteId || x.NumeroIdentificacion.ToUpper() == doc)
-                .Select(x => new { x.Id, x.EstadoPaciente, x.EstadoAlta, x.MotivoAlta })
+                .Select(x => new { x.Id, x.EstadoPaciente, x.MotivoAlta })
                 .ToListAsync(cancellationToken);
             foreach (var fila in terapia)
             {
-                var cerrado = EsTerapiaCerrada(fila.EstadoPaciente, fila.EstadoAlta);
+                var cerrado = EsTerapiaCerrada(fila.EstadoPaciente);
                 Conciliar(episodios, pacienteId, CensoProgramas.TerapiaAmbulatoria, fila.Id, cerrado,
                     fila.MotivoAlta ?? fila.EstadoPaciente);
             }
@@ -917,10 +917,13 @@ public class CensoPacienteService : ICensoPacienteService
         CensoVisibility.HayEgreso(fechaEgreso)
         || (!string.IsNullOrWhiteSpace(estado) && !string.Equals(estado, "Activo", StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>Terapia ambulatoria: se cierra con el alta cerrada o con el paciente fuera de "Activo".</summary>
-    public static bool EsTerapiaCerrada(string? estadoPaciente, string? estadoAlta) =>
-        string.Equals(estadoAlta, "Cerrado", StringComparison.OrdinalIgnoreCase)
-        || !string.Equals(estadoPaciente, "Activo", StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// Terapia ambulatoria: se cierra cuando el paciente sale de "Activo". El censo tuvo además un
+    /// "Estado del alta" (Activo/Pre-Alta/Cerrado) que también cerraba; se retiró el 2026-09-23
+    /// porque duplicaba este estado y había pacientes cerrados ahí que seguían "Activo" aquí.
+    /// </summary>
+    public static bool EsTerapiaCerrada(string? estadoPaciente) =>
+        !string.Equals(estadoPaciente, "Activo", StringComparison.OrdinalIgnoreCase);
 
     private static string? GeneroBinario(string? genero) =>
         string.Equals(genero, "Masculino", StringComparison.OrdinalIgnoreCase)

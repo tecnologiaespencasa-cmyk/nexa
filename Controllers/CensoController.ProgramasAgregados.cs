@@ -88,10 +88,10 @@ public partial class CensoController
         var terapia = await contexto.CensoTerapiasAmbulatorias.AsNoTracking()
             .Where(x => docs.Contains(x.NumeroIdentificacion.Trim().ToUpper())
                 || (x.CensoPacienteId != null && ids.Contains(x.CensoPacienteId.Value)))
-            .Select(x => new { x.NumeroIdentificacion, x.CensoPacienteId, x.EstadoPaciente, x.EstadoAlta })
+            .Select(x => new { x.NumeroIdentificacion, x.CensoPacienteId, x.EstadoPaciente })
             .ToListAsync(ct);
         abiertos.AddRange(terapia
-            .Where(x => !CensoPacienteService.EsTerapiaCerrada(x.EstadoPaciente, x.EstadoAlta))
+            .Where(x => !CensoPacienteService.EsTerapiaCerrada(x.EstadoPaciente))
             .Select(x => (Doc(x.NumeroIdentificacion), x.CensoPacienteId, CensoProgramas.TerapiaAmbulatoria, true)));
 
         // Programa asignado en el carril que todavía no tiene formulario guardado.

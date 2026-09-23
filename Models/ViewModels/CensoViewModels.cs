@@ -866,9 +866,6 @@ public class CensoTerapiaAmbulatoriaViewModel : ICensoRegistroEditable
     [Display(Name = "Motivo alta")]
     public string MotivoAlta { get; set; } = string.Empty;
 
-    [Display(Name = "Estado del alta")]
-    public string EstadoAlta { get; set; } = string.Empty;
-
     public bool AsumirDireccionErrada { get; set; }
 
     public string? DireccionSugerida { get; set; }
@@ -887,7 +884,6 @@ public class CensoTerapiaAmbulatoriaViewModel : ICensoRegistroEditable
     public IReadOnlyList<SelectListItem> FrecuenciaTerapiaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> TipoTerapiaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> MotivoAltaOptions { get; set; } = [];
-    public IReadOnlyList<SelectListItem> EstadoAltaOptions { get; set; } = [];
     public IReadOnlyList<string> BarrioOptions { get; set; } = [];
     public IReadOnlyList<CensoTerapiaAmbulatoriaRecord> UltimosRegistros { get; set; } = [];
     public IReadOnlyList<CensoTerapiaAmbulatoriaProrroga> ProrrogasTerapia { get; set; } = [];

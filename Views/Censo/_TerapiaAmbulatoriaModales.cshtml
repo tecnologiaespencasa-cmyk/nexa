@@ -1,0 +1,65 @@
+@model CensoTerapiaAmbulatoriaViewModel
+@*
+    Ventana del alta de terapia ambulatoria. Se abre al pasar el Estado del paciente a "Alta" en
+    Datos específicos: pide fecha y motivo, los copia en Gestión alta y los guarda en el acto
+    (_TerapiaAmbulatoriaScripts). Usa el mismo lenguaje visual del diálogo de confirmación del
+    censo (herida-dialogo).
+*@
+@{
+    var hoyColombia = Nexa.Helpers.ColombiaTime.Convert(DateTime.UtcNow).ToString("yyyy-MM-dd");
+    var nombrePaciente = string.IsNullOrWhiteSpace(Model.NombrePaciente) ? "el paciente" : Model.NombrePaciente;
+}
+
+<div class="modal fade herida-dialogo terapia-alta-dialogo" id="terapiaAltaDialogo" tabindex="-1"
+     aria-labelledby="terapiaAltaTitulo" aria-describedby="terapiaAltaMensaje" aria-hidden="true"
+     data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body">
+                <div class="herida-dialogo__icono" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                        <path d="M8 3v4"></path>
+                        <path d="M16 3v4"></path>
+                        <path d="M4 10h16"></path>
+                        <path d="m9 15 2 2 4-5"></path>
+                    </svg>
+                </div>
+                <h2 class="herida-dialogo__titulo" id="terapiaAltaTitulo">Dar de alta</h2>
+                <p class="herida-dialogo__mensaje" id="terapiaAltaMensaje">
+                    Registra la fecha y el motivo del alta de <strong>@nombrePaciente</strong>.
+                    Al guardar, la atención de terapia se cierra y se avisa a facturación.
+                </p>
+
+                <div class="terapia-alta-dialogo__campos">
+                    <div>
+                        <label class="form-label" for="terapiaAltaFecha">
+                            Fecha alta <span class="text-danger" aria-hidden="true">*</span>
+                        </label>
+                        <input type="date" class="form-control" id="terapiaAltaFecha" max="@hoyColombia" required />
+                    </div>
+                    <fieldset>
+                        <legend class="form-label">
+                            Motivo alta <span class="text-danger" aria-hidden="true">*</span>
+                        </legend>
+                        @for (var index = 0; index < Model.MotivoAltaOptions.Count; index++)
+                        {
+                            var opcion = Model.MotivoAltaOptions[index];
+                            var opcionId = $"terapiaAltaMotivo_{index}";
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="terapiaAltaMotivo"
+                                       id="@opcionId" value="@opcion.Value" />
+                                <label class="form-check-label" for="@opcionId">@opcion.Text</label>
+                            </div>
+                        }
+                    </fieldset>
+                    <div class="alert alert-danger py-2 px-3 mb-0 d-none" id="terapiaAltaError" role="alert"></div>
+                </div>
+            </div>
+            <div class="modal-footer herida-dialogo__acciones">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="terapiaAltaGuardar">Guardar alta</button>
+            </div>
+        </div>
+    </div>
+</div>

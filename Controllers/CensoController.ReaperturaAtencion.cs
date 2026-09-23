@@ -178,11 +178,8 @@ public partial class CensoController
             {
                 var r = await _context.CensoTerapiasAmbulatorias.FirstOrDefaultAsync(x => x.Id == registroId, ct);
                 if (r is null) { return null; }
-                var antes = r.MotivoAlta ?? r.EstadoAlta;
+                var antes = r.MotivoAlta ?? r.EstadoPaciente;
                 r.EstadoPaciente = "Activo";
-                // "Activo" es el primero de TerapiaAmbulatoriaEstadoAltaValues; "Abierto" no
-                // existe en ese catalogo y su formulario lo habria rechazado al guardar.
-                r.EstadoAlta = "Activo";
                 r.FechaAlta = null;
                 r.MotivoAlta = null;
                 return $"Alta retirada (era «{antes}»), estado: «Activo»";

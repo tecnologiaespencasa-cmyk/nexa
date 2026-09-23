@@ -606,7 +606,7 @@ public partial class HojaVidaPacienteService
         DatosCenso datos,
         DateTime hoy)
     {
-        var cerrado = CensoPacienteService.EsTerapiaCerrada(r.EstadoPaciente, r.EstadoAlta);
+        var cerrado = CensoPacienteService.EsTerapiaCerrada(r.EstadoPaciente);
         var ingreso = new HojaVidaIngreso
         {
             Clave = $"terapia-{r.Id}",
@@ -615,7 +615,7 @@ public partial class HojaVidaPacienteService
             ProgramaClase = "terapia",
             RegistroId = r.Id,
             Situacion = cerrado ? HojaVidaSituacion.Cerrada : HojaVidaSituacion.EnCurso,
-            EstadoCenso = Unir(r.EstadoPaciente, r.EstadoAlta == r.EstadoPaciente ? null : r.EstadoAlta),
+            EstadoCenso = Texto(r.EstadoPaciente),
             FechaIngreso = FechaValida(r.FechaIngreso) ?? FechaValida(r.FechaInicio),
             MotivoAlta = cerrado ? Texto(r.MotivoAlta) : null,
             Cie10 = Texto(r.CodigoCie10),

@@ -120,8 +120,7 @@ public partial class CensoController
             {
                 var q = _context.CensoTerapiasAmbulatorias.AsNoTracking().Where(x => x.NumeroIdentificacion == doc);
                 total = await q.CountAsync(cancellationToken);
-                abiertos = await q.CountAsync(x => EF.Functions.ILike(x.EstadoPaciente, "Activo")
-                    && !EF.Functions.ILike(x.EstadoAlta, "Cerrado"), cancellationToken);
+                abiertos = await q.CountAsync(x => EF.Functions.ILike(x.EstadoPaciente, "Activo"), cancellationToken);
                 nombre = await q.OrderByDescending(x => x.Id).Select(x => x.NombrePaciente).FirstOrDefaultAsync(cancellationToken);
                 break;
             }

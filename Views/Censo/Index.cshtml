@@ -694,6 +694,10 @@ else
 {
     <partial name="_NptModales" model="Model.Npt" />
 }
+@if (Model.TerapiaAmbulatoria is not null)
+{
+    <partial name="_TerapiaAmbulatoriaModales" model="Model.TerapiaAmbulatoria" />
+}
 
 @* Confirmacion compartida de la pantalla del censo. Va fuera de .censo-page por el mismo motivo
    que los demas modales, y reutiliza los estilos del dialogo de clinica de heridas. *@

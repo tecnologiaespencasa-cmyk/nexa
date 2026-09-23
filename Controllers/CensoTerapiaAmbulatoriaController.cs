@@ -32,10 +32,14 @@ public partial class CensoController
     private const string TerapiaAmbulatoriaEstadoPendiente = "Pendiente confirmar datos";
     private const string TerapiaAmbulatoriaEstadoDatosConfirmados = "Datos confirmados";
     private const string TerapiaAmbulatoriaEstadoGestionCompleta = "Gestión completa";
+    // El alta del paciente es SOLO este estado. Hubo además un "Estado del alta"
+    // (Activo/Pre-Alta/Cerrado) en Gestión alta que también cerraba la atención; se retiró el
+    // 2026-09-23 porque había pacientes cerrados ahí que seguían "Activo" aquí.
+    private const string TerapiaAmbulatoriaEstadoPacienteAlta = "Alta";
     private static readonly string[] TerapiaAmbulatoriaEstadoPacienteValues =
     [
         "Activo",
-        "Alta"
+        TerapiaAmbulatoriaEstadoPacienteAlta
     ];
     private static readonly string[] TerapiaAmbulatoriaMotivoAltaValues =
     [
@@ -43,13 +47,6 @@ public partial class CensoController
         "Cambio de programa",
         "Agudización"
     ];
-    private static readonly string[] TerapiaAmbulatoriaEstadoAltaValues =
-    [
-        "Activo",
-        "Pre-Alta",
-        "Cerrado"
-    ];
-    private const string TerapiaAmbulatoriaEstadoAltaCerrado = "Cerrado";
     private const string TerapiaAmbulatoriaAltaNotificationRecipient = "liderfacturacion@especialistasencasa.com";
 
     [HttpGet]
@@ -129,12 +126,21 @@ public partial class CensoController
         var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
         var auditIp = HttpContext.Connection.RemoteIpAddress?.ToString();
         await _auditService.LogAsync(auditAction, "CensoTerapiaAmbulatoria",
-            $"Paciente: {record.NombrePaciente}, Doc: {record.NumeroIdentificacion}",
+            $"Paciente: {record.NombrePaciente}, Doc: {record.NumeroIdentificacion}, Estado del paciente: {record.EstadoPaciente}",
             auditUserId, auditIp, cancellationToken);
+
+        // Un registro nuevo puede nacer ya en Alta (la ventana del alta lo guarda con este mismo
+        // formulario cuando todavía no existe fila).
+        var avisoFacturacion = await NotificarAltaTerapiaSiCorrespondeAsync(record, cancellationToken);
 
         TempData["SuccessMessage"] = model.EditingRecordId.HasValue
             ? "Registro de terapia ambulatoria actualizado correctamente."
             : "Registro de terapia ambulatoria guardado correctamente.";
+        if (!string.IsNullOrWhiteSpace(avisoFacturacion))
+        {
+            TempData["ErrorMessage"] = avisoFacturacion;
+        }
+
         return RedirectToAction(nameof(Index), new { cedulaPaciente = record.NumeroIdentificacion, programa = CensoProgramas.TerapiaAmbulatoria });
     }
 
@@ -238,18 +244,18 @@ public partial class CensoController
         return RedirectToAction(nameof(Index), new { cedulaPaciente = terapiaRecord.NumeroIdentificacion, programa = CensoProgramas.TerapiaAmbulatoria });
     }
 
+    /// <summary>
+    /// Guardar la Gestión alta ES dar de alta: deja al paciente en "Alta" con su fecha y motivo.
+    /// Antes solo escribía fecha, motivo y un "Estado del alta" propio, y quien la usaba para cerrar
+    /// al paciente lo dejaba "Activo" en Datos específicos.
+    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> GuardarTerapiaAmbulatoriaGestionAlta(CensoTerapiaAmbulatoriaViewModel model, CancellationToken cancellationToken)
     {
         model.CedulaFiltro = NormalizeCedulaFilter(model.CedulaFiltro);
-        model.MotivoAlta = model.MotivoAlta?.Trim() ?? string.Empty;
-        model.EstadoAlta = model.EstadoAlta?.Trim() ?? string.Empty;
-        ValidateTerapiaAmbulatoriaGestionAltaModel(model);
-
         var postedFechaAlta = model.FechaAlta;
-        var postedMotivoAlta = model.MotivoAlta;
-        var postedEstadoAlta = model.EstadoAlta;
+        var postedMotivoAlta = model.MotivoAlta?.Trim() ?? string.Empty;
 
         CensoTerapiaAmbulatoriaRecord? record = null;
         if (model.EditingRecordId.HasValue)
@@ -258,12 +264,20 @@ public partial class CensoController
                 .FirstOrDefaultAsync(x => x.Id == model.EditingRecordId.Value, cancellationToken);
         }
 
+        string? motivoCanonico = null;
         if (record is null)
         {
             ModelState.AddModelError(string.Empty, "Primero guarda o abre un paciente para gestionar el alta.");
         }
         else
         {
+            var validacion = ValidarAltaTerapia(postedFechaAlta, postedMotivoAlta, record.FechaIngreso, GetColombiaNow());
+            motivoCanonico = validacion.MotivoCanonico;
+            foreach (var (campo, mensaje) in validacion.Errores)
+            {
+                ModelState.AddModelError(campo, mensaje);
+            }
+
             ApplyTerapiaAmbulatoriaRecordToModel(model, record);
             model.CedulaFiltro = string.IsNullOrWhiteSpace(model.CedulaFiltro)
                 ? record.NumeroIdentificacion
@@ -273,7 +287,6 @@ public partial class CensoController
         await PopulateTerapiaAmbulatoriaDropdownsAsync(model, cancellationToken);
         model.FechaAlta = postedFechaAlta;
         model.MotivoAlta = postedMotivoAlta;
-        model.EstadoAlta = postedEstadoAlta;
 
         if (!ModelState.IsValid)
         {
@@ -282,46 +295,104 @@ public partial class CensoController
         }
 
         var terapiaRecord = record!;
-        var shouldNotifyAlta = IsTerapiaAltaCerrada(model.EstadoAlta)
-            && !terapiaRecord.AltaNotificacionEnviadaAtUtc.HasValue;
-
-        terapiaRecord.FechaAlta = model.FechaAlta!.Value.Date;
-        terapiaRecord.MotivoAlta = model.MotivoAlta;
-        terapiaRecord.EstadoAlta = model.EstadoAlta;
-        terapiaRecord.UpdatedAtUtc = DateTime.UtcNow;
-
+        AplicarAltaTerapia(terapiaRecord, postedFechaAlta!.Value, motivoCanonico!);
         await _context.SaveChangesAsync(cancellationToken);
 
         var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
         var auditIp = HttpContext.Connection.RemoteIpAddress?.ToString();
         await _auditService.LogAsync("CENSO_TERAPIA_AMBULATORIA_GESTION_ALTA_ACTUALIZADA", "CensoTerapiaAmbulatoria",
-            $"Paciente: {terapiaRecord.NombrePaciente}, Doc: {terapiaRecord.NumeroIdentificacion}, Estado alta: {terapiaRecord.EstadoAlta}",
+            $"Paciente: {terapiaRecord.NombrePaciente}, Doc: {terapiaRecord.NumeroIdentificacion}, Estado del paciente: {terapiaRecord.EstadoPaciente}, Fecha alta: {terapiaRecord.FechaAlta:yyyy-MM-dd}, Motivo alta: {terapiaRecord.MotivoAlta}",
             auditUserId, auditIp, cancellationToken);
 
-        var notificationWarning = string.Empty;
-        if (shouldNotifyAlta)
-        {
-            var email = BuildTerapiaAmbulatoriaAltaEmail(terapiaRecord);
-            var emailResult = await _emailService.SendAsync(email, cancellationToken);
-            if (emailResult.Succeeded)
-            {
-                terapiaRecord.AltaNotificacionEnviadaAtUtc = DateTime.UtcNow;
-                terapiaRecord.UpdatedAtUtc = DateTime.UtcNow;
-                await _context.SaveChangesAsync(cancellationToken);
-            }
-            else
-            {
-                notificationWarning = emailResult.ErrorMessage ?? "No fue posible enviar la notificación de alta.";
-            }
-        }
+        var avisoFacturacion = await NotificarAltaTerapiaSiCorrespondeAsync(terapiaRecord, cancellationToken);
 
-        TempData["SuccessMessage"] = "Gestión alta de terapia ambulatoria actualizada correctamente.";
-        if (!string.IsNullOrWhiteSpace(notificationWarning))
+        TempData["SuccessMessage"] = "Alta de terapia ambulatoria guardada.";
+        if (!string.IsNullOrWhiteSpace(avisoFacturacion))
         {
-            TempData["ErrorMessage"] = notificationWarning;
+            TempData["ErrorMessage"] = avisoFacturacion;
         }
 
         return RedirectToAction(nameof(Index), new { cedulaPaciente = terapiaRecord.NumeroIdentificacion, programa = CensoProgramas.TerapiaAmbulatoria });
+    }
+
+    /// <summary>
+    /// Guardado inmediato de la ventana que se abre al pasar el Estado del paciente a "Alta": toca
+    /// solo el estado, la fecha y el motivo del alta, igual que GuardarClinicaHeridasVac toca solo
+    /// VAC. Responde JSON porque lo llama la ventana; no pasa por CensoAtencionCerradaFilter (que
+    /// responde con una redirección), así que el candado de atención cerrada va aquí adentro.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GuardarTerapiaAmbulatoriaAlta(
+        long id,
+        DateTime? fechaAlta,
+        string? motivoAlta,
+        CancellationToken cancellationToken)
+    {
+        var record = id > 0
+            ? await _context.CensoTerapiasAmbulatorias.FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            : null;
+        if (record is null)
+        {
+            return NotFound(new { message = "No se encontró el registro de terapia. Guarda el paciente antes de darle el alta." });
+        }
+
+        var atencionCerrada = await _context.CensoPacienteProgramas
+            .AsNoTracking()
+            .AnyAsync(e => e.Programa == CensoProgramas.TerapiaAmbulatoria
+                    && e.RegistroId == record.Id
+                    && e.CerradoAtUtc != null,
+                cancellationToken);
+        if (atencionCerrada)
+        {
+            return Conflict(new { message = "Esta atención ya está cerrada. Para cambiar su alta, primero reábrela." });
+        }
+
+        var validacion = ValidarAltaTerapia(fechaAlta, motivoAlta, record.FechaIngreso, GetColombiaNow());
+        if (validacion.Errores.Count > 0)
+        {
+            return BadRequest(new
+            {
+                message = string.Join(" ", validacion.Errores.Select(x => x.Mensaje)),
+                errores = validacion.Errores.Select(x => new { campo = x.Campo, mensaje = x.Mensaje })
+            });
+        }
+
+        AplicarAltaTerapia(record, fechaAlta!.Value, validacion.MotivoCanonico!);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
+        var auditIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        await _auditService.LogAsync("CENSO_TERAPIA_AMBULATORIA_ALTA_REGISTRADA", "CensoTerapiaAmbulatoria",
+            $"Paciente: {record.NombrePaciente}, Doc: {record.NumeroIdentificacion}, Estado del paciente: {record.EstadoPaciente}, Fecha alta: {record.FechaAlta:yyyy-MM-dd}, Motivo alta: {record.MotivoAlta}",
+            auditUserId, auditIp, cancellationToken);
+
+        // El episodio del carril se cierra ya, sin esperar a que alguien vuelva a abrir la ficha:
+        // así Prórroga y Gestión alta quedan bloqueadas desde este mismo momento.
+        if (record.CensoPacienteId.HasValue)
+        {
+            await _censoPacienteService.ReconciliarEpisodiosAsync(record.CensoPacienteId.Value, cancellationToken);
+        }
+
+        var avisoFacturacion = await NotificarAltaTerapiaSiCorrespondeAsync(record, cancellationToken);
+
+        TempData["SuccessMessage"] = "Alta de terapia ambulatoria guardada.";
+        if (!string.IsNullOrWhiteSpace(avisoFacturacion))
+        {
+            TempData["ErrorMessage"] = avisoFacturacion;
+        }
+
+        return Json(new
+        {
+            message = "Alta de terapia ambulatoria guardada.",
+            aviso = avisoFacturacion,
+            redirectUrl = Url.Action(nameof(Index), new
+            {
+                cedulaPaciente = record.NumeroIdentificacion,
+                programa = CensoProgramas.TerapiaAmbulatoria,
+                seccion = "tab-terapia-gestion-alta"
+            })
+        });
     }
 
     [HttpPost]
@@ -404,7 +475,6 @@ public partial class CensoController
             Area = AreaValues[0],
             EstadoGestion = TerapiaAmbulatoriaEstadoPendiente,
             EstadoPaciente = TerapiaAmbulatoriaEstadoPacienteValues[0],
-            EstadoAlta = TerapiaAmbulatoriaEstadoAltaValues[0],
             FechaIngreso = today
         };
     }
@@ -422,7 +492,6 @@ public partial class CensoController
         model.FrecuenciaTerapiaOptions = BuildOptions(TerapiaAmbulatoriaFrecuenciaTerapiaValues);
         model.TipoTerapiaOptions = BuildOptions(TerapiaAmbulatoriaTipoTerapiaValues);
         model.MotivoAltaOptions = BuildOptions(TerapiaAmbulatoriaMotivoAltaValues);
-        model.EstadoAltaOptions = BuildOptions(TerapiaAmbulatoriaEstadoAltaValues);
 
         model.MunicipioResidencia = ToCanonicalMunicipality(model.MunicipioResidencia) ?? MunicipioNoParametrizado;
 
@@ -439,11 +508,6 @@ public partial class CensoController
         if (string.IsNullOrWhiteSpace(model.Area))
         {
             model.Area = AreaValues[0];
-        }
-
-        if (string.IsNullOrWhiteSpace(model.EstadoAlta))
-        {
-            model.EstadoAlta = TerapiaAmbulatoriaEstadoAltaValues[0];
         }
 
         if (!string.IsNullOrWhiteSpace(model.CodigoCie10))
@@ -585,27 +649,73 @@ public partial class CensoController
             model.ProrrogaCantidad = prorroga.Cantidad;
         }
     }
-    private void ValidateTerapiaAmbulatoriaGestionAltaModel(CensoTerapiaAmbulatoriaViewModel model)
+    /// <summary>
+    /// Reglas del alta, compartidas por la ventana del alta, Gestión alta y el formulario de Datos
+    /// específicos para que las tres digan lo mismo. Estática y sin estado para poder probarla sola.
+    /// </summary>
+    private static (string? MotivoCanonico, List<(string Campo, string Mensaje)> Errores) ValidarAltaTerapia(
+        DateTime? fechaAlta,
+        string? motivoAlta,
+        DateTime fechaIngreso,
+        DateTime hoyColombia)
     {
-        if (!model.EditingRecordId.HasValue)
+        var errores = new List<(string Campo, string Mensaje)>();
+
+        if (!fechaAlta.HasValue)
         {
-            ModelState.AddModelError(string.Empty, "Primero guarda o abre un paciente para gestionar el alta.");
+            errores.Add((nameof(CensoTerapiaAmbulatoriaViewModel.FechaAlta), "Selecciona la fecha de alta."));
+        }
+        else if (fechaAlta.Value.Date > hoyColombia.Date)
+        {
+            errores.Add((nameof(CensoTerapiaAmbulatoriaViewModel.FechaAlta), "La fecha de alta no puede ser futura."));
+        }
+        else if (fechaAlta.Value.Date < fechaIngreso.Date)
+        {
+            errores.Add((nameof(CensoTerapiaAmbulatoriaViewModel.FechaAlta), "La fecha de alta no puede ser anterior a la fecha de ingreso."));
         }
 
-        if (!model.FechaAlta.HasValue)
+        var motivoCanonico = TerapiaAmbulatoriaMotivoAltaValues.FirstOrDefault(x =>
+            string.Equals(x, motivoAlta?.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (motivoCanonico is null)
         {
-            ModelState.AddModelError(nameof(model.FechaAlta), "Selecciona la fecha de alta.");
+            errores.Add((nameof(CensoTerapiaAmbulatoriaViewModel.MotivoAlta), "Selecciona un motivo de alta válido."));
         }
 
-        if (!TerapiaAmbulatoriaMotivoAltaValues.Contains(model.MotivoAlta, StringComparer.OrdinalIgnoreCase))
+        return (motivoCanonico, errores);
+    }
+
+    private static void AplicarAltaTerapia(CensoTerapiaAmbulatoriaRecord record, DateTime fechaAlta, string motivoAlta)
+    {
+        record.EstadoPaciente = TerapiaAmbulatoriaEstadoPacienteAlta;
+        record.FechaAlta = fechaAlta.Date;
+        record.MotivoAlta = motivoAlta;
+        record.UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// El correo a facturación sale una sola vez por registro: cuando el paciente queda en Alta con
+    /// fecha y motivo. Antes lo disparaba el "Estado del alta" en Cerrado, que ya no existe.
+    /// </summary>
+    private async Task<string?> NotificarAltaTerapiaSiCorrespondeAsync(CensoTerapiaAmbulatoriaRecord record, CancellationToken cancellationToken)
+    {
+        var altaCompleta = string.Equals(record.EstadoPaciente, TerapiaAmbulatoriaEstadoPacienteAlta, StringComparison.OrdinalIgnoreCase)
+            && record.FechaAlta.HasValue
+            && !string.IsNullOrWhiteSpace(record.MotivoAlta);
+        if (!altaCompleta || record.AltaNotificacionEnviadaAtUtc.HasValue)
         {
-            ModelState.AddModelError(nameof(model.MotivoAlta), "Selecciona un motivo de alta válido.");
+            return null;
         }
 
-        if (!TerapiaAmbulatoriaEstadoAltaValues.Contains(model.EstadoAlta, StringComparer.OrdinalIgnoreCase))
+        var emailResult = await _emailService.SendAsync(BuildTerapiaAmbulatoriaAltaEmail(record), cancellationToken);
+        if (!emailResult.Succeeded)
         {
-            ModelState.AddModelError(nameof(model.EstadoAlta), "Selecciona un estado del alta válido.");
+            return emailResult.ErrorMessage ?? "No fue posible enviar la notificación de alta.";
         }
+
+        record.AltaNotificacionEnviadaAtUtc = DateTime.UtcNow;
+        record.UpdatedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+        return null;
     }
 
     private async Task PopulateTerapiaAmbulatoriaAdjuntosAsync(CensoTerapiaAmbulatoriaViewModel model, CancellationToken cancellationToken)
@@ -678,7 +788,15 @@ public partial class CensoController
         model.EstadoGestionFiltro = NormalizeTerapiaAmbulatoriaEstadoGestionFiltro(model.EstadoGestionFiltro);
         model.EstadoPaciente = model.EstadoPaciente?.Trim() ?? string.Empty;
         model.MotivoAlta = model.MotivoAlta?.Trim() ?? string.Empty;
-        model.EstadoAlta = model.EstadoAlta?.Trim() ?? TerapiaAmbulatoriaEstadoAltaValues[0];
+        // Un paciente activo no tiene alta: Gestión alta queda vacía aunque alguien haya escrito ahí.
+        if (!string.Equals(model.EstadoPaciente, TerapiaAmbulatoriaEstadoPacienteAlta, StringComparison.OrdinalIgnoreCase))
+        {
+            model.FechaAlta = null;
+            model.MotivoAlta = string.Empty;
+            // Si la pantalla se vuelve a pintar por un error, que no reaparezca lo que se envió.
+            ModelState.Remove(nameof(model.FechaAlta));
+            ModelState.Remove(nameof(model.MotivoAlta));
+        }
         model.TiposTerapiaSeleccionados = (model.TiposTerapiaSeleccionados ?? [])
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => x.Trim())
@@ -843,10 +961,27 @@ public partial class CensoController
             ModelState.AddModelError(nameof(model.EstadoPaciente), "Selecciona un estado del paciente válido.");
         }
 
-        if (string.Equals(model.EstadoPaciente, "Alta", StringComparison.OrdinalIgnoreCase)
+        if (string.Equals(model.EstadoPaciente, TerapiaAmbulatoriaEstadoPacienteAlta, StringComparison.OrdinalIgnoreCase)
             && !model.FechaFin.HasValue)
         {
             ModelState.AddModelError(nameof(model.FechaFin), "La fecha fin es obligatoria cuando el estado del paciente es Alta.");
+        }
+
+        // Pasar a Alta exige fecha y motivo, igual que en la ventana del alta y en Gestión alta. El
+        // error va en el estado del paciente porque los campos del alta viven en otra pestaña (o
+        // viajan ocultos en un registro nuevo) y ahí nadie lo vería.
+        if (string.Equals(model.EstadoPaciente, TerapiaAmbulatoriaEstadoPacienteAlta, StringComparison.OrdinalIgnoreCase))
+        {
+            var validacionAlta = ValidarAltaTerapia(model.FechaAlta, model.MotivoAlta, model.FechaIngreso, GetColombiaNow());
+            if (validacionAlta.Errores.Count > 0)
+            {
+                ModelState.AddModelError(nameof(model.EstadoPaciente),
+                    $"Para pasar el paciente a Alta: {string.Join(" ", validacionAlta.Errores.Select(x => x.Mensaje))}");
+            }
+            else
+            {
+                model.MotivoAlta = validacionAlta.MotivoCanonico!;
+            }
         }
 
         if (model.FechaFin.HasValue && model.FechaFin.Value.Date < model.FechaInicio.Date)
@@ -1222,9 +1357,6 @@ public partial class CensoController
         record.FechaFin = model.FechaFin?.Date;
         record.FechaAlta = model.FechaAlta?.Date;
         record.MotivoAlta = string.IsNullOrWhiteSpace(model.MotivoAlta) ? null : model.MotivoAlta;
-        record.EstadoAlta = string.IsNullOrWhiteSpace(model.EstadoAlta)
-            ? TerapiaAmbulatoriaEstadoAltaValues[0]
-            : model.EstadoAlta;
 
         if (preserveCreatedAt)
         {
@@ -1289,14 +1421,6 @@ public partial class CensoController
         model.FechaFin = record.FechaFin?.Date;
         model.FechaAlta = record.FechaAlta?.Date;
         model.MotivoAlta = record.MotivoAlta ?? string.Empty;
-        model.EstadoAlta = string.IsNullOrWhiteSpace(record.EstadoAlta)
-            ? TerapiaAmbulatoriaEstadoAltaValues[0]
-            : record.EstadoAlta;
-    }
-
-    private static bool IsTerapiaAltaCerrada(string? estadoAlta)
-    {
-        return string.Equals(estadoAlta?.Trim(), TerapiaAmbulatoriaEstadoAltaCerrado, StringComparison.OrdinalIgnoreCase);
     }
 
     private static EmailMessage BuildTerapiaAmbulatoriaAltaEmail(CensoTerapiaAmbulatoriaRecord record)
@@ -1393,7 +1517,7 @@ public partial class CensoController
             "MunicipioResidencia", "Barrio", "ZonaDireccionSegunMunicipio", "Area", "IpsQueRemite",
             "TelefonoPrincipal", "TelefonoAdicional1", "TelefonoAdicional2", "Fisioterapeuta", "GestionEnSistema",
             "EstadoGestion", "EstadoPaciente", "FechaIngreso", "FechaInicio", "FechaFin", "FechaAlta", "MotivoAlta",
-            "EstadoAlta", "AltaNotificacionEnviadaAtUtc", "CreatedAtUtc", "UpdatedAtUtc", "Prorroga_Id",
+            "AltaNotificacionEnviadaAtUtc", "CreatedAtUtc", "UpdatedAtUtc", "Prorroga_Id",
             "Prorroga_TipoTerapia", "Prorroga_FechaSolicitudProrroga", "Prorroga_FechaSolicitudAsegurador",
             "Prorroga_FechaEntregaAutorizacion", "Prorroga_CodigoAutorizacion", "Prorroga_Frecuencia",
             "Prorroga_Cantidad", "Prorroga_CreatedAtUtc"
@@ -1453,7 +1577,6 @@ public partial class CensoController
                     FormatNullableDate(item.FechaFin),
                     FormatNullableDate(item.FechaAlta),
                     item.MotivoAlta ?? string.Empty,
-                    item.EstadoAlta,
                     item.AltaNotificacionEnviadaAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty,
                     item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"),
                     item.UpdatedAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty,
