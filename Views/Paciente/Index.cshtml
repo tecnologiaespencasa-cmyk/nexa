@@ -11,6 +11,17 @@
     var maxMedicamento = Model.MedicamentosFrecuentes.Count > 0 ? Model.MedicamentosFrecuentes.Max(m => m.Veces) : 1;
     var inv = CultureInfo.InvariantCulture;
     var datosIngreso = new ViewDataDictionary(ViewData) { ["Hoy"] = hoy };
+
+    // Los colores de la banda superior de la ficha: los programas en curso, o los que tuvo si ya
+    // no hay ninguno abierto. Es el mismo código de color de la línea de vida y del censo.
+    var programasEnCurso = Model.Ingresos
+        .Where(i => i.Situacion is HojaVidaSituacion.EnCurso or HojaVidaSituacion.SinDiligenciar)
+        .Select(i => i.ProgramaClase)
+        .Distinct()
+        .ToList();
+    var coloresFicha = programasEnCurso.Count > 0
+        ? programasEnCurso
+        : Model.Ingresos.Select(i => i.ProgramaClase).Distinct().ToList();
 }
 
 @section Styles
@@ -83,23 +94,38 @@
             </div>
 
             @* ── Ficha ─────────────────────────────────────────────────────────── *@
-            <header class="hv-ficha">
+            <header class="hv-ficha @(Model.Estado.Activo ? "hv-ficha--activo" : null)">
+                @if (coloresFicha.Count > 0)
+                {
+                    <div class="hv-ficha__banda" aria-hidden="true">
+                        @foreach (var clase in coloresFicha)
+                        {
+                            <span class="hv-prog--@clase"></span>
+                        }
+                    </div>
+                }
                 <div class="hv-ficha__identidad">
                     <p class="hv-estado hv-estado--@estadoClase" role="status">
                         <span class="hv-estado__senal" aria-hidden="true"></span>
                         <strong>@Model.Estado.Rotulo</strong>
                         @if (Model.Estado.ProgramasEnCurso.Count > 0)
                         {
-                            <span class="hv-estado__programas">@string.Join(" · ", Model.Estado.ProgramasEnCurso)</span>
+                            @* Cada programa con su color: el mismo de la línea de vida y del censo. *@
+                            <span class="hv-estado__programas">
+                                @foreach (var programa in Model.Estado.ProgramasEnCurso)
+                                {
+                                    <span class="hv-estado__programa hv-prog--@programa.Clase">@programa.Nombre</span>
+                                }
+                            </span>
                         }
                     </p>
                     <h1 class="hv-ficha__nombre">@Model.Identidad.Nombre</h1>
                     @* El recorte del contenedor oculta el separador de la primera pieza de cada renglón. *@
                     <p class="hv-ficha__ids"><span class="hv-ficha__fila">
                         <span class="hv-ficha__documento hv-num">@Model.Identidad.TipoDocumento @HojaVidaFormato.Documento(Model.Identidad.NumeroDocumento)</span>
-                        @if (Model.Identidad.Edad is { } edad)
+                        @if (Model.Identidad.EdadTexto is not null)
                         {
-                            <span>@edad años</span>
+                            <span>@Model.Identidad.EdadTexto</span>
                         }
                         @if (Model.Identidad.Genero is not null)
                         {
@@ -109,8 +135,8 @@
                         {
                             <span>@Model.Identidad.Asegurador</span>
                         }
-                        @* El tiempo con nosotros va en la línea del nombre: es lo primero que se pregunta al
-                           abrir la hoja. El municipio sigue en "Contacto y ubicación". *@
+                        @* El tiempo con nosotros va en la línea del nombre: es lo primero que se
+                           pregunta al abrir la hoja. *@
                         @if (Model.Estado.IngresosEfectivos > 0)
                         {
                             <span class="hv-ficha__tiempo">
@@ -130,6 +156,13 @@
                                 <span class="hv-codigo">@Model.Identidad.Cie10Actual</span>
                             }
                             <span>@Model.Identidad.DiagnosticoActual</span>
+                        </p>
+                    }
+                    @if (Model.Identidad.IpsQueRemite is not null)
+                    {
+                        <p class="hv-ficha__remite">
+                            <i class="bi bi-hospital" aria-hidden="true"></i>
+                            Remitido por <strong>@Model.Identidad.IpsQueRemite</strong>
                         </p>
                     }
                 </div>
@@ -157,7 +190,6 @@
                     <a href="#rondas">Rondas intramurales <span class="hv-conteo">@Model.Rondas.Count</span></a>
                 }
                 <a href="#cifras">En cifras</a>
-                <a href="#contacto">Contacto</a>
             </nav>
 
             @if (Model.Linea.TieneDatos)
@@ -273,7 +305,28 @@
                                                 <i class="bi @(novedad.Resuelta ? "bi-check-circle-fill" : "bi-hourglass-split")" aria-hidden="true"></i>
                                                 @(novedad.Resuelta ? "Resuelta" : "Sin resolver")
                                             </span>
-                                            <time class="hv-num" datetime="@novedad.Fecha.ToString("yyyy-MM-ddTHH:mm", inv)">@HojaVidaFormato.Fecha(novedad.Fecha)</time>
+                                            <span class="hv-novedad__hito">
+                                                <span class="hv-novedad__hito-rotulo">Reportada</span>
+                                                <time class="hv-num" datetime="@novedad.Fecha.ToString("yyyy-MM-ddTHH:mm", inv)">@HojaVidaFormato.FechaHora(novedad.Fecha)</time>
+                                            </span>
+                                            @if (novedad.Resuelta)
+                                            {
+                                                <span class="hv-novedad__hito">
+                                                    <span class="hv-novedad__hito-rotulo">Resuelta</span>
+                                                    <time class="hv-num" datetime="@novedad.UltimaGestion.ToString("yyyy-MM-ddTHH:mm", inv)">@HojaVidaFormato.FechaHora(novedad.UltimaGestion)</time>
+                                                </span>
+                                                <span class="hv-novedad__duracion" title="Tiempo entre el reporte y la última gestión en el portal.">
+                                                    <i class="bi bi-stopwatch" aria-hidden="true"></i>
+                                                    Tardó @HojaVidaFormato.Transcurrido(novedad.MinutosTranscurridos)
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="hv-novedad__duracion hv-novedad__duracion--abierta">
+                                                    <i class="bi bi-stopwatch" aria-hidden="true"></i>
+                                                    Abierta hace @HojaVidaFormato.Transcurrido(novedad.MinutosTranscurridos)
+                                                </span>
+                                            }
                                         </div>
                                         <div class="hv-novedad__cuerpo">
                                             <h3 class="hv-novedad__tipo">
@@ -305,7 +358,6 @@
                                                 {
                                                     <span>Gestiona @novedad.Responsable</span>
                                                 }
-                                                <span>Última gestión: <span class="hv-num">@HojaVidaFormato.Fecha(novedad.UltimaGestion)</span></span>
                                                 @if (novedad.IngresoClave is not null)
                                                 {
                                                     <a href="#@novedad.IngresoClave" data-hv-ir="@novedad.IngresoClave">Durante @novedad.IngresoNombre</a>
@@ -437,60 +489,6 @@
                         </section>
                     }
 
-                    <section class="hv-panel" id="contacto" aria-labelledby="hvContactoTitulo">
-                        <h2 id="hvContactoTitulo" class="hv-lateral__titulo">Contacto y ubicación</h2>
-                        <dl class="hv-hechos hv-hechos--apilado">
-                            @if (Model.Identidad.Direccion is not null)
-                            {
-                                <div>
-                                    <dt>Dirección</dt>
-                                    <dd>
-                                        @Model.Identidad.Direccion
-                                        @if (Model.Identidad.DetalleDireccion is not null)
-                                        {
-                                            <span class="hv-tenue">@Model.Identidad.DetalleDireccion</span>
-                                        }
-                                    </dd>
-                                </div>
-                            }
-                            @if (Model.Identidad.Barrio is not null || Model.Identidad.Municipio is not null)
-                            {
-                                <div><dt>Barrio y municipio</dt><dd>@string.Join(", ", new[] { Model.Identidad.Barrio, Model.Identidad.Municipio }.Where(x => x is not null))</dd></div>
-                            }
-                            @if (Model.Identidad.Zona is not null)
-                            {
-                                <div><dt>Zona</dt><dd>@Model.Identidad.Zona</dd></div>
-                            }
-                            @if (Model.Identidad.Telefonos.Count > 0)
-                            {
-                                <div>
-                                    <dt>Teléfonos</dt>
-                                    <dd class="hv-telefonos">
-                                        @foreach (var telefono in Model.Identidad.Telefonos)
-                                        {
-                                            <a class="hv-num" href="tel:@telefono">@telefono</a>
-                                        }
-                                    </dd>
-                                </div>
-                            }
-                            @if (Model.Identidad.Correo is not null)
-                            {
-                                <div><dt>Correo</dt><dd class="hv-quiebre">@Model.Identidad.Correo</dd></div>
-                            }
-                            @if (Model.Identidad.FechaNacimiento is not null)
-                            {
-                                <div><dt>Fecha de nacimiento</dt><dd class="hv-num">@HojaVidaFormato.Fecha(Model.Identidad.FechaNacimiento)</dd></div>
-                            }
-                            @if (Model.Identidad.IpsQueRemite is not null)
-                            {
-                                <div><dt>IPS que remitió</dt><dd>@Model.Identidad.IpsQueRemite</dd></div>
-                            }
-                        </dl>
-                        @if (!Model.Identidad.DesdeMaestro)
-                        {
-                            <p class="hv-panel__ayuda">Tomado del registro más reciente: el paciente no tiene ficha maestra en el censo.</p>
-                        }
-                    </section>
                 </aside>
             </div>
 

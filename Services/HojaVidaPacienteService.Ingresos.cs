@@ -44,7 +44,7 @@ public partial class HojaVidaPacienteService
                 Situacion = HojaVidaSituacion.SinDiligenciar,
                 FechaIngreso = FechaValida(episodio.FechaIngreso) ?? ColombiaTime.Convert(episodio.AgregadoAtUtc).Date,
                 EstadoCenso = "Asignado sin diligenciar",
-                Datos = Datos(("Asignado por", episodio.AgregadoPor))
+                AsignadoPor = Texto(episodio.AgregadoPor)
             });
         }
 
@@ -182,16 +182,12 @@ public partial class HojaVidaPacienteService
 
         CalcularEstancia(ingreso, hoy);
 
-        ingreso.Datos = Datos(
-            ("Clasificación del riesgo", r.ClasificacionRiesgo),
-            ("IPS que remite", r.IpsQueRemite),
+        ingreso.Tratamiento = Datos(
+            ("Inicio", FechaTexto(r.FechaInicioTratamiento)),
+            ("Fin", FechaTexto(r.FechaFinTratamiento)),
             ("Días autorizados", r.NumeroDiasAutorizado),
-            ("Inicio del tratamiento", FechaTexto(r.FechaInicioTratamiento)),
-            ("Fin del tratamiento", FechaTexto(r.FechaFinTratamiento)),
             ("Aplicaciones totales", r.AplicacionesTotales),
-            ("Días de tratamiento IV", r.DiasTratamientoIv),
-            ("Alta tardía", EsSi(r.AltaTardia) ? "Sí" : null),
-            ("Devolución de productos", Unir(r.MotivoNovedadDevolucionProductos, r.EstadoDevolucionServicioFarmaceutico)));
+            ("Días de tratamiento IV", r.DiasTratamientoIv));
 
         ingreso.Controles = Controles(hoy, ingreso.Situacion,
             ("Cambio de sonda", FechaValida(r.FechaUltimoCambioSonda), FechaValida(r.FechaProximoCambioSonda),
@@ -199,6 +195,7 @@ public partial class HojaVidaPacienteService
             ("Curación del catéter PICC", FechaValida(r.FechaUltimaCuracionPicc), null, null));
 
         ingreso.Servicios = Servicios(
+            (EsSi(r.AltaTardia), "Alta tardía", null),
             (EsSi(r.RequiereServiciosComplementarios), "Servicios complementarios", r.ServicioComplementario),
             (EsSi(r.RequiereCuidador), "Requiere cuidador", null),
             (EsSi(r.PacienteGestante), "Paciente gestante", null),
@@ -301,12 +298,7 @@ public partial class HojaVidaPacienteService
                 Vence(r.FechaUltimaPrescripcionNutricion, r.TiempoPrescripcionNutricionMeses),
                 Texto(r.EstadoMipresNutricion)));
 
-        ingreso.Datos = Datos(
-            ("Fuente de ingreso", r.FuenteIngreso),
-            ("Clasificación del caso", r.ClasificacionCaso),
-            ("Diagnóstico complementario", Unir(r.DiagnosticoCronicoComplementario, r.GrupoPatologiaCronicaComplementario)),
-            ("Barthel auditado", r.BarthelAuditado),
-            ("Fecha de auditoría", FechaTexto(r.FechaAuditoria)));
+        ingreso.DiagnosticoSecundario = Unir(r.DiagnosticoCronicoComplementario, r.GrupoPatologiaCronicaComplementario);
 
         ingreso.Servicios = Servicios(
             (EsSi(r.EducacionPlanCuidados), "Educación en plan de cuidados", null),
@@ -408,17 +400,9 @@ public partial class HojaVidaPacienteService
 
         CalcularEstancia(ingreso, hoy);
 
-        ingreso.Datos = Datos(
-            ("Fuente de ingreso", r.FuenteIngreso),
-            ("Fecha de valoración", FechaTexto(r.FechaValoracion)),
-            ("Duración del tratamiento", r.DuracionTratamientoDias is { } d ? HojaVidaFormato.Dias(d) : null),
-            ("Frecuencia de visita", r.FrecuenciaVisita),
-            ("Equipo en comodato", EsSi(r.EquipoComodato)
-                ? Unir(Texto(r.NumeroPlacaEquipos) is { } placa ? $"Placa {placa}" : null,
-                    FechaValida(r.FechaEntregaEquipo) is { } entrega ? $"entregado el {HojaVidaFormato.Fecha(entrega)}" : null,
-                    FechaValida(r.FechaDevolucionEquipo) is { } devolucion ? $"devuelto el {HojaVidaFormato.Fecha(devolucion)}" : "sin devolver")
-                : null),
-            ("Devolución de productos", Unir(r.MotivoNovedadDevolucionProductos, r.EstadoDevolucionServicioFarmaceutico)));
+        ingreso.Tratamiento = Datos(
+            ("Duración", r.DuracionTratamientoDias is { } d ? HojaVidaFormato.Dias(d) : null),
+            ("Frecuencia de visita", r.FrecuenciaVisita));
 
         ingreso.Servicios = Servicios(
             (EsSi(r.ManejoHerida), "Manejo de la herida", null),
@@ -583,14 +567,6 @@ public partial class HojaVidaPacienteService
         ingreso.Controles = Controles(hoy, ingreso.Situacion,
             ("Curación del catéter PICC/CC", FechaValida(r.FechaUltimaCuracionPicc), null, null));
 
-        ingreso.Datos = Datos(
-            ("Fecha de valoración", FechaTexto(r.FechaValoracion)),
-            ("Equipo en comodato", EsSi(r.EquipoComodato)
-                ? Unir(r.DescripcionEquipo, Texto(r.NumeroPlacaEquipos) is { } placa ? $"placa {placa}" : null,
-                    FechaValida(r.FechaDevolucionEquipo) is { } devolucion ? $"devuelto el {HojaVidaFormato.Fecha(devolucion)}" : "sin devolver")
-                : null),
-            ("Devolución de productos", Unir(r.MotivoNovedadDevolucionProductos, r.EstadoDevolucionServicioFarmaceutico)));
-
         ingreso.Servicios = Servicios(
             (EsSi(r.Picc), "Catéter PICC/CC", null),
             (EsSi(r.CargueLaboratorios), "Laboratorios", null),
@@ -687,12 +663,9 @@ public partial class HojaVidaPacienteService
             })
             .ToList();
 
-        ingreso.Datos = Datos(
-            ("Número de autorización", r.NumeroAutorizacion),
-            ("IPS que remite", r.IpsQueRemite),
+        ingreso.Tratamiento = Datos(
             ("Inicio de las terapias", FechaTexto(r.FechaInicio)),
-            ("Fin de las terapias", FechaTexto(r.FechaFin)),
-            ("Estado de la gestión", r.EstadoGestion));
+            ("Fin de las terapias", FechaTexto(r.FechaFin)));
 
         return ingreso;
     }

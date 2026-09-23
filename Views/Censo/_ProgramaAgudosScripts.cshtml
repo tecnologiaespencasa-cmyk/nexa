@@ -1271,9 +1271,11 @@
             // Campos del kardex que provienen de las secciones 1, 2 y 3 (datos del paciente):
             // siempre se sincronizan desde el formulario actual y NUNCA se restauran del JSON
             // guardado, para que las correcciones tras una reapertura se reflejen en el documento.
+            // "programador" queda fuera a propósito: el operador lo cambia a mano en cada kardex y debe
+            // restaurarse de lo guardado (el formulario solo lo propone si el guardado viene vacío).
             const kardexPatientSyncedFields = new Set([
                 "paciente", "asegurador", "documento", "direccion", "telefonos",
-                "edad", "cie10", "diagnostico", "programador", "auxiliarAsignado"
+                "edad", "cie10", "diagnostico", "auxiliarAsignado"
             ]);
 
             const loadKardexPayload = (payload) => {

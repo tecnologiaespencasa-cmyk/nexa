@@ -135,7 +135,7 @@ public partial class HojaVidaPacienteService : IHojaVidaPacienteService
 
         var ingresos = ConstruirIngresos(datos, seguimientos.Filas, hoy);
 
-        model.Novedades = ConstruirNovedades(novedades.Filas, ingresos, hoy);
+        model.Novedades = ConstruirNovedades(novedades.Filas, ingresos, ahora);
         model.Rondas = ConstruirRondas(rondas.Filas, ingresos);
         model.Ingresos = ingresos
             .OrderByDescending(x => x.Situacion == HojaVidaSituacion.EnCurso || x.Situacion == HojaVidaSituacion.SinDiligenciar)

@@ -89,6 +89,32 @@ public static class HojaVidaFormato
         return hr == 0 ? Dias(d) : $"{Dias(d)} {hr} h";
     }
 
+    /// <summary>
+    /// Cuánto tardó algo, contado en horas mientras sean pocas ("6 h 25 min") y en días con su
+    /// equivalente en horas cuando ya son muchas ("8 días · 196 h").
+    /// </summary>
+    public static string Transcurrido(int minutos)
+    {
+        if (minutos < 0)
+        {
+            minutos = 0;
+        }
+
+        if (minutos < 60)
+        {
+            return $"{minutos} min";
+        }
+
+        var horas = minutos / 60;
+        if (horas < 72)
+        {
+            var resto = minutos % 60;
+            return resto == 0 ? $"{horas} h" : $"{horas} h {resto} min";
+        }
+
+        return $"{Dias(minutos / (60 * 24)).ToLowerInvariant()} · {horas.ToString("N0", Colombia)} h";
+    }
+
     public static string Numero(double valor, int decimales = 1) =>
         valor.ToString(decimales == 0 ? "N0" : "0." + new string('#', decimales), Colombia);
 

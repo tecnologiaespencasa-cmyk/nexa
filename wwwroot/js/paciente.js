@@ -209,6 +209,34 @@
     });
   }
 
+  /* ---- Barras y trazos que crecen al asomarse ----
+     La clase hv-anima-listo es la que pone los valores en cero para animarlos: sin ella —sin
+     JavaScript, o con movimiento reducido— cada barra se dibuja directamente en su tamaño real. */
+
+  if ('IntersectionObserver' in window && !reducirMovimiento) {
+    hoja.classList.add('hv-anima-listo');
+
+    var crecer = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (entrada) {
+        if (!entrada.isIntersecting) return;
+        entrada.target.classList.add('hv-visible');
+        crecer.unobserve(entrada.target);
+      });
+    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.25 });
+
+    hoja.querySelectorAll('.hv-escala, .hv-frecuencias li, .hv-evolucion').forEach(function (pieza) {
+      crecer.observe(pieza);
+    });
+
+    // Lo que ya está desplegado dentro de un ingreso abierto se observa al abrirlo.
+    hoja.addEventListener('toggle', function (evento) {
+      if (!evento.target.open) return;
+      evento.target.querySelectorAll('.hv-escala:not(.hv-visible), .hv-evolucion:not(.hv-visible)').forEach(function (pieza) {
+        crecer.observe(pieza);
+      });
+    }, true);
+  }
+
   /* ---- Imprimir con todos los ingresos desplegados ---- */
 
   var abiertosAntesDeImprimir = [];

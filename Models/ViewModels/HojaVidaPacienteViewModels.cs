@@ -61,24 +61,17 @@ public class HojaVidaIdentidad
 
     public int? Edad { get; set; }
 
+    /// <summary>
+    /// La edad escrita: "78 años", y en meses o días cuando el paciente no llega al año, que es
+    /// como se habla de un lactante.
+    /// </summary>
+    public string? EdadTexto { get; set; }
+
     public string? Genero { get; set; }
 
     public string? Asegurador { get; set; }
 
-    public string? Direccion { get; set; }
-
-    public string? DetalleDireccion { get; set; }
-
-    public string? Barrio { get; set; }
-
-    public string? Municipio { get; set; }
-
-    public string? Zona { get; set; }
-
-    public string? Correo { get; set; }
-
-    public IReadOnlyList<string> Telefonos { get; set; } = [];
-
+    /// <summary>Quién remitió al paciente. Se muestra bajo el diagnóstico, en la ficha.</summary>
     public string? IpsQueRemite { get; set; }
 
     /// <summary>Diagnóstico de la atención en curso (o de la última); lo primero que se pregunta.</summary>
@@ -117,8 +110,8 @@ public class HojaVidaEstadoGeneral
     /// <summary>Rótulo corto: "Activo", "Inactivo", "Fallecido", "Sin ingresos efectivos".</summary>
     public string Rotulo { get; set; } = string.Empty;
 
-    /// <summary>Nombres de los programas con atención en curso, por jerarquía.</summary>
-    public IReadOnlyList<string> ProgramasEnCurso { get; set; } = [];
+    /// <summary>Programas con atención en curso, por jerarquía, cada uno con su color.</summary>
+    public IReadOnlyList<HojaVidaProgramaEnCurso> ProgramasEnCurso { get; set; } = [];
 
     public DateTime? PrimerIngreso { get; set; }
 
@@ -137,6 +130,9 @@ public class HojaVidaFrase
 }
 
 public record HojaVidaTrozo(string Texto, bool Resaltado = false);
+
+/// <summary>Programa abierto en la ficha: el nombre y el sufijo de su clase de color.</summary>
+public record HojaVidaProgramaEnCurso(string Nombre, string Clase);
 
 public class HojaVidaIngreso
 {
@@ -182,6 +178,9 @@ public class HojaVidaIngreso
 
     public string? Diagnostico { get; set; }
 
+    /// <summary>Diagnóstico complementario, cuando el programa lo registra aparte.</summary>
+    public string? DiagnosticoSecundario { get; set; }
+
     public string? Asegurador { get; set; }
 
     /// <summary>Escalas de valoración con su lectura en palabras (Barthel, Braden, Morse…).</summary>
@@ -190,8 +189,14 @@ public class HojaVidaIngreso
     /// <summary>Controles con fecha de vencimiento: cambio de sonda, curación del catéter…</summary>
     public IReadOnlyList<HojaVidaControl> Controles { get; set; } = [];
 
-    /// <summary>Datos propios del programa que no tienen sección aparte (clasificación, fuente…).</summary>
-    public IReadOnlyList<HojaVidaDato> Datos { get; set; } = [];
+    /// <summary>
+    /// Fechas y cantidades del tratamiento pactado (inicio, fin, días autorizados, aplicaciones).
+    /// Van junto a los medicamentos, que es donde se leen.
+    /// </summary>
+    public IReadOnlyList<HojaVidaDato> Tratamiento { get; set; } = [];
+
+    /// <summary>Quién agregó el programa, en los que nadie ha diligenciado.</summary>
+    public string? AsignadoPor { get; set; }
 
     /// <summary>Medicamentos pactados al ingreso.</summary>
     public IReadOnlyList<HojaVidaMedicamento> Medicamentos { get; set; } = [];
@@ -230,7 +235,7 @@ public class HojaVidaIngreso
         Medicamentos.Count > 0 || Prorrogas.Count > 0 || Agudizaciones.Count > 0 || Servicios.Count > 0
         || Insumos.Count > 0 || PlanesHeridas.Count > 0 || Terapias.Count > 0 || Npt is not null
         || Hospitalizaciones.Count > 0 || Despachos.Count > 0 || EvolucionHerida is not null
-        || Novedades.Count > 0 || Datos.Count > 0 || Escalas.Count > 0 || Controles.Count > 0;
+        || Novedades.Count > 0 || Tratamiento.Count > 0 || Escalas.Count > 0 || Controles.Count > 0;
 }
 
 /// <summary>
@@ -435,7 +440,16 @@ public class HojaVidaNovedad
 
     public DateTime Fecha { get; set; }
 
+    /// <summary>
+    /// Última vez que alguien la tocó en el portal. En una novedad resuelta es lo más cerca que hay
+    /// de la fecha de solución: el portal no guarda un campo aparte para eso.
+    /// </summary>
     public DateTime UltimaGestion { get; set; }
+
+    /// <summary>
+    /// Minutos entre el reporte y la solución; en una novedad abierta, los que lleva sin resolver.
+    /// </summary>
+    public int MinutosTranscurridos { get; set; }
 
     public string Categoria { get; set; } = string.Empty;
 

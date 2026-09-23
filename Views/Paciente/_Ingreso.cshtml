@@ -78,6 +78,10 @@
                         <span class="hv-codigo">@Model.Cie10</span>
                     }
                     @Model.Diagnostico
+                    @if (Model.DiagnosticoSecundario is not null)
+                    {
+                        <span class="hv-ingreso__dx-extra">y @Model.DiagnosticoSecundario</span>
+                    }
                 </span>
             }
             <i class="bi bi-chevron-down hv-ingreso__flecha" aria-hidden="true"></i>
@@ -102,6 +106,14 @@
                     <div><dt>Gestionó el alta</dt><dd>@Model.QuienGestionaAlta</dd></div>
                 }
             </dl>
+
+            @if (Model.AsignadoPor is not null)
+            {
+                <p class="hv-nota">
+                    <i class="bi bi-person-plus" aria-hidden="true"></i>
+                    <span>Programa agregado por <strong>@Model.AsignadoPor</strong>. Nadie ha diligenciado el formulario todavía.</span>
+                </p>
+            }
 
             @if (Model.Ronda is { } ronda)
             {
@@ -131,6 +143,19 @@
                             </li>
                         }
                     </ul>
+                </section>
+            }
+
+            @if (Model.Tratamiento.Count > 0)
+            {
+                <section class="hv-bloque">
+                    <h3 class="hv-bloque__titulo"><i class="bi bi-calendar-range" aria-hidden="true"></i> Tratamiento pactado</h3>
+                    <dl class="hv-hechos">
+                        @foreach (var dato in Model.Tratamiento)
+                        {
+                            <div><dt>@dato.Etiqueta</dt><dd class="hv-num">@dato.Valor</dd></div>
+                        }
+                    </dl>
                 </section>
             }
 
@@ -554,18 +579,6 @@
                 </section>
             }
 
-            @if (Model.Datos.Count > 0)
-            {
-                <section class="hv-bloque">
-                    <h3 class="hv-bloque__titulo"><i class="bi bi-card-list" aria-hidden="true"></i> Otros datos del ingreso</h3>
-                    <dl class="hv-hechos hv-hechos--otros">
-                        @foreach (var dato in Model.Datos)
-                        {
-                            <div><dt>@dato.Etiqueta</dt><dd>@dato.Valor</dd></div>
-                        }
-                    </dl>
-                </section>
-            }
 
             @if (!Model.TieneDetalle && Model.Asegurador is null)
             {

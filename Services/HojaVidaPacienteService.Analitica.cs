@@ -41,7 +41,7 @@ public partial class HojaVidaPacienteService
     private static IReadOnlyList<HojaVidaNovedad> ConstruirNovedades(
         IReadOnlyList<PortalNovedadPacienteRow> filas,
         List<HojaVidaIngreso> ingresos,
-        DateTime hoy)
+        DateTime ahora)
     {
         var porIngreso = new Dictionary<string, List<HojaVidaNovedad>>(StringComparer.Ordinal);
         var novedades = new List<HojaVidaNovedad>();
@@ -65,6 +65,10 @@ public partial class HojaVidaPacienteService
                 Medicamentos = fila.Medicamentos
             };
 
+            // Una novedad resuelta se cuenta hasta su última gestión; una abierta, hasta ahora.
+            var hasta = novedad.Resuelta ? novedad.UltimaGestion : ahora;
+            novedad.MinutosTranscurridos = (int)Math.Max((hasta - novedad.Fecha).TotalMinutes, 0);
+
             // Una novedad de heridas o de terapias pertenece a ese programa aunque el paciente
             // tuviera otro abierto el mismo día; las demás, al programa base.
             var preferido = fila.EsClinicaHeridas
@@ -73,7 +77,7 @@ public partial class HojaVidaPacienteService
                     ? CensoProgramas.TerapiaAmbulatoria
                     : null;
 
-            if (IngresoEnFecha(ingresos, novedad.Fecha.Date, hoy, preferido) is { } ingreso)
+            if (IngresoEnFecha(ingresos, novedad.Fecha.Date, ahora.Date, preferido) is { } ingreso)
             {
                 novedad.IngresoClave = ingreso.Clave;
                 novedad.IngresoNombre = NombreIngreso(ingreso);
@@ -233,34 +237,16 @@ public partial class HojaVidaPacienteService
             }
 
             identidad.Edad = edad;
+            identidad.EdadTexto = edad >= 1
+                ? $"{edad} años"
+                : MesesCumplidos(nacimiento, hoy) is var meses && meses >= 1
+                    ? $"{meses} {(meses == 1 ? "mes" : "meses")}"
+                    : HojaVidaFormato.Dias((hoy - nacimiento).Days);
         }
 
         identidad.Genero = Primero(m?.Genero, cronico?.Genero, herida?.Genero, npt?.Genero);
         identidad.Asegurador = Primero(m?.Asegurador, agudo?.Asegurador, herida?.Asegurador, npt?.Asegurador);
-        identidad.Direccion = Primero(m?.Direccion, agudo?.Direccion, cronico?.Direccion, herida?.Direccion, npt?.Direccion, terapia?.Direccion);
-        identidad.DetalleDireccion = Primero(m?.DetalleDireccion, agudo?.DetalleDireccion, cronico?.DetalleDireccion, herida?.DetalleDireccion, terapia?.DetalleDireccion);
-        identidad.Barrio = Primero(m?.Barrio, agudo?.Barrio, cronico?.Barrio, herida?.Barrio, npt?.Barrio, terapia?.Barrio);
-        identidad.Municipio = Primero(m?.MunicipioResidencia, agudo?.MunicipioResidencia, cronico?.MunicipioResidencia,
-            herida?.MunicipioResidencia, npt?.MunicipioResidencia, terapia?.MunicipioResidencia);
-        // "No parametrizado" y los correos de relleno ("sincorreo@…") son marcadores del formulario,
-        // no datos: mostrarlos haría creer que el paciente tiene zona o correo.
-        identidad.Zona = SinMarcador(Primero(m?.ZonaDireccionSegunMunicipio, agudo?.ZonaDireccionSegunMunicipio, herida?.ZonaDireccionSegunMunicipio));
-        identidad.Correo = SinMarcador(Primero(m?.CorreoElectronico, agudo?.CorreoElectronico, cronico?.CorreoElectronico, terapia?.CorreoElectronico));
         identidad.IpsQueRemite = Primero(m?.IpsQueRemite, agudo?.IpsQueRemite, terapia?.IpsQueRemite);
-
-        identidad.Telefonos = new[]
-            {
-                m?.Telefono1, m?.Telefono2, m?.Telefono3,
-                agudo?.Telefono1, agudo?.Telefono2, agudo?.Telefono3,
-                herida?.TelefonoPrincipal, herida?.TelefonoAdicional1, herida?.TelefonoAdicional2,
-                npt?.TelefonoPrincipal, npt?.TelefonoAdicional1, terapia?.TelefonoPrincipal, terapia?.TelefonoAdicional1
-            }
-            .Select(Texto)
-            .OfType<string>()
-            .Where(t => t.Any(char.IsDigit) && t.Trim('0').Length > 0)
-            .Distinct(StringComparer.Ordinal)
-            .Take(4)
-            .ToList();
 
         return identidad;
     }
@@ -285,7 +271,7 @@ public partial class HojaVidaPacienteService
         estado.Activo = enCurso.Count > 0;
         estado.ProgramasEnCurso = enCurso
             .OrderBy(i => CensoProgramas.Jerarquia(i.Programa))
-            .Select(i => i.ProgramaNombre)
+            .Select(i => new HojaVidaProgramaEnCurso(i.ProgramaNombre, i.ProgramaClase))
             .Distinct()
             .ToList();
         estado.IngresosEfectivos = efectivos.Count;
@@ -391,10 +377,22 @@ public partial class HojaVidaPacienteService
             // Cada programa con su propia fecha de ingreso. Antes se tomaba la más antigua de todos
             // y la frase se la atribuía a los dos: decía que el paciente estaba en agudos desde el
             // día en que entró a crónicos.
+            // Se nombra cada programa una sola vez, con la fecha de la atención más antigua que
+            // sigue abierta: un paciente con dos registros abiertos del mismo programa hacía que la
+            // frase lo repitiera ("activo en Clínica de heridas, en Clínica de heridas y en...").
             var enCurso = ingresos
                 .Where(i => i.Situacion is HojaVidaSituacion.EnCurso or HojaVidaSituacion.SinDiligenciar)
-                .OrderBy(i => CensoProgramas.Jerarquia(i.Programa))
-                .ThenBy(i => i.FechaIngreso ?? DateTime.MaxValue)
+                .GroupBy(i => i.Programa)
+                .OrderBy(g => CensoProgramas.Jerarquia(g.Key))
+                .Select(g => new
+                {
+                    Nombre = g.First().ProgramaNombre,
+                    Desde = g.Where(i => i.FechaIngreso is not null)
+                        .Select(i => i.FechaIngreso!.Value)
+                        .DefaultIfEmpty(DateTime.MinValue)
+                        .Min(),
+                    Abiertas = g.Count()
+                })
                 .ToList();
 
             var trozos = new List<HojaVidaTrozo> { new("Está activo en ") };
@@ -405,12 +403,25 @@ public partial class HojaVidaPacienteService
                     trozos.Add(new(i == enCurso.Count - 1 ? " y en " : ", en "));
                 }
 
-                trozos.Add(new(enCurso[i].ProgramaNombre, true));
-                if (enCurso[i].FechaIngreso is { } inicio)
+                var programa = enCurso[i];
+                trozos.Add(new(programa.Nombre, true));
+
+                var notas = new List<string>();
+                if (programa.Desde != DateTime.MinValue)
                 {
                     trozos.Add(new(" desde el "));
-                    trozos.Add(new(HojaVidaFormato.FechaLarga(inicio), true));
-                    trozos.Add(new($" ({HojaVidaFormato.Dias((hoy - inicio).Days).ToLowerInvariant()})"));
+                    trozos.Add(new(HojaVidaFormato.FechaLarga(programa.Desde), true));
+                    notas.Add(HojaVidaFormato.Dias((hoy - programa.Desde).Days).ToLowerInvariant());
+                }
+
+                if (programa.Abiertas > 1)
+                {
+                    notas.Add($"{programa.Abiertas} atenciones abiertas");
+                }
+
+                if (notas.Count > 0)
+                {
+                    trozos.Add(new($" ({string.Join(", ", notas)})"));
                 }
             }
 
@@ -550,6 +561,26 @@ public partial class HojaVidaPacienteService
                 Icono = "bi-intersect",
                 Titulo = "Dos programas base abiertos a la vez",
                 Detalle = $"{UnirLista(basesAbiertos)} no deberían estar abiertos al mismo tiempo."
+            });
+        }
+
+        // Dos registros del mismo programa sin alta suelen ser un duplicado o un reingreso al que
+        // nadie le cerró el anterior. Quien lee la hoja necesita saberlo antes de sacar conclusiones.
+        var repetidos = enCurso
+            .GroupBy(i => i.Programa)
+            .Where(g => g.Count() > 1)
+            .Select(g => $"{g.First().ProgramaNombre} ({g.Count()} atenciones)")
+            .ToList();
+        if (repetidos.Count > 0)
+        {
+            alertas.Add(new HojaVidaAlerta
+            {
+                Nivel = "atencion",
+                Icono = "bi-layers-half",
+                Titulo = repetidos.Count == 1
+                    ? "Un programa con más de una atención abierta"
+                    : "Varios programas con más de una atención abierta",
+                Detalle = $"{UnirLista(repetidos)} sin fecha de alta. Puede ser un registro duplicado o un reingreso al que no se le cerró el anterior."
             });
         }
 
@@ -1034,12 +1065,14 @@ public partial class HojaVidaPacienteService
         return marcas.OrderBy(m => m.Pct).ToList();
     }
 
+    /// <summary>Meses cumplidos entre dos fechas.</summary>
+    private static int MesesCumplidos(DateTime desde, DateTime hasta)
+    {
+        var meses = (hasta.Year - desde.Year) * 12 + hasta.Month - desde.Month;
+        return hasta.Day < desde.Day ? Math.Max(meses - 1, 0) : Math.Max(meses, 0);
+    }
+
     private static string? Primero(params string?[] valores) => valores.Select(Texto).FirstOrDefault(v => v is not null);
 
-    private static readonly string[] Marcadores = ["NO PARAMETRIZADO", "SINCORREO", "SIN CORREO", "NOTIENE", "NO TIENE", "NOAPLICA", "NO APLICA"];
 
-    private static string? SinMarcador(string? valor) =>
-        valor is not null && Marcadores.Any(m => valor.Replace(".", string.Empty).Contains(m, StringComparison.OrdinalIgnoreCase))
-            ? null
-            : valor;
 }

@@ -50,10 +50,10 @@ body.page-paciente {
     --hv-evento-ronda: #1f5e86;
 
     /* Papel de electrocardiograma. */
-    --hv-ecg-papel: #fffaf8;
-    --hv-ecg-fina: rgba(224, 69, 36, 0.065);
-    --hv-ecg-gruesa: rgba(224, 69, 36, 0.15);
-    --hv-ecg-borde: rgba(224, 69, 36, 0.2);
+    --hv-ecg-papel: #fffbf9;
+    --hv-ecg-fina: rgba(224, 69, 36, 0.06);
+    --hv-ecg-gruesa: rgba(224, 69, 36, 0.18);
+    --hv-ecg-borde: rgba(224, 69, 36, 0.22);
 
     --prog-agudos: #e04524;
     --prog-cronicos: #6b4de6;
@@ -66,7 +66,8 @@ body.page-paciente {
     --hv-f-dato: "Atkinson Hyperlegible Mono", "Cascadia Mono", "Consolas", ui-monospace, monospace;
 
     --hv-radio: 16px;
-    background: var(--hv-papel);
+    /* El papel aclara hacia arriba: da profundidad sin meter otro color. */
+    background: linear-gradient(180deg, #f5f8f7 0, var(--hv-papel) 22rem) fixed;
 }
 
 .hv {
@@ -116,10 +117,6 @@ body.page-paciente {
 
 .hv-tenue {
     color: var(--hv-tinta-2);
-}
-
-.hv-quiebre {
-    overflow-wrap: anywhere;
 }
 
 .hv-codigo {
@@ -446,9 +443,27 @@ body.page-paciente {
     background: var(--hv-hoja);
     border: 1px solid var(--hv-linea);
     border-radius: 20px;
+    box-shadow: 0 1px 0 rgba(22, 36, 43, 0.03), 0 24px 48px -40px rgba(22, 36, 43, 0.5);
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     overflow: hidden;
+    position: relative;
+}
+
+/* Una franja por programa, en su color: dice de un vistazo en qué anda el paciente. */
+.hv-ficha__banda {
+    display: flex;
+    grid-column: 1 / -1;
+    height: 5px;
+}
+
+.hv-ficha__banda span {
+    background: var(--prog, var(--hv-tinta-3));
+    flex: 1;
+}
+
+.hv-ficha:not(.hv-ficha--activo) .hv-ficha__banda span {
+    opacity: 0.4;
 }
 
 .hv-ficha__identidad {
@@ -460,14 +475,20 @@ body.page-paciente {
     border-radius: 999px;
     display: inline-flex;
     flex-wrap: wrap;
-    font-size: 0.9rem;
-    gap: 0.2rem 0.55rem;
-    margin: 0 0 1rem;
-    padding: 0.28rem 0.85rem 0.28rem 0.6rem;
+    font-size: 1rem;
+    gap: 0.2rem 0.7rem;
+    margin: 0 0 1.1rem;
+    padding: 0.42rem 1.15rem 0.42rem 0.85rem;
 }
 
 .hv-estado strong {
-    font-weight: 700;
+    font-family: var(--hv-f-titulo);
+    font-size: 1.22rem;
+    font-stretch: 92%;
+    font-weight: 760;
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+    text-transform: uppercase;
 }
 
 .hv-estado--activo {
@@ -486,23 +507,41 @@ body.page-paciente {
 }
 
 .hv-estado__programas {
+    align-items: center;
     color: var(--hv-tinta);
-    font-weight: 600;
+    display: inline-flex;
+    flex-wrap: wrap;
+    font-size: 1.02rem;
+    font-weight: 700;
+    gap: 0.15rem 0.75rem;
 }
 
-.hv-estado__programas::before {
-    color: var(--hv-tinta-3);
-    content: "·";
-    margin-right: 0.5rem;
+/* Una barrita del color del programa antes del nombre: se reconoce sin leerlo, y es el mismo
+   color que usan la línea de vida, las tarjetas de ingreso y el censo. El texto se queda en
+   tinta para no perder contraste; el color solo identifica. */
+.hv-estado__programa {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.42rem;
+    white-space: nowrap;
+}
+
+.hv-estado__programa::before {
+    background: var(--prog, currentColor);
+    border-radius: 2px;
+    content: "";
+    flex: none;
+    height: 0.9rem;
+    width: 4px;
 }
 
 .hv-estado__senal {
     background: currentColor;
     border-radius: 50%;
     flex: none;
-    height: 0.62rem;
+    height: 0.8rem;
     position: relative;
-    width: 0.62rem;
+    width: 0.8rem;
 }
 
 .hv-estado--activo .hv-estado__senal::after {
@@ -521,7 +560,7 @@ body.page-paciente {
 
 .hv-estado--fallecido .hv-estado__senal {
     border-radius: 2px;
-    height: 0.18rem;
+    height: 0.22rem;
 }
 
 @keyframes hv-latir {
@@ -601,6 +640,33 @@ body.page-paciente {
     flex-basis: 100%;
     font-size: 0.77rem;
     font-weight: 600;
+}
+
+.hv-ficha__remite {
+    align-items: baseline;
+    color: var(--hv-tinta-2);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.92rem;
+    gap: 0.35rem;
+    margin: 0.6rem 0 0;
+}
+
+.hv-ficha__remite i {
+    color: var(--hv-tinta-3);
+}
+
+.hv-ficha__remite strong {
+    color: var(--hv-tinta);
+    font-weight: 600;
+}
+
+.hv-ingreso__dx-extra {
+    color: var(--hv-tinta-3);
+}
+
+.hv-ingreso__dx-extra::before {
+    content: " · ";
 }
 
 .hv-resumen {
@@ -874,7 +940,7 @@ body.page-paciente {
 }
 
 .hv-banda--alterna {
-    background: rgba(224, 69, 36, 0.045);
+    background: rgba(224, 69, 36, 0.06);
 }
 
 .hv-ecg__carril,
@@ -1190,6 +1256,17 @@ body.page-paciente {
     scroll-margin-top: 4rem;
 }
 
+.hv-lateral__titulo::before {
+    background: var(--hv-rojo);
+    border-radius: 2px;
+    content: "";
+    display: inline-block;
+    height: 0.7rem;
+    margin-right: 0.5rem;
+    vertical-align: -0.02em;
+    width: 3px;
+}
+
 .hv-lateral__titulo {
     color: var(--hv-tinta);
     font-family: var(--hv-f-titulo);
@@ -1273,8 +1350,30 @@ body.page-paciente {
     background: var(--hv-hoja);
     border: 1px solid var(--hv-linea);
     border-radius: 14px;
+    overflow: hidden;
+    position: relative;
     scroll-margin-top: 4rem;
-    transition: box-shadow 0.35s, border-color 0.35s;
+    transition: box-shadow 0.3s, border-color 0.3s;
+}
+
+/* Filo superior con el color del programa; apagado cuando la atención ya terminó. */
+.hv-ingreso::before {
+    background: var(--prog);
+    content: "";
+    height: 3px;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+}
+
+.hv-ingreso--cerrada::before,
+.hv-ingreso--noefectiva::before {
+    opacity: 0.4;
+}
+
+.hv-ingreso:hover {
+    box-shadow: 0 10px 26px -20px rgba(22, 36, 43, 0.55);
 }
 
 .hv-ingreso--encurso {
@@ -1287,6 +1386,7 @@ body.page-paciente {
 
 .hv-ingreso__cabeza {
     align-items: center;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--prog) 7%, #ffffff) 0, var(--hv-hoja) 4.5rem);
     column-gap: 0.8rem;
     cursor: pointer;
     display: grid;
@@ -1864,9 +1964,14 @@ body.page-paciente {
 }
 
 .hv-novedad {
+    border-left: 3px solid transparent;
     display: grid;
     gap: 0.5rem 1.1rem;
-    grid-template-columns: 9rem minmax(0, 1fr);
+    /* La columna de fechas cabe la más larga ("23 sep 2026, 12:43 a. m.") en un solo renglón: con
+       9rem la hora caía al siguiente y la fecha se leía partida en dos. El mínimo fijo mantiene
+       alineado el arranque del cuerpo en todas las novedades; max-content solo actúa si la fuente
+       monoespaciada resulta más ancha de lo previsto. */
+    grid-template-columns: minmax(12.9rem, max-content) minmax(0, 1fr);
     padding: 1rem 1.15rem;
     scroll-margin-top: 4rem;
     transition: background-color 0.6s;
@@ -1878,6 +1983,14 @@ body.page-paciente {
 
 .hv-novedad:first-child { border-radius: 14px 14px 0 0; }
 .hv-novedad:last-child { border-radius: 0 0 14px 14px; }
+
+.hv-novedad--pendiente {
+    border-left-color: var(--hv-ambar-vivo);
+}
+
+.hv-novedad--resuelta {
+    border-left-color: color-mix(in oklab, var(--hv-vital) 40%, #ffffff);
+}
 
 .hv-novedad.hv-resaltado {
     background: #fff6e6;
@@ -1893,7 +2006,40 @@ body.page-paciente {
     display: flex;
     flex-direction: column;
     font-size: 0.85rem;
-    gap: 0.4rem;
+    gap: 0.45rem;
+}
+
+.hv-novedad__hito {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+
+.hv-novedad__lado time {
+    white-space: nowrap;
+}
+
+.hv-novedad__hito-rotulo {
+    color: var(--hv-tinta-3);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.hv-novedad__duracion {
+    align-items: center;
+    background: var(--hv-hoja-2);
+    border-radius: 999px;
+    color: var(--hv-tinta);
+    display: inline-flex;
+    font-size: 0.8rem;
+    font-weight: 600;
+    gap: 0.3rem;
+    padding: 0.15rem 0.6rem;
+}
+
+.hv-novedad__duracion--abierta {
+    background: var(--hv-ambar-tenue);
+    color: var(--hv-ambar);
 }
 
 .hv-novedad__tipo {
@@ -2058,18 +2204,6 @@ body.page-paciente {
     font-size: 0.8rem;
 }
 
-.hv-telefonos {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3rem 0.9rem;
-}
-
-.hv-telefonos a {
-    color: var(--hv-tinta);
-    text-decoration-color: #b8c3c6;
-    text-underline-offset: 3px;
-}
-
 /* --------------------------------------------------------------------------
    Pantallas medianas y celulares
    -------------------------------------------------------------------------- */
@@ -2217,6 +2351,84 @@ body.page-paciente {
 }
 
 /* --------------------------------------------------------------------------
+   Movimiento
+   --------------------------------------------------------------------------
+   Casi todo entra una sola vez, al abrir la hoja o al asomarse a la sección. La
+   clase hv-anima-listo la pone el script: sin JavaScript, cada pieza se dibuja
+   directamente en su estado final.
+   -------------------------------------------------------------------------- */
+
+@keyframes hv-entrar {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+}
+
+.hv--hoja .hv-ficha,
+.hv--hoja .hv-linea,
+.hv--hoja .hv-cuerpo {
+    animation: hv-entrar 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.hv--hoja .hv-linea { animation-delay: 0.07s; }
+.hv--hoja .hv-cuerpo { animation-delay: 0.14s; }
+
+/* Las marcas de la línea de vida aparecen después de que crecen las barras. */
+.hv-anima-listo .hv-marca:not(.hv-marca--leyenda) {
+    animation: hv-aparecer-marca 0.4s ease-out 0.75s both;
+}
+
+@keyframes hv-aparecer-marca {
+    from { opacity: 0; transform: translateY(-6px) scale(0.6); }
+}
+
+.hv-anima-listo .hv-marca--novedad:not(.hv-marca--leyenda) {
+    animation-name: hv-aparecer-rombo;
+}
+
+@keyframes hv-aparecer-rombo {
+    from { opacity: 0; transform: rotate(45deg) scale(0.4); }
+    to { opacity: 1; transform: rotate(45deg) scale(0.9); }
+}
+
+/* Barras y trazos: crecen cuando la sección entra en pantalla. */
+.hv-anima-listo .hv-escala__barra::before {
+    transition: width 0.9s cubic-bezier(0.2, 0.75, 0.2, 1);
+    width: 0;
+}
+
+.hv-anima-listo .hv-escala.hv-visible .hv-escala__barra::before {
+    width: var(--p, 0%);
+}
+
+.hv-anima-listo .hv-frecuencias li .hv-frecuencias__barra {
+    transition: width 0.8s cubic-bezier(0.2, 0.75, 0.2, 1);
+    width: 0;
+}
+
+.hv-anima-listo .hv-frecuencias li.hv-visible .hv-frecuencias__barra {
+    width: var(--w, 0%);
+}
+
+.hv-anima-listo .hv-evolucion__trazo polyline {
+    stroke-dasharray: 600;
+    stroke-dashoffset: 600;
+    transition: stroke-dashoffset 1.1s ease-out;
+}
+
+.hv-anima-listo .hv-evolucion.hv-visible .hv-evolucion__trazo polyline {
+    stroke-dashoffset: 0;
+}
+
+.hv-anima-listo .hv-evolucion__trazo circle {
+    opacity: 0;
+    transition: opacity 0.3s ease-out 0.9s;
+}
+
+.hv-anima-listo .hv-evolucion.hv-visible .hv-evolucion__trazo circle {
+    opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
    Movimiento reducido e impresión
    -------------------------------------------------------------------------- */
 
@@ -2227,12 +2439,31 @@ body.page-paciente {
         animation: none !important;
         transition: none !important;
     }
+
+    /* Sin transición, cada barra tiene que nacer ya en su tamaño. */
+    .hv-anima-listo .hv-escala__barra::before { width: var(--p, 0%); }
+    .hv-anima-listo .hv-frecuencias li .hv-frecuencias__barra { width: var(--w, 0%); }
+    .hv-anima-listo .hv-evolucion__trazo polyline { stroke-dashoffset: 0; }
+    .hv-anima-listo .hv-evolucion__trazo circle { opacity: 1; }
 }
 
 @media print {
     body.page-paciente {
         background: #fff;
     }
+
+    /* En papel no hay scroll que dispare las animaciones: todo sale en su estado final. */
+    .hv--hoja .hv-ficha,
+    .hv--hoja .hv-linea,
+    .hv--hoja .hv-cuerpo,
+    .hv-anima-listo .hv-marca {
+        animation: none !important;
+    }
+
+    .hv-anima-listo .hv-escala__barra::before { width: var(--p, 0%); }
+    .hv-anima-listo .hv-frecuencias li .hv-frecuencias__barra { width: var(--w, 0%); }
+    .hv-anima-listo .hv-evolucion__trazo polyline { stroke-dashoffset: 0; }
+    .hv-anima-listo .hv-evolucion__trazo circle { opacity: 1; }
 
     body.page-paciente > header,
     body.page-paciente > footer,
