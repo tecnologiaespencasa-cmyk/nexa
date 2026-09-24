@@ -58,6 +58,8 @@ builder.Services.AddScoped<IFarmaciaDispatchNotificationService, FarmaciaDispatc
 builder.Services.AddScoped<ICensoProgramaNotificationService, CensoProgramaNotificationService>();
 builder.Services.AddScoped<IEspacioCorporativoNotificationService, EspacioCorporativoNotificationService>();
 builder.Services.AddHostedService<EmpacadoNotificationHostedService>();
+builder.Services.AddScoped<IFarmaciaReportePorDesempacarService, FarmaciaReportePorDesempacarService>();
+builder.Services.AddHostedService<FarmaciaReportePorDesempacarHostedService>();
 builder.Services.AddHostedService<AuditRetentionHostedService>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddHttpClient<IAddressValidationService, GoogleAddressValidationService>();

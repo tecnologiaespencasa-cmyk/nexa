@@ -165,6 +165,9 @@
     if (!form || form.tagName !== 'FORM') return;
     /* Saltar formularios marcados como AJAX (ASP.NET unobtrusive AJAX) */
     if (form.getAttribute('data-ajax') === 'true') return;
+    /* Saltar formularios que bajan un archivo: la página no navega y el overlay
+       no se ocultaría nunca (el mismo caso de los enlaces con download) */
+    if (form.hasAttribute('data-descarga')) return;
     NexaLoader.show();
   });
 

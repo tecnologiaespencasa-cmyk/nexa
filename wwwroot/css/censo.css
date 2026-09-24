@@ -1373,7 +1373,8 @@
   line-height: 1.15;
 }
 
-.censo-history-export-card a {
+.censo-history-export-card a,
+.censo-history-export-card button {
   align-items: center;
   display: inline-flex;
   flex: 0 0 auto;
@@ -1391,7 +1392,9 @@
 }
 
 .censo-history-export-card a:hover,
-.censo-history-export-card a:focus {
+.censo-history-export-card a:focus,
+.censo-history-export-card button:hover,
+.censo-history-export-card button:focus {
   background: #115e59;
   border-color: #115e59;
   color: #fff;

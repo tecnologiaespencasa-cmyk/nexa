@@ -628,7 +628,6 @@ public partial class CensoController : Controller
     private readonly INeonClinicaHeridasRepository _neonClinicaHeridasRepository;
     private readonly ICensoPacienteService _censoPacienteService;
     private readonly ICensoProgramaNotificationService _censoProgramaNotificationService;
-    private readonly ICensoTabuladoService _censoTabuladoService;
     private readonly ILogger<CensoController> _logger;
     private readonly IReadOnlyList<string> _medicamentoFallbackValues;
     private readonly IReadOnlyDictionary<string, string> _cie10Catalog;
@@ -648,7 +647,6 @@ public partial class CensoController : Controller
         INeonClinicaHeridasRepository neonClinicaHeridasRepository,
         ICensoPacienteService censoPacienteService,
         ICensoProgramaNotificationService censoProgramaNotificationService,
-        ICensoTabuladoService censoTabuladoService,
         ILogger<CensoController> logger,
         IWebHostEnvironment webHostEnvironment)
     {
@@ -665,7 +663,6 @@ public partial class CensoController : Controller
         _neonClinicaHeridasRepository = neonClinicaHeridasRepository;
         _censoPacienteService = censoPacienteService;
         _censoProgramaNotificationService = censoProgramaNotificationService;
-        _censoTabuladoService = censoTabuladoService;
         _logger = logger;
         _medicamentoFallbackValues = LoadMedicamentoPrincipalValues(webHostEnvironment.ContentRootPath);
         _cie10Catalog = LoadCie10Catalog(webHostEnvironment.ContentRootPath);
@@ -2702,13 +2699,21 @@ public partial class CensoController : Controller
     }
 
     /// <summary>
-    /// El rótulo de agudos conserva la distinción Agudo / Cronico que ya traía el informe, porque
-    /// el censo de agudos marca con su propio campo Programa a los pacientes crónicos agudizados.
+    /// El rótulo de agudos conserva la distinción Agudo / Crónico que ya traía el informe, porque
+    /// el censo de agudos marca con su Estado ("Aceptado crónico") a los pacientes crónicos
+    /// agudizados. Los del censo de Programa Crónicos salen con ese mismo rótulo: hasta el
+    /// 2026-09-23 salían como "Programa crónicos" y los de agudos como "Cronico", y el filtro del
+    /// Excel partía a los crónicos en dos. Solo cambia el texto: la jerarquía ya se decidió antes,
+    /// con la clave del programa.
     /// </summary>
-    private static string NombreProgramaInforme(CandidatoActivo candidato) =>
-        candidato.Programa == CensoProgramas.Agudos
-            ? NormalizeActivePatientProgram(null, candidato.Estado)
-            : CensoProgramas.Nombre(candidato.Programa);
+    private static string NombreProgramaInforme(CandidatoActivo candidato) => candidato.Programa switch
+    {
+        CensoProgramas.Agudos => NormalizeActivePatientProgram(null, candidato.Estado),
+        CensoProgramas.Cronicos => RotuloInformeCronico,
+        _ => CensoProgramas.Nombre(candidato.Programa)
+    };
+
+    private const string RotuloInformeCronico = "Crónico";
 
     /// <summary>
     /// Rótulo con el que el informe reporta a EPS Sura cuando el censo no guarda la
@@ -2808,12 +2813,12 @@ public partial class CensoController : Controller
         if (!string.IsNullOrWhiteSpace(program))
         {
             return program.Contains("cron", StringComparison.OrdinalIgnoreCase)
-                ? "Cronico"
+                ? RotuloInformeCronico
                 : "Agudo";
         }
 
         return state?.Contains("cron", StringComparison.OrdinalIgnoreCase) == true
-            ? "Cronico"
+            ? RotuloInformeCronico
             : "Agudo";
     }
 

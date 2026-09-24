@@ -33,6 +33,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CensoAdjunto> CensoAdjuntos => Set<CensoAdjunto>();
     public DbSet<CensoProrroga> CensoProrrogas => Set<CensoProrroga>();
     public DbSet<CensoKardexReaperturaSolicitud> CensoKardexReaperturas => Set<CensoKardexReaperturaSolicitud>();
+    public DbSet<FarmaciaReporteDiarioEnvio> FarmaciaReporteDiarioEnvios => Set<FarmaciaReporteDiarioEnvio>();
     public DbSet<CensoPaciente> CensoPacientes => Set<CensoPaciente>();
     public DbSet<CensoPacientePrograma> CensoPacienteProgramas => Set<CensoPacientePrograma>();
     public DbSet<Medicamento> Medicamentos => Set<Medicamento>();
@@ -783,6 +784,24 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(x => new { x.CensoRecordId, x.Estado });
             entity.HasIndex(x => x.ProrrogaVersionId);
+        });
+
+        modelBuilder.Entity<FarmaciaReporteDiarioEnvio>(entity =>
+        {
+            entity.ToTable("farmacia_reporte_diario_envios");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Dia).HasColumnType("date");
+            entity.Property(x => x.DesdeUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.HastaUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.Destinatarios).HasMaxLength(500).IsRequired();
+            entity.Property(x => x.Error).HasMaxLength(1000);
+            entity.Property(x => x.Instancia).HasMaxLength(200);
+            entity.Property(x => x.CreadoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.IntentoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.EnviadoAtUtc).HasColumnType("timestamp with time zone");
+            // Un solo envío por día: la segunda instancia que intente tomarlo choca con este índice.
+            entity.HasIndex(x => x.Dia).IsUnique();
         });
 
         modelBuilder.Entity<CensoAdjunto>(entity =>

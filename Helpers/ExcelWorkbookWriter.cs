@@ -46,11 +46,18 @@ public static class ExcelWorkbookWriter
         return output.ToArray();
     }
 
+    /// <param name="dateColumns">
+    /// Columnas (desde 0) cuyos valores llegan como fecha yyyy-MM-dd y se escriben como fecha de
+    /// Excel: así ordenan y filtran por día en vez de alfabéticamente. Un valor que no sea una
+    /// fecha se deja como texto.
+    /// </param>
     public static byte[] BuildTableWorkbook(
         string worksheetName,
         IReadOnlyList<string> headers,
         IReadOnlyList<IReadOnlyList<string?>> rows,
-        DateTime generatedAt)
+        DateTime generatedAt,
+        string documentTitle = "Informe de pacientes activos",
+        IReadOnlyCollection<int>? dateColumns = null)
     {
         if (headers.Count == 0)
         {
@@ -68,11 +75,11 @@ public static class ExcelWorkbookWriter
             WriteTextEntry(archive, "[Content_Types].xml", BuildContentTypes());
             WriteTextEntry(archive, "_rels/.rels", BuildRootRelationships());
             WriteTextEntry(archive, "docProps/app.xml", BuildAppProperties());
-            WriteTextEntry(archive, "docProps/core.xml", BuildCoreProperties(generatedAt));
+            WriteTextEntry(archive, "docProps/core.xml", BuildCoreProperties(generatedAt, documentTitle));
             WriteTextEntry(archive, "xl/workbook.xml", BuildWorkbook(worksheetName));
             WriteTextEntry(archive, "xl/_rels/workbook.xml.rels", BuildWorkbookRelationships());
             WriteTextEntry(archive, "xl/styles.xml", BuildStyles());
-            WriteTableWorksheetEntry(archive, headers, rows);
+            WriteTableWorksheetEntry(archive, headers, rows, dateColumns);
         }
 
         return output.ToArray();
@@ -149,7 +156,8 @@ public static class ExcelWorkbookWriter
     private static void WriteTableWorksheetEntry(
         ZipArchive archive,
         IReadOnlyList<string> headers,
-        IReadOnlyList<IReadOnlyList<string?>> rows)
+        IReadOnlyList<IReadOnlyList<string?>> rows,
+        IReadOnlyCollection<int>? dateColumns)
     {
         var entry = archive.CreateEntry("xl/worksheets/sheet1.xml", CompressionLevel.Optimal);
         using var stream = entry.Open();
@@ -214,7 +222,17 @@ public static class ExcelWorkbookWriter
             writer.WriteAttributeString("customHeight", "1");
             for (var columnIndex = 0; columnIndex < headers.Count; columnIndex++)
             {
-                WriteInlineStringCell(writer, $"{GetColumnName(columnIndex + 1)}{rowNumber}", rows[rowIndex][columnIndex], styleIndex: 4);
+                var reference = $"{GetColumnName(columnIndex + 1)}{rowNumber}";
+                var value = rows[rowIndex][columnIndex];
+                if (dateColumns?.Contains(columnIndex) == true
+                    && DateTime.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+                {
+                    WriteDateCell(writer, reference, date);
+                }
+                else
+                {
+                    WriteInlineStringCell(writer, reference, value, styleIndex: 4);
+                }
             }
             writer.WriteEndElement();
         }
@@ -424,13 +442,14 @@ public static class ExcelWorkbookWriter
         </Properties>
         """;
 
-    private static string BuildCoreProperties(DateTime generatedAt)
+    private static string BuildCoreProperties(DateTime generatedAt, string documentTitle = "Informe de pacientes activos")
     {
         var timestamp = generatedAt.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+        var title = SecurityElement.Escape(documentTitle) ?? string.Empty;
         return $"""
             <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-              <dc:title>Informe de pacientes activos</dc:title>
+              <dc:title>{title}</dc:title>
               <dc:creator>Nexa</dc:creator>
               <dcterms:created xsi:type="dcterms:W3CDTF">{timestamp}</dcterms:created>
               <dcterms:modified xsi:type="dcterms:W3CDTF">{timestamp}</dcterms:modified>

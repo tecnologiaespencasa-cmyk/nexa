@@ -977,7 +977,7 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
    Informes que quedan en el censo
 
    El tabulado se consulta en Reportes; en la pantalla del paciente solo quedan
-   los dos exportables que se descargan desde aqui.
+   los informes y exportables que se descargan desde aqui.
    -------------------------------------------------------------------------- */
 .censo-informes {
   display: flex;
@@ -1002,6 +1002,53 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
 .censo-informes__enlace:hover,
 .censo-informes__enlace:focus-visible {
   text-decoration: underline;
+}
+
+/* Informe de ingresos: la tarjeta de los exportables con el rango de fechas
+   entre el titulo y el boton. En pantallas angostas cada parte baja a su linea. */
+.censo-informe-ingresos {
+  flex-wrap: wrap;
+}
+
+/* Gana a ".censo-history-export-card div", que vuelve grilla todo div interno. */
+.censo-informe-ingresos .censo-informe-ingresos__rango {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.censo-informe-ingresos label {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  color: #4b6461;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.censo-informe-ingresos input[type="date"] {
+  min-height: 2.5rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(15, 118, 110, 0.26);
+  border-radius: 12px;
+  background: #fff;
+  color: #10223d;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.censo-informe-ingresos input[type="date"]:focus {
+  border-color: #0f766e;
+}
+
+/* El boton se alinea con los campos de fecha y no con el centro de la tarjeta:
+   los rotulos Desde/Hasta bajan los campos. */
+.censo-informe-ingresos button {
+  align-self: flex-end;
 }
 
 /* El tabulado dentro de reportes conserva el ancho de esa pagina. */

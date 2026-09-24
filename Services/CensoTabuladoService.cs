@@ -78,10 +78,9 @@ public class CensoTabuladoService : ICensoTabuladoService
 
     /// <summary>
     /// Arma las filas núcleo de los cinco programas (sin el recorte de la pantalla), con Abierto y
-    /// TieneAdjuntos ya resueltos. La usa <see cref="ConstruirAsync"/> para el tabulado en pantalla
-    /// y el exportable "Todos los programas" del censo, que sí necesita el total sin recortar.
+    /// TieneAdjuntos ya resueltos, para el tabulado de <see cref="ConstruirAsync"/>.
     /// </summary>
-    public async Task<List<CensoUnificadoTablaRowViewModel>> ConstruirFilasResumenAsync(
+    private async Task<List<CensoUnificadoTablaRowViewModel>> ConstruirFilasResumenAsync(
         string? cedulaPaciente,
         DateTime? desde,
         DateTime? hasta,

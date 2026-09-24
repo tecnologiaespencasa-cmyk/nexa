@@ -14,7 +14,7 @@ namespace Nexa.Services;
 public partial class FarmaciaDispatchNotificationService : IFarmaciaDispatchNotificationService
 {
     private const string MedicosKardexEmail = "medicos@especialistasencasa.com";
-    private const string GerenciaEmail = "gerencia@especialistasencasa.com";
+    private const string GerenciaEmail = "gerencia1@especialistasencasa.com";
     private const string ValorNoAplicaMedicamentoAdicional = "No";
     private readonly ApplicationDbContext _context;
     private readonly IEmailService _emailService;

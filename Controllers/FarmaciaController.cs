@@ -22,7 +22,7 @@ public partial class FarmaciaController : Controller
     private const string ValorNoAplicaMedicamentoAdicional = "No";
     private const int PageSize = 25;
     private const int PorDesempacarPageSize = 20;
-    private static readonly TimeSpan TiempoLimiteEmpacado = TimeSpan.FromHours(72);
+    private static readonly TimeSpan TiempoLimiteEmpacado = FarmaciaEstados.TiempoLimiteEmpacado;
     private readonly ApplicationDbContext _context;
     private readonly IFarmaciaDispatchNotificationService _notificationService;
     private readonly IAuditService _auditService;

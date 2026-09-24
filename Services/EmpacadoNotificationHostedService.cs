@@ -9,7 +9,7 @@ namespace Nexa.Services;
 public class EmpacadoNotificationHostedService : BackgroundService
 {
     private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(15);
-    private static readonly TimeSpan VentanaEmpacado = TimeSpan.FromHours(72);
+    private static readonly TimeSpan VentanaEmpacado = FarmaciaEstados.TiempoLimiteEmpacado;
     private static readonly TimeSpan IntervaloRecordatorioAuxiliar = TimeSpan.FromHours(24);
     private static readonly TimeSpan UmbralAlertaVencimiento = TimeSpan.FromHours(24);
 

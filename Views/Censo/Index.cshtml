@@ -625,7 +625,7 @@ else
 }
         </div>
 
-        @* El tabulado se consulta en Reportes. Aqui solo quedan los dos informes que se
+        @* El tabulado se consulta en Reportes. Aqui solo quedan los informes y exportables que se
            descargan desde el censo. *@
         <section class="censo-informes" aria-label="Informes del censo">
             <div class="censo-history-export-card">
@@ -656,18 +656,32 @@ else
                 <a asp-action="ExportarProgramaExcel"
                    asp-route-programa="@CensoProgramas.TerapiaAmbulatoria" download>Descargar Excel</a>
             </div>
-            @* Resumen de los cinco programas juntos (Programa, documento, fecha de ingreso, estado,
-               abierto/cerrado, asegurador, zona Sura, diagnóstico) - no reemplaza los exportables
-               por programa de arriba, esos traen todas sus columnas; este es para una vista rápida
-               de los cinco a la vez. Reusa ConstruirFilasResumenAsync, el mismo armado de filas que
-               ya usa el tabulado en pantalla de Reportes. *@
-            <div class="censo-history-export-card">
+            @* Cada ingreso de los cinco programas en el rango, ordenado por día (ExportarIngresosExcel,
+               con las definiciones de ingreso del tablero de Reportes). Reemplazó al resumen "Todos
+               los programas". Por omisión, el mes en curso. *@
+            @{
+                var hoyInforme = Nexa.Helpers.ColombiaTime.Convert(DateTime.UtcNow).Date;
+                var hoyInformeTexto = hoyInforme.ToString("yyyy-MM-dd");
+                var inicioMesInformeTexto = new DateTime(hoyInforme.Year, hoyInforme.Month, 1).ToString("yyyy-MM-dd");
+            }
+            <form class="censo-history-export-card censo-informe-ingresos" asp-action="ExportarIngresosExcel" method="get"
+                  data-descarga aria-label="Informe de ingresos por día">
                 <div>
-                    <span>Exportable</span>
-                    <strong>Todos los programas (resumen)</strong>
+                    <span>Informe</span>
+                    <strong>Ingresos por día</strong>
                 </div>
-                <a asp-action="ExportarTodosLosProgramasExcel" download>Descargar Excel</a>
-            </div>
+                <div class="censo-informe-ingresos__rango">
+                    <label>
+                        Desde
+                        <input type="date" name="desde" value="@inicioMesInformeTexto" max="@hoyInformeTexto" required />
+                    </label>
+                    <label>
+                        Hasta
+                        <input type="date" name="hasta" value="@hoyInformeTexto" max="@hoyInformeTexto" required />
+                    </label>
+                </div>
+                <button type="submit">Descargar Excel</button>
+            </form>
             <a class="censo-informes__enlace" asp-controller="Reportes" asp-action="Index">
                 Ver el tabulado completo en Reportes
             </a>

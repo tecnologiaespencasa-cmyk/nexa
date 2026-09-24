@@ -10,6 +10,13 @@ public static class FarmaciaEstados
     public const string Empacado = "Empacado";
     public const string PorDesempacar = "PorDesempacar";
     public const string Despachado = "Despachado";
+
+    /// <summary>
+    /// Plazo para firmar un despacho empacado. Cumplido sin firma, el despacho pasa a Por desempacar:
+    /// lo aplican la bandeja (FarmaciaController.ApplyEmpacadoTimeoutAsync), los avisos de
+    /// EmpacadoNotificationHostedService y el reporte diario de despachos por desempacar.
+    /// </summary>
+    public static readonly TimeSpan TiempoLimiteEmpacado = TimeSpan.FromHours(72);
 }
 
 public class FarmaciaIndexViewModel

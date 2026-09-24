@@ -85,77 +85,97 @@ public partial class CensoController
     }
 
     /// <summary>
-    /// Exportable resumido de los cinco programas juntos: el mismo juego de columnas núcleo que ya
-    /// arma <see cref="ICensoTabuladoService.ConstruirFilasResumenAsync"/> para el tabulado en
-    /// pantalla, sin el recorte de filas de la pantalla. No reemplaza los exportables por programa
-    /// -esos traen todas sus columnas- es para una vista rápida de los cinco a la vez.
+    /// Informe de ingresos: cada ingreso de los cinco programas entre dos fechas, uno por fila y
+    /// ordenado por día. Reemplazó al exportable "Todos los programas (resumen)" (2026-09-23), que
+    /// listaba registros sin importar cuándo ingresaron.
+    ///
+    /// Cuenta como ingreso lo mismo que el tablero de Reportes, para que las cifras cuadren: agudos por
+    /// FechaIngreso, sin las copias internas de despacho a farmacia ni las atenciones canceladas o
+    /// rechazadas (el mismo filtro de ReportesController.ExcludeCancelledAndRejected); crónicos y
+    /// terapia por FechaIngreso; clínica de heridas y NPT por FechaIngresoPrograma. Sin fechas, el mes
+    /// en curso.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> ExportarTodosLosProgramasExcel(
-        string? cedulaPaciente,
+    public async Task<IActionResult> ExportarIngresosExcel(
         DateTime? desde,
         DateTime? hasta,
         CancellationToken cancellationToken)
     {
-        var filas = await _censoTabuladoService.ConstruirFilasResumenAsync(
-            cedulaPaciente, desde?.Date, hasta?.Date, cancellationToken);
-
-        var ordenadas = filas
-            .OrderByDescending(x => x.FechaIngreso ?? DateTime.MinValue)
-            .ThenBy(x => CensoProgramas.Jerarquia(x.Programa))
-            .ThenByDescending(x => x.RegistroId)
-            .ToList();
-
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine("<?xml version=\"1.0\"?>");
-        sb.AppendLine("<?mso-application progid=\"Excel.Sheet\"?>");
-        sb.AppendLine("<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\"");
-        sb.AppendLine(" xmlns:o=\"urn:schemas-microsoft-com:office:office\"");
-        sb.AppendLine(" xmlns:x=\"urn:schemas-microsoft-com:office:excel\"");
-        sb.AppendLine(" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">");
-        sb.AppendLine(" <Styles>");
-        sb.AppendLine("  <Style ss:ID=\"Header\"><Font ss:Bold=\"1\"/></Style>");
-        sb.AppendLine(" </Styles>");
-        sb.AppendLine(" <Worksheet ss:Name=\"Todos los programas\">");
-        sb.AppendLine("  <Table>");
-
-        sb.AppendLine("   <Row>");
-        AppendHeaderCell(sb, "Programa");
-        AppendHeaderCell(sb, "TipoIdentificacion");
-        AppendHeaderCell(sb, "NumeroIdentificacion");
-        AppendHeaderCell(sb, "NombrePaciente");
-        AppendHeaderCell(sb, "FechaIngreso");
-        AppendHeaderCell(sb, "Estado");
-        AppendHeaderCell(sb, "Abierto");
-        AppendHeaderCell(sb, "Asegurador");
-        AppendHeaderCell(sb, "ClasificacionZonaSura");
-        AppendHeaderCell(sb, "DiagnosticoDescriptivo");
-        sb.AppendLine("   </Row>");
-
-        foreach (var fila in ordenadas)
+        var hoy = GetColombiaNow().Date;
+        var inicio = (desde ?? new DateTime(hoy.Year, hoy.Month, 1)).Date;
+        var fin = (hasta ?? hoy).Date;
+        if (fin < inicio)
         {
-            sb.AppendLine("   <Row>");
-            AppendDataCell(sb, CensoProgramas.Nombre(fila.Programa));
-            AppendDataCell(sb, fila.TipoIdentificacion);
-            AppendDataCell(sb, fila.NumeroIdentificacion);
-            AppendDataCell(sb, fila.NombrePaciente);
-            AppendDataCell(sb, fila.FechaIngreso.HasValue ? fila.FechaIngreso.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) : "");
-            AppendDataCell(sb, fila.Estado ?? "");
-            AppendDataCell(sb, fila.Abierto ? "Abierto" : "Cerrado");
-            AppendDataCell(sb, fila.Asegurador ?? "");
-            AppendDataCell(sb, fila.ClasificacionZonaSura ?? "");
-            AppendDataCell(sb, fila.DiagnosticoDescriptivo ?? "");
-            sb.AppendLine("   </Row>");
+            (inicio, fin) = (fin, inicio);
         }
 
-        sb.AppendLine("  </Table>");
-        sb.AppendLine(" </Worksheet>");
-        sb.AppendLine("</Workbook>");
+        // El día siguiente al fin, sin desbordar si alguien pide hasta el 31/12/9999 por la URL.
+        var hastaExclusivo = fin < DateTime.MaxValue.Date ? fin.AddDays(1) : DateTime.MaxValue;
+        var ingresos = new List<IngresoDelInforme>();
 
-        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
-        var fileName = $"censo_todos_los_programas_{DateTime.Now:yyyyMMdd_HHmmss}.xls";
-        return File(bytes, "application/vnd.ms-excel", fileName);
+        ingresos.AddRange(await _context.Censos.AsNoTracking()
+            .Where(CensoVisibility.EditableRecord(_context))
+            .Where(x => x.FechaIngreso >= inicio && x.FechaIngreso < hastaExclusivo)
+            .Where(x => x.Estado == null
+                || (!EF.Functions.ILike(x.Estado, "%cancelado%")
+                    && !EF.Functions.ILike(x.Estado, "%rechazado%")))
+            .Select(x => new IngresoDelInforme(x.FechaIngreso, CensoProgramas.Agudos, x.TipoIdentificacion, x.NumeroIdentificacion, x.NombrePaciente))
+            .ToListAsync(cancellationToken));
+
+        ingresos.AddRange(await _context.CensoCronicos.AsNoTracking()
+            .Where(x => x.FechaIngreso >= inicio && x.FechaIngreso < hastaExclusivo)
+            .Select(x => new IngresoDelInforme(x.FechaIngreso, CensoProgramas.Cronicos, x.TipoIdentificacion, x.NumeroIdentificacion, x.NombrePaciente))
+            .ToListAsync(cancellationToken));
+
+        ingresos.AddRange(await _context.CensoClinicaHeridas.AsNoTracking()
+            .Where(x => x.FechaIngresoPrograma >= inicio && x.FechaIngresoPrograma < hastaExclusivo)
+            .Select(x => new IngresoDelInforme(x.FechaIngresoPrograma, CensoProgramas.ClinicaHeridas, x.TipoIdentificacion, x.NumeroIdentificacion, x.NombrePaciente))
+            .ToListAsync(cancellationToken));
+
+        ingresos.AddRange(await _context.CensoNpt.AsNoTracking()
+            .Where(x => x.FechaIngresoPrograma >= inicio && x.FechaIngresoPrograma < hastaExclusivo)
+            .Select(x => new IngresoDelInforme(x.FechaIngresoPrograma, CensoProgramas.Npt, x.TipoIdentificacion, x.NumeroIdentificacion, x.NombrePaciente))
+            .ToListAsync(cancellationToken));
+
+        ingresos.AddRange(await _context.CensoTerapiasAmbulatorias.AsNoTracking()
+            .Where(x => x.FechaIngreso >= inicio && x.FechaIngreso < hastaExclusivo)
+            .Select(x => new IngresoDelInforme(x.FechaIngreso, CensoProgramas.TerapiaAmbulatoria, x.TipoIdentificacion, x.NumeroIdentificacion, x.NombrePaciente))
+            .ToListAsync(cancellationToken));
+
+        var porNombre = StringComparer.Create(CultureInfo.GetCultureInfo("es-CO"), ignoreCase: true);
+        var filas = ingresos
+            .OrderBy(x => x.Fecha.Date)
+            .ThenBy(x => Array.IndexOf(CensoProgramas.Todos, x.Programa))
+            .ThenBy(x => x.NombrePaciente?.Trim() ?? string.Empty, porNombre)
+            .Select(x => (IReadOnlyList<string?>)
+            [
+                x.Fecha.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                CensoProgramas.Nombre(x.Programa),
+                x.TipoIdentificacion,
+                x.NumeroIdentificacion,
+                x.NombrePaciente
+            ])
+            .ToList();
+
+        // La fecha sale como fecha de Excel (dd/mm/aaaa), no como texto, para que el filtro y el
+        // orden de la hoja vayan por día. Los programas con el mismo nombre del informe de activos.
+        string[] encabezados = ["Fecha de ingreso", "Programa", "Tipo de documento", "Documento", "Paciente"];
+        var contenido = ExcelWorkbookWriter.BuildTableWorkbook(
+            "Ingresos", encabezados, filas, DateTime.UtcNow,
+            documentTitle: "Informe de ingresos",
+            dateColumns: [0]);
+        return File(
+            contenido,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"censo_ingresos_{inicio:yyyyMMdd}_{fin:yyyyMMdd}.xlsx");
     }
+
+    private sealed record IngresoDelInforme(
+        DateTime Fecha,
+        string Programa,
+        string? TipoIdentificacion,
+        string? NumeroIdentificacion,
+        string? NombrePaciente);
 
     /// <summary>
     /// Arma un exportable con todas las propiedades de la entidad. Se usa en los programas que no
