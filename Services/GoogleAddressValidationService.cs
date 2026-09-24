@@ -670,59 +670,15 @@ public class GoogleAddressValidationService : IAddressValidationService
         {
             var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var queries = BuildNeighborhoodQueries(municipalityNormalized, termNormalized);
-            foreach (var query in queries)
+
+            // Las tres consultas no dependen una de otra: se lanzan a la vez. Iban en fila y cada
+            // búsqueda tardaba la suma de las tres, y la ficha del paciente hace varias al abrirse.
+            // Los resultados se unen en el mismo orden de las consultas, así que la lista sale igual.
+            var porConsulta = await Task.WhenAll(queries.Select(query =>
+                ConsultarBarriosEnGoogleAsync(query, apiKey, municipalityNormalized, cancellationToken)));
+            foreach (var neighborhood in porConsulta.SelectMany(x => x))
             {
-                var requestUri =
-                    $"json?address={Uri.EscapeDataString(query)}" +
-                    $"&components={Uri.EscapeDataString(AntioquiaComponents)}" +
-                    $"&key={Uri.EscapeDataString(apiKey)}&language=es&region=co";
-
-                using var response = await _httpClient.GetAsync(requestUri, cancellationToken);
-                if (!response.IsSuccessStatusCode)
-                {
-                    continue;
-                }
-
-                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-                var root = document.RootElement;
-                if (!root.TryGetProperty("status", out var statusElement)
-                    || !string.Equals(statusElement.GetString(), "OK", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (!root.TryGetProperty("results", out var resultsElement))
-                {
-                    continue;
-                }
-
-                foreach (var result in resultsElement.EnumerateArray())
-                {
-                    if (!IsAntioquiaColombiaResult(result) || !IsMunicipalityMatch(result, municipalityNormalized))
-                    {
-                        continue;
-                    }
-
-                    var neighborhood = GetAddressComponent(result, "sublocality_level_1")
-                                       ?? GetAddressComponent(result, "neighborhood")
-                                       ?? GetAddressComponent(result, "sublocality");
-
-                    if (string.IsNullOrWhiteSpace(neighborhood))
-                    {
-                        continue;
-                    }
-
-                    if (string.Equals(
-                        NormalizeLookup(neighborhood),
-                        NormalizeLookup(municipalityNormalized),
-                        StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    set.Add(neighborhood.Trim());
-                }
+                set.Add(neighborhood);
             }
 
             if (set.Count == 0)
@@ -747,6 +703,69 @@ public class GoogleAddressValidationService : IAddressValidationService
             _logger.LogError(ex, "Error consultando barrios por municipio en Google.");
             return staticNeighborhoods;
         }
+    }
+
+    /// <summary>Los barrios que devuelve Google para una consulta, en el orden en que llegan.</summary>
+    private async Task<List<string>> ConsultarBarriosEnGoogleAsync(
+        string query,
+        string apiKey,
+        string municipalityNormalized,
+        CancellationToken cancellationToken)
+    {
+        var encontrados = new List<string>();
+        var requestUri =
+            $"json?address={Uri.EscapeDataString(query)}" +
+            $"&components={Uri.EscapeDataString(AntioquiaComponents)}" +
+            $"&key={Uri.EscapeDataString(apiKey)}&language=es&region=co";
+
+        using var response = await _httpClient.GetAsync(requestUri, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return encontrados;
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        var root = document.RootElement;
+        if (!root.TryGetProperty("status", out var statusElement)
+            || !string.Equals(statusElement.GetString(), "OK", StringComparison.OrdinalIgnoreCase))
+        {
+            return encontrados;
+        }
+
+        if (!root.TryGetProperty("results", out var resultsElement))
+        {
+            return encontrados;
+        }
+
+        foreach (var result in resultsElement.EnumerateArray())
+        {
+            if (!IsAntioquiaColombiaResult(result) || !IsMunicipalityMatch(result, municipalityNormalized))
+            {
+                continue;
+            }
+
+            var neighborhood = GetAddressComponent(result, "sublocality_level_1")
+                               ?? GetAddressComponent(result, "neighborhood")
+                               ?? GetAddressComponent(result, "sublocality");
+
+            if (string.IsNullOrWhiteSpace(neighborhood))
+            {
+                continue;
+            }
+
+            if (string.Equals(
+                NormalizeLookup(neighborhood),
+                NormalizeLookup(municipalityNormalized),
+                StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            encontrados.Add(neighborhood.Trim());
+        }
+
+        return encontrados;
     }
 
     private IReadOnlyList<string> GetStaticNeighborhoods(string municipality, string? term)

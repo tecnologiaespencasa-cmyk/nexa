@@ -306,6 +306,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(x => x.FarmaciaEnviadoAtUtc);
             entity.HasIndex(x => x.FarmaciaProrrogaVersionId);
             entity.HasIndex(x => x.CreatedAtUtc);
+            // Por documento: aviso de paciente duplicado, historial y exportables. Era la única de
+            // las cinco tablas del censo sin este índice, y es la más grande. La conciliación de
+            // episodios compara upper(NumeroIdentificacion): ese índice de expresión lo crea la
+            // migración IndicesConsultaPacienteCenso con SQL, porque EF no modela expresiones.
+            entity.HasIndex(x => x.NumeroIdentificacion);
+            entity.HasIndex(x => x.FarmaciaProrrogaDeId);
         });
 
         modelBuilder.Entity<CensoTerapiaAmbulatoriaRecord>(entity =>

@@ -70,6 +70,8 @@ else if (Model.SePuedeAgregar && pacienteId.HasValue)
         @Html.AntiForgeryToken()
         <input type="hidden" name="pacienteId" value="@pacienteId" />
         <input type="hidden" name="programa" value="@Model.Programa" />
+        @* Lo marca la ventana de confirmación; el servidor no agrega el programa sin él. *@
+        <input type="hidden" name="confirmado" value="false" autocomplete="off" />
         <button type="submit" class="censo-programa censo-programa--agregable" data-programa="@Model.Programa">
             <span class="censo-programa__punto" aria-hidden="true"></span>
             <span class="censo-programa__nombre">@Model.Nombre</span>

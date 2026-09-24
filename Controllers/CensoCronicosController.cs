@@ -760,7 +760,7 @@ public partial class CensoController
 
         IReadOnlyList<string> barrioOptions = string.IsNullOrWhiteSpace(model.MunicipioResidencia)
             ? []
-            : await _addressValidationService.SearchNeighborhoodsAsync(
+            : await BuscarBarriosAsync(
                 model.MunicipioResidencia,
                 string.IsNullOrWhiteSpace(model.Barrio) ? "a" : model.Barrio,
                 cancellationToken);

@@ -520,7 +520,7 @@ public partial class CensoController
             }
         }
 
-        var barrioOptions = await _addressValidationService.SearchNeighborhoodsAsync(
+        var barrioOptions = await BuscarBarriosAsync(
             model.MunicipioResidencia,
             string.IsNullOrWhiteSpace(model.Barrio) ? "a" : model.Barrio,
             cancellationToken);

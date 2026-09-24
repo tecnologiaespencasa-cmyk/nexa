@@ -1,4 +1,6 @@
 ﻿using System.Globalization;
+using System.IO.Compression;
+using Microsoft.AspNetCore.ResponseCompression;
 using Nexa.Data;
 using Nexa.Data.Repositories;
 using Nexa.Data.Repositories.Interfaces;
@@ -28,6 +30,19 @@ builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
 });
+
+// Producción enviaba todo sin comprimir: la ficha de un paciente con tres programas son 1,4 MB de
+// HTML (675 KB de scripts en línea) en cada consulta. Con Brotli queda en ~135 KB por unos 12 ms
+// de CPU (medido 2026-09-24 con la página real). Sobre HTTPS es seguro: el único secreto de la
+// página, el token antifalsificación, cambia en cada respuesta, así que BREACH no tiene qué adivinar.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options => options.Level = CompressionLevel.Optimal);
+builder.Services.Configure<GzipCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(
@@ -129,6 +144,9 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+// Antes de los archivos estáticos, para que también se compriman CSS y JS.
+app.UseResponseCompression();
+
 var invariantCulture = new RequestCulture(CultureInfo.InvariantCulture, CultureInfo.InvariantCulture);
 app.UseRequestLocalization(new RequestLocalizationOptions
 {
@@ -138,7 +156,19 @@ app.UseRequestLocalization(new RequestLocalizationOptions
 });
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    // Los archivos que la vista pide con asp-append-version llevan ?v=<hash del contenido>: si el
+    // archivo cambia, cambia la URL. Se pueden guardar un año sin volver a preguntar. Sin esto el
+    // navegador los revalidaba seguido, y los scripts del censo son ~600 KB (ver wwwroot/js/censo).
+    OnPrepareResponse = contexto =>
+    {
+        if (contexto.Context.Request.Query.ContainsKey("v"))
+        {
+            contexto.Context.Response.Headers.CacheControl = "public,max-age=31536000,immutable";
+        }
+    }
+});
 app.UseRouting();
 
 app.UseAuthentication();

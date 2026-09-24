@@ -388,6 +388,10 @@ public partial class CensoController
     public async Task<IActionResult> AgregarPrograma(
         long pacienteId,
         string programa,
+        // Lo marca la ventana de confirmación. Un envío sin la marca es el botón pulsado antes de
+        // que la ficha terminara de cargar: pasaba mientras llegaban los programas y el programa
+        // se agregaba sin que nadie lo confirmara (reportado 2026-09-24).
+        bool confirmado,
         CancellationToken cancellationToken)
     {
         var paciente = await _censoPacienteService.ObtenerAsync(pacienteId, cancellationToken);
@@ -395,6 +399,13 @@ public partial class CensoController
         {
             TempData["ErrorMessage"] = "No se encontró el paciente.";
             return RedirectToAction(nameof(Index));
+        }
+
+        if (!confirmado)
+        {
+            TempData["ErrorMessage"] =
+                $"No se agregó {CensoProgramas.Nombre(programa)}: falta confirmarlo. Pulsa de nuevo Agregar y confirma en la ventana.";
+            return RedirectToAction(nameof(Index), new { cedulaPaciente = paciente.NumeroIdentificacion });
         }
 
         var resultado = await _censoPacienteService.AgregarProgramaAsync(
@@ -605,6 +616,9 @@ public partial class CensoController
     /// creó la fila, y puede diferir en días del ingreso real. Como el rótulo del selector es lo
     /// que la persona compara con lo que ve en pantalla, se leen las fechas verdaderas.
     /// </summary>
+    /// <summary>Las columnas del registro que necesita el rótulo de una atención.</summary>
+    private sealed record FilaDeAtencion(long Id, DateTime? Desde, DateTime? Hasta, string? Estado);
+
     private async Task<IReadOnlyDictionary<string, IReadOnlyList<CensoAtencionViewModel>>> ConstruirAtencionesAsync(
         IReadOnlyList<CensoPacientePrograma> episodios,
         long? atencionSolicitada,
@@ -617,16 +631,15 @@ public partial class CensoController
         }
 
         // Una consulta por programa, solo con las columnas del rótulo y solo para los registros
-        // que algún episodio referencia.
+        // que algún episodio referencia. La proyección va a la base: antes se traía la fila
+        // entera para leer tres campos, y en agudos cada fila arrastra firmas en base64 y los
+        // JSON del kardex (la tabla pesa 259 MB para menos de 5.000 filas).
         var datos = new Dictionary<(string Programa, long RegistroId), (DateTime? Desde, DateTime? Hasta, string? Estado)>();
 
         async Task CargarAsync<T>(
             string programa,
             IQueryable<T> origen,
-            Func<T, long> id,
-            Func<T, DateTime?> desde,
-            Func<T, DateTime?> hasta,
-            Func<T, string?> estado) where T : class
+            System.Linq.Expressions.Expression<Func<T, FilaDeAtencion>> proyeccion) where T : class
         {
             var ids = episodios
                 .Where(e => e.Programa == programa && e.RegistroId.HasValue)
@@ -640,29 +653,29 @@ public partial class CensoController
 
             foreach (var fila in await origen.AsNoTracking()
                          .Where(x => ids.Contains(EF.Property<long>(x, "Id")))
+                         .Select(proyeccion)
                          .ToListAsync(ct))
             {
-                datos[(programa, id(fila))] = (desde(fila), hasta(fila), estado(fila));
+                datos[(programa, fila.Id)] = (fila.Desde, fila.Hasta, fila.Estado);
             }
         }
 
         await CargarAsync(CensoProgramas.Agudos, _context.Censos,
-            x => x.Id, x => x.FechaIngreso, x => x.FechaAlta, x => x.Estado);
+            x => new FilaDeAtencion(x.Id, x.FechaIngreso, x.FechaAlta, x.Estado));
         await CargarAsync(CensoProgramas.Cronicos, _context.CensoCronicos,
-            x => x.Id, x => x.FechaIngreso,
-            x => CensoVisibility.HayEgreso(x.FechaEgreso) ? x.FechaEgreso : null,
-            x => x.MotivoEgreso ?? x.EstadoPaciente);
+            x => new FilaDeAtencion(x.Id, x.FechaIngreso,
+                CensoVisibility.HayEgreso(x.FechaEgreso) ? x.FechaEgreso : null,
+                x.MotivoEgreso ?? x.EstadoPaciente));
         await CargarAsync(CensoProgramas.ClinicaHeridas, _context.CensoClinicaHeridas,
-            x => x.Id, x => x.FechaIngresoPrograma,
-            x => CensoVisibility.HayEgreso(x.FechaEgreso) ? x.FechaEgreso : null,
-            x => x.MotivoEgreso ?? x.Estado);
+            x => new FilaDeAtencion(x.Id, x.FechaIngresoPrograma,
+                CensoVisibility.HayEgreso(x.FechaEgreso) ? x.FechaEgreso : null,
+                x.MotivoEgreso ?? x.Estado));
         await CargarAsync(CensoProgramas.Npt, _context.CensoNpt,
-            x => x.Id, x => x.FechaIngresoPrograma,
-            x => CensoVisibility.HayEgreso(x.FechaEgreso) ? x.FechaEgreso : null,
-            x => x.MotivoEgreso ?? x.Estado);
+            x => new FilaDeAtencion(x.Id, x.FechaIngresoPrograma,
+                CensoVisibility.HayEgreso(x.FechaEgreso) ? x.FechaEgreso : null,
+                x.MotivoEgreso ?? x.Estado));
         await CargarAsync(CensoProgramas.TerapiaAmbulatoria, _context.CensoTerapiasAmbulatorias,
-            x => x.Id, x => x.FechaInicio, x => x.FechaAlta,
-            x => x.MotivoAlta ?? x.EstadoPaciente);
+            x => new FilaDeAtencion(x.Id, x.FechaInicio, x.FechaAlta, x.MotivoAlta ?? x.EstadoPaciente));
 
         foreach (var programa in CensoProgramas.Todos)
         {
@@ -824,7 +837,8 @@ public partial class CensoController
                 selectedRecordId: atencionAgudos.RegistroId,
                 // El episodio manda: si no tiene registro, la atención es nueva y el formulario
                 // arranca en blanco, como en los otros cuatro programas.
-                permitirUltimaAtencion: false);
+                permitirUltimaAtencion: false,
+                cargarHistorial: false);
             // AplicarMaestroAModeloAgudos va ANTES de PopulateDropdownsAsync: este último arma
             // BarrioOptions buscando por el Barrio que YA tenga el modelo (o "a" si está vacío,
             // lo que devuelve el catálogo completo del municipio). Si el maestro se aplicara
@@ -1274,7 +1288,7 @@ public partial class CensoController
             return string.IsNullOrWhiteSpace(barrio) ? ["NO PARAMETRIZADO"] : [barrio];
         }
 
-        var barrios = await _addressValidationService.SearchNeighborhoodsAsync(
+        var barrios = await BuscarBarriosAsync(
             canonico,
             string.IsNullOrWhiteSpace(barrio) ? "a" : barrio,
             cancellationToken);

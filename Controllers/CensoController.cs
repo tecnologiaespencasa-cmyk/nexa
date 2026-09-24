@@ -2827,23 +2827,101 @@ public partial class CensoController : Controller
         CancellationToken cancellationToken,
         bool loadLatestRecordIntoForm,
         long? selectedRecordId = null,
-        bool permitirUltimaAtencion = true)
+        bool permitirUltimaAtencion = true,
+        // La pantalla única no muestra el historial de agudos (la tabla se consulta en Reportes):
+        // de esta función solo necesita la atención seleccionada. Sin el historial deja de traer,
+        // en cada ficha, todas las filas completas del paciente (firmas en base64 y JSON de
+        // kardex incluidos), el conteo de ingresos del día sobre toda la tabla, sus prórrogas y
+        // sus adjuntos: cinco consultas cuyo resultado ninguna vista usa.
+        bool cargarHistorial = true)
     {
         var cedulaFiltro = NormalizeCedulaFilter(model.CedulaFiltro);
         model.CedulaFiltro = cedulaFiltro;
         NormalizeHistoryFilters(model);
-
-        var today = DateTime.Today;
-        model.IngresosHoyCount = await _context.Censos
-            .AsNoTracking()
-            .Where(IsEditableCensoRecordExpression())
-            .CountAsync(x => x.FechaIngreso >= today && x.FechaIngreso < today.AddDays(1), cancellationToken);
 
         var query = ApplyHistoryFilters(
             _context.Censos.AsNoTracking().Where(IsEditableCensoRecordExpression()),
             cedulaFiltro,
             model.FechaIngresoFiltroDesde,
             model.FechaIngresoFiltroHasta);
+
+        List<CensoRecord> records = cargarHistorial
+            ? await CargarHistorialAgudosAsync(model, query, cedulaFiltro, cancellationToken)
+            : [];
+
+        // OJO: loadLatestRecordIntoForm no tiene efecto. Su guarda quedó vacía en algún cambio
+        // anterior, así que los cinco llamados que pasan false igual reciben el registro aplicado
+        // sobre el modelo. Se deja anotado en vez de cambiarlo aquí: esos cinco son los rearmados
+        // tras un error de validación y arreglarlo cambia lo que ve quien está escribiendo.
+
+        CensoRecord? latestRecord = null;
+        if (selectedRecordId.HasValue)
+        {
+            latestRecord = records.FirstOrDefault(x => x.Id == selectedRecordId.Value);
+            if (latestRecord is null)
+            {
+                latestRecord = await _context.Censos
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.Id == selectedRecordId.Value, cancellationToken);
+                if (latestRecord?.FarmaciaProrrogaDeId is long parentId)
+                {
+                    latestRecord = await _context.Censos
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(x => x.Id == parentId, cancellationToken);
+                }
+                else if (latestRecord?.FarmaciaProrrogaVersionId is not null)
+                {
+                    latestRecord = await _context.Censos
+                        .AsNoTracking()
+                        .Where(x => x.Prorrogas.Any(p => p.Id == latestRecord.FarmaciaProrrogaVersionId.Value))
+                        .FirstOrDefaultAsync(cancellationToken);
+                }
+            }
+        }
+
+        // La última atención por cédula es el respaldo de la búsqueda suelta, donde nadie dice
+        // cuál abrir. En la pantalla unificada el carril sí lo dice, y un episodio sin registro
+        // significa atención NUEVA: traer ahí la anterior mostraba una atención ya dada de alta
+        // como si estuviera activa y, peor, al guardar la habría sobrescrito en vez de crear la
+        // siguiente. Es el mismo atajo que ya se había quitado de los otros cuatro programas.
+        if (latestRecord is null && permitirUltimaAtencion && !string.IsNullOrWhiteSpace(cedulaFiltro))
+        {
+            latestRecord = await query
+                .OrderByDescending(x => x.FechaIngreso)
+                .ThenByDescending(x => x.HoraIngreso)
+                .ThenByDescending(x => x.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        if (latestRecord is null)
+        {
+            model.EditingRecordId = null;
+            return;
+        }
+
+        ApplyCensoRecordToModel(model, latestRecord);
+        model.ProrrogaCerrada = await IsBaseProrrogaClosedAsync(
+            latestRecord,
+            clearInvalidMarker: false,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Historial de agudos que llenaba la tabla del censo: las filas del paciente (o las últimas
+    /// del filtro), sus prórrogas y cuáles tienen adjuntos. Solo lo piden los rearmados del
+    /// formulario de agudos; la pantalla única pasa cargarHistorial: false.
+    /// </summary>
+    private async Task<List<CensoRecord>> CargarHistorialAgudosAsync(
+        CensoReceptionViewModel model,
+        IQueryable<CensoRecord> query,
+        string? cedulaFiltro,
+        CancellationToken cancellationToken)
+    {
+        var today = DateTime.Today;
+        model.IngresosHoyCount = await _context.Censos
+            .AsNoTracking()
+            .Where(IsEditableCensoRecordExpression())
+            .CountAsync(x => x.FechaIngreso >= today && x.FechaIngreso < today.AddDays(1), cancellationToken);
 
         List<CensoRecord> records;
         if (model.TieneFiltroFechaIngreso)
@@ -2971,61 +3049,7 @@ public partial class CensoController : Controller
             model.RecordIdsConAdjuntos = idsConAdjuntos;
         }
 
-        // OJO: loadLatestRecordIntoForm no tiene efecto. Su guarda quedó vacía en algún cambio
-        // anterior, así que los cinco llamados que pasan false igual reciben el registro aplicado
-        // sobre el modelo. Se deja anotado en vez de cambiarlo aquí: esos cinco son los rearmados
-        // tras un error de validación y arreglarlo cambia lo que ve quien está escribiendo.
-
-        CensoRecord? latestRecord = null;
-        if (selectedRecordId.HasValue)
-        {
-            latestRecord = records.FirstOrDefault(x => x.Id == selectedRecordId.Value);
-            if (latestRecord is null)
-            {
-                latestRecord = await _context.Censos
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.Id == selectedRecordId.Value, cancellationToken);
-                if (latestRecord?.FarmaciaProrrogaDeId is long parentId)
-                {
-                    latestRecord = await _context.Censos
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(x => x.Id == parentId, cancellationToken);
-                }
-                else if (latestRecord?.FarmaciaProrrogaVersionId is not null)
-                {
-                    latestRecord = await _context.Censos
-                        .AsNoTracking()
-                        .Where(x => x.Prorrogas.Any(p => p.Id == latestRecord.FarmaciaProrrogaVersionId.Value))
-                        .FirstOrDefaultAsync(cancellationToken);
-                }
-            }
-        }
-
-        // La última atención por cédula es el respaldo de la búsqueda suelta, donde nadie dice
-        // cuál abrir. En la pantalla unificada el carril sí lo dice, y un episodio sin registro
-        // significa atención NUEVA: traer ahí la anterior mostraba una atención ya dada de alta
-        // como si estuviera activa y, peor, al guardar la habría sobrescrito en vez de crear la
-        // siguiente. Es el mismo atajo que ya se había quitado de los otros cuatro programas.
-        if (latestRecord is null && permitirUltimaAtencion && !string.IsNullOrWhiteSpace(cedulaFiltro))
-        {
-            latestRecord = await query
-                .OrderByDescending(x => x.FechaIngreso)
-                .ThenByDescending(x => x.HoraIngreso)
-                .ThenByDescending(x => x.Id)
-                .FirstOrDefaultAsync(cancellationToken);
-        }
-
-        if (latestRecord is null)
-        {
-            model.EditingRecordId = null;
-            return;
-        }
-
-        ApplyCensoRecordToModel(model, latestRecord);
-        model.ProrrogaCerrada = await IsBaseProrrogaClosedAsync(
-            latestRecord,
-            clearInvalidMarker: false,
-            cancellationToken);
+        return records;
     }
 
     private static IReadOnlyDictionary<string, string> BuildProrrogaTableValues(
@@ -3758,7 +3782,7 @@ public partial class CensoController : Controller
                 .ToList();
         }
 
-        var barrioOptions = await _addressValidationService.SearchNeighborhoodsAsync(
+        var barrioOptions = await BuscarBarriosAsync(
             municipioCanonical,
             string.IsNullOrWhiteSpace(model.Barrio) ? "a" : model.Barrio,
             cancellationToken);
@@ -3836,7 +3860,10 @@ public partial class CensoController : Controller
             .ToList();
     }
 
-    private async Task<IReadOnlyList<MedicamentoCatalogItemViewModel>> GetMedicamentoCatalogAsync(CancellationToken cancellationToken)
+    private Task<IReadOnlyList<MedicamentoCatalogItemViewModel>> GetMedicamentoCatalogAsync(CancellationToken cancellationToken) =>
+        MedicamentosDeLaPeticionAsync(cancellationToken);
+
+    private async Task<IReadOnlyList<MedicamentoCatalogItemViewModel>> ConsultarCatalogoMedicamentosAsync(CancellationToken cancellationToken)
     {
         return await _context.Medicamentos
             .AsNoTracking()
@@ -3894,7 +3921,7 @@ public partial class CensoController : Controller
 
     private async Task<IReadOnlyList<SelectListItem>> GetNursingAssistantOptionsAsync(CancellationToken cancellationToken)
     {
-        var assistants = await _userAdministrationService.GetNursingAssistantsAsync(onlyActive: true, cancellationToken);
+        var assistants = await AuxiliaresDeLaPeticionAsync(cancellationToken);
         return assistants
             .Select(assistant => new SelectListItem
             {
@@ -3921,10 +3948,7 @@ public partial class CensoController : Controller
         IReadOnlyCollection<string>? profesiones,
         CancellationToken cancellationToken)
     {
-        var assistants = await _userAdministrationService.GetOpsAssistantsAsync(
-            onlyActive: true,
-            profesiones,
-            cancellationToken);
+        var assistants = await DirectorioDeLaPeticionAsync(profesiones, cancellationToken);
         return assistants
             .Where(assistant => !string.IsNullOrWhiteSpace(assistant.Name))
             .Select(assistant => new SelectListItem

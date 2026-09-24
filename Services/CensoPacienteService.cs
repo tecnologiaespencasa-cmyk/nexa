@@ -755,7 +755,7 @@ public class CensoPacienteService : ICensoPacienteService
 
             var cronicos = await _context.CensoCronicos
                 .Where(x => x.CensoPacienteId == pacienteId || x.NumeroIdentificacion.ToUpper() == doc)
-                .Select(x => new { x.Id, x.EstadoPaciente, x.FechaEgreso, x.MotivoEgreso })
+                .Select(x => new { x.Id, x.EstadoPaciente, x.FechaEgreso, x.MotivoEgreso, x.CensoPacienteId })
                 .ToListAsync(cancellationToken);
             foreach (var fila in cronicos)
             {
@@ -766,7 +766,7 @@ public class CensoPacienteService : ICensoPacienteService
 
             var heridas = await _context.CensoClinicaHeridas
                 .Where(x => x.CensoPacienteId == pacienteId || x.NumeroIdentificacion.ToUpper() == doc)
-                .Select(x => new { x.Id, x.Estado, x.FechaEgreso, x.MotivoEgreso })
+                .Select(x => new { x.Id, x.Estado, x.FechaEgreso, x.MotivoEgreso, x.CensoPacienteId })
                 .ToListAsync(cancellationToken);
             foreach (var fila in heridas)
             {
@@ -776,7 +776,7 @@ public class CensoPacienteService : ICensoPacienteService
 
             var npt = await _context.CensoNpt
                 .Where(x => x.CensoPacienteId == pacienteId || x.NumeroIdentificacion.ToUpper() == doc)
-                .Select(x => new { x.Id, x.Estado, x.FechaEgreso, x.MotivoEgreso })
+                .Select(x => new { x.Id, x.Estado, x.FechaEgreso, x.MotivoEgreso, x.CensoPacienteId })
                 .ToListAsync(cancellationToken);
             foreach (var fila in npt)
             {
@@ -786,7 +786,7 @@ public class CensoPacienteService : ICensoPacienteService
 
             var terapia = await _context.CensoTerapiasAmbulatorias
                 .Where(x => x.CensoPacienteId == pacienteId || x.NumeroIdentificacion.ToUpper() == doc)
-                .Select(x => new { x.Id, x.EstadoPaciente, x.MotivoAlta })
+                .Select(x => new { x.Id, x.EstadoPaciente, x.MotivoAlta, x.CensoPacienteId })
                 .ToListAsync(cancellationToken);
             foreach (var fila in terapia)
             {
@@ -799,7 +799,18 @@ public class CensoPacienteService : ICensoPacienteService
 
             // El vínculo con el maestro se completa en una segunda pasada con actualizaciones
             // masivas: no carga las entidades y por eso no puede tocar ninguna otra columna.
-            await VincularFilasSueltasAsync(pacienteId, doc, cancellationToken);
+            // Las consultas de arriba ya trajeron todas las filas del documento de esas cuatro
+            // tablas, así que se sabe si alguna sigue suelta: casi nunca, y sin esto eran cuatro
+            // UPDATE de más en cada ficha que alguien abría.
+            await VincularFilasSueltasAsync(
+                pacienteId,
+                doc,
+                new FilasSueltas(
+                    Cronicos: cronicos.Any(x => x.CensoPacienteId == null),
+                    ClinicaHeridas: heridas.Any(x => x.CensoPacienteId == null),
+                    Npt: npt.Any(x => x.CensoPacienteId == null),
+                    Terapia: terapia.Any(x => x.CensoPacienteId == null)),
+                cancellationToken);
         }
         catch (Exception ex)
         {
@@ -868,23 +879,40 @@ public class CensoPacienteService : ICensoPacienteService
         return episodio;
     }
 
-    private async Task VincularFilasSueltasAsync(long pacienteId, string doc, CancellationToken ct)
+    /// <summary>Qué tablas tienen alguna fila del documento todavía sin enlazar al maestro.</summary>
+    private readonly record struct FilasSueltas(bool Cronicos, bool ClinicaHeridas, bool Npt, bool Terapia);
+
+    private async Task VincularFilasSueltasAsync(long pacienteId, string doc, FilasSueltas sueltas, CancellationToken ct)
     {
+        // Agudos se actualiza siempre: su consulta de conciliación omite las copias de despacho a
+        // farmacia, que también se enlazan al maestro, así que no sirve para saber si hay sueltas.
         await _context.Censos
             .Where(x => x.CensoPacienteId == null && x.NumeroIdentificacion.ToUpper() == doc)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.CensoPacienteId, pacienteId), ct);
-        await _context.CensoCronicos
-            .Where(x => x.CensoPacienteId == null && x.NumeroIdentificacion.ToUpper() == doc)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.CensoPacienteId, pacienteId), ct);
-        await _context.CensoClinicaHeridas
-            .Where(x => x.CensoPacienteId == null && x.NumeroIdentificacion.ToUpper() == doc)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.CensoPacienteId, pacienteId), ct);
-        await _context.CensoNpt
-            .Where(x => x.CensoPacienteId == null && x.NumeroIdentificacion.ToUpper() == doc)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.CensoPacienteId, pacienteId), ct);
-        await _context.CensoTerapiasAmbulatorias
-            .Where(x => x.CensoPacienteId == null && x.NumeroIdentificacion.ToUpper() == doc)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.CensoPacienteId, pacienteId), ct);
+        if (sueltas.Cronicos)
+        {
+            await _context.CensoCronicos
+                .Where(x => x.CensoPacienteId == null && x.NumeroIdentificacion.ToUpper() == doc)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.CensoPacienteId, pacienteId), ct);
+        }
+        if (sueltas.ClinicaHeridas)
+        {
+            await _context.CensoClinicaHeridas
+                .Where(x => x.CensoPacienteId == null && x.NumeroIdentificacion.ToUpper() == doc)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.CensoPacienteId, pacienteId), ct);
+        }
+        if (sueltas.Npt)
+        {
+            await _context.CensoNpt
+                .Where(x => x.CensoPacienteId == null && x.NumeroIdentificacion.ToUpper() == doc)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.CensoPacienteId, pacienteId), ct);
+        }
+        if (sueltas.Terapia)
+        {
+            await _context.CensoTerapiasAmbulatorias
+                .Where(x => x.CensoPacienteId == null && x.NumeroIdentificacion.ToUpper() == doc)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.CensoPacienteId, pacienteId), ct);
+        }
     }
 
     // Reglas de cierre de cada censo. Son públicas porque la hoja de vida del paciente decide con

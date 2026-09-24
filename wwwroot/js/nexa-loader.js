@@ -64,7 +64,9 @@
       _wmarkTimer = null;
     }
     var el = _getOverlay();
-    if (el) el.classList.add('hidden');
+    /* Mientras dura la carga inicial de una página que la pide (.nexa-carga-inicial), la destapa
+       solo el layout cuando terminan sus scripts: un fetch que acabe antes no puede quitarla. */
+    if (el && !el.classList.contains('nexa-carga-inicial')) el.classList.add('hidden');
   }
 
   /* ---- API pública ---- */
@@ -88,6 +90,11 @@
         }
         _doHide();
       }
+    },
+
+    /* True mientras haya una petición o navegación en curso */
+    ocupado: function () {
+      return _count > 0;
     },
 
     /* Cierre forzoso (p.ej. en navegación de vuelta con bfcache) */

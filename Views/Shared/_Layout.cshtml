@@ -22,6 +22,11 @@
         isReportesView ? "page-reportes" : null,
         isHomeView ? "page-home" : null
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    // Una página que lo pide se muestra tapada por el cargador desde el primer byte y hasta que
+    // corrieron sus scripts. La ficha del censo lo necesita: llega por partes (hasta 1,4 MB) y sus
+    // botones se podían pulsar antes de que existiera su confirmación. Ver [[carga-del-paciente-censo]].
+    var cargaBloqueante = ViewData["CargaBloqueante"] is true;
 }
 <!DOCTYPE html>
 <html lang="es">
@@ -41,6 +46,68 @@
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body class="@bodyClasses">
+    @* Nexa Loader — overlay global de carga. Va al principio del body y no al final: al final no
+       existía mientras la página seguía llegando, que es justo cuando tiene que tapar. *@
+    @* La marca de carga inicial es una clase y no un data-*: Razor escribe los data-* aunque su
+       valor sea nulo, y la marca quedaba puesta en todas las páginas. *@
+    <div class="nexa-loader-overlay @(cargaBloqueante ? "nexa-carga-inicial" : "hidden")" id="nexaLoader" aria-busy="true" role="status" aria-label="Cargando">
+      <div class="nexa-loader-card">
+
+        <svg class="nexa-logo-svg" viewBox="0 0 140 130" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="nexa-rg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#ff5050"/>
+              <stop offset="55%"  stop-color="#e01818"/>
+              <stop offset="100%" stop-color="#a50f0f"/>
+            </linearGradient>
+          </defs>
+          <path class="nexa-ribbon"
+            d="M 36 68
+               L 36 36
+               C 36 24 46 20 54 30
+               L 88 86
+               C 96 98 106 94 106 80
+               L 106 48"
+          />
+          <circle class="nexa-dot-a" cx="107" cy="20" r="12"/>
+          <circle class="nexa-dot-b" cx="36"  cy="92" r="10"/>
+        </svg>
+
+        <div class="nexa-wordmark">
+          <span class="nexa-wN">N</span><span class="nexa-wexa"><span>e</span><span>x</span><span>a</span></span>
+        </div>
+
+        <div class="nexa-progress-zone">
+          <div class="nexa-bar-track"><div class="nexa-bar-fill"></div></div>
+          <span class="nexa-loading-lbl">Cargando</span>
+        </div>
+
+      </div>
+    </div>
+@if (cargaBloqueante)
+{
+    <script>
+        // Destapa la página cuando el documento terminó de llegar y corrieron sus scripts: el
+        // setTimeout deja pasar primero a los manejadores de DOMContentLoaded de la propia página.
+        // Mientras tanto <main> está inerte (ni clic ni teclado). Si algo fallara, "load" o el tope
+        // de 60 s la destapan igual: una página bloqueada para siempre sería peor.
+        (() => {
+            const liberar = () => {
+                if (window.nexaCargaLiberada) { return; }
+                window.nexaCargaLiberada = true;
+                document.querySelector("main[inert]")?.removeAttribute("inert");
+                const capa = document.getElementById("nexaLoader");
+                if (!capa) { return; }
+                capa.classList.remove("nexa-carga-inicial");
+                // Si en ese instante ya arrancó otra navegación, el cargador sigue a cargo de ella.
+                if (!window.NexaLoader?.ocupado?.()) { capa.classList.add("hidden"); }
+            };
+            document.addEventListener("DOMContentLoaded", () => setTimeout(liberar, 0));
+            window.addEventListener("load", liberar);
+            setTimeout(liberar, 60000);
+        })();
+    </script>
+}
     @if (showNavigation)
     {
         <header>
@@ -245,7 +312,7 @@
     }
 
     <div class="@((isCensoView || isHomeView || isPacienteView || isReportesView) ? "container-fluid px-0" : "container")">
-        <main role="main" class="pb-3">
+        <main role="main" class="pb-3" inert="@(cargaBloqueante ? "inert" : null)">
             @RenderBody()
         </main>
     </div>
@@ -255,42 +322,6 @@
             &copy; 2026 - Especialistas en casa
         </div>
     </footer>
-
-    <!-- Nexa Loader — overlay global de carga -->
-    <div class="nexa-loader-overlay hidden" id="nexaLoader" aria-busy="true" role="status" aria-label="Cargando">
-      <div class="nexa-loader-card">
-
-        <svg class="nexa-logo-svg" viewBox="0 0 140 130" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="nexa-rg" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%"   stop-color="#ff5050"/>
-              <stop offset="55%"  stop-color="#e01818"/>
-              <stop offset="100%" stop-color="#a50f0f"/>
-            </linearGradient>
-          </defs>
-          <path class="nexa-ribbon"
-            d="M 36 68
-               L 36 36
-               C 36 24 46 20 54 30
-               L 88 86
-               C 96 98 106 94 106 80
-               L 106 48"
-          />
-          <circle class="nexa-dot-a" cx="107" cy="20" r="12"/>
-          <circle class="nexa-dot-b" cx="36"  cy="92" r="10"/>
-        </svg>
-
-        <div class="nexa-wordmark">
-          <span class="nexa-wN">N</span><span class="nexa-wexa"><span>e</span><span>x</span><span>a</span></span>
-        </div>
-
-        <div class="nexa-progress-zone">
-          <div class="nexa-bar-track"><div class="nexa-bar-fill"></div></div>
-          <span class="nexa-loading-lbl">Cargando</span>
-        </div>
-
-      </div>
-    </div>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
