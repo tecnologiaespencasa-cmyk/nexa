@@ -1,25 +1,308 @@
-﻿@model ErrorViewModel
+@model ErrorViewModel
 @{
-    ViewData["Title"] = "Error";
+    // Página autónoma, sin _Layout: el layout consulta la sesión, los permisos y la foto del perfil,
+    // y cualquiera de esas cosas puede ser justo lo que falló. Todo lo que necesita va aquí mismo.
+    Layout = null;
 }
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>La acción no se completó - Intranet</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --rojo: #e04524;
+            --rojo-hondo: #b4331a;
+            --tinta: #1e2633;
+            --tinta-suave: #5b6472;
+            --linea: #f1dcd6;
+            --aviso-texto: #92400e;
+            --aviso-fondo: #fff7e6;
+            --aviso-borde: #f6dca8;
+        }
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
+        *, *::before, *::after { box-sizing: border-box; }
 
-@if (Model.ShowRequestId)
-{
-    <p>
-        <strong>Request ID:</strong> <code>@Model.RequestId</code>
-    </p>
-}
+        body {
+            margin: 0;
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: grid;
+            place-items: center;
+            padding: clamp(1rem, 4vw, 2.5rem);
+            font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+            color: var(--tinta-suave);
+            background:
+                radial-gradient(circle at 18% 18%, rgba(224, 69, 36, 0.09), transparent 30%),
+                radial-gradient(circle at 84% 80%, rgba(160, 176, 190, 0.16), transparent 32%),
+                linear-gradient(135deg, #ffffff 0%, #fff6f4 42%, #f3f5f8 100%);
+        }
 
-<h3>Development Mode</h3>
-<p>
-    Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
-</p>
-<p>
-    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
-    It can result in displaying sensitive information from exceptions to end users.
-    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
-    and restarting the app.
-</p>
+        .falla {
+            position: relative;
+            width: 100%;
+            max-width: 30rem;
+            overflow: hidden;
+            padding: clamp(1.75rem, 5vw, 2.5rem);
+            background: #ffffff;
+            border-radius: 24px;
+            box-shadow: 0 28px 70px rgba(44, 51, 62, 0.16), 0 2px 12px rgba(224, 69, 36, 0.08);
+        }
+
+        .falla::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto;
+            height: 5px;
+            background: linear-gradient(90deg, var(--rojo), rgba(224, 69, 36, 0.5));
+        }
+
+        .falla__logo {
+            display: block;
+            height: auto;
+            max-width: 11rem;
+            max-height: 56px;
+            object-fit: contain;
+        }
+
+        /* El trazo del login, aquí con un corte: la operación se interrumpió y se puede retomar. */
+        .falla__trazo {
+            display: block;
+            width: 100%;
+            height: auto;
+            margin: 1.5rem 0 1.25rem;
+            overflow: visible;
+        }
+
+        .falla__trazo path {
+            fill: none;
+            stroke: var(--rojo);
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .falla__trazo .falla__trazo-corte {
+            stroke: var(--linea);
+            stroke-dasharray: 2 6;
+        }
+
+        .falla__trazo .falla__trazo-antes,
+        .falla__trazo .falla__trazo-despues {
+            stroke-dasharray: 1;
+            stroke-dashoffset: 1;
+            animation: falla-trazar 1.1s cubic-bezier(.4, 0, .2, 1) forwards;
+        }
+
+        .falla__trazo .falla__trazo-despues {
+            animation-delay: 1.35s;
+            animation-duration: .7s;
+        }
+
+        .falla__trazo circle {
+            fill: var(--rojo);
+            opacity: 0;
+            animation: falla-aparecer .25s ease-out 1.1s forwards;
+        }
+
+        @@keyframes falla-trazar { to { stroke-dashoffset: 0; } }
+        @@keyframes falla-aparecer { to { opacity: 1; } }
+
+        h1 {
+            margin: 0 0 .6rem;
+            color: var(--tinta);
+            font-size: clamp(1.55rem, 5vw, 1.9rem);
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.01em;
+        }
+
+        p { margin: 0; line-height: 1.55; font-weight: 600; }
+
+        .falla__aviso {
+            margin-top: 1.25rem;
+            padding: .8rem 1rem;
+            color: var(--aviso-texto);
+            background: var(--aviso-fondo);
+            border: 1px solid var(--aviso-borde);
+            border-radius: 14px;
+            font-size: .95rem;
+        }
+
+        .falla__aviso strong { font-weight: 800; }
+
+        .falla__codigo {
+            margin-top: 1.5rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--linea);
+        }
+
+        .falla__codigo-rotulo {
+            display: block;
+            margin-bottom: .45rem;
+            color: var(--tinta);
+            font-size: .8rem;
+            font-weight: 800;
+        }
+
+        .falla__codigo-fila {
+            display: flex;
+            align-items: stretch;
+            border: 1px solid var(--linea);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .falla__codigo code {
+            flex: 1;
+            min-width: 0;
+            padding: .6rem .75rem;
+            color: var(--tinta);
+            background: #fbfbfc;
+            font: 600 .82rem/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace;
+            overflow-wrap: anywhere;
+        }
+
+        .falla__copiar {
+            flex: none;
+            padding: 0 .95rem;
+            color: var(--rojo-hondo);
+            background: #ffffff;
+            border: 0;
+            border-left: 1px solid var(--linea);
+            font: inherit;
+            font-size: .88rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .falla__copiar:hover { background: #fff4f1; }
+
+        .falla__codigo-ayuda {
+            margin-top: .45rem;
+            font-size: .85rem;
+        }
+
+        .falla__acciones {
+            display: grid;
+            gap: .6rem;
+            margin-top: 1.75rem;
+        }
+
+        .falla__boton {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+            padding: .7rem 1.1rem;
+            border-radius: 14px;
+            font: inherit;
+            font-weight: 800;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color .15s ease, box-shadow .15s ease;
+        }
+
+        .falla__boton--principal {
+            color: #ffffff;
+            background: var(--rojo);
+            border: 0;
+            box-shadow: 0 14px 28px rgba(224, 69, 36, 0.24);
+        }
+
+        .falla__boton--principal:hover { background: var(--rojo-hondo); }
+
+        .falla__boton--secundario {
+            color: var(--tinta);
+            background: #ffffff;
+            border: 1px solid #dfe3ea;
+        }
+
+        .falla__boton--secundario:hover { background: #f6f7f9; }
+
+        .falla__boton:focus-visible,
+        .falla__copiar:focus-visible {
+            outline: 3px solid rgba(224, 69, 36, 0.45);
+            outline-offset: 2px;
+        }
+
+        @@media (prefers-reduced-motion: reduce) {
+            .falla__trazo .falla__trazo-antes,
+            .falla__trazo .falla__trazo-despues,
+            .falla__trazo circle {
+                animation: none;
+                stroke-dashoffset: 0;
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="falla" aria-labelledby="fallaTitulo">
+        <img src="~/images/logo.png" asp-append-version="true" alt="Especialistas en Casa" class="falla__logo" />
+
+        <svg class="falla__trazo" viewBox="0 0 360 60" aria-hidden="true" focusable="false">
+            <path class="falla__trazo-antes" pathLength="1"
+                  d="M0 36 H26 l5 -5 l5 5 H46 l4 7 l6 -32 l6 38 l5 -13 H84 q7 -9 14 0 H122 l5 -5 l5 5 H142 l4 7 l6 -32 l6 38 l5 -13 H180 q7 -9 14 0 H212" />
+            <path class="falla__trazo-corte" d="M212 36 H262" />
+            <circle cx="212" cy="36" r="3.5" />
+            <path class="falla__trazo-despues" pathLength="1"
+                  d="M262 36 H272 l5 -5 l5 5 H292 l4 7 l6 -32 l6 38 l5 -13 H330 q7 -9 14 0 H360" />
+        </svg>
+
+        <h1 id="fallaTitulo">La acción no se completó</h1>
+        <p>El sistema encontró un error y detuvo la operación. Vuelve a la página anterior e inténtalo otra vez.</p>
+
+        <p class="falla__aviso">
+            <strong>Si estabas guardando información,</strong> puede que no haya quedado registrada.
+            Revisa el registro antes de guardarlo de nuevo para no duplicarlo.
+        </p>
+
+        @if (Model?.ShowRequestId == true)
+        {
+            <div class="falla__codigo">
+                <span class="falla__codigo-rotulo" id="fallaCodigoRotulo">Código del error</span>
+                <div class="falla__codigo-fila">
+                    <code id="fallaCodigo">@Model.RequestId</code>
+                    <button type="button" class="falla__copiar" data-falla-copiar hidden>Copiar</button>
+                </div>
+                <p class="falla__codigo-ayuda">Si vuelve a pasar, envíale este código al área de Tecnología.</p>
+            </div>
+        }
+
+        <div class="falla__acciones">
+            <button type="button" class="falla__boton falla__boton--principal" data-falla-volver hidden>Volver a la página anterior</button>
+            <a class="falla__boton falla__boton--secundario" href="~/">Ir al inicio</a>
+        </div>
+    </main>
+
+    <script>
+        (function () {
+            // "Volver" solo aparece si hay a dónde volver (una pestaña abierta directo en el error no tiene).
+            var volver = document.querySelector('[data-falla-volver]');
+            if (volver && window.history.length > 1) {
+                volver.hidden = false;
+                volver.addEventListener('click', function () { window.history.back(); });
+            }
+
+            // Copiar solo existe con el portapapeles disponible (HTTPS o localhost).
+            var copiar = document.querySelector('[data-falla-copiar]');
+            var codigo = document.getElementById('fallaCodigo');
+            if (copiar && codigo && navigator.clipboard && window.isSecureContext) {
+                copiar.hidden = false;
+                copiar.addEventListener('click', function () {
+                    navigator.clipboard.writeText(codigo.textContent.trim()).then(function () {
+                        copiar.textContent = 'Copiado';
+                        setTimeout(function () { copiar.textContent = 'Copiar'; }, 2000);
+                    });
+                });
+            }
+        })();
+    </script>
+</body>
+</html>

@@ -18,14 +18,19 @@ namespace Nexa.Controllers;
 public partial class CensoController
 {
     private Task<IReadOnlyList<NursingAssistantDto>>? _auxiliaresDeLaPeticion;
-    private readonly Dictionary<string, Task<IReadOnlyList<OpsAssistantDto>>> _directorioDeLaPeticion = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Task<IReadOnlyList<string>>> _directorioDeLaPeticion = new(StringComparer.Ordinal);
     private Task<IReadOnlyList<MedicamentoCatalogItemViewModel>>? _medicamentosDeLaPeticion;
     private readonly Dictionary<string, Task<IReadOnlyList<string>>> _barriosDeLaPeticion = new(StringComparer.OrdinalIgnoreCase);
 
     private Task<IReadOnlyList<NursingAssistantDto>> AuxiliaresDeLaPeticionAsync(CancellationToken cancellationToken) =>
         _auxiliaresDeLaPeticion ??= _userAdministrationService.GetNursingAssistantsAsync(onlyActive: true, cancellationToken);
 
-    private Task<IReadOnlyList<OpsAssistantDto>> DirectorioDeLaPeticionAsync(
+    /// <summary>
+    /// Nombres del directorio de personal para los campos de auxiliar. Además de la memoria de la
+    /// petición, pasan por <see cref="Nexa.Services.DirectorioAuxiliaresCache"/>, que los conserva
+    /// unos minutos entre consultas: el directorio vive en otra base (Neon) y cambia poco.
+    /// </summary>
+    private Task<IReadOnlyList<string>> DirectorioDeLaPeticionAsync(
         IReadOnlyCollection<string>? profesiones,
         CancellationToken cancellationToken)
     {
@@ -34,7 +39,15 @@ public partial class CensoController
             : string.Join('|', profesiones.OrderBy(x => x, StringComparer.Ordinal));
         if (!_directorioDeLaPeticion.TryGetValue(clave, out var consulta))
         {
-            consulta = _userAdministrationService.GetOpsAssistantsAsync(onlyActive: true, profesiones, cancellationToken);
+            consulta = _directorioAuxiliaresCache.ObtenerAsync(
+                clave,
+                async ct => (await _userAdministrationService.GetOpsAssistantsAsync(onlyActive: true, profesiones, ct))
+                    .Select(x => x.Name)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .ToList()
+                    // La lista se comparte entre peticiones: de solo lectura, nadie la altera.
+                    .AsReadOnly(),
+                cancellationToken);
             _directorioDeLaPeticion[clave] = consulta;
         }
 

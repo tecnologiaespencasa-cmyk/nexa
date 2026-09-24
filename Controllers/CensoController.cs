@@ -13,6 +13,7 @@ using Nexa.Helpers;
 using Nexa.Models.Reports;
 using Nexa.Models.Security;
 using Nexa.Models.ViewModels;
+using Nexa.Services;
 using Nexa.Services.Interfaces;
 using Nexa.Services.Models;
 using Microsoft.AspNetCore.Hosting;
@@ -628,6 +629,7 @@ public partial class CensoController : Controller
     private readonly INeonClinicaHeridasRepository _neonClinicaHeridasRepository;
     private readonly ICensoPacienteService _censoPacienteService;
     private readonly ICensoProgramaNotificationService _censoProgramaNotificationService;
+    private readonly DirectorioAuxiliaresCache _directorioAuxiliaresCache;
     private readonly ILogger<CensoController> _logger;
     private readonly IReadOnlyList<string> _medicamentoFallbackValues;
     private readonly IReadOnlyDictionary<string, string> _cie10Catalog;
@@ -647,6 +649,7 @@ public partial class CensoController : Controller
         INeonClinicaHeridasRepository neonClinicaHeridasRepository,
         ICensoPacienteService censoPacienteService,
         ICensoProgramaNotificationService censoProgramaNotificationService,
+        DirectorioAuxiliaresCache directorioAuxiliaresCache,
         ILogger<CensoController> logger,
         IWebHostEnvironment webHostEnvironment)
     {
@@ -663,6 +666,7 @@ public partial class CensoController : Controller
         _neonClinicaHeridasRepository = neonClinicaHeridasRepository;
         _censoPacienteService = censoPacienteService;
         _censoProgramaNotificationService = censoProgramaNotificationService;
+        _directorioAuxiliaresCache = directorioAuxiliaresCache;
         _logger = logger;
         _medicamentoFallbackValues = LoadMedicamentoPrincipalValues(webHostEnvironment.ContentRootPath);
         _cie10Catalog = LoadCie10Catalog(webHostEnvironment.ContentRootPath);
@@ -3948,13 +3952,12 @@ public partial class CensoController : Controller
         IReadOnlyCollection<string>? profesiones,
         CancellationToken cancellationToken)
     {
-        var assistants = await DirectorioDeLaPeticionAsync(profesiones, cancellationToken);
-        return assistants
-            .Where(assistant => !string.IsNullOrWhiteSpace(assistant.Name))
-            .Select(assistant => new SelectListItem
+        var nombres = await DirectorioDeLaPeticionAsync(profesiones, cancellationToken);
+        return nombres
+            .Select(nombre => new SelectListItem
             {
-                Text = assistant.Name,
-                Value = assistant.Name
+                Text = nombre,
+                Value = nombre
             })
             .ToList();
     }

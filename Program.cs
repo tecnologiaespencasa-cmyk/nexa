@@ -96,6 +96,16 @@ builder.Services.AddHostedService<BridgeSyncHostedService>();
 
 builder.Services.AddSingleton<IPasswordService, PasswordService>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<DirectorioAuxiliaresCache>();
+
+// La cookie antifalsificación salía sin la marca Secure (la de sesión ya la tenía). Con
+// SameAsRequest la lleva siempre que la conexión sea HTTPS. En Azure lo es: la plataforma ya lee
+// X-Forwarded-For y X-Forwarded-Proto por su cuenta (la auditoría guarda la IP real del usuario y
+// las redirecciones salen con https), así que aquí no se configura nada de eso; hacerlo reemplazaría
+// esa configuración. No se usa Always: con Always el antifalsificación lanza error en cualquier
+// petición que no sea HTTPS, lo que tumbaba el inicio de sesión local (http://localhost).
+builder.Services.AddAntiforgery(options => options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest);
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -137,6 +147,27 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+// Cabeceras de seguridad en toda respuesta. nosniff: el navegador no interpreta un archivo con otro
+// tipo (un adjunto no se ejecuta como script). Referrer-Policy: la URL completa, que puede llevar el
+// documento del paciente (?cedulaPaciente=...), no viaja a otros sitios; solo el dominio. Y
+// X-Frame-Options para que ninguna página se incruste en un sitio ajeno, también las que no llevan
+// formulario (el antifalsificación ya la ponía en las que sí).
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        var cabeceras = context.Response.Headers;
+        cabeceras.XContentTypeOptions = "nosniff";
+        cabeceras["Referrer-Policy"] = "strict-origin-when-cross-origin";
+        if (!cabeceras.ContainsKey("X-Frame-Options"))
+        {
+            cabeceras.XFrameOptions = "SAMEORIGIN";
+        }
+        return Task.CompletedTask;
+    });
+    await next();
+});
 
 if (!app.Environment.IsDevelopment())
 {

@@ -297,6 +297,15 @@ textarea {
   transform: translateY(0);
 }
 
+/* Enviando: el formulario ya salió y un segundo clic no hace nada (ver data-envio-unico en site.js). */
+.auth-submit-button[aria-disabled="true"],
+.auth-submit-button[aria-disabled="true"]:hover {
+  box-shadow: 0 10px 22px rgba(229, 57, 53, 0.18);
+  cursor: progress;
+  filter: saturate(0.85);
+  transform: none;
+}
+
 .auth-validation-summary {
   background: rgba(229, 57, 53, 0.08);
   border: 1px solid rgba(229, 57, 53, 0.14);

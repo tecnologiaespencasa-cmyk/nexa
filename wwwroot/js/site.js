@@ -22,6 +22,56 @@ document.querySelectorAll("[data-password-toggle]").forEach((toggleButton) => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
+// Formularios que solo deben enviarse una vez (data-envio-unico).
+// En el login, un doble clic en "Ingresar" mandaba dos POST: el primero abría la
+// sesión y el segundo llegaba con esa sesión y el token antifalsificación de
+// antes de entrar, y el servidor respondía 400 aunque el usuario ya estuviera
+// dentro. El bloqueo se decide al terminar el evento: si la validación del
+// formulario lo detuvo (campos vacíos), no se bloquea nada.
+// ════════════════════════════════════════════════════════════════════════════
+document.querySelectorAll("form[data-envio-unico]").forEach((form) => {
+  const button = form.querySelector("[type=submit]");
+  const originalText = button ? button.textContent : "";
+  let unlockTimer = 0;
+
+  const unlock = () => {
+    window.clearTimeout(unlockTimer);
+    delete form.dataset.enviando;
+    if (button) {
+      button.removeAttribute("aria-disabled");
+      button.textContent = originalText;
+    }
+  };
+
+  form.addEventListener("submit", (event) => {
+    if (form.dataset.enviando) {
+      event.preventDefault();
+      return;
+    }
+
+    window.setTimeout(() => {
+      if (event.defaultPrevented) {
+        return;
+      }
+      form.dataset.enviando = "1";
+      if (button) {
+        button.setAttribute("aria-disabled", "true");
+        button.textContent = button.dataset.textoEnviando || originalText;
+      }
+      // Si la red se cae y la página no cambia, el botón vuelve a servir.
+      unlockTimer = window.setTimeout(unlock, 20000);
+    }, 0);
+  });
+
+  // Al volver con "Atrás", el navegador puede restaurar la página tal como quedó.
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) {
+      unlock();
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // Navbar en una sola línea.
 // Los módulos que no caben en el ancho disponible se ocultan de la barra y se
 // reconstruyen dentro del menú "Más", de forma que nunca se produzca un salto

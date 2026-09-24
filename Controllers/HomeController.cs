@@ -22,6 +22,9 @@ public class HomeController : Controller
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {
-        return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        // El código que ve el usuario es el identificador de la operación: con él se encuentra el
+        // error en Application Insights (operation_Id) y en el registro de la aplicación.
+        var codigo = Activity.Current?.TraceId.ToString();
+        return View(new ErrorViewModel { RequestId = string.IsNullOrEmpty(codigo) ? HttpContext.TraceIdentifier : codigo });
     }
 }

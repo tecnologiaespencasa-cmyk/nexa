@@ -27,7 +27,7 @@
                 <p>Especialistas en Casa</p>
             </div>
 
-            <form asp-action="Login" method="post" novalidate>
+            <form asp-action="Login" method="post" novalidate data-envio-unico>
                 <input asp-for="ReturnUrl" type="hidden" />
                 <div asp-validation-summary="ModelOnly" class="auth-validation-summary mb-3"></div>
 
@@ -73,7 +73,7 @@
                 </div>
 
                 <div class="d-grid">
-                    <button type="submit" class="btn auth-submit-button">Ingresar</button>
+                    <button type="submit" class="btn auth-submit-button" data-texto-enviando="Ingresando…">Ingresar</button>
                 </div>
             </form>
         </div>
