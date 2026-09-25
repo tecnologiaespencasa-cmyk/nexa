@@ -11,6 +11,10 @@
     var isReportesView = string.Equals(controllerName, "Reportes", System.StringComparison.OrdinalIgnoreCase);
     var isHomeView = string.Equals(controllerName, "Home", System.StringComparison.OrdinalIgnoreCase)
         && string.Equals(actionName, "Index", System.StringComparison.OrdinalIgnoreCase);
+    // El inventario de activos tiene muchas columnas y se beneficia de todo el ancho de
+    // pantalla; el resto de "Mi espacio corporativo" se queda con el contenedor angosto.
+    var isEspacioActivosView = string.Equals(controllerName, "EspacioCorporativo", System.StringComparison.OrdinalIgnoreCase)
+        && string.Equals(actionName, "Activos", System.StringComparison.OrdinalIgnoreCase);
     var isLoginPage = string.Equals(controllerName, "Auth", System.StringComparison.OrdinalIgnoreCase)
         && string.Equals(actionName, "Login", System.StringComparison.OrdinalIgnoreCase);
     var showNavigation = User.Identity?.IsAuthenticated == true && !isLoginPage;
@@ -311,7 +315,7 @@
         </header>
     }
 
-    <div class="@((isCensoView || isHomeView || isPacienteView || isReportesView) ? "container-fluid px-0" : "container")">
+    <div class="@((isCensoView || isHomeView || isPacienteView || isReportesView || isEspacioActivosView) ? "container-fluid px-0" : "container")">
         <main role="main" class="pb-3" inert="@(cargaBloqueante ? "inert" : null)">
             @RenderBody()
         </main>

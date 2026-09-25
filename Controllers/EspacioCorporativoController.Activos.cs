@@ -40,13 +40,106 @@ public partial class EspacioCorporativoController
             Responsables = await BuildResponsablesAsync(cancellationToken)
         };
 
+        model.Activos = await BuildActivosFiltradosAsync(
+            model.Busqueda,
+            model.EstadoFiltro,
+            model.TipoFiltro,
+            model.ResponsableFiltro,
+            cancellationToken);
+
+        model.Novedades = await BuildNovedadesAdminAsync(model.EstadoNovedadFiltro, cancellationToken);
+        model.Metricas = await BuildMetricasAsync(cancellationToken);
+
+        var miFirma = await GetFirmaGuardadaAsync(cancellationToken);
+        model.TieneFirmaGuardada = miFirma is not null;
+        model.MiFirmaDataUrl = miFirma?.FirmaDataUrl;
+        model.MiFirmaNombre = miFirma?.NombreFirmante ?? GetCurrentUserFullName();
+        model.MiFirmaCargo = miFirma?.Cargo;
+
+        return View(model);
+    }
+
+    /// <summary>
+    /// Descarga el inventario en Excel. Respeta los mismos filtros que la pantalla (si se llega
+    /// aquí sin filtrar, baja todos los activos), para que lo que se ve y lo que se exporta cuadren.
+    /// </summary>
+    [HttpGet]
+    [Authorize(Policy = SystemPermissions.EspacioCorporativoAdmin)]
+    public async Task<IActionResult> ExportarActivosExcel(
+        string? busqueda,
+        string? estado,
+        string? tipo,
+        string? responsable,
+        CancellationToken cancellationToken)
+    {
+        var activos = await BuildActivosFiltradosAsync(
+            busqueda?.Trim(),
+            estado?.Trim(),
+            tipo?.Trim(),
+            responsable?.Trim(),
+            cancellationToken);
+
+        string[] encabezados =
+        [
+            "Tipo de activo", "Nombre del equipo", "Marca", "Serie", "Serial", "Código",
+            "Especificaciones", "Responsable", "Estado", "Fecha de asignación",
+            "Última acta", "Fecha de última acta", "Novedades abiertas", "Nota",
+            "Fecha de creación", "Última actualización"
+        ];
+
+        var filas = activos
+            .Select(activo => (IReadOnlyList<string?>)
+            [
+                activo.TipoActivo,
+                activo.NombreEquipo,
+                activo.Marca,
+                activo.Serie,
+                activo.Serial,
+                activo.CodigoActivo,
+                activo.Especificaciones,
+                string.IsNullOrWhiteSpace(activo.ResponsableNombre) ? "Sin asignar" : activo.ResponsableNombre,
+                activo.Estado,
+                activo.FechaAsignacion?.ToString("yyyy-MM-dd"),
+                activo.TotalActas == 0
+                    ? "Sin firmar"
+                    : activo.EntregaFirmada ? "Acta firmada" : "Devuelto",
+                activo.UltimaActaFecha?.ToString("yyyy-MM-dd"),
+                activo.NovedadesAbiertas.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                activo.Nota,
+                activo.FechaCreacion.ToString("yyyy-MM-dd"),
+                activo.FechaActualizacion?.ToString("yyyy-MM-dd")
+            ])
+            .ToList();
+
+        var libro = ExcelWorkbookWriter.BuildTableWorkbook(
+            "Activos",
+            encabezados,
+            filas,
+            DateTime.UtcNow,
+            documentTitle: "Inventario de activos de TI",
+            dateColumns: [9, 11, 14, 15]);
+
+        return File(
+            libro,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"activos_ti_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+    }
+
+    /// <summary>Misma búsqueda y filtros de la bandeja de activos; se reutiliza en la pantalla y en el exportable.</summary>
+    private async Task<List<EspacioActivoAdminItemViewModel>> BuildActivosFiltradosAsync(
+        string? busqueda,
+        string? estado,
+        string? tipo,
+        string? responsable,
+        CancellationToken cancellationToken)
+    {
         var query = _context.EspacioActivos
             .AsNoTracking()
             .Where(x => !x.Eliminado);
 
-        if (!string.IsNullOrWhiteSpace(model.Busqueda))
+        if (!string.IsNullOrWhiteSpace(busqueda))
         {
-            var termino = $"%{model.Busqueda}%";
+            var termino = $"%{busqueda}%";
             query = query.Where(x =>
                 EF.Functions.ILike(x.Serial, termino)
                 || EF.Functions.ILike(x.Serie, termino)
@@ -57,17 +150,17 @@ public partial class EspacioCorporativoController
                 || (x.ResponsableNombre != null && EF.Functions.ILike(x.ResponsableNombre, termino)));
         }
 
-        if (EspacioCorporativoCatalogos.EsEstadoActivoValido(model.EstadoFiltro))
+        if (EspacioCorporativoCatalogos.EsEstadoActivoValido(estado))
         {
-            query = query.Where(x => x.Estado == model.EstadoFiltro);
+            query = query.Where(x => x.Estado == estado);
         }
 
-        if (EspacioCorporativoCatalogos.EsTipoActivoValido(model.TipoFiltro))
+        if (EspacioCorporativoCatalogos.EsTipoActivoValido(tipo))
         {
-            query = query.Where(x => x.TipoActivo == model.TipoFiltro);
+            query = query.Where(x => x.TipoActivo == tipo);
         }
 
-        if (Guid.TryParse(model.ResponsableFiltro, out var responsableId))
+        if (Guid.TryParse(responsable, out var responsableId))
         {
             query = query.Where(x => x.ResponsableUserId == responsableId);
         }
@@ -101,7 +194,7 @@ public partial class EspacioCorporativoController
                     Ultima = group.OrderByDescending(x => x.FirmadaAtUtc).ThenByDescending(x => x.Id).First()
                 });
 
-        model.Activos = activos
+        return activos
             .Select(activo => new EspacioActivoAdminItemViewModel
             {
                 Id = activo.Id,
@@ -127,17 +220,6 @@ public partial class EspacioCorporativoController
                 TotalActas = actasPorActivo.TryGetValue(activo.Id, out var actaTotal) ? actaTotal.Total : 0
             })
             .ToList();
-
-        model.Novedades = await BuildNovedadesAdminAsync(model.EstadoNovedadFiltro, cancellationToken);
-        model.Metricas = await BuildMetricasAsync(cancellationToken);
-
-        var miFirma = await GetFirmaGuardadaAsync(cancellationToken);
-        model.TieneFirmaGuardada = miFirma is not null;
-        model.MiFirmaDataUrl = miFirma?.FirmaDataUrl;
-        model.MiFirmaNombre = miFirma?.NombreFirmante ?? GetCurrentUserFullName();
-        model.MiFirmaCargo = miFirma?.Cargo;
-
-        return View(model);
     }
 
     [HttpPost]

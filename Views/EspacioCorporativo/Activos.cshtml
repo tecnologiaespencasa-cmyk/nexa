@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="~/css/espacio-corporativo.css" asp-append-version="true" />
 }
 
-<section class="espacio">
+<section class="espacio espacio--activos">
 
     <header class="espacio-hero">
         <div class="espacio-shell">
@@ -80,10 +80,10 @@
         <section class="espacio-panel">
             <div class="espacio-panel__head">
                 <div class="espacio-panel__title">
-                    <span class="espacio-panel__icon"><i class="bi bi-hdd-rack-fill" aria-hidden="true"></i></span>
+                    <span class="espacio-panel__icon"><i class="bi bi-boxes" aria-hidden="true"></i></span>
                     <div>
                         <h2>Inventario</h2>
-                        <span>@Model.Activos.Count activo(s) en la vista actual</span>
+                        <span id="espacioActivosContador">@Model.Activos.Count activo(s) en la vista actual</span>
                     </div>
                 </div>
                 <button type="button" class="espacio-btn espacio-btn--primary" data-activo-nuevo>
@@ -98,7 +98,11 @@
                     <div class="espacio-search">
                         <i class="bi bi-search" aria-hidden="true"></i>
                         <input type="search" name="busqueda" value="@Model.Busqueda"
-                               placeholder="Serial, serie, marca, c&oacute;digo o responsable..." aria-label="Buscar activos" />
+                               placeholder="Tipo, equipo, marca, serial, c&oacute;digo o responsable..."
+                               aria-label="Buscar activos"
+                               data-tabla-filtro="espacioTablaActivos"
+                               data-tabla-contador="espacioActivosContador"
+                               data-tabla-vacio="espacioActivosSinResultados" />
                     </div>
 
                     <select class="espacio-select" name="tipo" aria-label="Filtrar por tipo">
@@ -127,6 +131,11 @@
 
                     <button type="submit" class="espacio-btn espacio-btn--primary">Filtrar</button>
                     <a class="espacio-btn espacio-btn--soft" asp-action="Activos">Limpiar</a>
+                    <button type="submit" class="espacio-btn espacio-btn--soft" formaction="@Url.Action("ExportarActivosExcel")"
+                            title="Descarga el inventario con los filtros que tengas aplicados">
+                        <i class="bi bi-file-earmark-excel-fill" aria-hidden="true"></i>
+                        Exportar a Excel
+                    </button>
                 </form>
 
                 @if (Model.Activos.Count == 0)
@@ -143,9 +152,9 @@
                         <table class="espacio-table" id="espacioTablaActivos">
                             <thead>
                                 <tr>
+                                    <th>Tipo de activo</th>
                                     <th>Equipo</th>
                                     <th>Marca / Serie</th>
-                                    <th>Serial</th>
                                     <th>C&oacute;digo</th>
                                     <th>Responsable</th>
                                     <th>Estado</th>
@@ -163,14 +172,19 @@
 
                                     <tr>
                                         <td>
+                                            <span class="espacio-table__tipo">
+                                                <i class="bi @EspacioIconos.ParaTipoActivo(activo.TipoActivo)" aria-hidden="true"></i>
+                                                @activo.TipoActivo
+                                            </span>
+                                        </td>
+                                        <td>
                                             <span class="espacio-table__strong">@titulo</span>
-                                            <span class="espacio-table__sub">@activo.TipoActivo</span>
+                                            <span class="espacio-table__sub">Serial @activo.Serial</span>
                                         </td>
                                         <td>
                                             <span class="espacio-table__strong">@activo.Marca</span>
                                             <span class="espacio-table__sub">@activo.Serie</span>
                                         </td>
-                                        <td>@activo.Serial</td>
                                         <td>@(string.IsNullOrWhiteSpace(activo.CodigoActivo) ? "—" : activo.CodigoActivo)</td>
                                         <td>
                                             @if (string.IsNullOrWhiteSpace(activo.ResponsableNombre))
@@ -258,6 +272,15 @@
                                         </td>
                                     </tr>
                                 }
+                                <tr id="espacioActivosSinResultados" hidden>
+                                    <td colspan="9">
+                                        <div class="espacio-empty espacio-empty--fila">
+                                            <i class="bi bi-search" aria-hidden="true"></i>
+                                            <strong>Ning&uacute;n activo coincide con la b&uacute;squeda</strong>
+                                            <span>Prueba con otro tipo, marca, serial o nombre de responsable.</span>
+                                        </div>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>

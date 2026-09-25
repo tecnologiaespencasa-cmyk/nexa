@@ -309,7 +309,10 @@
   margin: 0;
 }
 
-.espacio-panel__title span {
+/* :not() excluye el <span class="espacio-panel__icon">: sin esto, este selector le
+   gana en especificidad a "display: grid" de .espacio-panel__icon (0-1-1 contra 0-1-0)
+   y el ícono queda pegado a la esquina superior izquierda en vez de centrado. */
+.espacio-panel__title span:not(.espacio-panel__icon) {
   color: var(--ec-muted);
   display: block;
   font-size: 0.85rem;
@@ -2677,4 +2680,40 @@ textarea.is-error {
   flex-wrap: wrap;
   gap: 0.35rem 1rem;
   margin-top: 0.45rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Pantalla de Activos de TI
+
+   Aprovecha más ancho de pantalla que el resto del módulo (inventarios con
+   muchas columnas se leen mejor sin envolver texto) y el tipo de activo
+   entra como su propia columna, con ícono, al frente de la fila.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.espacio--activos .espacio-shell {
+  max-width: 1760px;
+}
+
+.espacio-table__tipo {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 800;
+  gap: 0.5rem;
+}
+
+.espacio-table__tipo .bi {
+  color: var(--ec-red);
+  font-size: 1.05rem;
+}
+
+/* Mensaje de "sin resultados" embebido en una fila de tabla (filtro en vivo):
+   sin el marco de tarjeta, para que no se vea como una caja dentro de otra. */
+.espacio-empty--fila {
+  background: none;
+  border: 0;
+  padding: 1.5rem 1rem;
+}
+
+.espacio-empty--fila .bi {
+  font-size: 1.8rem;
 }

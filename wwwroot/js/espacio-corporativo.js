@@ -522,18 +522,36 @@
   });
 
   // ── Filtro rápido en tablas de administración ─────────────────────────────
+  //
+  // Filtra mientras se escribe, sin recargar: los datos ya están en la página
+  // (el servidor no pagina estas tablas), así que basta con esconder filas.
+  // data-tabla-contador y data-tabla-vacio son opcionales; si no están, el
+  // input igual filtra, solo que sin actualizar contador ni mensaje vacío.
 
   document.querySelectorAll("[data-tabla-filtro]").forEach((input) => {
-    const tablaId = input.getAttribute("data-tabla-filtro");
-    const tabla = document.getElementById(tablaId);
+    const tabla = document.getElementById(input.getAttribute("data-tabla-filtro"));
     if (!tabla) return;
+
+    const vacio = document.getElementById(input.getAttribute("data-tabla-vacio"));
+    const contador = document.getElementById(input.getAttribute("data-tabla-contador"));
+    const sufijoContador = contador ? contador.textContent.replace(/^\d+\s*/, "") : "";
+
+    // La fila del mensaje "sin resultados" vive dentro del propio tbody: se excluye
+    // de la búsqueda para que no se compare su propio texto contra el término.
+    const filas = Array.from(tabla.querySelectorAll("tbody tr")).filter((fila) => fila !== vacio);
 
     input.addEventListener("input", () => {
       const termino = normalizar(input.value.trim());
-      tabla.querySelectorAll("tbody tr").forEach((fila) => {
-        const texto = normalizar(fila.textContent);
-        fila.style.display = termino === "" || texto.includes(termino) ? "" : "none";
+      let visibles = 0;
+
+      filas.forEach((fila) => {
+        const coincide = termino === "" || normalizar(fila.textContent).includes(termino);
+        fila.style.display = coincide ? "" : "none";
+        if (coincide) visibles += 1;
       });
+
+      if (vacio) vacio.hidden = visibles !== 0;
+      if (contador) contador.textContent = `${visibles} ${sufijoContador}`;
     });
   });
 
