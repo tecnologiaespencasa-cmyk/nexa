@@ -12,8 +12,6 @@
     // El tabulado conserva el tablero y el tablero conserva el tabulado al navegar.
     ViewData["RutaTablero"] = Model.RutaTablero;
 
-    // TEMPORAL: aviso "Tablero en construcción" (interruptor en ReportesController.EnConstruccion.cs).
-    var enConstruccion = Nexa.Controllers.ReportesController.TableroEnConstruccion;
     var tab = Model.TabuladoCenso;
     var hoy = Model.CensoHoy;
 
@@ -98,11 +96,6 @@
 }
 
 <div class="rp" data-rp>
-    @* TEMPORAL: con el aviso activo, todo el tablero queda difuminado e inerte (sin clics ni teclado);
-       el tabulado y sus exportables, fuera de este bloque, siguen funcionando. *@
-    <div class="rp-obra @(enConstruccion ? "is-activa" : null)">
-    <div class="rp-obra__contenido" inert="@enConstruccion" aria-hidden="@(enConstruccion ? "true" : null)">
-
     @* Arriba, lo que no depende de ningún filtro: el censo de hoy. Debajo de los filtros, todo lo que
        sí cambia con ellos. Por eso las tarjetas van primero. *@
     <header class="rp-cabecera">
@@ -410,13 +403,6 @@
         <partial name="_RpPanelTerapia" model="Model" />
         <partial name="_RpPanelPortal" model="Model" />
     </div>
-    </div>
-    @if (enConstruccion)
-    {
-        <partial name="_RpEnConstruccion" />
-    }
-    </div>
-    @* /TEMPORAL *@
 
     @* Tabulado unificado del censo. Vive aqui, al final de reportes, porque es consulta de
        historial: la pantalla del paciente no tiene por que cargar miles de filas. *@
