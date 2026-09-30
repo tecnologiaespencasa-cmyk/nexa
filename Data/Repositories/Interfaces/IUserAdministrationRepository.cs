@@ -33,6 +33,7 @@ public interface IUserAdministrationRepository
 
     Task AddUserAsync(AppUser user, CancellationToken cancellationToken = default);
     Task AddNursingAssistantAsync(NursingAssistant nursingAssistant, CancellationToken cancellationToken = default);
+    void RemoveNursingAssistant(NursingAssistant nursingAssistant);
     Task AddOpsAssistantAsync(OpsAssistant opsAssistant, CancellationToken cancellationToken = default);
 
     Task SaveChangesAsync(CancellationToken cancellationToken = default);

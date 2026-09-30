@@ -17,5 +17,9 @@ public class NursingAssistant
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Rol administrativo (NursingAssistantRoles). Solo identificativo; null en registros anteriores.</summary>
+    [StringLength(30)]
+    public string? Role { get; set; }
+
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 }

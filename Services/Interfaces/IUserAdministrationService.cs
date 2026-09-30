@@ -59,6 +59,13 @@ public interface IUserAdministrationService
     Task<ServiceResult> UpdateNursingAssistantNameAsync(
         int nursingAssistantId,
         string? name,
+        string? role,
+        Guid performedByUserId,
+        string? ipAddress,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult> DeleteNursingAssistantAsync(
+        int nursingAssistantId,
         Guid performedByUserId,
         string? ipAddress,
         CancellationToken cancellationToken = default);

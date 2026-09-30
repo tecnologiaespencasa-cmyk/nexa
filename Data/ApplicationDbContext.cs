@@ -852,6 +852,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.ToTable("NursingAssistants");
             entity.HasKey(x => x.Id);
+            entity.Property(x => x.Role).HasMaxLength(30);
             entity.Property(x => x.Name).HasMaxLength(120).IsRequired();
             entity.Property(x => x.NormalizedName).HasMaxLength(120).IsRequired();
             entity.Property(x => x.IsActive).HasDefaultValue(true);

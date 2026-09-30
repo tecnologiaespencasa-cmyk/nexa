@@ -174,7 +174,8 @@ public class UserAdministrationController : Controller
         var result = await _userAdministrationService.AddNursingAssistantAsync(
             request: new CreateNursingAssistantRequest
             {
-                Name = model.Name
+                Name = model.Name,
+                Role = model.Role
             },
             performedByUserId: GetCurrentUserId(),
             ipAddress: GetClientIpAddress(),
@@ -189,24 +190,42 @@ public class UserAdministrationController : Controller
                 cancellationToken);
         }
 
-        TempData["SuccessMessage"] = "Auxiliar administrativo de enfermeria agregado correctamente.";
+        TempData["SuccessMessage"] = "Personal asistencial administrativo agregado correctamente.";
         return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]
-    public async Task<IActionResult> EditNursingAssistant(int id, string? name, CancellationToken cancellationToken)
+    public async Task<IActionResult> EditNursingAssistant(int id, string? name, string? role, CancellationToken cancellationToken)
     {
         var result = await _userAdministrationService.UpdateNursingAssistantNameAsync(
             nursingAssistantId: id,
             name: name,
+            role: role,
             performedByUserId: GetCurrentUserId(),
             ipAddress: GetClientIpAddress(),
             cancellationToken: cancellationToken);
 
         TempData[result.Succeeded ? "SuccessMessage" : "ErrorMessage"] =
             result.Succeeded
-                ? "Nombre del auxiliar actualizado correctamente."
-                : result.ErrorMessage ?? "No fue posible actualizar el nombre del auxiliar.";
+                ? "Personal asistencial administrativo actualizado correctamente."
+                : result.ErrorMessage ?? "No fue posible actualizar el registro.";
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteNursingAssistant(int id, CancellationToken cancellationToken)
+    {
+        var result = await _userAdministrationService.DeleteNursingAssistantAsync(
+            nursingAssistantId: id,
+            performedByUserId: GetCurrentUserId(),
+            ipAddress: GetClientIpAddress(),
+            cancellationToken: cancellationToken);
+
+        TempData[result.Succeeded ? "SuccessMessage" : "ErrorMessage"] =
+            result.Succeeded
+                ? "Personal asistencial administrativo eliminado correctamente."
+                : result.ErrorMessage ?? "No fue posible eliminar el registro.";
 
         return RedirectToAction(nameof(Index));
     }
@@ -223,8 +242,8 @@ public class UserAdministrationController : Controller
 
         TempData[result.Succeeded ? "SuccessMessage" : "ErrorMessage"] =
             result.Succeeded
-                ? $"Auxiliar administrativo de enfermeria {(isActive ? "activado" : "desactivado")} correctamente."
-                : result.ErrorMessage ?? "No fue posible cambiar el estado del auxiliar administrativo de enfermeria.";
+                ? $"Personal asistencial administrativo {(isActive ? "activado" : "desactivado")} correctamente."
+                : result.ErrorMessage ?? "No fue posible cambiar el estado del personal asistencial administrativo.";
 
         return RedirectToAction(nameof(Index));
     }
@@ -447,7 +466,8 @@ public class UserAdministrationController : Controller
             {
                 Id = nursingAssistant.Id,
                 Name = nursingAssistant.Name,
-                IsActive = nursingAssistant.IsActive
+                IsActive = nursingAssistant.IsActive,
+                Role = nursingAssistant.Role
             })
             .ToList();
     }

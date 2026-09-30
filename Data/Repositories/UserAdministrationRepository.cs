@@ -132,6 +132,11 @@ public class UserAdministrationRepository : IUserAdministrationRepository
         await _context.NursingAssistants.AddAsync(nursingAssistant, cancellationToken);
     }
 
+    public void RemoveNursingAssistant(NursingAssistant nursingAssistant)
+    {
+        _context.NursingAssistants.Remove(nursingAssistant);
+    }
+
     public async Task AddOpsAssistantAsync(OpsAssistant opsAssistant, CancellationToken cancellationToken = default)
     {
         await _context.OpsAssistants.AddAsync(opsAssistant, cancellationToken);

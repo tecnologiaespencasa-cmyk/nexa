@@ -17,14 +17,19 @@ public class NursingAssistantListItemViewModel
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+    public string? Role { get; set; }
 }
 
 public class NursingAssistantCreateViewModel
 {
-    [Required(ErrorMessage = "El nombre del auxiliar es obligatorio.")]
+    [Required(ErrorMessage = "El nombre es obligatorio.")]
     [StringLength(120, MinimumLength = 3, ErrorMessage = "El nombre debe tener entre 3 y 120 caracteres.")]
-    [Display(Name = "Nombre del auxiliar administrativo de enfermeria")]
+    [Display(Name = "Nombre del personal")]
     public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Selecciona un rol.")]
+    [Display(Name = "Rol")]
+    public string? Role { get; set; }
 }
 
 public class OpsAssistantListItemViewModel

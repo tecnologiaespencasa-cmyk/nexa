@@ -51,7 +51,8 @@ public class UserAdministrationService : IUserAdministrationService
             {
                 Id = nursingAssistant.Id,
                 Name = nursingAssistant.Name,
-                IsActive = nursingAssistant.IsActive
+                IsActive = nursingAssistant.IsActive,
+                Role = nursingAssistant.Role
             })
             .ToList();
     }
@@ -306,6 +307,12 @@ public class UserAdministrationService : IUserAdministrationService
             return ServiceResult.Failure("El nombre del auxiliar es obligatorio.");
         }
 
+        var role = NursingAssistantRoles.Normalize(request.Role);
+        if (role is null)
+        {
+            return ServiceResult.Failure("Selecciona un rol valido.");
+        }
+
         var existingAssistants = await _repository.GetNursingAssistantsAsync(onlyActive: false, cancellationToken);
         var normalized = normalizedName.ToUpperInvariant();
 
@@ -318,6 +325,7 @@ public class UserAdministrationService : IUserAdministrationService
         {
             Name = normalizedName,
             NormalizedName = normalized,
+            Role = role,
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         };
@@ -328,7 +336,7 @@ public class UserAdministrationService : IUserAdministrationService
         await _auditService.LogAsync(
             action: "NURSING_ASSISTANT_CREATED",
             entity: "NursingAssistant",
-            details: $"Auxiliar creado: {nursingAssistant.Name}.",
+            details: $"Auxiliar creado: {nursingAssistant.Name} (rol {role}).",
             performedByUserId: performedByUserId,
             ipAddress: ipAddress,
             cancellationToken: cancellationToken);
@@ -371,6 +379,7 @@ public class UserAdministrationService : IUserAdministrationService
     public async Task<ServiceResult> UpdateNursingAssistantNameAsync(
         int nursingAssistantId,
         string? name,
+        string? role,
         Guid performedByUserId,
         string? ipAddress,
         CancellationToken cancellationToken = default)
@@ -386,6 +395,12 @@ public class UserAdministrationService : IUserAdministrationService
             return ServiceResult.Failure("El nombre debe tener entre 3 y 120 caracteres.");
         }
 
+        var normalizedRole = NursingAssistantRoles.Normalize(role);
+        if (normalizedRole is null)
+        {
+            return ServiceResult.Failure("Selecciona un rol valido.");
+        }
+
         var nursingAssistant = await _repository.GetNursingAssistantByIdAsync(nursingAssistantId, cancellationToken);
         if (nursingAssistant is null)
         {
@@ -393,7 +408,9 @@ public class UserAdministrationService : IUserAdministrationService
         }
 
         var normalized = normalizedName.ToUpperInvariant();
-        if (nursingAssistant.NormalizedName == normalized && nursingAssistant.Name == normalizedName)
+        if (nursingAssistant.NormalizedName == normalized
+            && nursingAssistant.Name == normalizedName
+            && nursingAssistant.Role == normalizedRole)
         {
             return ServiceResult.Success();
         }
@@ -405,14 +422,44 @@ public class UserAdministrationService : IUserAdministrationService
         }
 
         var previousName = nursingAssistant.Name;
+        var previousRole = nursingAssistant.Role ?? "sin rol";
         nursingAssistant.Name = normalizedName;
         nursingAssistant.NormalizedName = normalized;
+        nursingAssistant.Role = normalizedRole;
         await _repository.SaveChangesAsync(cancellationToken);
 
         await _auditService.LogAsync(
             action: "NURSING_ASSISTANT_RENAMED",
             entity: "NursingAssistant",
-            details: $"Auxiliar renombrado: {previousName} => {normalizedName}.",
+            details: $"Auxiliar editado: {previousName} ({previousRole}) => {normalizedName} ({normalizedRole}).",
+            performedByUserId: performedByUserId,
+            ipAddress: ipAddress,
+            cancellationToken: cancellationToken);
+
+        return ServiceResult.Success();
+    }
+
+    public async Task<ServiceResult> DeleteNursingAssistantAsync(
+        int nursingAssistantId,
+        Guid performedByUserId,
+        string? ipAddress,
+        CancellationToken cancellationToken = default)
+    {
+        var nursingAssistant = await _repository.GetNursingAssistantByIdAsync(nursingAssistantId, cancellationToken);
+        if (nursingAssistant is null)
+        {
+            return ServiceResult.Failure("El auxiliar no existe.");
+        }
+
+        var name = nursingAssistant.Name;
+        var role = nursingAssistant.Role ?? "sin rol";
+        _repository.RemoveNursingAssistant(nursingAssistant);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditService.LogAsync(
+            action: "NURSING_ASSISTANT_DELETED",
+            entity: "NursingAssistant",
+            details: $"Auxiliar eliminado: {name} ({role}).",
             performedByUserId: performedByUserId,
             ipAddress: ipAddress,
             cancellationToken: cancellationToken);

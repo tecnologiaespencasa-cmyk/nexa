@@ -1,3 +1,4 @@
+@using Nexa.Services.Models
 @model UserAdministrationIndexViewModel
 @{
     ViewData["Title"] = "Administracion de usuarios";
@@ -121,19 +122,30 @@
 
 <div class="card mt-4">
     <div class="card-header">
-        <h2 class="h5 mb-0">Administracion de auxiliares administrativos de enfermeria</h2>
+        <h2 class="h5 mb-0">Personal asistencial administrativo</h2>
     </div>
     <div class="card-body">
-        <p class="text-muted mb-3">Desde aqui administras los auxiliares usados en los campos de recepcion y kardex.</p>
+        <p class="text-muted mb-3">Desde aqui administras el personal usado en los campos de recepcion y kardex, y su rol.</p>
         <form asp-action="AddNursingAssistant" method="post" class="row g-2 align-items-start">
-            <div class="col-md-8">
+            <div class="col-md-5">
                 <label asp-for="NewNursingAssistant.Name" class="form-label"></label>
-                <input asp-for="NewNursingAssistant.Name" class="form-control" />
+                <input asp-for="NewNursingAssistant.Name" class="form-control" maxlength="120" />
                 <span asp-validation-for="NewNursingAssistant.Name" class="text-danger"></span>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="NewNursingAssistant.Role" class="form-label"></label>
+                <select asp-for="NewNursingAssistant.Role" class="form-select">
+                    <option value="">Selecciona un rol</option>
+                    @foreach (var role in NursingAssistantRoles.All)
+                    {
+                        <option value="@role">@role</option>
+                    }
+                </select>
+                <span asp-validation-for="NewNursingAssistant.Role" class="text-danger"></span>
             </div>
             <div class="col-md-4">
                 <label class="form-label d-none d-md-block">&nbsp;</label>
-                <button type="submit" class="btn btn-primary w-100">Agregar auxiliar</button>
+                <button type="submit" class="btn btn-primary w-100">Agregar personal</button>
             </div>
         </form>
 
@@ -142,6 +154,7 @@
                 <thead>
                     <tr>
                         <th>Nombre</th>
+                        <th>Rol</th>
                         <th>Estado</th>
                         <th class="text-end">Acciones</th>
                     </tr>
@@ -150,7 +163,7 @@
                     @if (!Model.NursingAssistants.Any())
                     {
                         <tr>
-                            <td colspan="3" class="text-center text-muted">No hay auxiliares registrados.</td>
+                            <td colspan="4" class="text-center text-muted">No hay personal registrado.</td>
                         </tr>
                     }
                     else
@@ -164,10 +177,27 @@
                                         <div class="d-flex align-items-center gap-2 flex-wrap">
                                             <input type="hidden" name="id" value="@assistant.Id" />
                                             <input type="text" name="name" class="form-control form-control-sm" value="@assistant.Name" maxlength="120" minlength="3" required style="max-width:320px;" aria-label="Nuevo nombre del auxiliar" />
+                                            <select name="role" class="form-select form-select-sm" required style="max-width:200px;" aria-label="Rol del personal">
+                                                <option value="" selected="@string.IsNullOrEmpty(assistant.Role)">Selecciona un rol</option>
+                                                @foreach (var role in NursingAssistantRoles.All)
+                                                {
+                                                    <option value="@role" selected="@(assistant.Role == role)">@role</option>
+                                                }
+                                            </select>
                                             <button type="submit" class="btn btn-sm btn-success">Guardar</button>
                                             <button type="button" class="btn btn-sm btn-outline-secondary" data-assistant-cancel="@assistant.Id">Cancelar</button>
                                         </div>
                                     </form>
+                                </td>
+                                <td>
+                                    @if (string.IsNullOrEmpty(assistant.Role))
+                                    {
+                                        <span class="text-muted">Sin rol</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@assistant.Role</span>
+                                    }
                                 </td>
                                 <td>
                                     <span class="badge @(assistant.IsActive ? "text-bg-success" : "text-bg-secondary")">
@@ -182,6 +212,10 @@
                                         <button type="submit" class="btn btn-sm @(assistant.IsActive ? "btn-outline-danger" : "btn-outline-success")">
                                             @(assistant.IsActive ? "Desactivar" : "Activar")
                                         </button>
+                                    </form>
+                                    <form asp-action="DeleteNursingAssistant" method="post" class="d-inline" data-assistant-delete="@assistant.Name">
+                                        <input type="hidden" name="id" value="@assistant.Id" />
+                                        <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
                                     </form>
                                 </td>
                             </tr>
@@ -308,6 +342,14 @@
 
             document.querySelectorAll("[data-assistant-edit]").forEach((button) => {
                 button.addEventListener("click", () => toggleAssistantEdit(button.dataset.assistantEdit, true));
+            });
+
+            document.querySelectorAll("[data-assistant-delete]").forEach((form) => {
+                form.addEventListener("submit", (event) => {
+                    if (!confirm(`¿Eliminar definitivamente a ${form.dataset.assistantDelete}? Esta accion no se puede deshacer.`)) {
+                        event.preventDefault();
+                    }
+                });
             });
 
             document.querySelectorAll("[data-assistant-cancel]").forEach((button) => {

@@ -15,6 +15,19 @@ public class NursingAssistantDto
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+    public string? Role { get; set; }
+}
+
+public static class NursingAssistantRoles
+{
+    public const string Admisiones = "Admisiones";
+    public const string AnalistaAsistencial = "Analista Asistencial";
+    public const string Lider = "Lider";
+
+    public static readonly IReadOnlyList<string> All = [Admisiones, AnalistaAsistencial, Lider];
+
+    public static string? Normalize(string? role) =>
+        All.FirstOrDefault(r => string.Equals(r, role?.Trim(), StringComparison.OrdinalIgnoreCase));
 }
 
 public class OpsAssistantDto
@@ -89,6 +102,7 @@ public class ResetUserPasswordRequest
 public class CreateNursingAssistantRequest
 {
     public string Name { get; set; } = string.Empty;
+    public string? Role { get; set; }
 }
 
 public class CreateOpsAssistantRequest
