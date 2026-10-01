@@ -690,7 +690,8 @@
             const laneHint = document.querySelector("[data-lane-hint]");
             const laneHints = {
                 base: "Pendientes de primera visualizacion",
-                heridas: "Requisiciones de clinica de heridas pendientes"
+                heridas: "Requisiciones de clinica de heridas pendientes",
+                npt: "Requisiciones de NPT pendientes"
             };
             const snapshotUrl = "@Url.Action("PendientesSnapshot", "Farmacia")";
             const firmaUrl = "@Url.Action("Firma", "Farmacia")";
@@ -756,9 +757,11 @@
             let lastPedidoId = Number(page?.dataset.lastPedidoId || "0") || 0;
             let audioContext = null;
 
-            // La seccion Nuevos se recorre en dos carriles: los ingresos base, que farmacia abre
-            // por defecto, y las requisiciones de clinica de heridas. Cada accion recarga la
-            // pagina, asi que el carril elegido se recuerda para no devolver al equipo al otro.
+            // La seccion Nuevos se recorre en carriles: los ingresos base, que farmacia abre por
+            // defecto, y las requisiciones de clinica de heridas y de NPT. Cada accion recarga
+            // la pagina, asi que el carril elegido se recuerda para no devolver al equipo a otro.
+            // setLane valida contra los carriles que el servidor realmente renderizo (laneNames),
+            // no contra una lista fija — asi un carril nuevo no vuelve a quedar mudo por el JS.
             const setLaneCount = (lane, value) => {
                 if (value === undefined || value === null) return;
                 document.querySelectorAll(`[data-lane-count='${lane}']`).forEach(el => {
@@ -766,8 +769,10 @@
                 });
             };
 
+            const laneNames = laneTabs.map(tab => tab.dataset.laneTab);
+
             const setLane = (requested, persist = true) => {
-                const lane = requested === "heridas" ? "heridas" : "base";
+                const lane = laneNames.includes(requested) ? requested : "base";
                 laneTabs.forEach(tab => {
                     const active = tab.dataset.laneTab === lane;
                     tab.classList.toggle("is-active", active);
@@ -804,7 +809,7 @@
                 setLane(stored || "base", false);
             }
 
-            // Cada tarjeta del resumen lleva a su seccion; las dos de nuevos abren su carril.
+            // Cada tarjeta del resumen lleva a su seccion; las de nuevos ademas abren su carril.
             const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
             document.querySelectorAll(".farmacia-metric").forEach(metric => {
                 metric.addEventListener("click", (e) => {
@@ -899,6 +904,7 @@
                     const nextLastId = Number(data.lastId || "0") || 0;
                     setLaneCount("base", data.newCountBase);
                     setLaneCount("heridas", data.newCountHeridas);
+                    setLaneCount("npt", data.newCountNpt);
                     if (lastPedidoId > 0 && nextLastId > lastPedidoId) playNotification();
                     lastPedidoId = Math.max(lastPedidoId, nextLastId);
                 } catch { }
