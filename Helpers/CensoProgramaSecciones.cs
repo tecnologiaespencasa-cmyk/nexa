@@ -238,4 +238,24 @@ public static class CensoProgramaSecciones
         // a diferencia de las tablas de los otros programas. Quién guardó y cuándo queda en la
         // bitácora que escribe _auditService.
     };
+
+    /// <summary>
+    /// Estado operativo del caso de agudos que se sigue moviendo después del alta: "Gestión
+    /// completa o pendiente" y "Gestión Analista asistencial", con la hora y el usuario de cada
+    /// cambio. No son datos clínicos de la atención sino de cómo va su gestión, y las analistas
+    /// la cierran casi siempre con el paciente ya dado de alta.
+    ///
+    /// Hasta el 2026-10-01 no estaban en ninguna lista y RevertirCamposBloqueadosDeAgudos los
+    /// devolvía en silencio a su valor guardado en toda atención cerrada (desde el 2026-09-09):
+    /// de 602 pacientes que las analistas guardaron, 593 se quedaron sin la marca.
+    /// </summary>
+    public static readonly IReadOnlySet<string> CamposDeGestionDeAgudos = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "GestionCompletaPendiente",
+        "GestionCompletaAtUtc",
+        "GestionCompletaPor",
+        "GestionAnalistaAsistencial",
+        "GestionAnalistaAtUtc",
+        "GestionAnalistaPor"
+    };
 }

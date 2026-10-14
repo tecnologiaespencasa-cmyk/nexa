@@ -225,6 +225,9 @@
                     seccion.classList.add("censo-seccion--cerrada");
                     seccion.querySelectorAll("input, select, textarea").forEach((campo) => {
                         if (campo.type === "hidden") { return; }
+                        // Un bloque marcado data-editable-tras-alta sigue vivo dentro de una
+                        // sección cerrada: el estado de gestión de agudos se cierra tras el alta.
+                        if (campo.closest("[data-editable-tras-alta]")) { return; }
                         campo.setAttribute("tabindex", "-1");
                         campo.setAttribute("aria-readonly", "true");
                     });

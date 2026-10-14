@@ -510,19 +510,21 @@ public partial class CensoController
             model.Paciente.PacienteId = paciente.Id;
         }
 
+        IReadOnlyList<string> egresadosPeroActivos = [];
         if (paciente is not null)
         {
             // Las pantallas de cada programa guardan por su cuenta y no conocen el maestro. Antes de
             // pintar el carril se pone al día: enlaza las filas que todavía no tienen episodio y
-            // ajusta el estado abierto/cerrado al del registro real.
-            await _censoPacienteService.ReconciliarEpisodiosAsync(paciente.Id, cancellationToken);
+            // ajusta el estado abierto/cerrado al del registro real. De paso informa qué programas
+            // figuran cerrados por su fecha de egreso mientras su registro sigue en «Activo».
+            egresadosPeroActivos = await _censoPacienteService.ReconciliarEpisodiosAsync(paciente.Id, cancellationToken);
         }
 
         var episodios = paciente is null
             ? []
             : await _censoPacienteService.ObtenerProgramasAsync(paciente.Id, cancellationToken);
 
-        model.Programas = paciente is null ? ConstruirChipsVacios() : ConstruirChips(episodios);
+        model.Programas = paciente is null ? ConstruirChipsVacios() : ConstruirChips(episodios, egresadosPeroActivos);
 
         // Todas las atenciones del paciente, abiertas y cerradas, con la seleccionada ya marcada.
         // El carril sigue mostrando solo las abiertas —agregar un programa no es lo mismo que
@@ -741,7 +743,9 @@ public partial class CensoController
 
     /// <summary>
     /// Sobre una atención de agudos ya cerrada deja entrar únicamente los campos de las secciones
-    /// posteriores al alta y devuelve todos los demás al valor que tienen guardado.
+    /// posteriores al alta y el estado de gestión del caso
+    /// (<see cref="CensoProgramaSecciones.CamposDeGestionDeAgudos"/>), y devuelve todos los demás
+    /// al valor que tienen guardado.
     ///
     /// Los otros cuatro programas guardan sección por sección, así que allí el filtro
     /// <see cref="Nexa.Filters.CensoAtencionCerradaFilter"/> puede rechazar la acción entera.
@@ -752,6 +756,55 @@ public partial class CensoController
     ///
     /// Devuelve true si tuvo que revertir algo, para poder decírselo a quien guardó.
     /// </summary>
+    /// <summary>
+    /// Anota cuándo y quién cambió "Gestión completa" y "Gestión Analista asistencial". El
+    /// Televisor mide con esto el tiempo de gestión completa (desde que se crea el ingreso) y el de
+    /// las analistas (desde la respuesta al asegurador). Se llama con los valores ya definitivos,
+    /// después de <see cref="RevertirCamposBloqueadosDeAgudosAsync"/>, para no fechar un cambio
+    /// que no se va a guardar.
+    ///
+    /// Solo cuenta el paso de un estado al otro: guardar el formulario sin tocar el interruptor no
+    /// mueve la hora. Volver a "Pendiente" o a "No" la borra, porque el indicador mide cuándo
+    /// quedó lista la gestión y en ese caso todavía no lo está.
+    /// </summary>
+    private void RegistrarCambiosDeGestion(CensoRecord registro)
+    {
+        var entrada = _context.Entry(registro);
+        var esNuevo = entrada.State == EntityState.Added;
+        var ahora = DateTime.UtcNow;
+        var usuario = User.Identity?.Name is { Length: > 0 } nombre
+            ? nombre[..Math.Min(nombre.Length, 80)]
+            : null;
+
+        var completaAntes = !esNuevo && string.Equals(
+            entrada.Property(x => x.GestionCompletaPendiente).OriginalValue,
+            GestionCompleta,
+            StringComparison.OrdinalIgnoreCase);
+        var completaAhora = string.Equals(registro.GestionCompletaPendiente, GestionCompleta, StringComparison.OrdinalIgnoreCase);
+        if (completaAhora && !completaAntes)
+        {
+            registro.GestionCompletaAtUtc = ahora;
+            registro.GestionCompletaPor = usuario;
+        }
+        else if (!completaAhora && registro.GestionCompletaAtUtc is not null)
+        {
+            registro.GestionCompletaAtUtc = null;
+            registro.GestionCompletaPor = null;
+        }
+
+        var analistaAntes = !esNuevo && entrada.Property(x => x.GestionAnalistaAsistencial).OriginalValue;
+        if (registro.GestionAnalistaAsistencial && !analistaAntes)
+        {
+            registro.GestionAnalistaAtUtc = ahora;
+            registro.GestionAnalistaPor = usuario;
+        }
+        else if (!registro.GestionAnalistaAsistencial && registro.GestionAnalistaAtUtc is not null)
+        {
+            registro.GestionAnalistaAtUtc = null;
+            registro.GestionAnalistaPor = null;
+        }
+    }
+
     private async Task<bool> RevertirCamposBloqueadosDeAgudosAsync(
         CensoRecord registro,
         CancellationToken ct)
@@ -771,7 +824,8 @@ public partial class CensoController
         foreach (var propiedad in _context.Entry(registro).Properties)
         {
             if (!propiedad.IsModified
-                || CensoProgramaSecciones.CamposDeAgudosTrasElAlta.Contains(propiedad.Metadata.Name))
+                || CensoProgramaSecciones.CamposDeAgudosTrasElAlta.Contains(propiedad.Metadata.Name)
+                || CensoProgramaSecciones.CamposDeGestionDeAgudos.Contains(propiedad.Metadata.Name))
             {
                 continue;
             }
@@ -1209,7 +1263,8 @@ public partial class CensoController
             .ToList();
 
     private static IReadOnlyList<CensoProgramaChipViewModel> ConstruirChips(
-        IReadOnlyList<CensoPacientePrograma> episodios)
+        IReadOnlyList<CensoPacientePrograma> episodios,
+        IReadOnlyList<string> egresadosPeroActivos)
     {
         var abiertos = episodios.Where(x => x.CerradoAtUtc == null).ToList();
 
@@ -1217,6 +1272,13 @@ public partial class CensoController
         {
             var abierto = abiertos.FirstOrDefault(x => string.Equals(x.Programa, programa, StringComparison.Ordinal));
             var excluyente = CensoProgramas.PrimeroQueBloquea(programa, abiertos.Select(x => x.Programa));
+            // Un programa con egreso pero con el estado todavía en «Activo» no está cerrado de verdad
+            // para la exclusividad. Es la misma revisión que hace AgregarProgramaAsync; aquí solo
+            // evita ofrecer un «Agregar» que el guardado va a rechazar.
+            var sinCerrarDeVerdad = excluyente is null
+                ? CensoProgramas.PrimeroQueBloquea(programa, egresadosPeroActivos)
+                : null;
+            excluyente ??= sinCerrarDeVerdad;
             var chocaConExcluyente = excluyente is not null;
 
             return new CensoProgramaChipViewModel
@@ -1233,6 +1295,13 @@ public partial class CensoController
                 // cual de las dos esta ocupando el puesto.
                 MotivoBloqueo = chocaConExcluyente
                     ? $"{CensoProgramas.NombreCorto(excluyente!)} está activo"
+                    : null,
+                // El navegador lateral dice que esa atención está «cerrada» (tiene fecha de egreso),
+                // así que sin esta línea el bloqueo parecería una contradicción.
+                DetalleBloqueo = sinCerrarDeVerdad is not null
+                    ? $"{CensoProgramas.Nombre(sinCerrarDeVerdad)} tiene fecha de egreso, pero su estado sigue en «Activo». "
+                      + $"Reabre esa atención (requiere el permiso de reapertura) y guarda el alta con estado «Inactivo» "
+                      + $"para poder agregar {CensoProgramas.Nombre(programa)}."
                     : null,
                 // Terapia ambulatoria es la única que deja al paciente sin poder sumar nada más.
                 // Se advierte al confirmar, que es cuando la persona está decidiendo.

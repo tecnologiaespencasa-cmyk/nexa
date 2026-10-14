@@ -75,6 +75,9 @@ builder.Services.AddScoped<IEspacioCorporativoNotificationService, EspacioCorpor
 builder.Services.AddHostedService<EmpacadoNotificationHostedService>();
 builder.Services.AddScoped<IFarmaciaReportePorDesempacarService, FarmaciaReportePorDesempacarService>();
 builder.Services.AddHostedService<FarmaciaReportePorDesempacarHostedService>();
+builder.Services.AddScoped<ITelevisorIndicadoresService, TelevisorIndicadoresService>();
+builder.Services.AddScoped<ITelevisorCortesService, TelevisorCortesService>();
+builder.Services.AddHostedService<TelevisorCortesHostedService>();
 builder.Services.AddHostedService<AuditRetentionHostedService>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddHttpClient<IAddressValidationService, GoogleAddressValidationService>();

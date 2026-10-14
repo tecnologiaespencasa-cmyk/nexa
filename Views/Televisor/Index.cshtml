@@ -1,0 +1,207 @@
+@using Nexa.Models.ViewModels
+@model TelevisorPantallaViewModel
+@{
+    // Página autónoma: en el televisor no va la barra de la intranet. Se actualiza sola pidiendo
+    // el tablero cada minuto (Panel) sin recargar, para no perder el permiso de sonido.
+    Layout = null;
+    var personal = Model.Tablero.Personal
+        .Where(p => p.Rol is "Admisiones" or "Analista Asistencial")
+        .OrderBy(p => p.Rol)
+        .ThenBy(p => p.Nombre)
+        .ToList();
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Televisor · Nexa</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..100,500..800&family=Atkinson+Hyperlegible+Mono:wght@400;600&family=Atkinson+Hyperlegible+Next:wght@400;600;700&display=swap" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/televisor.css" asp-append-version="true" />
+    @* El tema y el modo se ponen antes de pintar: si no, la pantalla destella oscura al abrir en
+       modo claro, o muestra las tres áreas juntas un instante antes de quedarse con una.
+       En la dirección: ?tema=claro|oscuro|auto, ?rotar=1|0 (un área a la vez o las tres juntas) y
+       ?escena=admisiones|analistas|novedades (abre en esa área, con la rotación en pausa). *@
+    <script>
+        (() => {
+            const q = new URLSearchParams(location.search);
+            let guardado = {};
+            try { guardado = JSON.parse(localStorage.getItem("nexa.televisor.v1") || "{}") || {}; } catch { }
+            const raiz = document.documentElement;
+
+            const tema = q.get("tema");
+            raiz.dataset.tema = ["oscuro", "claro", "auto"].includes(tema) ? tema : (guardado.tema || "oscuro");
+
+            const rotar = q.get("rotar") === "1" ? true : q.get("rotar") === "0" ? false : guardado.rotar !== false;
+            raiz.dataset.modo = rotar ? "rotar" : "todo";
+
+            const escena = q.get("escena");
+            raiz.dataset.escena = ["admisiones", "analistas", "novedades"].includes(escena) ? escena : "admisiones";
+        })();
+    </script>
+</head>
+<body class="tv-cuerpo-pagina" data-margen="normal">
+    <div class="tv-marco" id="tv-marco">
+        @* Riel de la rotación: un tramo por área, tan ancho como el tiempo que dura en pantalla. El
+           que se está llenando es el área visible. *@
+        <div class="tv-escenas" id="tv-escenas" aria-hidden="true">
+            <span class="tv-escenas__tramo" data-tv-tramo="admisiones"><i></i></span>
+            <span class="tv-escenas__tramo" data-tv-tramo="analistas"><i></i></span>
+            <span class="tv-escenas__tramo" data-tv-tramo="novedades"><i></i></span>
+        </div>
+        <div id="tv-tablero" aria-live="off">
+            <partial name="_Tablero" model="Model" />
+        </div>
+    </div>
+
+    <p class="tv-desconexion" id="tv-desconexion" hidden role="status"></p>
+
+    @* El navegador no deja sonar nada hasta que alguien toca la página una vez. *@
+    <div class="tv-activar" id="tv-activar" hidden>
+        <div class="tv-activar__caja">
+            <i class="bi bi-volume-up-fill" aria-hidden="true"></i>
+            <h2>Activar el sonido del televisor</h2>
+            <p>El navegador no deja sonar el aviso de la 1:30 p. m. hasta que alguien toque la pantalla, haga clic o pulse una tecla una vez después de abrirla.</p>
+            <button type="button" class="tv-boton tv-boton--principal" id="tv-activar-boton">Activar sonido</button>
+        </div>
+    </div>
+
+    @* Lo que dice la voz, también escrito: alguien puede no oírlo. *@
+    <div class="tv-aviso" id="tv-aviso" hidden role="alert">
+        <i class="bi bi-megaphone-fill" aria-hidden="true"></i>
+        <p id="tv-aviso-texto"></p>
+    </div>
+
+    @* Controles: aparecen al mover el ratón o pulsar una tecla, y se esconden solos. *@
+    <nav class="tv-controles" id="tv-controles" aria-label="Controles del televisor">
+        <div class="tv-controles__grupo" role="group" aria-label="Turno a mostrar">
+            <button type="button" class="tv-boton" data-tv-bloque="auto" title="Mañana antes de la 1:45, tarde después">Automático</button>
+            <button type="button" class="tv-boton" data-tv-bloque="manana">Mañana</button>
+            <button type="button" class="tv-boton" data-tv-bloque="tarde">Tarde</button>
+            <button type="button" class="tv-boton" data-tv-bloque="dia">Día completo</button>
+        </div>
+        <label class="tv-controles__fecha">
+            <span>Día</span>
+            <input type="date" id="tv-fecha" value="@Model.Tablero.Dia.ToString("yyyy-MM-dd")" max="@Model.AhoraColombia.ToString("yyyy-MM-dd")" />
+        </label>
+        <button type="button" class="tv-boton" id="tv-hoy">Hoy</button>
+        <div class="tv-controles__grupo tv-controles__areas" role="group" aria-label="Área en pantalla">
+            <button type="button" class="tv-boton" data-tv-escena="admisiones">Admisiones</button>
+            <button type="button" class="tv-boton" data-tv-escena="analistas">Analistas</button>
+            <button type="button" class="tv-boton" data-tv-escena="novedades">Novedades</button>
+            <button type="button" class="tv-boton" id="tv-pausa" aria-pressed="false"><i class="bi bi-pause-fill" aria-hidden="true"></i> <span>Pausar</span></button>
+        </div>
+        <span class="tv-controles__espacio"></span>
+        <button type="button" class="tv-boton" id="tv-abrir-ajustes"><i class="bi bi-sliders" aria-hidden="true"></i> Ajustes</button>
+        <button type="button" class="tv-boton" id="tv-pantalla-completa"><i class="bi bi-arrows-fullscreen" aria-hidden="true"></i> Pantalla completa</button>
+        <a class="tv-boton" asp-controller="Home" asp-action="Index"><i class="bi bi-box-arrow-left" aria-hidden="true"></i> Volver a Nexa</a>
+    </nav>
+
+    <aside class="tv-ajustes" id="tv-ajustes" hidden aria-labelledby="tv-ajustes-titulo">
+        <header class="tv-ajustes__cab">
+            <h2 id="tv-ajustes-titulo">Ajustes de este televisor</h2>
+            <button type="button" class="tv-boton" id="tv-cerrar-ajustes">Cerrar</button>
+        </header>
+
+        <section class="tv-ajustes__seccion">
+            <h3>Aviso de entrega de turno</h3>
+            <p class="tv-ajustes__ayuda" id="tv-proximo-aviso">Suena de lunes a viernes a la 1:30 p. m., quince minutos antes del corte. Los fines de semana y festivos no hay entrega.</p>
+
+            <label class="tv-campo">
+                <span>Voz</span>
+                <select id="tv-voz"></select>
+            </label>
+            <p class="tv-ajustes__ayuda" id="tv-voz-ayuda"></p>
+
+            <fieldset class="tv-campo">
+                <legend>Mensaje</legend>
+                <div id="tv-mensajes"></div>
+            </fieldset>
+
+            <div class="tv-ajustes__fila">
+                <label class="tv-campo"><span>Volumen</span><input type="range" id="tv-volumen" min="0.2" max="1" step="0.1" /></label>
+                <label class="tv-campo"><span>Velocidad</span><input type="range" id="tv-velocidad" min="0.7" max="1.2" step="0.05" /></label>
+            </div>
+            <div class="tv-ajustes__fila">
+                <label class="tv-interruptor"><input type="checkbox" id="tv-campana" /> <span>Campana antes de hablar</span></label>
+                <label class="tv-interruptor"><input type="checkbox" id="tv-repetir" /> <span>Repetir el mensaje</span></label>
+            </div>
+            <button type="button" class="tv-boton tv-boton--principal" id="tv-probar"><i class="bi bi-play-fill" aria-hidden="true"></i> Probar el aviso</button>
+        </section>
+
+        <section class="tv-ajustes__seccion">
+            <h3>Rotación de áreas</h3>
+            <label class="tv-interruptor"><input type="checkbox" id="tv-rotar" /> <span>Mostrar un área a la vez, en letra grande</span></label>
+            <p class="tv-ajustes__ayuda">Admisiones, analistas y novedades se turnan en la pantalla. Apagada, se ven las tres juntas en letra más pequeña (para un computador o para verla de cerca).</p>
+            <div class="tv-ajustes__fila tv-ajustes__fila--tres">
+                <label class="tv-campo"><span>Admisiones (segundos)</span><input type="number" id="tv-seg-admisiones" min="5" max="600" step="5" inputmode="numeric" /></label>
+                <label class="tv-campo"><span>Analistas (segundos)</span><input type="number" id="tv-seg-analistas" min="5" max="600" step="5" inputmode="numeric" /></label>
+                <label class="tv-campo"><span>Novedades (segundos)</span><input type="number" id="tv-seg-novedades" min="5" max="600" step="5" inputmode="numeric" /></label>
+            </div>
+        </section>
+
+        <section class="tv-ajustes__seccion">
+            <h3>Pantalla</h3>
+            <fieldset class="tv-campo">
+                <legend>Tema</legend>
+                <div class="tv-opciones">
+                    <label><input type="radio" name="tv-tema" value="oscuro" /> Oscuro</label>
+                    <label><input type="radio" name="tv-tema" value="claro" /> Claro</label>
+                    <label><input type="radio" name="tv-tema" value="auto" /> Según el equipo</label>
+                </div>
+            </fieldset>
+            <fieldset class="tv-campo">
+                <legend>Margen de seguridad de los bordes</legend>
+                <p class="tv-ajustes__ayuda">Muchos televisores recortan el borde de la imagen. Active las guías: si no ve las cuatro esquinas completas, suba el margen.</p>
+                <div class="tv-opciones" id="tv-margenes">
+                    <label><input type="radio" name="tv-margen" value="ninguno" /> Ninguno</label>
+                    <label><input type="radio" name="tv-margen" value="normal" /> Normal (3 %)</label>
+                    <label><input type="radio" name="tv-margen" value="amplio" /> Amplio (5 %)</label>
+                </div>
+            </fieldset>
+            <label class="tv-interruptor"><input type="checkbox" id="tv-guias" /> <span>Mostrar guías de las esquinas</span></label>
+        </section>
+
+        <section class="tv-ajustes__seccion">
+            <h3>Turnos de hoy</h3>
+            <p class="tv-ajustes__ayuda">El turno se detecta por la primera conexión del día. Si no es el real (una sesión abierta desde ayer, un doble turno), corríjalo aquí; vale solo para hoy.</p>
+            <table class="tv-turnos">
+                <tbody>
+                    @foreach (var p in personal)
+                    {
+                        <tr>
+                            <th scope="row">@p.Nombre<small>@p.Rol@(p.PrimeraConexion is DateTime c ? $" · conectada desde las {c:HH:mm}" : " · sin conexión hoy")</small></th>
+                            <td>
+                                <select data-tv-turno="@p.Id" aria-label="Turno de @p.Nombre">
+                                    <option value="auto" selected="@(!p.TurnoAjustado)">Automático@(p.TurnoAjustado ? "" : $" ({TelevisorTurnos.Corta(p.Turno)})")</option>
+                                    @foreach (var turno in TelevisorTurnos.Ajustables)
+                                    {
+                                        <option value="@turno" selected="@(p.TurnoAjustado && p.Turno == turno)">@TelevisorTurnos.Etiqueta(turno)</option>
+                                    }
+                                </select>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    </aside>
+
+    <div class="tv-guias" id="tv-guias-capa" hidden aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+    @Html.AntiForgeryToken()
+    <script>
+        window.NexaTelevisor = {
+            panelUrl: "@Url.Action("Panel", "Televisor")",
+            ajustarTurnoUrl: "@Url.Action("AjustarTurno", "Televisor")",
+            indexUrl: "@Url.Action("Index", "Televisor")",
+            servidorMs: @Model.ServidorUtcMs
+        };
+    </script>
+    <script src="~/js/televisor.js" asp-append-version="true"></script>
+</body>
+</html>

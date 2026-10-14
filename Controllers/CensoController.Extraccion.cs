@@ -80,7 +80,7 @@ public partial class CensoController
             ? (Guid?)extraccionUid
             : null;
         await _auditService.LogAsync("CENSO_EXTRACCION_REMISION", "Censo",
-            $"Archivo {(isPdf ? "PDF" : "hoja de cálculo")}: {file.FileName}",
+            $"Archivo {(isPdf ? "PDF" : "hoja de cálculo")}: {file.FileName}{DocumentoParaAuditoria(result.Json)}",
             extraccionAuditUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
 
         using var document = JsonDocument.Parse(result.Json);
@@ -115,13 +115,36 @@ public partial class CensoController
         var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)
             ? (Guid?)userId
             : null;
-        await _auditService.LogAsync("CENSO_EXTRACCION_REMISION", "Censo", "Texto pegado", auditUserId,
+        await _auditService.LogAsync("CENSO_EXTRACCION_REMISION", "Censo", $"Texto pegado{DocumentoParaAuditoria(result.Json)}", auditUserId,
             HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
 
         using var document = JsonDocument.Parse(result.Json);
         var candidato = await DetectarCandidatoClinicaHeridasAsync(
             documentText, soloRespuestas: false, document.RootElement, "Texto pegado", cancellationToken);
         return Json(new { success = true, data = document.RootElement.Clone(), candidatoClinicaHeridas = candidato });
+    }
+
+    /// <summary>
+    /// ", Doc: 123" con el documento que leyó la extracción, o vacío si no leyó ninguno. El
+    /// Televisor lo usa para saber cuándo se empezó a crear ese paciente (subir la remisión es el
+    /// primer paso); va al final y con el mismo formato "Doc:" del resto de la auditoría del censo.
+    /// </summary>
+    private static string DocumentoParaAuditoria(string json)
+    {
+        try
+        {
+            using var extraido = JsonDocument.Parse(json);
+            return extraido.RootElement.ValueKind == JsonValueKind.Object
+                && extraido.RootElement.TryGetProperty("documento", out var documento)
+                && documento.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(documento.GetString())
+                ? $", Doc: {documento.GetString()!.Trim()}"
+                : string.Empty;
+        }
+        catch (JsonException)
+        {
+            return string.Empty;
+        }
     }
 
     /// <summary>

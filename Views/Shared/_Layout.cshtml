@@ -135,6 +135,7 @@
                                 var canFarmacia = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Farmacia)).Succeeded;
                                 var canEspacioCorporativo = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.EspacioCorporativoAccess)).Succeeded;
                                 var canHojaVidaPaciente = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.HojaVidaPaciente)).Succeeded;
+                                var canTelevisor = (await AuthorizationService.AuthorizeAsync(User, SystemPermissions.Televisor)).Succeeded;
                                 var hasAnyPermission = User.Claims.Any(claim => claim.Type == "permission");
                                 var currentUserRole = canManageUsers
                                     ? "Administrador"
@@ -218,6 +219,21 @@
                                             <i class="bi bi-bar-chart-line-fill" aria-hidden="true"></i>
                                         </span>
                                         <span>Reportes</span>
+                                    </a>
+                                </li>
+                            }
+
+                            @if (canTelevisor)
+                            {
+                                @* El Televisor es una página aparte, sin esta barra: se abre a pantalla completa. *@
+                                <li class="nav-item">
+                                    <a class="nav-link intranet-nav-link"
+                                       asp-controller="Televisor"
+                                       asp-action="Index">
+                                        <span class="intranet-nav-link__icon" aria-hidden="true">
+                                            <i class="bi bi-tv-fill" aria-hidden="true"></i>
+                                        </span>
+                                        <span>Televisor</span>
                                     </a>
                                 </li>
                             }

@@ -181,6 +181,21 @@ public class CensoPacienteService : ICensoPacienteService
                 $"Cierra ese programa antes de agregar {CensoProgramas.Nombre(programa)}.");
         }
 
+        // El episodio figura cerrado en cuanto el registro tiene fecha de egreso, aunque su estado
+        // siga en «Activo»: quien guardó el alta no pasó el estado a Inactivo. Para la exclusividad
+        // eso no es un programa cerrado. Sin esta revisión, terapia ambulatoria se agregaba junto a
+        // una clínica de heridas «Activo» y la atención de heridas, ya cerrada y de solo lectura,
+        // quedaba sin forma de corregirse (reportado 2026-10-14, paciente CE 125957).
+        var sinCerrarDeVerdad = CensoProgramas.PrimeroQueBloquea(
+            programa, await ProgramasEgresadosPeroActivosAsync(pacienteId, cancellationToken));
+        if (sinCerrarDeVerdad is not null)
+        {
+            return ServiceResult<CensoPacientePrograma>.Failure(
+                $"{CensoProgramas.Nombre(sinCerrarDeVerdad)} tiene fecha de egreso, pero su estado sigue en «Activo». " +
+                $"Reabre esa atención (requiere el permiso de reapertura) y guarda el alta con estado «Inactivo» " +
+                $"antes de agregar {CensoProgramas.Nombre(programa)}.");
+        }
+
         var episodio = new CensoPacientePrograma
         {
             CensoPacienteId = pacienteId,
@@ -698,14 +713,14 @@ public class CensoPacienteService : ICensoPacienteService
     // Solo escribe en censo_paciente_programa y en la columna CensoPacienteId. Nunca toca un dato
     // clínico ni el estado del propio censo.
     // ==========================================================================================
-    public async Task ReconciliarEpisodiosAsync(long pacienteId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<string>> ReconciliarEpisodiosAsync(long pacienteId, CancellationToken cancellationToken)
     {
         var paciente = await _context.CensoPacientes
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == pacienteId, cancellationToken);
         if (paciente is null)
         {
-            return;
+            return [];
         }
 
         var doc = NormalizarDocumento(paciente.NumeroIdentificacion);
@@ -811,13 +826,82 @@ public class CensoPacienteService : ICensoPacienteService
                     Npt: npt.Any(x => x.CensoPacienteId == null),
                     Terapia: terapia.Any(x => x.CensoPacienteId == null)),
                 cancellationToken);
+
+            // Con lo que ya se trajo: sin consultas de más al abrir la ficha.
+            return EgresadosPeroActivos(
+                cronicos.OrderByDescending(x => x.Id).Select(x => new EstadoYEgreso(x.EstadoPaciente, x.FechaEgreso)).FirstOrDefault(),
+                heridas.OrderByDescending(x => x.Id).Select(x => new EstadoYEgreso(x.Estado, x.FechaEgreso)).FirstOrDefault(),
+                npt.OrderByDescending(x => x.Id).Select(x => new EstadoYEgreso(x.Estado, x.FechaEgreso)).FirstOrDefault());
         }
         catch (Exception ex)
         {
             // Reconciliar es una comodidad, no un requisito para operar. Si falla, la pantalla se
             // muestra con lo que haya y los censos siguen intactos.
             _logger.LogError(ex, "No se pudieron reconciliar los episodios del paciente {PacienteId}.", pacienteId);
+            return [];
         }
+    }
+
+    public async Task<IReadOnlyList<string>> ProgramasEgresadosPeroActivosAsync(
+        long pacienteId,
+        CancellationToken cancellationToken)
+    {
+        var paciente = await _context.CensoPacientes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == pacienteId, cancellationToken);
+        if (paciente is null)
+        {
+            return [];
+        }
+
+        var doc = NormalizarDocumento(paciente.NumeroIdentificacion);
+
+        // Solo el último registro de cada programa: uno anterior ya cerrado de otra época no debe
+        // bloquear a quien hoy tiene su atención en regla. Si el último sigue abierto, ya lo frena
+        // el episodio abierto.
+        var cronico = await _context.CensoCronicos.AsNoTracking()
+            .Where(x => x.CensoPacienteId == pacienteId || x.NumeroIdentificacion.ToUpper() == doc)
+            .OrderByDescending(x => x.Id)
+            .Select(x => new EstadoYEgreso(x.EstadoPaciente, x.FechaEgreso))
+            .FirstOrDefaultAsync(cancellationToken);
+        var heridas = await _context.CensoClinicaHeridas.AsNoTracking()
+            .Where(x => x.CensoPacienteId == pacienteId || x.NumeroIdentificacion.ToUpper() == doc)
+            .OrderByDescending(x => x.Id)
+            .Select(x => new EstadoYEgreso(x.Estado, x.FechaEgreso))
+            .FirstOrDefaultAsync(cancellationToken);
+        var npt = await _context.CensoNpt.AsNoTracking()
+            .Where(x => x.CensoPacienteId == pacienteId || x.NumeroIdentificacion.ToUpper() == doc)
+            .OrderByDescending(x => x.Id)
+            .Select(x => new EstadoYEgreso(x.Estado, x.FechaEgreso))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return EgresadosPeroActivos(cronico, heridas, npt);
+    }
+
+    private sealed record EstadoYEgreso(string? Estado, DateTime? FechaEgreso);
+
+    private static IReadOnlyList<string> EgresadosPeroActivos(
+        EstadoYEgreso? cronico,
+        EstadoYEgreso? heridas,
+        EstadoYEgreso? npt)
+    {
+        var lista = new List<string>();
+        if (cronico is not null && CronicoEgresadoPeroActivo(cronico.Estado, cronico.FechaEgreso))
+        {
+            lista.Add(CensoProgramas.Cronicos);
+        }
+
+        if (heridas is not null && ProgramaEgresadoPeroActivo(heridas.Estado, heridas.FechaEgreso))
+        {
+            lista.Add(CensoProgramas.ClinicaHeridas);
+        }
+
+        if (npt is not null && ProgramaEgresadoPeroActivo(npt.Estado, npt.FechaEgreso))
+        {
+            lista.Add(CensoProgramas.Npt);
+        }
+
+        return lista;
     }
 
     /// <summary>
@@ -944,6 +1028,31 @@ public class CensoPacienteService : ICensoPacienteService
     public static bool EsProgramaCerrado(string? estado, DateTime? fechaEgreso) =>
         CensoVisibility.HayEgreso(fechaEgreso)
         || (!string.IsNullOrWhiteSpace(estado) && !string.Equals(estado, "Activo", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Clínica de heridas y NPT con fecha de egreso real pero con el estado todavía en «Activo» (o
+    /// sin llenar). El episodio los da por cerrados —<see cref="EsProgramaCerrado"/> acepta
+    /// cualquiera de las dos señales—, pero el registro sigue diciendo «Activo» y, una vez cerrada la
+    /// atención, queda de solo lectura: no hay quien corrija el estado sin reabrirla.
+    /// </summary>
+    public static bool ProgramaEgresadoPeroActivo(string? estado, DateTime? fechaEgreso) =>
+        CensoVisibility.HayEgreso(fechaEgreso)
+        && (string.IsNullOrWhiteSpace(estado) || string.Equals(estado, "Activo", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// El estado con el que debe quedar guardado un programa de clínica de heridas o NPT cuando se
+    /// le registra un egreso: «Inactivo». Estos dos censos guardan la fecha, el motivo y el estado
+    /// como tres campos sueltos, y guardar el egreso sin tocar el estado dejaba la atención cerrada y
+    /// de solo lectura diciendo «Activo» (CE 125957, 2026-09-28). Crónicos ya hace lo mismo por su
+    /// cuenta. Si el estado ya es otro, o no hay egreso real, se respeta tal cual.
+    /// </summary>
+    public static string? EstadoAlRegistrarEgreso(string? estado, DateTime? fechaEgreso) =>
+        ProgramaEgresadoPeroActivo(estado, fechaEgreso) ? "Inactivo" : estado;
+
+    /// <summary>Lo mismo para crónicos, cuyo estado inactivo es la señal de cierre (ver <see cref="EsCronicoCerrado"/>).</summary>
+    public static bool CronicoEgresadoPeroActivo(string? estadoPaciente, DateTime? fechaEgreso) =>
+        CensoVisibility.HayEgreso(fechaEgreso)
+        && !string.Equals(estadoPaciente, "Inactivo", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Terapia ambulatoria: se cierra cuando el paciente sale de "Activo". El censo tuvo además un

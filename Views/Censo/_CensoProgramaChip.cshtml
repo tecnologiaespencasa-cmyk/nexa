@@ -86,7 +86,7 @@ else if (Model.SePuedeAgregar && pacienteId.HasValue)
 else
 {
     <div class="censo-programa censo-programa--bloqueado" data-programa="@Model.Programa"
-         title="@Model.MotivoBloqueo">
+         title="@(Model.DetalleBloqueo ?? Model.MotivoBloqueo)">
         <span class="censo-programa__punto" aria-hidden="true"></span>
         <span class="censo-programa__nombre">@Model.Nombre</span>
         <span class="censo-programa__estado">@estado</span>

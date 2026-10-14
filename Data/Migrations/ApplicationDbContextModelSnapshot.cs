@@ -2269,12 +2269,26 @@ namespace Nexa.Data.Migrations
                     b.Property<bool>("GestionAnalistaAsistencial")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("GestionAnalistaAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("GestionAnalistaPor")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime?>("GestionCompletaAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("GestionCompletaPendiente")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasDefaultValue("Pendiente");
+
+                    b.Property<string>("GestionCompletaPor")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
 
                     b.Property<TimeSpan>("HoraGestionFarmacia")
                         .HasColumnType("time without time zone");
@@ -3801,6 +3815,84 @@ namespace Nexa.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("OpsAssistants", (string)null);
+                });
+
+            modelBuilder.Entity("Nexa.Data.Entities.TelevisorCorte", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("DatosJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("Dia")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("EstadoAlUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("GeneradoAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Instancia")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("Recuperado")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Dia", "Tipo")
+                        .IsUnique();
+
+                    b.ToTable("televisor_cortes", (string)null);
+                });
+
+            modelBuilder.Entity("Nexa.Data.Entities.TelevisorTurnoAjuste", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("AjustadoAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AjustadoPor")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime>("Dia")
+                        .HasColumnType("date");
+
+                    b.Property<int>("NursingAssistantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Turno")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Dia", "NursingAssistantId")
+                        .IsUnique();
+
+                    b.ToTable("televisor_turnos_ajuste", (string)null);
                 });
 
             modelBuilder.Entity("Nexa.Data.Entities.AppUserPermission", b =>

@@ -16,6 +16,9 @@ public static class SystemPermissions
     /// <summary>Hoja de vida del paciente: consulta de solo lectura de toda su historia con la IPS.</summary>
     public const string HojaVidaPaciente = "SCREEN_HOJA_VIDA_PACIENTE";
 
+    /// <summary>Televisor: tablero de indicadores asistenciales (admisiones, analistas y novedades) para la pantalla del área.</summary>
+    public const string Televisor = "SCREEN_TELEVISOR";
+
     /// <summary>
     /// Politica compuesta: permite el ingreso al espacio corporativo tanto al usuario basico
     /// como al administrador (no es un permiso almacenado en base de datos).
@@ -34,6 +37,7 @@ public static class SystemPermissions
         AnalistaAsistencial,
         EspacioCorporativo,
         EspacioCorporativoAdmin,
-        HojaVidaPaciente
+        HojaVidaPaciente,
+        Televisor
     };
 }

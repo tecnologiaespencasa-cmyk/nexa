@@ -95,6 +95,78 @@ public class PortalNovedadRepository : IPortalNovedadRepository
         return (reader.GetInt32(0), reader.IsDBNull(1) ? null : reader.GetDateTime(1));
     }
 
+    public async Task<PortalNovedadesResumen> GetResumenDiaAsync(
+        DateTime desdeUtc,
+        DateTime hastaUtcExclusivo,
+        DateTime ochoAmUtc,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(NeonConnectionString.FromConfiguration(_configuration));
+        await connection.OpenAsync(cancellationToken);
+
+        // Pendiente en un momento T: creada antes de T y, o sigue sin resolver, o se resolvió
+        // (última actualización) después de T. Con T = ahora es exactamente lo que el panel
+        // muestra como pendiente; con T en el pasado es la mejor reconstrucción posible.
+        var areas = new List<PortalNovedadesArea>();
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                select
+                    coalesce("responsableGestion"::text, '') as area,
+                    count(*) filter (where "createdAt" < @hasta and (estado::text <> 'RESUELTA' or "updatedAt" >= @hasta))::int as pendientes,
+                    count(*) filter (where "createdAt" >= @desde and "createdAt" < @hasta)::int as ingresadas,
+                    count(*) filter (where estado::text = 'RESUELTA' and "updatedAt" >= @desde and "updatedAt" < @hasta)::int as resueltas,
+                    count(*) filter (where "createdAt" < @ocho and (estado::text <> 'RESUELTA' or "updatedAt" >= @ocho))::int as saldo8,
+                    min("createdAt") filter (where "createdAt" < @hasta and (estado::text <> 'RESUELTA' or "updatedAt" >= @hasta)) as mas_antigua
+                from public."Novedad"
+                group by 1;
+                """;
+            AgregarLimites(command, desdeUtc, hastaUtcExclusivo, ochoAmUtc);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                areas.Add(new PortalNovedadesArea
+                {
+                    Area = reader.GetString(0),
+                    Pendientes = reader.GetInt32(1),
+                    Ingresadas = reader.GetInt32(2),
+                    Resueltas = reader.GetInt32(3),
+                    Saldo8am = reader.GetInt32(4),
+                    MasAntiguaPendienteUtc = reader.IsDBNull(5) ? null : reader.GetDateTime(5)
+                });
+            }
+        }
+
+        var resueltas = new List<DateTime>();
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                select "updatedAt"
+                from public."Novedad"
+                where estado::text = 'RESUELTA' and "updatedAt" >= @desde and "updatedAt" < @hasta
+                order by "updatedAt";
+                """;
+            AgregarLimites(command, desdeUtc, hastaUtcExclusivo, ochoAmUtc);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                resueltas.Add(reader.GetDateTime(0));
+            }
+        }
+
+        return new PortalNovedadesResumen { Areas = areas, ResueltasUtc = resueltas };
+    }
+
+    // "createdAt"/"updatedAt" son timestamp sin zona con la hora UTC: los límites van tal cual.
+    private static void AgregarLimites(NpgsqlCommand command, DateTime desdeUtc, DateTime hastaUtc, DateTime ochoUtc)
+    {
+        command.Parameters.AddWithValue("desde", NpgsqlDbType.Timestamp, DateTime.SpecifyKind(desdeUtc, DateTimeKind.Unspecified));
+        command.Parameters.AddWithValue("hasta", NpgsqlDbType.Timestamp, DateTime.SpecifyKind(hastaUtc, DateTimeKind.Unspecified));
+        command.Parameters.AddWithValue("ocho", NpgsqlDbType.Timestamp, DateTime.SpecifyKind(ochoUtc, DateTimeKind.Unspecified));
+    }
+
     public async Task<IReadOnlyList<string>> GetCategoriasAsync(CancellationToken cancellationToken = default)
     {
         var categorias = new List<string>();

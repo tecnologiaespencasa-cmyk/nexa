@@ -63,6 +63,20 @@ public partial class CensoController
             return RedirectToAction(nameof(Index), new { cedulaPaciente, programa = bloquea });
         }
 
+        // Y tampoco uno que agregar rechazaría por tener un programa con egreso pero con el estado
+        // todavía en «Activo» (ver CensoPacienteService.ProgramasEgresadosPeroActivosAsync).
+        var sinCerrarDeVerdad = CensoProgramas.PrimeroQueBloquea(
+            episodio.Programa,
+            await _censoPacienteService.ProgramasEgresadosPeroActivosAsync(episodio.CensoPacienteId, cancellationToken));
+        if (sinCerrarDeVerdad is not null)
+        {
+            TempData["ErrorMessage"] =
+                $"No se puede reabrir {CensoProgramas.Nombre(episodio.Programa)}: {CensoProgramas.Nombre(sinCerrarDeVerdad)} "
+                + "tiene fecha de egreso, pero su estado sigue en «Activo», y los dos no pueden convivir. "
+                + $"Primero reabre {CensoProgramas.Nombre(sinCerrarDeVerdad)} y guarda su alta con estado «Inactivo».";
+            return RedirectToAction(nameof(Index), new { cedulaPaciente, programa = sinCerrarDeVerdad });
+        }
+
         // Reabrir el episodio no basta: su estado es una copia del que vive en el registro del
         // censo, y la reconciliación lo volvería a cerrar en la siguiente visita. Lo que hay que
         // devolver a activo es el registro; el episodio se abre en el mismo movimiento.

@@ -1,0 +1,631 @@
+@using System.Globalization
+@using Nexa.Helpers
+@using Nexa.Models.ViewModels
+@model TelevisorPantallaViewModel
+@functions {
+    private static readonly CultureInfo Es = CultureInfo.GetCultureInfo("es-CO");
+
+    // "7 min", "1 h 10 min", "26 h": de lejos y para cualquiera, sin símbolos ni decimales. La
+    // cifra y su unidad van con espacio que no se parte, para que "min" no quede solo en otra línea.
+    private static string DurLarga(double? minutos)
+    {
+        if (minutos is null) return "sin dato";
+        var m = (int)Math.Round(Math.Abs(minutos.Value), MidpointRounding.AwayFromZero);
+        if (m < 60) return $"{m}\u00a0min";
+        var h = m / 60;
+        var r = m % 60;
+        return r == 0 || h >= 24 ? $"{h}\u00a0h" : $"{h}\u00a0h {r}\u00a0min";
+    }
+
+    private static string Pct(double? valor) =>
+        valor is null ? "—" : $"{valor.Value.ToString("0", Es)} %";
+
+    private static string Hora(DateTime t) =>
+        t.ToString("h:mm", Es) + (t.Hour < 12 ? " a. m." : " p. m.");
+
+    // Dentro del dial va la cifra y debajo su unidad: "7 / min". Hasta 999 minutos caben tres
+    // dígitos; más que eso solo llega con fechas mal digitadas, que ya van como "revisar".
+    private static (string Cifra, string Unidad) Dial(int? minutos) =>
+        minutos is null ? ("—", "") : minutos < 1000 ? (minutos.Value.ToString(Es), "min") : ((minutos.Value / 60).ToString(Es), "h");
+
+    private static string RevisionCorta(TelevisorIngreso x) =>
+        x.Promesa == TelevisorPromesa.SinDato ? "falta la recepción" : "revisar la fecha";
+
+    // Minutos de una persona frente a la promesa: "19 min a favor" / "12 min de más".
+    private static string MinutosBalance(int balance) => $"{Math.Abs(balance).ToString(Es)}\u00a0min";
+
+    private static string Uso(int? minutos) =>
+        Math.Clamp((minutos ?? 0) / (double)TelevisorPromesa.Minutos, 0, 1).ToString("0.###", CultureInfo.InvariantCulture);
+
+    private static double Posicion(DateTime t, DateTime inicio, DateTime fin) =>
+        Math.Clamp((t - inicio).TotalMinutes / (fin - inicio).TotalMinutes * 100, 0, 100);
+
+    private static string P(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+
+    private static string EtiquetaPromesa(TelevisorIngreso x) => x.Promesa switch
+    {
+        TelevisorPromesa.Cumple => $"Se respondió en {x.MinutosRespuesta} min: a tiempo",
+        TelevisorPromesa.NoCumple => $"Se respondió en {x.MinutosRespuesta} min: {x.MinutosRespuesta - TelevisorPromesa.Minutos} min más de los 15 prometidos",
+        TelevisorPromesa.Nocturno => $"El correo llegó de noche y se respondió en {x.MinutosRespuesta} min: no cuenta para la promesa",
+        TelevisorPromesa.NoAplica => "No es un ingreso de Admisiones: no cuenta para las metas del área",
+        _ => x.Revision ?? "Revisar"
+    };
+
+    private const string AyudaCreacion = "Desde que se empieza a crear el paciente (al subir la remisión o, si no se subió, al primer guardado) hasta que queda con gestión completa";
+
+    private static string Ms(DateTime colombia) =>
+        new DateTimeOffset(ColombiaTime.ConvertToUtc(colombia)).ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
+}
+@{
+    var t = Model.Tablero;
+    var b = Model.Bloque ?? new TelevisorBloque();
+    var adm = b.Admisiones;
+    var ana = b.Analistas;
+    var nov = t.Novedades;
+    var habil = t.EsHabil;
+    var (cintaIni, cintaFin) = TelevisorHorario.RangoCinta(t.Dia);
+    var inicioCinta = t.Dia + cintaIni;
+    var finCinta = t.Dia + cintaFin;
+    var corte = t.Dia + TelevisorHorario.Corte;
+    var enVivo = Model.EsHoy && !(b.Clave == TelevisorBloques.Manana && Model.MananaCongelada);
+    var fecha = Es.TextInfo.ToTitleCase(t.Dia.ToString("dddd d", Es)) + " de " + t.Dia.ToString("MMMM", Es);
+
+    // En pantalla solo "En vivo", "Cerrado a la 1:45" o "Día cerrado". De dónde salió un día
+    // cerrado (foto a tiempo, tomada tarde o recalculada) queda en el título, para quien lo busque.
+    string estado;
+    string? estadoDetalle = null;
+    if (enVivo)
+    {
+        estado = "En vivo";
+    }
+    else if (b.Clave == TelevisorBloques.Manana && Model.MananaCongelada)
+    {
+        estado = "Cerrado a la 1:45 p. m.";
+    }
+    else
+    {
+        estado = "Día cerrado";
+        estadoDetalle = t.Origen switch
+        {
+            "foto" => "Cifras guardadas al cierre del día",
+            "recuperada" => "Cifras guardadas después del cierre",
+            _ => "Cifras recalculadas: este día no tiene cierre guardado"
+        };
+    }
+
+    // Marcas de la cinta: una barrita por ingreso, apiladas cuando caen en el mismo tramo de
+    // diez minutos para que no se tapen entre sí.
+    var marcas = new List<(double Izq, int Pila, string Promesa, int Extra)>();
+    var antes = 0;
+    var despues = 0;
+    foreach (var grupo in t.Cinta.GroupBy(m => (long)((m.Registrado - t.Dia).TotalMinutes / 10)))
+    {
+        var lista = grupo.OrderBy(m => m.Registrado).ToList();
+        var primera = lista[0].Registrado;
+        if (primera < inicioCinta) { antes += lista.Count; continue; }
+        if (primera >= finCinta) { despues += lista.Count; continue; }
+        var izq = Posicion(t.Dia.AddMinutes(grupo.Key * 10 + 5), inicioCinta, finCinta);
+        for (var i = 0; i < Math.Min(lista.Count, 4); i++)
+        {
+            marcas.Add((izq, i, lista[i].Promesa, i == 3 ? lista.Count - 4 : 0));
+        }
+    }
+
+    var horasCinta = Enumerable.Range(0, (int)(cintaFin - cintaIni).TotalHours + 1)
+        .Select(h => cintaIni.Add(TimeSpan.FromHours(h)))
+        .Where(h => h.Hours % 2 == (habil ? 0 : 1))
+        .ToList();
+
+    var balance = adm.Balance;
+    var cumplimientoClase = adm.Porcentaje is null ? "" : adm.Porcentaje >= 90 ? "is-bien" : adm.Porcentaje >= 70 ? "is-medio" : "is-mal";
+    var anaPct = ana.Porcentaje ?? 0;
+    var novPct = Math.Clamp(nov.Resueltas / (double)Math.Max(nov.Meta, 1), 0, 1);
+
+    // Un turno ya terminado se ve rayado en la cinta: la mañana desde la 1:45, la tarde (o el
+    // turno único del fin de semana) cuando acabó su horario o en cualquier día anterior.
+    var tardeCerrada = !Model.EsHoy || Model.AhoraColombia >= finCinta;
+}
+<div class="tv-pantalla@(enVivo ? " is-vivo" : " is-cerrado")"
+     data-tv-pantalla
+     data-dia="@t.Dia.ToString("yyyy-MM-dd")"
+     data-es-hoy="@(Model.EsHoy ? "true" : "false")"
+     data-habil="@(habil ? "true" : "false")"
+     data-bloque="@b.Clave"
+     data-auto="@(Model.BloqueAutomatico ? "true" : "false")"
+     data-en-vivo="@(enVivo ? "true" : "false")"
+     data-aviso-ms="@Ms(t.Dia + TelevisorHorario.Aviso)"
+     data-corte-ms="@Ms(corte)"
+     data-entrega-ms="@Ms(t.Dia + TelevisorHorario.Entrega)"
+     data-cinta-ini-ms="@Ms(inicioCinta)"
+     data-cinta-fin-ms="@Ms(finCinta)"
+     data-fin-dia-ms="@Ms(t.Dia.AddDays(1))"
+     data-hoy="@Model.AhoraColombia.ToString("yyyy-MM-dd")"
+     data-hoy-aviso-ms="@(TelevisorHorario.EsHabil(Model.AhoraColombia.Date) ? Ms(Model.AhoraColombia.Date + TelevisorHorario.Aviso) : "")"
+     data-festivo="@t.Festivo">
+
+    <header class="tv-cabecera">
+        <div class="tv-marca">
+            <svg class="tv-marca__logo" viewBox="0 0 140 130" aria-hidden="true">
+                <path d="M 36 68 L 36 36 C 36 24 46 20 54 30 L 88 86 C 96 98 106 94 106 80 L 106 48" />
+                <circle cx="107" cy="20" r="12" />
+                <circle cx="36" cy="92" r="10" />
+            </svg>
+            <div>
+                <p class="tv-marca__nombre">Nexa</p>
+                <p class="tv-marca__sub">Indicadores asistenciales</p>
+            </div>
+        </div>
+
+        <div class="tv-cabecera__turno">
+            <p class="tv-cabecera__fecha">@fecha@(t.Festivo is null ? "" : " · festivo")</p>
+            <h1 class="tv-cabecera__titulo">@b.Titulo <span class="tv-estado@(enVivo ? " tv-estado--vivo" : "")" title="@estadoDetalle">@estado</span></h1>
+        </div>
+
+        @* Sin espacios dentro: vacía (días anteriores) se oculta con :empty. Hoy la llena el script. *@
+        <p class="tv-cuenta" data-tv-cuenta aria-live="off">@if (Model.EsHoy && !habil) {<span>Turno único · termina a las <b>7:00 p. m.</b>@(t.Festivo is null ? "" : $" · {t.Festivo}")</span>}</p>
+
+        @* La hora la escribe el script cada segundo. Se deja vacía para que el tablero no cambie
+           de un minuto a otro solo por el reloj: así no se reemplaza (ni reinicia el desplazamiento
+           de las listas) cuando los datos son los mismos. *@
+        <div class="tv-reloj" data-tv-reloj>
+            <span class="tv-reloj__hora"></span>
+            <span class="tv-reloj__ampm"></span>
+        </div>
+
+        <span class="tv-sonido" data-tv-sonido title="Sonido del aviso"><i class="bi bi-volume-mute-fill" aria-hidden="true"></i><span class="visually-hidden">Sonido</span></span>
+    </header>
+
+    <section class="tv-cinta" aria-label="Cinta del día: cada marca es un ingreso, a la hora en que se registró">
+        <div class="tv-cinta__pista">
+            @if (habil)
+            {
+                var xCorte = Posicion(corte, inicioCinta, finCinta);
+                var xAviso = Posicion(t.Dia + TelevisorHorario.Aviso, inicioCinta, finCinta);
+                var xEntrega = Posicion(t.Dia + TelevisorHorario.Entrega, inicioCinta, finCinta);
+                <div class="tv-cinta__tramo@(b.Clave == TelevisorBloques.Manana ? " is-elegido" : "")@(Model.MananaCongelada ? " is-cerrado" : "")" style="left:0;width:@P(xCorte)%">
+                    <span>Turno mañana@(Model.MananaCongelada ? " · cerrado" : "")</span>
+                </div>
+                <div class="tv-cinta__tramo@(b.Clave == TelevisorBloques.Tarde ? " is-elegido" : "")@(tardeCerrada ? " is-cerrado" : "")" style="left:@P(xCorte)%;width:@P(100 - xCorte)%">
+                    <span>Turno tarde@(tardeCerrada ? " · cerrado" : "")</span>
+                </div>
+                <span class="tv-hito tv-hito--aviso" style="left:@P(xAviso)%" title="Aviso de voz"><i class="bi bi-megaphone-fill" aria-hidden="true"></i></span>
+                <span class="tv-hito tv-hito--corte" style="left:@P(xCorte)%"><b>Corte 1:45</b></span>
+                <span class="tv-hito tv-hito--entrega" style="left:@P(xEntrega)%"><b>Entrega 2:00</b></span>
+            }
+            else
+            {
+                <div class="tv-cinta__tramo is-elegido@(tardeCerrada ? " is-cerrado" : "")" style="left:0;width:100%"><span>Turno único · 7:00 a. m. a 7:00 p. m.@(tardeCerrada ? " · cerrado" : "")</span></div>
+            }
+
+            @foreach (var m in marcas)
+            {
+                <i class="tv-tick tv-tick--@m.Promesa" style="left:@P(m.Izq)%;--pila:@m.Pila">@if (m.Extra > 0) {<b>+@m.Extra</b>}</i>
+            }
+
+            <span class="tv-cinta__transcurrido" data-tv-transcurrido></span>
+            <span class="tv-cinta__ahora" data-tv-ahora hidden><b data-tv-ahora-hora></b></span>
+        </div>
+        <ol class="tv-cinta__horas" aria-hidden="true">
+            @foreach (var h in horasCinta)
+            {
+                <li style="left:@P(Posicion(t.Dia + h, inicioCinta, finCinta))%">@(h.Hours % 12 == 0 ? 12 : h.Hours % 12)<small>@(h.Hours < 12 ? "a. m." : "p. m.")</small></li>
+            }
+        </ol>
+        <p class="tv-cinta__leyenda">
+            Cada cuadro es un paciente:
+            <span><i class="tv-tick-muestra tv-tick--cumple"></i>a tiempo</span>
+            <span><i class="tv-tick-muestra tv-tick--no-cumple"></i>se pasó</span>
+            <span title="Correo de noche o ingreso que no es de Admisiones"><i class="tv-tick-muestra tv-tick--nocturno"></i>no cuenta</span>
+            <span><i class="tv-tick-muestra tv-tick--revisar"></i>por revisar</span>
+        </p>
+        @if (antes + despues > 0)
+        {
+            <p class="tv-cinta__noche"><i class="bi bi-moon-stars-fill" aria-hidden="true"></i>
+                @if (antes > 0) { <span>@antes antes de las @Hora(t.Dia + cintaIni)</span> }
+                @if (despues > 0) { <span>@despues después de las @Hora(t.Dia + cintaFin)</span> }
+            </p>
+        }
+    </section>
+
+    <main class="tv-cuerpo">
+        @* ============================ ADMISIONES ============================ *@
+        <section class="tv-area tv-adm" aria-labelledby="tv-adm-titulo">
+            <header class="tv-area__cab">
+                <h2 id="tv-adm-titulo">Admisiones</h2>
+                <p>Metas: responder al asegurador en @TelevisorPromesa.Minutos min · crear el paciente en @TelevisorCreacion.Minutos min</p>
+                <p class="tv-leyenda" aria-hidden="true">
+                    <span><i class="bi bi-check-circle-fill is-bien"></i>gestión completa</span>
+                    <span><i class="bi bi-hourglass-split is-pendiente"></i>gestión pendiente</span>
+                </p>
+            </header>
+
+            <div class="tv-kpis">
+                <div class="tv-kpi tv-kpi--ingresos">
+                    <span class="tv-kpi__rotulo">Ingresos</span>
+                    <span class="tv-kpi__valor">@adm.Ingresos</span>
+                    @if (adm.PorRevisar > 0 || adm.Cancelados > 0)
+                    {
+                        <span class="tv-kpi__nota tv-kpi__nota--datos">@if (adm.PorRevisar > 0) {<span>@adm.PorRevisar por revisar</span>}@if (adm.Cancelados > 0) {<span>@adm.Cancelados @(adm.Cancelados == 1 ? "cancelado" : "cancelados")</span>}</span>
+                    }
+                </div>
+                <div class="tv-kpi tv-kpi--turnos">
+                    @* Lo que va en tv-kpi__extra solo cabe en la vista de las tres áreas. *@
+                    <span class="tv-kpi__rotulo"><span class="tv-kpi__extra">Pacientes </span>por turno</span>
+                    <ul class="tv-turnos-kpi">
+                        @foreach (var x in adm.PorTurno)
+                        {
+                            <li><b>@x.Pacientes</b><span>@x.Etiqueta</span></li>
+                        }
+                    </ul>
+                </div>
+                <div class="tv-kpi tv-kpi--tiempo @cumplimientoClase">
+                    <span class="tv-kpi__rotulo">Respuesta a tiempo</span>
+                    <span class="tv-kpi__valor">@Pct(adm.Porcentaje)</span>
+                    <span class="tv-kpi__nota">@adm.Cumplen de @adm.Medibles<span class="tv-kpi__extra"> pacientes@(adm.Nocturnos > 0 ? $" · {adm.Nocturnos} de noche no cuentan" : "")</span></span>
+                </div>
+                <div class="tv-kpi tv-kpi--balance @(adm.Medibles == 0 ? "" : balance > 0 ? "is-mal" : "is-bien")" title="@(adm.Medibles == 0 ? "" : $"Se usaron {DurLarga(adm.MinutosReales)} de {DurLarga(adm.MinutosPromesa)} prometidos")">
+                    <span class="tv-kpi__rotulo"><span class="tv-kpi__extra">Minutos </span>@(adm.Medibles > 0 && balance > 0 ? "de más" : "a favor")</span>
+                    <span class="tv-kpi__valor">@(adm.Medibles == 0 ? "—" : DurLarga(balance))</span>
+                    @if (adm.Medibles > 0)
+                    {
+                        <span class="tv-kpi__nota">Se usaron @DurLarga(adm.MinutosReales) de @DurLarga(adm.MinutosPromesa) prometidos</span>
+                    }
+                </div>
+                @if (adm.CreacionPorcentaje is not null)
+                {
+                    <div class="tv-kpi tv-kpi--creacion @(adm.CreacionPorcentaje >= 90 ? "is-bien" : adm.CreacionPorcentaje >= 70 ? "is-medio" : "is-mal")" title="@AyudaCreacion">
+                        <span class="tv-kpi__rotulo">Creación a tiempo</span>
+                        <span class="tv-kpi__valor">@Pct(adm.CreacionPorcentaje)</span>
+                        <span class="tv-kpi__nota">@adm.CreacionCumplen de @adm.CreacionMedibles<span class="tv-kpi__extra"> pacientes@(adm.CreacionPromedio is null ? "" : $" · {DurLarga(adm.CreacionPromedio)} en promedio")@(adm.CreacionEnCurso > 0 ? $" · {adm.CreacionEnCurso} en curso" : "")</span></span>
+                    </div>
+                }
+                else
+                {
+                    @* Sin ninguna gestión completa con hora todavía no hay tiempo de creación que
+                       medir: se queda la cuenta de completas, como antes. *@
+                    <div class="tv-kpi tv-kpi--gestion">
+                        <span class="tv-kpi__rotulo">Gestión completa</span>
+                        <span class="tv-kpi__valor">@adm.GestionCompletas<small>/@(adm.GestionCompletas + adm.GestionPendientes)</small></span>
+                    </div>
+                }
+            </div>
+
+            @{
+                // Con más de cuatro tarjetas los nombres de los pacientes ya no caben: las que
+                // tienen menos pacientes se apilan de a dos en una misma columna.
+                const int maxColumnas = 4;
+                var columnas = new List<List<TelevisorPersonaAdmisiones>>();
+                if (adm.Personas.Count <= maxColumnas)
+                {
+                    columnas.AddRange(adm.Personas.Select(x => new List<TelevisorPersonaAdmisiones> { x }));
+                }
+                else
+                {
+                    var pares = Math.Min(adm.Personas.Count - maxColumnas, maxColumnas);
+                    var chicas = adm.Personas.OrderBy(x => x.Lista.Count).Take(pares * 2).ToHashSet();
+                    columnas.AddRange(adm.Personas.Where(x => !chicas.Contains(x)).Select(x => new List<TelevisorPersonaAdmisiones> { x }));
+                    var apiladas = adm.Personas.Where(chicas.Contains).ToList();
+                    for (var i = 0; i < apiladas.Count; i += 2)
+                    {
+                        columnas.Add(apiladas.Skip(i).Take(2).ToList());
+                    }
+                }
+            }
+            <div class="tv-personas" style="--personas:@Math.Max(columnas.Count, 1)">
+                @if (adm.Personas.Count == 0)
+                {
+                    <p class="tv-vacio">Todavía no hay ingresos registrados en este turno.</p>
+                }
+                @foreach (var columna in columnas)
+                {
+                <div class="tv-personas__col@(columna.Count > 1 ? " tv-personas__col--doble" : "")">
+                @foreach (var p in columna)
+                {
+                    @* En el modo de un área a la vez, las dos tarjetas de una columna se turnan: una
+                       abierta y la otra en una franja (is-cerrada). Cuál va abierta lo lleva
+                       televisor.js; aquí solo sale la segunda cerrada para que no parpadee al cargar. *@
+                    <article class="tv-persona@(p.EsOtros ? " tv-persona--otros" : "")@(columna.IndexOf(p) > 0 ? " is-cerrada" : "")">
+                        <header class="tv-persona__cab">
+                            <div class="tv-persona__quien">
+                                <h3>@p.Nombre @if (p.Conectada && enVivo) {<span class="tv-punto" title="Conectada"></span>}</h3>
+                                @if (p.EsOtros)
+                                {
+                                    <p class="tv-chip tv-chip--apagado" title="Quien figura como recepción no es de Admisiones, o el campo está vacío: no cuentan para las metas del área">No son de Admisiones</p>
+                                }
+                                else
+                                {
+                                    <p class="tv-chip@(p.SinUsuario || p.Turno == TelevisorTurnos.SinConexion ? " tv-chip--apagado" : "")">@(p.SinUsuario ? "Sin usuario" : TelevisorTurnos.Chip(p.Turno))</p>
+                                }
+                            </div>
+                            @* Dos cuentas distintas: lo que figura a su nombre en "quien recepciona el
+                               caso" (de ahí salen la lista y la promesa) y lo que registró en Nexa con su
+                               usuario, a nombre de quien sea. Sin la segunda parecía que a quien digita
+                               lo que otro respondió "no le sumaba". *@
+                            <dl class="tv-persona__cifras">
+                                @* Las dos cuentas van como parte del total del turno ("13/22", "18/22"):
+                                   son los mismos pacientes vistos de dos maneras, no se suman. Sueltas
+                                   ("13 recepcionó, 18 registró") se leyeron como 31 ingresos cuando
+                                   hubo 22 (2026-10-06). *@
+                                @if (p.EsOtros)
+                                {
+                                    <div title="@p.Ingresos de los @adm.Ingresos ingresos no los recepcionó Admisiones"><dd>@p.Ingresos<small>/@adm.Ingresos</small></dd><dt>@(adm.Ingresos == 1 ? "ingreso" : "ingresos")</dt></div>
+                                }
+                                else
+                                {
+                                    <div title="De los @adm.Ingresos ingresos, @p.Ingresos figuran a su nombre en «Nombre de quien recepciona el caso»"><dd>@p.Ingresos<small>/@adm.Ingresos</small></dd><dt>recepcionó</dt></div>
+                                }
+                                @if (!p.EsOtros && p.Registrados is int registrados)
+                                {
+                                    var propios = p.Lista.Count(x => !x.Cancelado && x.RegistradoPor == p.Nombre);
+                                    <div title="De los @adm.Ingresos ingresos, registró @registrados en Nexa con su usuario: @propios de los que recepcionó y @(registrados - propios) a nombre de otra persona"><dd>@registrados<small>/@adm.Ingresos</small></dd><dt>registró</dt></div>
+                                }
+                                @* Cada meta con lo suyo: la respuesta es de lo que recepcionó y la
+                                   creación de lo que registró. Van una al lado de la otra. *@
+                                @if (p.Medibles > 0)
+                                {
+                                    <div title="De lo que recepcionó, cuánto respondió al asegurador en @TelevisorPromesa.Minutos minutos o menos (@MinutosBalance(p.Balance) @(p.Balance > 0 ? "de más" : "a favor"))"><dd class="@(p.Porcentaje >= 90 ? "is-bien" : p.Porcentaje >= 70 ? "is-medio" : "is-mal")">@Pct(p.Porcentaje)</dd><dt>respuesta</dt></div>
+                                }
+                                @if (p.CreacionPorcentaje is not null)
+                                {
+                                    <div title="De los pacientes de agudos que registró, cuántos creó en @TelevisorCreacion.Minutos minutos o menos"><dd class="@(p.CreacionPorcentaje >= 90 ? "is-bien" : p.CreacionPorcentaje >= 70 ? "is-medio" : "is-mal")">@Pct(p.CreacionPorcentaje)</dd><dt>creación</dt></div>
+                                }
+                            </dl>
+                        </header>
+                        @if (p.Lista.Count == 0)
+                        {
+                            <p class="tv-persona__vacia">Lo que registró aparece con quien lo recepcionó.</p>
+                        }
+                        <ol class="tv-lista" data-tv-desplazar>
+                            @foreach (var x in p.Lista)
+                            {
+                                <li class="tv-fila tv-fila--@(x.Cancelado ? "cancelado" : x.Promesa)" title="@(x.Cancelado ? "Cancelado o rechazado: no cuenta como ingreso ni para la promesa" : EtiquetaPromesa(x))">
+                                    @* El estado de gestión va como insignia sobre el círculo de minutos: en una
+                                       columna aparte le quitaba al nombre el ancho que necesita cuando hay
+                                       cuatro o cinco personas en pantalla. *@
+                                    <span class="tv-dial-caja">
+                                    <span class="tv-dial tv-dial--@(x.Cancelado ? "cancelado" : x.Promesa)" style="--uso:@(x.Cancelado ? "0" : Uso(x.MinutosRespuesta))">
+                                        @if (x.Cancelado)
+                                        {
+                                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                                        }
+                                        else if (x.Promesa is TelevisorPromesa.Revisar or TelevisorPromesa.SinDato)
+                                        {
+                                            <b>!</b>
+                                        }
+                                        else if (x.Promesa == TelevisorPromesa.NoAplica)
+                                        {
+                                            <b>—</b>
+                                        }
+                                        else if (x.Promesa == TelevisorPromesa.Nocturno)
+                                        {
+                                            <i class="bi bi-moon-stars-fill" aria-hidden="true"></i>
+                                        }
+                                        else
+                                        {
+                                            var (cifra, unidad) = Dial(x.MinutosRespuesta);
+                                            <b>@cifra</b><small>@unidad</small>
+                                        }
+                                    </span>
+                                    @if (!x.Cancelado && x.Gestion == TelevisorGestion.Completa)
+                                    {
+                                        <span class="tv-gestion is-completa" title="Gestión completa"><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span class="visually-hidden">Gestión completa</span></span>
+                                    }
+                                    else if (!x.Cancelado && x.Gestion == TelevisorGestion.Pendiente)
+                                    {
+                                        <span class="tv-gestion is-pendiente@(x.Creacion == TelevisorCreacion.Vencida ? " is-vencida" : "")" title="Gestión pendiente"><i class="bi bi-hourglass-split" aria-hidden="true"></i><span class="visually-hidden">Gestión pendiente</span></span>
+                                    }
+                                    </span>
+                                    <span class="tv-fila__pac">
+                                        <span class="tv-fila__nombre">@x.Paciente</span>
+                                        @* Cada dato va en su <em>; el punto que los separa lo pone la hoja de estilos. *@
+                                        <small>
+                                            <em>@x.ProgramaCorto</em>
+                                            <em class="tv-fila__hora">@Hora(x.Registrado)</em>
+                                            @if (p.EsOtros && !string.IsNullOrEmpty(x.Recepciona))
+                                            {
+                                                <em>recibió @Es.TextInfo.ToTitleCase(x.Recepciona.ToLowerInvariant())</em>
+                                            }
+                                            @if (x.RegistradoPorOtro && x.RegistradoPor is not null)
+                                            {
+                                                <em class="tv-fila__registro">registró @x.RegistradoPor</em>
+                                            }
+                                            @if (x.Cancelado)
+                                            {
+                                                <em>cancelado</em>
+                                            }
+                                            else if (x.Promesa == TelevisorPromesa.Nocturno)
+                                            {
+                                                <em>correo de noche, @x.MinutosRespuesta min</em>
+                                            }
+                                            else if (x.Promesa is TelevisorPromesa.Revisar or TelevisorPromesa.SinDato)
+                                            {
+                                                <em class="is-medio">@RevisionCorta(x)</em>
+                                            }
+                                            @* Meta de creación: verde hasta @TelevisorCreacion.Minutos min, rojo si se pasó o si sigue
+                                               pendiente después de ese tiempo. *@
+                                            @if (!x.Cancelado && x.Creacion is TelevisorCreacion.Cumple or TelevisorCreacion.NoCumple)
+                                            {
+                                                <em class="tv-fila__creacion @(x.Creacion == TelevisorCreacion.Cumple ? "is-bien" : "is-mal")" title="@AyudaCreacion">creado en @DurLarga(x.MinutosCreacion)</em>
+                                            }
+                                            else if (!x.Cancelado && x.Creacion == TelevisorCreacion.Vencida)
+                                            {
+                                                <em class="tv-fila__creacion is-mal" title="@AyudaCreacion">@(enVivo ? $"pendiente hace {DurLarga(x.MinutosCreacion)}" : "quedó pendiente")</em>
+                                            }
+                                        </small>
+                                    </span>
+                                </li>
+                            }
+                        </ol>
+                    </article>
+                }
+                </div>
+                }
+            </div>
+            @if (adm.EnTurnoSinIngresos.Count > 0)
+            {
+                <p class="tv-area__pie">En turno, sin ingresos@(enVivo ? " todavía" : ""): <b>@string.Join(", ", adm.EnTurnoSinIngresos)</b></p>
+            }
+        </section>
+
+        @* ============================ ANALISTAS ============================ *@
+        <section class="tv-area tv-ana" aria-labelledby="tv-ana-titulo">
+            <header class="tv-area__cab">
+                <h2 id="tv-ana-titulo">Analistas asistenciales</h2>
+                <p>Meta: 100 % de los ingresos de agudos gestionados</p>
+            </header>
+
+            <div class="tv-meta @(ana.Porcentaje is null ? "" : anaPct >= 100 ? "is-bien" : anaPct >= 70 ? "is-medio" : "is-mal")">
+                <div class="tv-meta__cifra">
+                    <span class="tv-meta__valor">@Pct(ana.Porcentaje)</span>
+                    <span class="tv-meta__nota"><b>@ana.ConCheck</b> de <b>@ana.Universo</b> ingresos de agudos</span>
+                </div>
+                <div class="tv-meta__barra" role="img" aria-label="@Pct(ana.Porcentaje) de la meta">
+                    <span style="width:@P(Math.Min(anaPct, 100))%"></span>
+                </div>
+                <p class="tv-meta__objetivo">Meta 100 %</p>
+                @if (ana.PromedioMinutos is not null)
+                {
+                    <p class="tv-meta__pie">Tardan en promedio @DurLarga(ana.PromedioMinutos) desde la respuesta al asegurador</p>
+                }
+            </div>
+
+            <ul class="tv-analistas">
+                @foreach (var p in ana.Personas)
+                {
+                    <li class="tv-analista">
+                        <span class="tv-analista__quien">
+                            <span class="tv-analista__nombre">@p.Nombre @if (p.Conectada && enVivo) {<span class="tv-punto" title="Conectada"></span>}</span>
+                            @if (!p.EsOtros) { <span class="tv-chip">@TelevisorTurnos.Chip(p.Turno)</span> }
+                        </span>
+                        <span class="tv-analista__cifra"><b>@p.Gestionados</b> gestionados</span>
+                        @if (p.PromedioMinutos is not null)
+                        {
+                            <span class="tv-analista__cifra"><b>@DurLarga(p.PromedioMinutos)</b> en promedio</span>
+                        }
+                    </li>
+                }
+            </ul>
+
+            <div class="tv-ana__listas">
+                <div class="tv-ana__col">
+                    <h3>Pendientes de gestión <b>@ana.Pendientes.Count</b></h3>
+                    <ol class="tv-lista tv-lista--compacta" data-tv-desplazar>
+                        @foreach (var x in ana.Pendientes)
+                        {
+                            <li class="tv-fila tv-fila--espera">
+                                <span class="tv-fila__pac"><span class="tv-fila__nombre">@x.Paciente</span> <small>@x.ProgramaCorto · respondido @Hora(x.EsperaDesde)</small></span>
+                                <span class="tv-espera" title="Tiempo esperando la gestión de la analista" data-tv-espera="@Ms(x.EsperaDesde)" data-tv-hasta="@(enVivo ? "" : Ms(t.EstadoAl))">@(enVivo ? "" : DurLarga((t.EstadoAl - x.EsperaDesde).TotalMinutes))</span>
+                            </li>
+                        }
+                        @if (ana.Pendientes.Count == 0 && ana.Universo > 0)
+                        {
+                            <li class="tv-fila tv-fila--listo"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Todos gestionados</li>
+                        }
+                    </ol>
+                </div>
+                <div class="tv-ana__col">
+                    <h3>Gestionados <b>@ana.ConCheck</b></h3>
+                    @if (ana.ConCheck == 0)
+                    {
+                        <p class="tv-persona__vacia">Ninguno todavía</p>
+                    }
+                    <ol class="tv-lista tv-lista--compacta" data-tv-desplazar>
+                        @foreach (var x in ana.Personas.SelectMany(p => p.Lista).OrderByDescending(x => x.AnalistaAt ?? x.Registrado))
+                        {
+                            <li class="tv-fila" title="@(x.AnalistaPor ?? "Sin usuario")">
+                                <span class="tv-fila__pac"><span class="tv-fila__nombre">@x.Paciente</span> <small>@x.ProgramaCorto@(x.AnalistaPor is null ? "" : " · " + x.AnalistaPor)</small></span>
+                                <span class="tv-tiempo" title="Desde la respuesta al asegurador hasta la marca de la analista">@(x.MinutosAnalista is null ? "sin hora" : DurLarga(x.MinutosAnalista))</span>
+                            </li>
+                        }
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        @* ============================ NOVEDADES ============================ *@
+        <section class="tv-area tv-nov" aria-labelledby="tv-nov-titulo">
+            <header class="tv-area__cab">
+                <h2 id="tv-nov-titulo">Novedades</h2>
+                <p>Portal administrativo · meta @nov.Meta gestionadas al día</p>
+            </header>
+
+            @if (!nov.Disponible)
+            {
+                <p class="tv-vacio">@nov.Error Las cifras del censo no dependen de él.</p>
+            }
+            else
+            {
+                <div class="tv-nov__cabeza">
+                    <div class="tv-anillo @(nov.Resueltas >= nov.Meta ? "is-bien" : "")" style="--avance:@P(novPct)" role="img" aria-label="@nov.Resueltas de @nov.Meta novedades gestionadas">
+                        <div class="tv-anillo__centro">
+                            <span class="tv-anillo__valor">@nov.Resueltas</span>
+                            <span class="tv-anillo__meta">de @nov.Meta</span>
+                        </div>
+                    </div>
+                    <div class="tv-nov__gestion">
+                        <p class="tv-nov__rotulo">Gestionadas hoy</p>
+                        <p class="tv-nov__falta @(nov.Resueltas >= nov.Meta ? "is-bien" : "")">@(nov.Resueltas >= nov.Meta ? "Meta cumplida" : $"Faltan {nov.Meta - nov.Resueltas}")</p>
+                    </div>
+                </div>
+
+                <dl class="tv-nov__cifras">
+                    <div>
+                        <dt>Saldo a las 8:00</dt>
+                        <dd>@(nov.Saldo8am?.ToString() ?? "—")</dd>
+                        @if (nov.Saldo8am is null)
+                        {
+                            <small>Se toma a las 8:00 a. m.</small>
+                        }
+                    </div>
+                    <div>
+                        <dt>Pendientes @(Model.EsHoy ? "ahora" : "al cierre")</dt>
+                        <dd>@nov.PendientesAlCorte</dd>
+                        <small>@(nov.DiasMasAntigua is int d ? (d == 0 ? "La más antigua es de hoy" : $"La más antigua: {d} {(d == 1 ? "día" : "días")}") : "Ninguna pendiente")</small>
+                    </div>
+                    <div>
+                        <dt>Ingresaron hoy</dt>
+                        <dd>@nov.Ingresadas</dd>
+                    </div>
+                    <div>
+                        <dt>Resueltas hoy</dt>
+                        <dd>@nov.Resueltas</dd>
+                    </div>
+                </dl>
+                @if (habil && b.Clave != TelevisorBloques.Dia)
+                {
+                    <p class="tv-nov__turno">En este turno: <b>@b.NovedadesResueltas</b> resueltas</p>
+                }
+
+                <table class="tv-nov__areas">
+                    <thead><tr><th scope="col">Área</th><th scope="col">Pend.</th><th scope="col">Resueltas</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in nov.PorArea.Where(a => a.Pendientes + a.Resueltas + a.Ingresadas > 0))
+                        {
+                            <tr><th scope="row">@a.Etiqueta</th><td>@a.Pendientes</td><td>@a.Resueltas</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    </main>
+
+    <footer class="tv-calidad">
+        <p class="tv-calidad__rotulo"><i class="bi bi-clipboard2-check-fill" aria-hidden="true"></i> Calidad del dato</p>
+        <div class="tv-calidad__cinta" data-tv-marquesina>
+            <p class="tv-calidad__pista">
+                @if (adm.MedianaDemoraRegistro is int demora)
+                {
+                    <span class="tv-calidad__item tv-calidad__item--dato">Normalmente se registran en Nexa @DurLarga(demora) después de responder</span>
+                }
+                @if (b.Calidad.Count == 0)
+                {
+                    <span class="tv-calidad__item tv-calidad__item--ok"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Sin inconsistencias en los datos de este turno</span>
+                }
+                @foreach (var a in b.Calidad)
+                {
+                    <span class="tv-calidad__item"><b>@a.Paciente:</b> @a.Texto@(a.Persona is null ? "" : " · " + Es.TextInfo.ToTitleCase(a.Persona.ToLowerInvariant()))</span>
+                }
+            </p>
+        </div>
+    </footer>
+</div>

@@ -1330,6 +1330,23 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
   color: var(--censo-ink-soft);
 }
 
+/* El estado de gestión del caso de agudos se sigue marcando después del alta: dentro de una
+   sección cerrada, ese bloque conserva su aspecto y su alcance normales. */
+.censo-seccion--cerrada [data-editable-tras-alta] input,
+.censo-seccion--cerrada [data-editable-tras-alta] select,
+.censo-seccion--cerrada [data-editable-tras-alta] textarea {
+  pointer-events: auto;
+  color: inherit;
+}
+
+.censo-seccion--cerrada [data-editable-tras-alta] .form-check-input:not(:checked) {
+  background-color: var(--bs-body-bg, #fff);
+}
+
+.censo-seccion--cerrada [data-editable-tras-alta] label {
+  color: inherit;
+}
+
 @media (max-width: 47.99em) {
   .censo-atenciones__segmento {
     flex-direction: column;

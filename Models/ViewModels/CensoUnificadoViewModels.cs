@@ -156,6 +156,13 @@ public class CensoProgramaChipViewModel
     public string? MotivoBloqueo { get; set; }
 
     /// <summary>
+    /// Qué hacer para desbloquearlo, cuando el motivo corto no alcanza: va en el tooltip de la
+    /// tarjeta. Hoy solo lo lleva el bloqueo por un programa con egreso y estado todavía «Activo»,
+    /// que contradice lo que dice el navegador lateral (atención «cerrada»).
+    /// </summary>
+    public string? DetalleBloqueo { get; set; }
+
+    /// <summary>
     /// Consecuencia que hay que advertir antes de agregar este programa, si la tiene. Se dice en el
     /// momento de decidir y no como etiqueta permanente en la tarjeta.
     /// </summary>

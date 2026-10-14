@@ -34,6 +34,10 @@ public interface ICensoPacienteService
     /// <summary>
     /// Agrega un programa al paciente. Rechaza agudos si ya tiene crónicos abierto y viceversa, y
     /// rechaza duplicar un programa que ya está abierto.
+    ///
+    /// Los programas que no pueden convivir con el nuevo (todos, tratándose de terapia ambulatoria)
+    /// deben estar cerrados de verdad: ni con el episodio abierto ni con el registro diciendo
+    /// «Activo» aunque ya tenga fecha de egreso (ver <see cref="ProgramasEgresadosPeroActivosAsync"/>).
     /// </summary>
     Task<ServiceResult<CensoPacientePrograma>> AgregarProgramaAsync(
         long pacienteId,
@@ -69,8 +73,21 @@ public interface ICensoPacienteService
     /// maestro. En vez de intervenir sus rutas de guardado —que son las que mueven kardex,
     /// requisiciones y farmacia— la pantalla unificada reconcilia al abrirse. Solo escribe en las
     /// tablas del maestro y en la columna CensoPacienteId; nunca en datos clínicos.
+    ///
+    /// Devuelve lo mismo que <see cref="ProgramasEgresadosPeroActivosAsync"/>, calculado con las filas
+    /// que ya trajo, para que la pantalla no pague consultas de más. Si la reconciliación falla,
+    /// devuelve una lista vacía: la validación definitiva está en <see cref="AgregarProgramaAsync"/>.
     /// </summary>
-    Task ReconciliarEpisodiosAsync(long pacienteId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<string>> ReconciliarEpisodiosAsync(long pacienteId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Programas (crónicos, clínica de heridas, NPT) cuyo último registro ya tiene fecha de egreso
+    /// pero cuyo estado nunca se pasó a inactivo. Para el episodio están cerrados —el egreso basta—,
+    /// pero el registro sigue diciendo «Activo» y la atención, al quedar cerrada, ya no se puede
+    /// editar para corregirlo. Por eso no cuentan como cerrados al decidir si dos programas pueden
+    /// convivir.
+    /// </summary>
+    Task<IReadOnlyList<string>> ProgramasEgresadosPeroActivosAsync(long pacienteId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Crea el maestro de un documento que ya tiene filas en algún censo pero todavía no está

@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Nexa.Data.Entities;
 using Nexa.Data.Repositories.Models;
 using Nexa.Models.ViewModels;
+using Nexa.Services;
 using Nexa.Services.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -995,6 +996,11 @@ public partial class CensoController
 
         var posted = (model.MotivoEgreso, model.FechaEgreso, model.Estado);
 
+        // Un egreso con el estado todavía en «Activo» dejaba la atención cerrada y de solo lectura
+        // diciendo «Activo», y bloqueaba agregar terapia ambulatoria (CE 125957). Al registrar el
+        // egreso el estado pasa solo a «Inactivo»; se avisa para que no sorprenda.
+        var estadoPasaAInactivo = CensoPacienteService.ProgramaEgresadoPeroActivo(model.Estado, model.FechaEgreso);
+
         return GuardarClinicaHeridasSeccionAsync(
             model,
             restorePostedFields: m => (m.MotivoEgreso, m.FechaEgreso, m.Estado) = posted,
@@ -1002,11 +1008,15 @@ public partial class CensoController
             {
                 record.MotivoEgreso = m.MotivoEgreso;
                 record.FechaEgreso = m.FechaEgreso?.Date;
-                record.Estado = string.IsNullOrWhiteSpace(m.Estado) ? record.Estado : m.Estado;
+                record.Estado = CensoPacienteService.EstadoAlRegistrarEgreso(
+                    string.IsNullOrWhiteSpace(m.Estado) ? record.Estado : m.Estado,
+                    record.FechaEgreso);
             },
             missingRecordMessage: "Primero guarda los datos básicos del paciente para registrar el alta del programa.",
             auditAction: "CENSO_CLINICA_HERIDAS_ALTA_PROGRAMA_ACTUALIZADA",
-            successMessage: "Alta del programa guardada correctamente.",
+            successMessage: estadoPasaAInactivo
+                ? "Alta del programa guardada correctamente. El estado pasó a «Inactivo» porque se registró la fecha de egreso."
+                : "Alta del programa guardada correctamente.",
             cancellationToken);
     }
 
@@ -1845,9 +1855,11 @@ public partial class CensoController
         record.EstadoDevolucionServicioFarmaceutico = model.EstadoDevolucionServicioFarmaceutico;
         record.MotivoEgreso = model.MotivoEgreso;
         record.FechaEgreso = model.FechaEgreso?.Date;
-        record.Estado = string.IsNullOrWhiteSpace(model.Estado)
-            ? (preserveCreatedAt ? record.Estado : "Activo")
-            : model.Estado;
+        record.Estado = CensoPacienteService.EstadoAlRegistrarEgreso(
+            string.IsNullOrWhiteSpace(model.Estado)
+                ? (preserveCreatedAt ? record.Estado : "Activo")
+                : model.Estado,
+            record.FechaEgreso);
 
         if (preserveCreatedAt)
         {

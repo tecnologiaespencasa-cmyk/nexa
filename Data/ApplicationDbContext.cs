@@ -34,6 +34,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CensoProrroga> CensoProrrogas => Set<CensoProrroga>();
     public DbSet<CensoKardexReaperturaSolicitud> CensoKardexReaperturas => Set<CensoKardexReaperturaSolicitud>();
     public DbSet<FarmaciaReporteDiarioEnvio> FarmaciaReporteDiarioEnvios => Set<FarmaciaReporteDiarioEnvio>();
+    public DbSet<TelevisorCorte> TelevisorCortes => Set<TelevisorCorte>();
+    public DbSet<TelevisorTurnoAjuste> TelevisorTurnoAjustes => Set<TelevisorTurnoAjuste>();
     public DbSet<CensoPaciente> CensoPacientes => Set<CensoPaciente>();
     public DbSet<CensoPacientePrograma> CensoPacienteProgramas => Set<CensoPacientePrograma>();
     public DbSet<Medicamento> Medicamentos => Set<Medicamento>();
@@ -205,6 +207,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.NombrePaciente).HasMaxLength(200).IsRequired();
             entity.Property(x => x.KardexCerradoAtUtc).HasColumnType("timestamp with time zone");
             entity.Property(x => x.ProrrogaCerradaAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.GestionCompletaAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.GestionCompletaPor).HasMaxLength(80);
+            entity.Property(x => x.GestionAnalistaAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.GestionAnalistaPor).HasMaxLength(80);
             entity.Property(x => x.TipoIdentificacion).HasMaxLength(3).IsRequired();
             entity.Property(x => x.NumeroIdentificacion).HasMaxLength(20).IsRequired();
             entity.Property(x => x.CodigoCie10).HasMaxLength(4).IsRequired();
@@ -808,6 +814,31 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.EnviadoAtUtc).HasColumnType("timestamp with time zone");
             // Un solo envío por día: la segunda instancia que intente tomarlo choca con este índice.
             entity.HasIndex(x => x.Dia).IsUnique();
+        });
+
+        modelBuilder.Entity<TelevisorCorte>(entity =>
+        {
+            entity.ToTable("televisor_cortes");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Dia).HasColumnType("date");
+            entity.Property(x => x.Tipo).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.EstadoAlUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.GeneradoAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.DatosJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(x => x.Instancia).HasMaxLength(200);
+            // Una sola foto por día y corte: la segunda instancia que intente tomarla choca aquí.
+            entity.HasIndex(x => new { x.Dia, x.Tipo }).IsUnique();
+        });
+
+        modelBuilder.Entity<TelevisorTurnoAjuste>(entity =>
+        {
+            entity.ToTable("televisor_turnos_ajuste");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Dia).HasColumnType("date");
+            entity.Property(x => x.Turno).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.AjustadoPor).HasMaxLength(80);
+            entity.Property(x => x.AjustadoAtUtc).HasColumnType("timestamp with time zone");
+            entity.HasIndex(x => new { x.Dia, x.NursingAssistantId }).IsUnique();
         });
 
         modelBuilder.Entity<CensoAdjunto>(entity =>

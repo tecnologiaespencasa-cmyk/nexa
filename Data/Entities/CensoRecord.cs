@@ -424,7 +424,28 @@ public class CensoRecord
     [StringLength(20)]
     public string GestionCompletaPendiente { get; set; } = "Pendiente";
 
+    /// <summary>
+    /// Cuándo pasó la gestión a "Completa" y quién lo hizo (usuario de Nexa). Alimentan el
+    /// indicador "tiempo de gestión completa" del Televisor: desde que se crea el ingreso hasta
+    /// este momento. Se vacían si la gestión vuelve a "Pendiente". Nulas en todo lo anterior al
+    /// 2026-10-01, porque antes no se guardaba la hora del cambio.
+    /// </summary>
+    public DateTime? GestionCompletaAtUtc { get; set; }
+
+    [StringLength(80)]
+    public string? GestionCompletaPor { get; set; }
+
     public bool GestionAnalistaAsistencial { get; set; }
+
+    /// <summary>
+    /// Cuándo marcó una analista la "Gestión Analista asistencial" y quién (usuario de Nexa).
+    /// Mide el tiempo de gestión de las analistas en el Televisor. Mismo criterio que
+    /// <see cref="GestionCompletaAtUtc"/>.
+    /// </summary>
+    public DateTime? GestionAnalistaAtUtc { get; set; }
+
+    [StringLength(80)]
+    public string? GestionAnalistaPor { get; set; }
 
     public DateTime? PanAmericanFechaCirugia { get; set; }
 

@@ -259,7 +259,8 @@ public static class DataSeeder
             new { Code = SystemPermissions.AnalistaAsistencial, Description = "AnalistaAsistencial" },
             new { Code = SystemPermissions.EspacioCorporativo, Description = "Mi espacio corporativo - Básico" },
             new { Code = SystemPermissions.EspacioCorporativoAdmin, Description = "Mi espacio corporativo - Administrador" },
-            new { Code = SystemPermissions.HojaVidaPaciente, Description = "Paciente - Hoja de vida" }
+            new { Code = SystemPermissions.HojaVidaPaciente, Description = "Paciente - Hoja de vida" },
+            new { Code = SystemPermissions.Televisor, Description = "Televisor - Indicadores asistenciales" }
         };
 
         var existingCodes = await context.Permissions

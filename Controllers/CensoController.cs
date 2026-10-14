@@ -1136,9 +1136,10 @@ public partial class CensoController : Controller
             {
                 TempData["ErrorMessage"] =
                     "Esta atención está dada de alta: solo se guardaron el seguimiento de alta tardía, "
-                    + "el de hospitalización y la devolución de productos. Los demás campos quedaron "
-                    + "como estaban.";
+                    + "el de hospitalización, la devolución de productos y el estado de gestión del caso. "
+                    + "Los demás campos quedaron como estaban.";
             }
+            RegistrarCambiosDeGestion(existingRecord);
 
             var auxiliarChanged = !string.Equals(
                 previousAuxiliarAsignado?.Trim(),
@@ -1203,6 +1204,7 @@ public partial class CensoController : Controller
                     aplicarGestionAnalistaAsistencial: puedeGestionAnalista);
 
                 await _context.Censos.AddAsync(censoRecord, cancellationToken);
+                RegistrarCambiosDeGestion(censoRecord);
                 if (!await TrySaveCensoChangesAsync(model, cancellationToken))
                 {
                     await PopulateCensoListAndLatestRecordAsync(model, cancellationToken, loadLatestRecordIntoForm: false);

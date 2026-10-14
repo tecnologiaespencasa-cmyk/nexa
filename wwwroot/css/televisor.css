@@ -1,0 +1,2535 @@
+/* ==========================================================================
+   Televisor
+   --------------------------------------------------------------------------
+   Pantalla del área de admisiones y analistas, vista de lejos (2 a 5 m) y
+   todo el día. Decisiones:
+
+   - Fondo de pizarra nocturna: en un televisor un fondo claro deslumbra y
+     apaga los colores de estado. Verde y rojo están reservados para la
+     promesa de 15 minutos; ámbar, para "revise este dato". Cada color va
+     siempre con texto o forma (dial lleno, "!") para quien no distingue
+     rojo de verde.
+   - Firma: la cinta del día. Un riel de 6:00 a 22:00 con el aviso de la
+     1:30, el corte de la 1:45, la entrega de las 2:00, la aguja de la hora y
+     una marca por ingreso. Es lo que el equipo mira para saber "cómo vamos".
+   - Tamaño: la base es min(1.18vw, 2.1vh), así que toda la composición
+     escala igual en 1366×768, 1920×1080 o 3840×2160 y no aparece barra de
+     desplazamiento. En 1080p, 1 rem ≈ 23 px; nada baja de 0,62 rem.
+   - Bordes: muchos televisores recortan la imagen (overscan). El margen de
+     seguridad es configurable (ninguno / 3 % / 5 %) y trae guías.
+   - Tipografía: la de Reportes y la hoja de vida (Archivo condensada para
+     cifras y títulos, Atkinson Hyperlegible para leer de lejos, su variante
+     mono para documentos y minutos).
+   ========================================================================== */
+
+:root {
+    --tv-noche: #0b1620;
+    --tv-panel: #112130;
+    --tv-panel-alto: #17293a;
+    --tv-linea: #233a4e;
+    --tv-linea-suave: rgba(237, 243, 247, 0.06);
+    --tv-tinta: #edf3f7;
+    --tv-tinta-2: #a7b9c8;
+    --tv-tinta-3: #758ca0;
+
+    --tv-cumple: #3fd68e;
+    --tv-incumple: #ff6257;
+    --tv-revisar: #f3b545;
+    --tv-nocturno: #8193a8;
+    --tv-vivo: #7fd0ff;
+    --tv-anillo-fondo: #24394c;
+    --tv-marca-nexa: #e04524;
+
+    --tv-vivo-tenue: rgba(127, 208, 255, 0.1);
+    --tv-vivo-borde: rgba(127, 208, 255, 0.45);
+    --tv-vivo-brillo: rgba(127, 208, 255, 0.7);
+    --tv-rayado: rgba(237, 243, 247, 0.035);
+    --tv-aviso-fondo: #f3b545;
+    --tv-sobre-incumple: #2b0300;
+    --tv-capa: rgba(11, 22, 32, 0.95);
+    --tv-sombra: rgba(0, 0, 0, 0.5);
+
+    --tv-f-titulo: "Archivo", "Arial Narrow", "Segoe UI", system-ui, sans-serif;
+    --tv-f-texto: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+    --tv-f-dato: "Atkinson Hyperlegible Mono", "Cascadia Mono", "Consolas", ui-monospace, monospace;
+
+    --tv-radio: 0.85rem;
+    --tv-hueco: 0.85rem;
+
+    color-scheme: dark;
+    font-size: max(14px, min(1.18vw, 2.1vh));
+}
+
+/* Modo claro (Ajustes > Pantalla > Tema). "Según el equipo" sigue la preferencia del sistema
+   operativo del televisor. Los colores de estado se oscurecen para leerse sobre blanco. */
+html[data-tema="claro"] {
+    --tv-noche: #e8edf1;
+    --tv-panel: #ffffff;
+    --tv-panel-alto: #f2f5f8;
+    --tv-linea: #d3dce4;
+    --tv-linea-suave: rgba(19, 32, 43, 0.07);
+    --tv-tinta: #12202b;
+    --tv-tinta-2: #455662;
+    --tv-tinta-3: #677885;
+    --tv-cumple: #11804e;
+    --tv-incumple: #cc3524;
+    --tv-revisar: #b06900;
+    --tv-nocturno: #7f8e9c;
+    --tv-vivo: #0b6db3;
+    --tv-anillo-fondo: #dfe6ec;
+    --tv-vivo-tenue: rgba(11, 109, 179, 0.1);
+    --tv-vivo-borde: rgba(11, 109, 179, 0.4);
+    --tv-vivo-brillo: rgba(11, 109, 179, 0.35);
+    --tv-rayado: rgba(19, 32, 43, 0.05);
+    --tv-sobre-incumple: #ffffff;
+    --tv-capa: rgba(255, 255, 255, 0.97);
+    --tv-sombra: rgba(19, 32, 43, 0.18);
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+    html[data-tema="auto"] {
+        --tv-noche: #e8edf1;
+        --tv-panel: #ffffff;
+        --tv-panel-alto: #f2f5f8;
+        --tv-linea: #d3dce4;
+        --tv-linea-suave: rgba(19, 32, 43, 0.07);
+        --tv-tinta: #12202b;
+        --tv-tinta-2: #455662;
+        --tv-tinta-3: #677885;
+        --tv-cumple: #11804e;
+        --tv-incumple: #cc3524;
+        --tv-revisar: #b06900;
+        --tv-nocturno: #7f8e9c;
+        --tv-vivo: #0b6db3;
+        --tv-anillo-fondo: #dfe6ec;
+        --tv-vivo-tenue: rgba(11, 109, 179, 0.1);
+        --tv-vivo-borde: rgba(11, 109, 179, 0.4);
+        --tv-vivo-brillo: rgba(11, 109, 179, 0.35);
+        --tv-rayado: rgba(19, 32, 43, 0.05);
+        --tv-sobre-incumple: #ffffff;
+        --tv-capa: rgba(255, 255, 255, 0.97);
+        --tv-sombra: rgba(19, 32, 43, 0.18);
+        color-scheme: light;
+    }
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body.tv-cuerpo-pagina {
+    margin: 0;
+    overflow: hidden;
+    background: var(--tv-noche);
+    color: var(--tv-tinta);
+    font-family: var(--tv-f-texto);
+    font-size: 1rem;
+    line-height: 1.25;
+    -webkit-font-smoothing: antialiased;
+}
+
+body.is-quieto,
+body.is-quieto * {
+    cursor: none !important;
+}
+
+h1, h2, h3, p, dl, dd, ol, ul {
+    margin: 0;
+}
+
+/* Las capas usan el atributo hidden; sin esto, su display propio les ganaba y se veían. */
+[hidden] {
+    display: none !important;
+}
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+:focus-visible {
+    outline: 3px solid var(--tv-vivo);
+    outline-offset: 2px;
+}
+
+/* ---------- Margen de seguridad (overscan) ---------- */
+
+.tv-marco {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    padding: 3vh 3vw;
+}
+
+body[data-margen="ninguno"] .tv-marco { padding: 1vh 1vw; }
+body[data-margen="amplio"] .tv-marco { padding: 5vh 5vw; }
+
+#tv-tablero {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    flex: 1;
+    min-height: 0;
+    transition: opacity 0.2s ease;
+}
+
+/* El riel de la rotación solo existe con un área a la vez (ver el final de la hoja). */
+.tv-escenas {
+    display: none;
+}
+
+/* Mientras llega la vista que alguien pidió (otro turno u otro día). */
+body.is-cargando #tv-tablero {
+    opacity: 0.55;
+}
+
+.tv-guias {
+    position: fixed;
+    inset: 3vh 3vw;
+    pointer-events: none;
+    z-index: 40;
+}
+
+body[data-margen="ninguno"] .tv-guias { inset: 1vh 1vw; }
+body[data-margen="amplio"] .tv-guias { inset: 5vh 5vw; }
+
+.tv-guias i {
+    position: absolute;
+    width: 3rem;
+    height: 3rem;
+    border: 0.25rem solid var(--tv-revisar);
+}
+
+.tv-guias i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.tv-guias i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.tv-guias i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.tv-guias i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+
+/* ---------- Estructura ---------- */
+
+.tv-pantalla {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    gap: var(--tv-hueco);
+    height: 100%;
+    min-height: 0;
+}
+
+/* ---------- Cabecera ---------- */
+
+.tv-cabecera {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 1.6rem;
+}
+
+.tv-marca {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding-right: 1.4rem;
+    border-right: 1px solid var(--tv-linea);
+}
+
+.tv-marca__logo {
+    width: 2.4rem;
+    height: 2.4rem;
+    flex: none;
+}
+
+.tv-marca__logo path {
+    fill: none;
+    stroke: var(--tv-marca-nexa);
+    stroke-width: 15;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.tv-marca__logo circle {
+    fill: var(--tv-marca-nexa);
+}
+
+.tv-marca__nombre {
+    font-family: var(--tv-f-titulo);
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1;
+}
+
+.tv-marca__sub {
+    margin-top: 0.15rem;
+    color: var(--tv-tinta-2);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.tv-cabecera__fecha {
+    color: var(--tv-tinta-2);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.tv-cabecera__titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-top: 0.1rem;
+    font-family: var(--tv-f-titulo);
+    font-size: 2rem;
+    font-stretch: 80%;
+    font-weight: 700;
+    line-height: 1.05;
+}
+
+.tv-estado {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.65rem;
+    border: 1px solid var(--tv-linea);
+    border-radius: 999px;
+    color: var(--tv-tinta-2);
+    font-family: var(--tv-f-texto);
+    font-size: 0.72rem;
+    font-stretch: normal;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.tv-estado--vivo {
+    border-color: var(--tv-vivo-borde);
+    color: var(--tv-vivo);
+}
+
+.tv-estado--vivo::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--tv-vivo);
+    animation: tv-latido 2s ease-in-out infinite;
+}
+
+@keyframes tv-latido {
+    50% { opacity: 0.25; }
+}
+
+.tv-cuenta {
+    padding: 0.45rem 0.9rem;
+    border-radius: 0.6rem;
+    background: var(--tv-panel);
+    color: var(--tv-tinta-2);
+    font-family: var(--tv-f-titulo);
+    font-size: 1.15rem;
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.tv-cuenta:empty {
+    display: none;
+}
+
+.tv-cuenta b {
+    color: var(--tv-tinta);
+    font-weight: 800;
+}
+
+.tv-cuenta.is-pronto {
+    background: var(--tv-aviso-fondo);
+    color: #2a1b00;
+}
+
+.tv-cuenta.is-pronto b {
+    color: #2a1b00;
+}
+
+.tv-reloj {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-family: var(--tv-f-titulo);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.tv-reloj__hora {
+    font-size: 3rem;
+    font-stretch: 85%;
+    font-weight: 700;
+}
+
+.tv-reloj__ampm {
+    color: var(--tv-tinta-2);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.tv-sonido {
+    display: grid;
+    place-items: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+    background: var(--tv-panel);
+    color: var(--tv-tinta-3);
+    font-size: 1.15rem;
+    cursor: pointer;
+}
+
+.tv-sonido.is-activo {
+    color: var(--tv-cumple);
+}
+
+/* ---------- Cinta del día ---------- */
+
+.tv-cinta {
+    position: relative;
+    padding-top: 1.35rem;
+}
+
+.tv-cinta__pista {
+    position: relative;
+    height: 3.1rem;
+    border: 1px solid var(--tv-linea);
+    border-radius: 0.65rem;
+    background: var(--tv-panel);
+}
+
+.tv-cinta__tramo {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    overflow: hidden;
+    border-radius: inherit;
+}
+
+.tv-cinta__tramo span {
+    position: absolute;
+    top: 0.35rem;
+    left: 0.6rem;
+    color: var(--tv-tinta-3);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.tv-cinta__tramo.is-elegido {
+    background: var(--tv-panel-alto);
+}
+
+.tv-cinta__tramo.is-elegido span {
+    color: var(--tv-tinta);
+}
+
+/* Un turno cerrado se ve rayado, como una hoja ya firmada. */
+.tv-cinta__tramo.is-cerrado {
+    background-image: repeating-linear-gradient(135deg, var(--tv-rayado) 0 0.35rem, transparent 0.35rem 0.7rem);
+}
+
+.tv-cinta__transcurrido {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    border-radius: 0.65rem 0 0 0.65rem;
+    background: var(--tv-vivo-tenue);
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.tv-hito {
+    position: absolute;
+    top: -1.35rem;
+    bottom: -0.25rem;
+    width: 0;
+    border-left: 2px solid var(--tv-tinta-2);
+    pointer-events: none;
+}
+
+.tv-hito b {
+    position: absolute;
+    top: 0;
+    left: 0.35rem;
+    color: var(--tv-tinta);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.tv-hito--aviso {
+    border-left: 2px dotted var(--tv-revisar);
+}
+
+.tv-hito--aviso i {
+    position: absolute;
+    top: -0.05rem;
+    right: 0.3rem;
+    color: var(--tv-revisar);
+    font-size: 0.8rem;
+}
+
+.tv-hito--entrega {
+    top: 0;
+    border-left: 2px dashed var(--tv-tinta-3);
+}
+
+.tv-hito--entrega b {
+    display: none;
+}
+
+.tv-tick {
+    position: absolute;
+    bottom: calc(0.3rem + var(--pila, 0) * 0.62rem);
+    width: 0.46rem;
+    height: 0.5rem;
+    border-radius: 0.12rem;
+    transform: translateX(-50%);
+    background: var(--tv-tinta-3);
+}
+
+.tv-tick b {
+    position: absolute;
+    bottom: 0.55rem;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--tv-tinta-2);
+    font-family: var(--tv-f-dato);
+    font-size: 0.6rem;
+    font-style: normal;
+}
+
+.tv-tick--cumple { background: var(--tv-cumple); }
+.tv-tick--no-cumple { background: var(--tv-incumple); }
+.tv-tick--nocturno,
+.tv-tick--no-aplica { background: var(--tv-nocturno); }
+.tv-tick--revisar,
+.tv-tick--sin-dato { background: var(--tv-revisar); }
+
+.tv-cinta__ahora {
+    position: absolute;
+    top: 0;
+    bottom: -0.45rem;
+    width: 0;
+    border-left: 3px solid var(--tv-vivo);
+    filter: drop-shadow(0 0 0.35rem var(--tv-vivo-brillo));
+    pointer-events: none;
+}
+
+.tv-cinta__ahora::before {
+    content: "";
+    position: absolute;
+    top: -0.3rem;
+    left: -0.42rem;
+    width: 0.66rem;
+    height: 0.66rem;
+    border-radius: 50%;
+    background: var(--tv-vivo);
+}
+
+.tv-cinta__ahora b {
+    position: absolute;
+    bottom: -1.35rem;
+    left: 0;
+    transform: translateX(-50%);
+    padding: 0.05rem 0.35rem;
+    border-radius: 0.3rem;
+    background: var(--tv-vivo);
+    color: var(--tv-noche);
+    font-family: var(--tv-f-dato);
+    font-size: 0.68rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.tv-cinta__horas {
+    position: relative;
+    height: 1.2rem;
+    padding: 0;
+    list-style: none;
+}
+
+.tv-cinta__horas li {
+    position: absolute;
+    top: 0.3rem;
+    transform: translateX(-50%);
+    color: var(--tv-tinta-3);
+    font-family: var(--tv-f-dato);
+    font-size: 0.66rem;
+    white-space: nowrap;
+}
+
+.tv-cinta__horas li:first-child { transform: none; }
+.tv-cinta__horas li:last-child { transform: translateX(-100%); }
+
+.tv-cinta__horas small {
+    margin-left: 0.15rem;
+    font-size: 0.85em;
+}
+
+/* Qué es cada cuadro: sin esto la cinta solo era una fila de colores. */
+.tv-cinta__leyenda {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem 0.75rem;
+    max-width: 44%;
+    color: var(--tv-tinta-3);
+    font-size: 0.66rem;
+    font-weight: 600;
+}
+
+.tv-cinta__leyenda span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--tv-tinta-2);
+}
+
+.tv-tick-muestra {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 0.12rem;
+}
+
+.tv-cinta__noche {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    gap: 0.8rem;
+    color: var(--tv-tinta-3);
+    font-size: 0.66rem;
+}
+
+.tv-cinta__noche i {
+    margin-right: -0.4rem;
+}
+
+/* ---------- Cuerpo: tres áreas ---------- */
+
+.tv-cuerpo {
+    display: grid;
+    grid-template-columns: minmax(0, 2.75fr) minmax(0, 0.95fr) minmax(0, 0.82fr);
+    gap: var(--tv-hueco);
+    min-height: 0;
+}
+
+.tv-area {
+    --tv-fondo-local: var(--tv-panel);
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid var(--tv-linea);
+    border-radius: var(--tv-radio);
+    background: var(--tv-panel);
+}
+
+.tv-area__cab {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    column-gap: 0.8rem;
+}
+
+.tv-area__cab h2 {
+    font-family: var(--tv-f-titulo);
+    font-size: 1.3rem;
+    font-stretch: 85%;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.tv-area__cab p {
+    color: var(--tv-tinta-2);
+    font-size: 0.74rem;
+}
+
+.tv-leyenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.8rem;
+    margin-left: auto;
+    color: var(--tv-tinta-3);
+    font-size: 0.62rem;
+    font-weight: 600;
+}
+
+.tv-leyenda span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.tv-leyenda__dial {
+    width: 0.7rem;
+    height: 0.7rem;
+    border: 0.16rem solid currentColor;
+    border-radius: 50%;
+}
+
+.tv-area__pie {
+    color: var(--tv-tinta-3);
+    font-size: 0.68rem;
+}
+
+.tv-area__pie b {
+    color: var(--tv-tinta-2);
+}
+
+.tv-vacio {
+    align-self: center;
+    margin: auto;
+    padding: 1rem;
+    color: var(--tv-tinta-2);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.is-bien { color: var(--tv-cumple); }
+.is-medio { color: var(--tv-revisar); }
+.is-mal { color: var(--tv-incumple); }
+
+/* ---------- Indicadores de admisiones ---------- */
+
+.tv-kpis {
+    display: grid;
+    grid-template-columns: 0.85fr 1.1fr 0.95fr 1.2fr 0.9fr;
+    gap: 0.6rem;
+}
+
+.tv-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+    padding: 0.55rem 0.75rem 0.6rem;
+    border-radius: 0.65rem;
+    background: var(--tv-panel-alto);
+    color: var(--tv-tinta);
+}
+
+.tv-kpi__rotulo {
+    order: -1;
+    color: var(--tv-tinta-2);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tv-kpi__valor {
+    font-family: var(--tv-f-titulo);
+    font-size: 2rem;
+    font-stretch: 80%;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.tv-kpi__valor small {
+    color: var(--tv-tinta-3);
+    font-size: 0.55em;
+}
+
+.tv-kpi.is-bien .tv-kpi__valor { color: var(--tv-cumple); }
+.tv-kpi.is-medio .tv-kpi__valor { color: var(--tv-revisar); }
+.tv-kpi.is-mal .tv-kpi__valor { color: var(--tv-incumple); }
+.tv-kpi.is-bien,
+.tv-kpi.is-medio,
+.tv-kpi.is-mal { color: var(--tv-tinta); }
+
+.tv-kpi__nota {
+    color: var(--tv-tinta-3);
+    font-size: 0.62rem;
+    line-height: 1.2;
+}
+
+.tv-kpi__nota--datos > span + span::before {
+    content: " · ";
+}
+
+/* La cifra de ingresos va primero y más grande: es lo que todos preguntan. */
+.tv-kpi--ingresos .tv-kpi__valor {
+    font-size: 2.6rem;
+}
+
+.tv-turnos-kpi {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0;
+    list-style: none;
+}
+
+.tv-turnos-kpi li {
+    display: grid;
+    flex: 1;
+    padding-left: 0.5rem;
+    border-left: 2px solid var(--tv-linea);
+    line-height: 1;
+}
+
+.tv-turnos-kpi li:first-child {
+    padding-left: 0;
+    border-left: 0;
+}
+
+.tv-turnos-kpi b {
+    font-family: var(--tv-f-titulo);
+    font-size: 2.1rem;
+    font-stretch: 80%;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+.tv-turnos-kpi span {
+    margin-top: 0.2rem;
+    color: var(--tv-tinta-2);
+    font-size: 0.66rem;
+    font-weight: 700;
+}
+
+/* ---------- Tarjetas por persona ---------- */
+
+.tv-personas {
+    display: grid;
+    grid-template-columns: repeat(var(--personas, 3), minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 0.6rem;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Una columna lleva una tarjeta, o dos apiladas cuando hay más de cuatro personas. */
+.tv-personas__col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-height: 0;
+}
+
+.tv-personas__col > .tv-persona {
+    flex: 1;
+}
+
+.tv-persona {
+    --tv-fondo-local: var(--tv-panel-alto);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 0.65rem;
+    background: var(--tv-panel-alto);
+}
+
+.tv-persona--otros {
+    background: transparent;
+    outline: 1px dashed var(--tv-linea);
+    outline-offset: -1px;
+    --tv-fondo-local: var(--tv-panel);
+}
+
+.tv-persona__cab {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.45rem 0.7rem 0.4rem;
+    border-bottom: 1px solid var(--tv-linea);
+}
+
+.tv-persona__quien {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem 0.5rem;
+    min-width: 0;
+}
+
+.tv-persona__quien .tv-chip {
+    margin-top: 0;
+}
+
+.tv-persona__vacia {
+    padding: 0.8rem 0.7rem;
+    color: var(--tv-tinta-3);
+    font-size: 0.7rem;
+}
+
+.tv-persona__cab h3 {
+    font-family: var(--tv-f-titulo);
+    font-size: 1.05rem;
+    font-stretch: 78%;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.tv-persona__cab h3 .tv-punto {
+    display: inline-block;
+    margin-left: 0.25rem;
+    vertical-align: 0.12em;
+}
+
+.tv-punto {
+    flex: none;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--tv-cumple);
+    box-shadow: 0 0 0 0.18rem rgba(63, 214, 142, 0.2);
+}
+
+.tv-chip--apagado {
+    background: var(--tv-linea-suave) !important;
+    color: var(--tv-tinta-3) !important;
+}
+
+.tv-chip {
+    display: inline-block;
+    margin-top: 0.2rem;
+    padding: 0.08rem 0.5rem;
+    border-radius: 999px;
+    background: var(--tv-vivo-tenue);
+    color: var(--tv-vivo);
+    font-size: 0.64rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* Cuatro cifras en una fila cuando la tarjeta es ancha y en dos cuando no (las tarjetas se
+   estrechan con cuatro personas). */
+/* Cifra y rótulo en línea ("8 recepcionó · 22 registró · 100 % a tiempo · 81 min a favor"):
+   caben en una o dos líneas según el ancho de la tarjeta, sin apilarse y comerse la lista. */
+.tv-persona__cifras {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.55rem;
+}
+
+.tv-persona__cifras > div {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.2rem;
+    white-space: nowrap;
+}
+
+.tv-persona__cifras dt {
+    color: var(--tv-tinta-2);
+    font-size: 0.58rem;
+    font-weight: 600;
+}
+
+/* "/22": el total del turno del que es parte cada cuenta. */
+.tv-persona__cifras dd small {
+    color: var(--tv-tinta-3);
+    font-size: 0.62em;
+    font-weight: 600;
+}
+
+.tv-persona__cifras dd {
+    font-family: var(--tv-f-titulo);
+    font-size: 1.05rem;
+    font-stretch: 85%;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+/* ---------- Listas (se desplazan solas si no caben) ---------- */
+
+.tv-lista {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0.2rem 0.55rem;
+    list-style: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 0.4rem, #000 calc(100% - 1rem), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 0.4rem, #000 calc(100% - 1rem), transparent 100%);
+}
+
+.tv-lista.is-desplazando > li {
+    animation: tv-desplazar var(--duracion, 20s) ease-in-out infinite alternate;
+}
+
+@keyframes tv-desplazar {
+    0%, 12% { transform: translateY(0); }
+    88%, 100% { transform: translateY(calc(-1 * var(--distancia, 0px))); }
+}
+
+.tv-fila {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.24rem 0.1rem;
+    border-bottom: 1px solid var(--tv-linea-suave);
+}
+
+.tv-fila__pac {
+    min-width: 0;
+}
+
+/* El nombre del paciente: hasta dos líneas, y si no cabe, puntos suspensivos. */
+.tv-fila__nombre {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-family: var(--tv-f-titulo);
+    font-size: 0.9rem;
+    font-stretch: 86%;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+/* Cada dato va entero en su línea ("Agudos · 10:13 p. m. ·" / "registró Pilar Vera"): partido
+   por la mitad, a lo ancho de una tarjeta estrecha, ocupaba tres renglones. */
+.tv-fila__pac small em {
+    font-style: normal;
+    white-space: nowrap;
+}
+
+.tv-fila__pac small em:not(:last-child)::after {
+    content: " ·";
+    color: var(--tv-tinta-3);
+}
+
+/* Quién lo digitó cuando no es quien lo recepcionó. */
+.tv-fila__registro {
+    color: var(--tv-vivo);
+}
+
+/* Meta de creación de 10 minutos, por paciente. */
+.tv-fila__creacion.is-bien { color: var(--tv-cumple); }
+.tv-fila__creacion.is-mal { color: var(--tv-incumple); }
+
+.tv-fila--cancelado .tv-fila__nombre {
+    color: var(--tv-tinta-3);
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+}
+
+.tv-fila__pac small {
+    display: block;
+    margin-top: 0.08rem;
+    color: var(--tv-tinta-2);
+    font-family: var(--tv-f-texto);
+    font-size: 0.64rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+/* El dial: un reloj de 15 minutos. Se llena con el tiempo que tomó la respuesta;
+   lleno y en rojo, se pasó de la promesa. */
+.tv-dial {
+    --c: var(--tv-tinta-3);
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 2.15rem;
+    height: 2.15rem;
+    border-radius: 50%;
+    background: conic-gradient(var(--c) calc(var(--uso, 0) * 360deg), var(--tv-anillo-fondo) 0);
+}
+
+.tv-dial::before {
+    content: "";
+    position: absolute;
+    inset: 0.2rem;
+    border-radius: 50%;
+    background: var(--tv-fondo-local);
+}
+
+.tv-dial i {
+    position: relative;
+    color: var(--tv-tinta-2);
+    font-size: 0.85rem;
+}
+
+.tv-dial b {
+    position: relative;
+    font-family: var(--tv-f-titulo);
+    font-size: 0.92rem;
+    font-stretch: 85%;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.tv-dial small {
+    position: relative;
+    margin-top: -0.05rem;
+    color: var(--tv-tinta-3);
+    font-size: 0.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.tv-dial:has(small) {
+    align-content: center;
+    gap: 0;
+}
+
+.tv-dial--cancelado i { color: var(--tv-tinta-3); }
+.tv-dial--cumple { --c: var(--tv-cumple); }
+.tv-dial--cumple b { color: var(--tv-cumple); }
+.tv-dial--no-cumple { --c: var(--tv-incumple); }
+.tv-dial--no-cumple b { color: var(--tv-incumple); }
+.tv-dial--nocturno { --c: var(--tv-nocturno); }
+.tv-dial--nocturno b { color: var(--tv-tinta-2); }
+/* No es de Admisiones: sin medida ni alarma, solo el aro vacío. */
+.tv-dial--no-aplica { --uso: 0 !important; }
+.tv-dial--no-aplica b { color: var(--tv-tinta-3); }
+.tv-dial--revisar,
+.tv-dial--sin-dato { --c: var(--tv-revisar); --uso: 1 !important; }
+.tv-dial--revisar b,
+.tv-dial--sin-dato b { color: var(--tv-revisar); font-size: 1.05rem; }
+
+.tv-dial-caja {
+    position: relative;
+    display: block;
+}
+
+/* Insignia de gestión, montada sobre la esquina superior del círculo de minutos (abajo taparía
+   la palabra "min"). */
+.tv-gestion {
+    position: absolute;
+    top: -0.2rem;
+    right: -0.35rem;
+    display: grid;
+    place-items: center;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 50%;
+    background: var(--tv-fondo-local);
+    line-height: 1;
+}
+
+.tv-gestion i {
+    font-size: 0.92rem;
+}
+
+.tv-gestion.is-completa { color: var(--tv-cumple); }
+.tv-gestion.is-pendiente,
+.tv-leyenda .is-pendiente { color: var(--tv-tinta-2); }
+.tv-gestion.is-no-aplica { color: var(--tv-tinta-3); }
+/* Sigue pendiente y ya pasó de los 10 minutos de la meta de creación. */
+.tv-gestion.is-vencida { color: var(--tv-incumple); }
+
+/* ---------- Analistas ---------- */
+
+.tv-meta {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0.6rem 0.75rem 0.65rem;
+    border-radius: 0.65rem;
+    background: var(--tv-panel-alto);
+    color: var(--tv-tinta-3);
+}
+
+.tv-meta__cifra {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+}
+
+.tv-meta__valor {
+    font-family: var(--tv-f-titulo);
+    font-size: 2.6rem;
+    font-stretch: 80%;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--tv-tinta);
+}
+
+.tv-meta.is-bien .tv-meta__valor { color: var(--tv-cumple); }
+.tv-meta.is-medio .tv-meta__valor { color: var(--tv-revisar); }
+.tv-meta.is-mal .tv-meta__valor { color: var(--tv-incumple); }
+
+.tv-meta__nota {
+    color: var(--tv-tinta-2);
+    font-size: 0.72rem;
+}
+
+.tv-meta__nota b {
+    color: var(--tv-tinta);
+    font-family: var(--tv-f-titulo);
+    font-size: 1.1rem;
+}
+
+.tv-meta__objetivo {
+    margin-top: -0.25rem;
+    text-align: right;
+    color: var(--tv-tinta-3);
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.tv-meta__barra {
+    position: relative;
+    height: 0.65rem;
+    border-radius: 999px;
+    background: var(--tv-anillo-fondo);
+}
+
+.tv-meta__barra span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: inherit;
+    background: currentColor;
+}
+
+.tv-meta.is-bien .tv-meta__barra { color: var(--tv-cumple); }
+.tv-meta.is-medio .tv-meta__barra { color: var(--tv-revisar); }
+.tv-meta.is-mal .tv-meta__barra { color: var(--tv-incumple); }
+
+.tv-meta__pie {
+    font-size: 0.66rem;
+}
+
+.tv-analistas {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0;
+    list-style: none;
+}
+
+.tv-analista {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 0.5rem;
+    background: var(--tv-panel-alto);
+}
+
+.tv-analista__quien {
+    display: grid;
+    justify-items: start;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.tv-analista__nombre {
+    font-family: var(--tv-f-titulo);
+    font-size: 0.98rem;
+    font-stretch: 80%;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.tv-analista__nombre .tv-punto {
+    display: inline-block;
+    margin-left: 0.25rem;
+    vertical-align: 0.1em;
+}
+
+.tv-analista .tv-chip {
+    margin: 0;
+}
+
+.tv-analista__cifra {
+    display: grid;
+    justify-items: end;
+    color: var(--tv-tinta-3);
+    font-size: 0.58rem;
+    font-weight: 700;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.tv-analista__cifra b {
+    color: var(--tv-tinta);
+    font-family: var(--tv-f-titulo);
+    font-size: 1.05rem;
+}
+
+.tv-ana__listas {
+    display: grid;
+    grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 0.55rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.tv-ana__col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-radius: 0.6rem;
+    background: var(--tv-panel-alto);
+}
+
+.tv-ana__col h3 {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.45rem 0.6rem 0.35rem;
+    border-bottom: 1px solid var(--tv-linea);
+    color: var(--tv-tinta-2);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tv-ana__col h3 b {
+    color: var(--tv-tinta);
+    font-family: var(--tv-f-titulo);
+    font-size: 1rem;
+    letter-spacing: 0;
+}
+
+.tv-lista--compacta .tv-fila {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.28rem 0.05rem;
+}
+
+.tv-lista--compacta .tv-fila__pac {
+    font-size: 0.8rem;
+}
+
+.tv-espera,
+.tv-tiempo {
+    font-family: var(--tv-f-titulo);
+    font-size: 0.95rem;
+    font-stretch: 88%;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.tv-espera {
+    color: var(--tv-tinta-2);
+}
+
+.tv-tiempo {
+    color: var(--tv-cumple);
+}
+
+.tv-fila--listo {
+    display: flex;
+    gap: 0.4rem;
+    color: var(--tv-cumple);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+/* ---------- Novedades ---------- */
+
+.tv-nov__cabeza {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.tv-nov__rotulo {
+    color: var(--tv-tinta-2);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tv-nov__falta {
+    margin-top: 0.2rem;
+    font-family: var(--tv-f-titulo);
+    font-size: 1.15rem;
+    font-stretch: 85%;
+    font-weight: 700;
+}
+
+.tv-anillo {
+    --avance: 0;
+    position: relative;
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 6rem;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: conic-gradient(var(--tv-vivo) calc(var(--avance) * 360deg), var(--tv-anillo-fondo) 0);
+}
+
+.tv-anillo.is-bien {
+    background: conic-gradient(var(--tv-cumple) 360deg, var(--tv-anillo-fondo) 0);
+}
+
+.tv-anillo::before {
+    content: "";
+    position: absolute;
+    inset: 0.55rem;
+    border-radius: 50%;
+    background: var(--tv-panel);
+}
+
+.tv-anillo__centro {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    line-height: 1;
+}
+
+.tv-anillo__valor {
+    font-family: var(--tv-f-titulo);
+    font-size: 2.2rem;
+    font-stretch: 80%;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+.tv-anillo__meta {
+    margin-top: 0.1rem;
+    color: var(--tv-tinta-2);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.tv-anillo__rotulo {
+    margin-top: 0.25rem;
+    color: var(--tv-tinta-3);
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tv-nov__cifras {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+}
+
+.tv-nov__cifras > div {
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.55rem;
+    background: var(--tv-panel-alto);
+}
+
+.tv-nov__cifras dt {
+    color: var(--tv-tinta-2);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.tv-nov__cifras dd {
+    font-family: var(--tv-f-titulo);
+    font-size: 1.35rem;
+    font-stretch: 85%;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.tv-nov__cifras small {
+    display: block;
+    color: var(--tv-tinta-3);
+    font-size: 0.58rem;
+}
+
+.tv-nov__neto,
+.tv-nov__turno {
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.tv-nov__neto:not(.is-bien):not(.is-mal),
+.tv-nov__turno {
+    color: var(--tv-tinta-2);
+}
+
+.tv-nov__turno b {
+    color: var(--tv-tinta);
+    font-family: var(--tv-f-titulo);
+    font-size: 1rem;
+}
+
+.tv-nov__areas {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.64rem;
+}
+
+.tv-nov__areas th,
+.tv-nov__areas td {
+    padding: 0.16rem 0.1rem;
+    border-bottom: 1px solid var(--tv-linea-suave);
+    text-align: right;
+}
+
+.tv-nov__areas th[scope="row"],
+.tv-nov__areas thead th:first-child {
+    text-align: left;
+}
+
+.tv-nov__areas thead th {
+    color: var(--tv-tinta-3);
+    font-size: 0.58rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tv-nov__areas th[scope="row"] {
+    font-weight: 600;
+}
+
+.tv-nov__areas td {
+    font-family: var(--tv-f-dato);
+    font-weight: 600;
+}
+
+/* ---------- Calidad del dato ---------- */
+
+.tv-calidad {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.9rem;
+    min-height: 2.3rem;
+    padding: 0 0.95rem;
+    border: 1px solid var(--tv-linea);
+    border-radius: 0.65rem;
+    background: var(--tv-panel);
+}
+
+.tv-calidad__rotulo {
+    color: var(--tv-revisar);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.tv-calidad__cinta {
+    overflow: hidden;
+}
+
+.tv-calidad__pista {
+    display: inline-flex;
+    gap: 1.4rem;
+    white-space: nowrap;
+    font-size: 0.78rem;
+}
+
+.tv-calidad__cinta.is-desplazando .tv-calidad__pista {
+    animation: tv-marquesina var(--duracion, 30s) linear infinite alternate;
+}
+
+@keyframes tv-marquesina {
+    0%, 8% { transform: translateX(0); }
+    92%, 100% { transform: translateX(calc(-1 * var(--distancia, 0px))); }
+}
+
+.tv-calidad__item {
+    color: var(--tv-tinta-2);
+}
+
+.tv-calidad__item b {
+    color: var(--tv-revisar);
+    font-weight: 700;
+}
+
+.tv-calidad__item + .tv-calidad__item::before {
+    content: "•";
+    margin-right: 1.4rem;
+    color: var(--tv-tinta-3);
+}
+
+.tv-calidad__item--dato {
+    color: var(--tv-tinta);
+    font-weight: 600;
+}
+
+.tv-calidad__item--ok {
+    color: var(--tv-cumple);
+}
+
+/* ---------- Capas: sonido, aviso, controles, ajustes ---------- */
+
+.tv-activar {
+    position: fixed;
+    right: 4vw;
+    bottom: 5vh;
+    z-index: 30;
+    max-width: 21rem;
+}
+
+.tv-activar__caja {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.4rem 0.7rem;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid var(--tv-revisar);
+    border-radius: var(--tv-radio);
+    background: var(--tv-capa);
+    box-shadow: 0 1rem 3rem var(--tv-sombra);
+}
+
+.tv-activar__caja > i {
+    color: var(--tv-revisar);
+    font-size: 1.3rem;
+}
+
+.tv-activar__caja h2 {
+    font-family: var(--tv-f-titulo);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.tv-activar__caja p,
+.tv-activar__caja button {
+    grid-column: 1 / -1;
+}
+
+.tv-activar__caja p {
+    color: var(--tv-tinta-2);
+    font-size: 0.68rem;
+}
+
+.tv-aviso {
+    position: fixed;
+    inset: 32vh 8vw auto;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.8rem 2.2rem;
+    border-radius: 1.2rem;
+    background: var(--tv-aviso-fondo);
+    color: #241700;
+    box-shadow: 0 2rem 6rem var(--tv-sombra);
+    animation: tv-aviso-entra 0.5s ease-out;
+}
+
+.tv-aviso i {
+    font-size: 3.4rem;
+}
+
+.tv-aviso p {
+    font-family: var(--tv-f-titulo);
+    font-size: 2.1rem;
+    font-stretch: 85%;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+@keyframes tv-aviso-entra {
+    from { opacity: 0; transform: translateY(1.5rem) scale(0.97); }
+}
+
+.tv-desconexion {
+    position: fixed;
+    top: 1.2vh;
+    left: 50%;
+    z-index: 35;
+    transform: translateX(-50%);
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    background: var(--tv-incumple);
+    color: var(--tv-sobre-incumple);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.tv-desconexion a {
+    color: inherit;
+}
+
+.tv-boton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--tv-linea);
+    border-radius: 0.55rem;
+    background: var(--tv-panel-alto);
+    color: var(--tv-tinta);
+    font: 600 0.8rem/1.2 var(--tv-f-texto);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.tv-boton:hover {
+    border-color: var(--tv-tinta-3);
+}
+
+.tv-boton[aria-pressed="true"] {
+    border-color: var(--tv-vivo);
+    background: var(--tv-vivo-tenue);
+    color: var(--tv-vivo);
+}
+
+.tv-boton--principal {
+    border-color: var(--tv-vivo);
+    background: var(--tv-vivo);
+    color: var(--tv-noche);
+}
+
+.tv-controles {
+    position: fixed;
+    left: 50%;
+    bottom: 2vh;
+    z-index: 25;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: min(92vw, 70rem);
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--tv-linea);
+    border-radius: var(--tv-radio);
+    background: var(--tv-capa);
+    box-shadow: 0 1rem 3rem var(--tv-sombra);
+    transform: translate(-50%, calc(100% + 3vh));
+    transition: transform 0.25s ease;
+}
+
+.tv-controles.is-visible {
+    transform: translate(-50%, 0);
+}
+
+.tv-controles__grupo {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.tv-controles__espacio {
+    flex: 1;
+}
+
+.tv-controles__fecha {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--tv-tinta-2);
+    font-size: 0.75rem;
+}
+
+.tv-controles__fecha input,
+.tv-campo select,
+.tv-turnos select {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--tv-linea);
+    border-radius: 0.45rem;
+    background: var(--tv-panel-alto);
+    color: var(--tv-tinta);
+    font: 600 0.78rem var(--tv-f-texto);
+}
+
+.tv-ajustes {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    width: min(34rem, 94vw);
+    overflow-y: auto;
+    padding: 1.2rem 1.3rem 2rem;
+    border-left: 1px solid var(--tv-linea);
+    background: var(--tv-panel);
+    box-shadow: -2rem 0 4rem var(--tv-sombra);
+}
+
+.tv-ajustes__cab {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.8rem;
+}
+
+.tv-ajustes__cab h2 {
+    font-family: var(--tv-f-titulo);
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.tv-ajustes__seccion {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.9rem 0;
+    border-top: 1px solid var(--tv-linea);
+}
+
+.tv-ajustes__seccion h3 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--tv-tinta-2);
+}
+
+.tv-ajustes__ayuda {
+    color: var(--tv-tinta-3);
+    font-size: 0.72rem;
+}
+
+.tv-ajustes__fila {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+
+.tv-ajustes__fila--tres {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tv-campo input[type="number"] {
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--tv-linea);
+    border-radius: 0.45rem;
+    background: var(--tv-panel-alto);
+    color: var(--tv-tinta);
+    font: 600 0.78rem var(--tv-f-texto);
+}
+
+.tv-boton:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.tv-campo {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 0.78rem;
+}
+
+.tv-campo > span,
+.tv-campo legend {
+    color: var(--tv-tinta-2);
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.tv-campo select {
+    width: 100%;
+}
+
+.tv-campo input[type="range"] {
+    accent-color: var(--tv-vivo);
+}
+
+.tv-mensaje {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--tv-linea);
+    border-radius: 0.5rem;
+    margin-top: 0.35rem;
+    cursor: pointer;
+}
+
+.tv-mensaje:has(input:checked) {
+    border-color: var(--tv-vivo);
+    background: var(--tv-vivo-tenue);
+}
+
+.tv-mensaje b {
+    display: block;
+    font-size: 0.75rem;
+}
+
+.tv-mensaje span {
+    color: var(--tv-tinta-2);
+    font-size: 0.7rem;
+}
+
+.tv-interruptor,
+.tv-opciones label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+
+.tv-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+}
+
+.tv-interruptor input,
+.tv-opciones input,
+.tv-mensaje input {
+    accent-color: var(--tv-vivo);
+    width: 1rem;
+    height: 1rem;
+}
+
+.tv-turnos {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+
+.tv-turnos th,
+.tv-turnos td {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--tv-linea-suave);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.tv-turnos th small {
+    display: block;
+    color: var(--tv-tinta-3);
+    font-size: 0.66rem;
+    font-weight: 400;
+}
+
+.tv-turnos td {
+    text-align: right;
+}
+
+/* ---------- Pantallas que no son un televisor ---------- */
+
+@media (max-width: 1000px), (max-aspect-ratio: 4/3) {
+    :root {
+        font-size: 15px;
+    }
+
+    /* En pantallas angostas las tres áreas van una debajo de otra: no hay nada que rotar. */
+    .tv-controles__grupo.tv-controles__areas {
+        display: none;
+    }
+
+    body.tv-cuerpo-pagina {
+        overflow: auto;
+    }
+
+    .tv-marco {
+        height: auto;
+        min-height: 100vh;
+        padding: 16px;
+    }
+
+    .tv-pantalla {
+        height: auto;
+    }
+
+    .tv-cabecera {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.8rem;
+    }
+
+    .tv-marca {
+        display: none;
+    }
+
+    .tv-cuenta {
+        grid-column: 1 / -1;
+        text-align: left;
+        white-space: normal;
+    }
+
+    .tv-reloj {
+        grid-row: 1;
+        grid-column: 2;
+    }
+
+    .tv-sonido {
+        display: none;
+    }
+
+    .tv-cinta__tramo span,
+    .tv-hito b,
+    .tv-cinta__horas small,
+    .tv-cinta__horas li:nth-child(even) {
+        display: none;
+    }
+
+    .tv-cuerpo {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tv-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .tv-personas {
+        grid-template-columns: minmax(0, 1fr);
+        grid-auto-rows: auto;
+    }
+
+    .tv-lista {
+        max-height: 22rem;
+        overflow-y: auto;
+        -webkit-mask-image: none;
+        mask-image: none;
+    }
+
+    .tv-lista.is-desplazando > li {
+        animation: none;
+    }
+
+    .tv-ana__listas {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tv-calidad__pista {
+        white-space: normal;
+        flex-wrap: wrap;
+        padding: 0.5rem 0;
+    }
+
+    .tv-aviso {
+        inset: 20vh 16px auto;
+    }
+
+    .tv-aviso p {
+        font-size: 1.4rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tv-estado--vivo::before,
+    .tv-lista.is-desplazando > li,
+    .tv-calidad__cinta.is-desplazando .tv-calidad__pista,
+    .tv-aviso {
+        animation: none;
+    }
+
+    .tv-lista {
+        overflow-y: auto;
+    }
+
+    .tv-controles {
+        transition: none;
+    }
+}
+
+/* ==========================================================================
+   Un área a la vez (rotación)
+   --------------------------------------------------------------------------
+   El televisor es de 43" y con las tres áreas juntas había que acercarse para
+   leer. En este modo (el de fábrica) se ve un área a pantalla completa y se
+   turnan solas: admisiones más tiempo, luego analistas, luego novedades. Como
+   cada una tiene todo el ancho, la letra base sube un 30 % y nada baja de
+   0,7 rem (unos 21 px en 1080p, contra 13 px de antes).
+
+   La cabecera y la cinta se quedan: son el marco del turno. La franja de
+   calidad del dato solo acompaña a admisiones, que es de quien habla.
+
+   Qué área se ve lo dice <html data-escena>; el tablero se reemplaza en cada
+   actualización y no puede guardarlo él. Con la rotación apagada
+   (<html data-modo="todo">) nada de esto aplica y se ven las tres juntas.
+   Tampoco aplica en pantallas angostas: allí las áreas ya van una debajo de
+   otra.
+   ========================================================================== */
+
+@media (min-width: 1001px) and (min-aspect-ratio: 401/300) {
+    html[data-modo="rotar"] {
+        font-size: max(16px, min(1.535vw, 2.73vh));
+    }
+
+    /* ---------- Riel: un tramo por área, tan ancho como su tiempo ---------- */
+
+    html[data-modo="rotar"] .tv-escenas {
+        display: flex;
+        flex: none;
+        gap: 0.3rem;
+        height: 0.26rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .tv-escenas__tramo {
+        position: relative;
+        flex: 1 1 0;
+        overflow: hidden;
+        border-radius: 999px;
+        background: var(--tv-anillo-fondo);
+    }
+
+    .tv-escenas__tramo i {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 0;
+        border-radius: inherit;
+        background: var(--tv-vivo);
+    }
+
+    .tv-escenas__tramo.is-hecha i {
+        width: 100%;
+        opacity: 0.4;
+    }
+
+    .tv-escenas__tramo.is-activa i {
+        animation: tv-progreso var(--dur, 30s) linear forwards;
+    }
+
+    .tv-escenas.is-pausada .tv-escenas__tramo.is-activa i {
+        animation-play-state: paused;
+    }
+
+    @keyframes tv-progreso {
+        from { width: 0; }
+        to { width: 100%; }
+    }
+
+    /* ---------- Solo el área que toca ----------
+       Las tres ocupan la misma celda y la que no toca se vuelve invisible, en vez de quitarse con
+       display: none. Así cada una conserva su tamaño (las listas se pueden medir siempre) y las
+       listas largas siguen desplazándose mientras no se ven: en cada vuelta aparece otro tramo,
+       y no siempre los primeros pacientes. */
+
+    html[data-modo="rotar"] .tv-cuerpo {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+    }
+
+    /* La franja de calidad del dato se queda para la vista de las tres áreas. Aquí le quitaría
+       el alto a las listas, y lo que dice ya está en cada fila ("revisar la fecha") y en la ficha
+       de ingresos ("9 por revisar"). */
+    html[data-modo="rotar"] .tv-calidad {
+        display: none;
+    }
+
+    html[data-modo="rotar"] .tv-pantalla {
+        grid-template-rows: auto auto minmax(0, 1fr);
+    }
+
+    html[data-modo="rotar"] .tv-cuerpo > .tv-area {
+        grid-area: 1 / 1;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.45s ease, visibility 0s linear 0.45s;
+    }
+
+    html[data-modo="rotar"][data-escena="admisiones"] .tv-cuerpo > .tv-adm,
+    html[data-modo="rotar"][data-escena="analistas"] .tv-cuerpo > .tv-ana,
+    html[data-modo="rotar"][data-escena="novedades"] .tv-cuerpo > .tv-nov {
+        visibility: visible;
+        opacity: 1;
+        transition: opacity 0.45s ease;
+    }
+
+    /* ---------- Cabecera y cinta: un poco más bajas, para darle el alto al área ---------- */
+
+    /* A esta escala la cabecera no da para todo en un renglón: se va el lema de la marca y el
+       título no se parte. */
+    html[data-modo="rotar"] .tv-marca__sub { display: none; }
+    html[data-modo="rotar"] .tv-marca { padding-right: 1.1rem; }
+    html[data-modo="rotar"] .tv-cabecera { gap: 1.2rem; }
+    html[data-modo="rotar"] .tv-cabecera__titulo { white-space: nowrap; }
+    html[data-modo="rotar"] .tv-cuenta { font-size: 1.05rem; }
+
+    html[data-modo="rotar"] .tv-cinta { padding-top: 1.2rem; }
+    html[data-modo="rotar"] .tv-cinta__pista { height: 2.7rem; }
+    html[data-modo="rotar"] .tv-cinta__horas { height: 1.05rem; }
+    html[data-modo="rotar"] .tv-hito { top: -1.2rem; }
+    html[data-modo="rotar"] .tv-hito--entrega { top: 0; }
+
+    html[data-modo="rotar"] .tv-cinta__leyenda,
+    html[data-modo="rotar"] .tv-cinta__noche,
+    html[data-modo="rotar"] .tv-cinta__tramo span,
+    html[data-modo="rotar"] .tv-cinta__horas li {
+        font-size: 0.7rem;
+    }
+
+    html[data-modo="rotar"] .tv-cinta__leyenda {
+        flex-wrap: nowrap;
+        gap: 0 0.6rem;
+        white-space: nowrap;
+    }
+
+    html[data-modo="rotar"] .tv-area {
+        gap: 0.6rem;
+        padding: 0.75rem 1rem;
+    }
+
+    html[data-modo="rotar"] .tv-area__cab p { font-size: 0.8rem; }
+    html[data-modo="rotar"] .tv-leyenda { font-size: 0.74rem; }
+    html[data-modo="rotar"] .tv-area__pie { font-size: 0.76rem; }
+    html[data-modo="rotar"] .tv-chip { font-size: 0.7rem; }
+    html[data-modo="rotar"] .tv-persona__vacia { font-size: 0.82rem; }
+
+    /* ---------- Admisiones ---------- */
+
+    /* Las fichas van en una fila baja: la cifra y, al lado, su rótulo con la nota debajo.
+       Apiladas (rótulo, cifra, nota) se llevaban el alto que necesitan las listas de pacientes. */
+    /* Las dos fichas de ancho variable ("por turno", con dos o tres turnos, y los minutos a
+       favor) toman lo que pide su contenido; las otras tres se reparten el resto. Con anchos fijos
+       el tercer turno del día completo quedaba cortado. */
+    html[data-modo="rotar"] .tv-kpis {
+        grid-template-columns: minmax(min-content, 1fr) max-content minmax(min-content, 1.15fr) max-content minmax(min-content, 1.15fr);
+        gap: 0.45rem;
+    }
+
+    /* "9 por revisar" y "5 cancelados", uno debajo del otro y sin partirse. */
+    html[data-modo="rotar"] .tv-kpi__nota--datos > span {
+        display: block;
+        white-space: nowrap;
+    }
+
+    html[data-modo="rotar"] .tv-kpi__nota--datos > span + span::before { content: none; }
+
+    /* Lo que va en tv-kpi__extra no cabe a esta escala: "8 de noche no cuentan" ya lo dicen la
+       leyenda de arriba y los cuadros grises de la cinta. */
+    html[data-modo="rotar"] .tv-kpi__extra { display: none; }
+
+    html[data-modo="rotar"] .tv-kpi {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        align-content: center;
+        align-items: center;
+        gap: 0 0.6rem;
+        min-height: 3.5rem;
+        padding: 0.3rem 0.7rem;
+    }
+
+    html[data-modo="rotar"] .tv-kpi__valor {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        font-size: 2rem;
+        white-space: nowrap;
+    }
+
+    html[data-modo="rotar"] .tv-kpi--ingresos .tv-kpi__valor { font-size: 2.5rem; }
+    html[data-modo="rotar"] .tv-kpi--balance .tv-kpi__valor { font-size: 1.75rem; }
+
+    html[data-modo="rotar"] .tv-kpi__rotulo {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: end;
+        font-size: 0.72rem;
+        line-height: 1.15;
+    }
+
+    html[data-modo="rotar"] .tv-kpi__nota {
+        display: -webkit-box;
+        grid-column: 2;
+        grid-row: 2;
+        align-self: start;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        font-size: 0.7rem;
+        line-height: 1.15;
+    }
+
+    html[data-modo="rotar"] .tv-kpi__nota--datos { display: block; }
+
+    /* Sin nota, el rótulo se centra con la cifra. La del balance explica la cuenta y no cabe al
+       lado de "4 h 19 min": queda en el título de la ficha. */
+    html[data-modo="rotar"] .tv-kpi--balance .tv-kpi__nota { display: none; }
+
+    html[data-modo="rotar"] .tv-kpi:not(:has(.tv-kpi__nota)) .tv-kpi__rotulo,
+    html[data-modo="rotar"] .tv-kpi--balance .tv-kpi__rotulo {
+        grid-row: 1 / span 2;
+        align-self: center;
+    }
+
+    html[data-modo="rotar"] .tv-kpi--turnos .tv-kpi__rotulo {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        align-self: center;
+        max-width: 3rem;
+    }
+
+    html[data-modo="rotar"] .tv-kpi--turnos,
+    html[data-modo="rotar"] .tv-kpi--balance {
+        grid-template-columns: auto auto;
+    }
+
+    html[data-modo="rotar"] .tv-kpi--balance .tv-kpi__rotulo { max-width: 3.6rem; }
+    html[data-modo="rotar"] .tv-turnos-kpi li { flex: none; }
+
+    html[data-modo="rotar"] .tv-turnos-kpi {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+    }
+
+    html[data-modo="rotar"] .tv-turnos-kpi b { font-size: 1.9rem; }
+    html[data-modo="rotar"] .tv-turnos-kpi span { margin-top: 0.1rem; font-size: 0.72rem; }
+
+    html[data-modo="rotar"] .tv-persona__cab {
+        gap: 0.15rem;
+        padding: 0.4rem 0.7rem 0.35rem;
+    }
+
+    /* Nombre y turno en el mismo renglón siempre que quepan: si el turno baja, la lista pierde
+       medio paciente. */
+    html[data-modo="rotar"] .tv-persona__quien { column-gap: 0.4rem; }
+    html[data-modo="rotar"] .tv-persona__quien .tv-chip { font-size: 0.6rem; }
+
+    html[data-modo="rotar"] .tv-persona__cab h3 { font-size: 1.3rem; }
+
+    /* Dos renglones fijos: lo que recepcionó y registró, y cómo le fue con la promesa. */
+    html[data-modo="rotar"] .tv-persona__cifras {
+        display: grid;
+        grid-template-columns: auto auto;
+        justify-content: start;
+        gap: 0 1rem;
+    }
+
+    html[data-modo="rotar"] .tv-persona__cifras { gap: 0 0.6rem; }
+    html[data-modo="rotar"] .tv-persona__cifras dd { font-size: 1.18rem; }
+    html[data-modo="rotar"] .tv-persona__cifras dt { font-size: 0.7rem; }
+
+    html[data-modo="rotar"] .tv-lista { padding: 0.15rem 0.5rem; }
+
+    /* Dos tarjetas en una columna (más de cuatro personas): se turnan. Partidas por la mitad, a
+       esta escala la cabecera se llevaba casi todo y no se veía ni un paciente entero. Una queda
+       abierta con su lista y la otra en una franja con el nombre y cuántos recepcionó y registró;
+       televisor.js las cambia cada pocos segundos. La lista cerrada no se quita con display: none:
+       así su desplazamiento sigue corriendo y al abrirse muestra otro tramo. */
+    html[data-modo="rotar"] .tv-personas__col--doble > .tv-persona.is-cerrada { flex: none; }
+
+    html[data-modo="rotar"] .tv-persona.is-cerrada .tv-persona__cab {
+        gap: 0.05rem;
+        padding-block: 0.3rem 0.26rem;
+        border-bottom: 0;
+    }
+
+    html[data-modo="rotar"] .tv-persona.is-cerrada .tv-persona__cab h3 { font-size: 1.12rem; }
+    html[data-modo="rotar"] .tv-persona.is-cerrada .tv-persona__cifras dd { font-size: 1.02rem; }
+    html[data-modo="rotar"] .tv-persona.is-cerrada .tv-persona__cifras dt { font-size: 0.66rem; }
+
+    /* Cerrada solo dice cuántos; cómo le fue con la promesa se ve cuando se abre. */
+    html[data-modo="rotar"] .tv-persona.is-cerrada .tv-persona__cifras > div:nth-child(n + 3),
+    html[data-modo="rotar"] .tv-persona.is-cerrada .tv-persona__vacia {
+        display: none;
+    }
+
+    html[data-modo="rotar"] .tv-persona.is-cerrada .tv-lista {
+        flex: none;
+        height: 0;
+        padding-block: 0;
+        visibility: hidden;
+    }
+
+    html[data-modo="rotar"] .tv-fila {
+        gap: 0.55rem;
+        padding: 0.26rem 0.1rem;
+    }
+
+    html[data-modo="rotar"] .tv-dial {
+        width: 2.3rem;
+        height: 2.3rem;
+    }
+
+    html[data-modo="rotar"] .tv-dial b { font-size: 1.05rem; }
+    html[data-modo="rotar"] .tv-dial small { font-size: 0.52rem; }
+    html[data-modo="rotar"] .tv-dial i { font-size: 1rem; }
+    html[data-modo="rotar"] .tv-dial--revisar b,
+    html[data-modo="rotar"] .tv-dial--sin-dato b { font-size: 1.3rem; }
+
+    html[data-modo="rotar"] .tv-gestion {
+        width: 1.2rem;
+        height: 1.2rem;
+    }
+
+    html[data-modo="rotar"] .tv-gestion i { font-size: 1.05rem; }
+    html[data-modo="rotar"] .tv-fila__nombre {
+        font-size: 1.08rem;
+        font-stretch: 80%;
+    }
+
+    html[data-modo="rotar"] .tv-fila__pac small { margin-top: 0; font-size: 0.74rem; }
+
+    /* Con cuatro personas en pantalla el detalle no cabe entero en un renglón: cuando lo registró
+       otra persona se dice eso y se calla la hora, que es lo menos útil de lejos. */
+    html[data-modo="rotar"] .tv-fila__pac small:has(.tv-fila__registro) .tv-fila__hora,
+    html[data-modo="rotar"] .tv-fila__pac small:has(.tv-fila__creacion) .tv-fila__hora {
+        display: none;
+    }
+
+    /* ---------- Analistas: la meta a la izquierda, las dos listas al lado ---------- */
+
+    html[data-modo="rotar"] .tv-cuerpo > .tv-ana {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
+        grid-template-rows: auto auto minmax(0, 1fr);
+        gap: 0.7rem 1rem;
+    }
+
+    html[data-modo="rotar"] .tv-ana > .tv-area__cab { grid-column: 1 / -1; }
+
+    html[data-modo="rotar"] .tv-ana > .tv-meta {
+        grid-column: 1;
+        grid-row: 2;
+        gap: 0.7rem;
+        padding: 1rem 1.2rem 1.1rem;
+    }
+
+    html[data-modo="rotar"] .tv-ana > .tv-analistas {
+        grid-column: 1;
+        grid-row: 3;
+        align-content: start;
+        gap: 0.5rem;
+    }
+
+    html[data-modo="rotar"] .tv-ana > .tv-ana__listas {
+        grid-column: 2 / span 2;
+        grid-row: 2 / span 2;
+        grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+        gap: 1rem;
+    }
+
+    html[data-modo="rotar"] .tv-meta__cifra {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.3rem;
+    }
+
+    html[data-modo="rotar"] .tv-meta__valor { font-size: 5.4rem; }
+    html[data-modo="rotar"] .tv-meta__nota { font-size: 1rem; }
+    html[data-modo="rotar"] .tv-meta__nota b { font-size: 1.6rem; }
+    html[data-modo="rotar"] .tv-meta__barra { height: 0.9rem; }
+    html[data-modo="rotar"] .tv-meta__objetivo { margin-top: -0.4rem; font-size: 0.74rem; }
+    html[data-modo="rotar"] .tv-meta__pie { font-size: 0.82rem; }
+
+    html[data-modo="rotar"] .tv-analista { padding: 0.6rem 0.85rem; }
+    html[data-modo="rotar"] .tv-analista__nombre { font-size: 1.3rem; }
+    html[data-modo="rotar"] .tv-analista__cifra { font-size: 0.74rem; }
+    html[data-modo="rotar"] .tv-analista__cifra b { font-size: 1.7rem; }
+
+    html[data-modo="rotar"] .tv-ana__col h3 {
+        align-items: baseline;
+        padding: 0.6rem 0.9rem 0.5rem;
+        font-size: 0.84rem;
+    }
+
+    html[data-modo="rotar"] .tv-ana__col h3 b { font-size: 1.6rem; }
+
+    html[data-modo="rotar"] .tv-ana__col .tv-lista { padding: 0.3rem 0.9rem; }
+    html[data-modo="rotar"] .tv-lista--compacta .tv-fila { padding: 0.45rem 0.05rem; }
+    html[data-modo="rotar"] .tv-lista--compacta .tv-fila__nombre { font-size: 1.25rem; }
+    html[data-modo="rotar"] .tv-lista--compacta .tv-fila__pac small { font-size: 0.8rem; }
+
+    html[data-modo="rotar"] .tv-espera,
+    html[data-modo="rotar"] .tv-tiempo {
+        font-size: 1.45rem;
+    }
+
+    html[data-modo="rotar"] .tv-ana__col .tv-persona__vacia {
+        padding: 1rem 0.9rem;
+        font-size: 0.95rem;
+    }
+
+    html[data-modo="rotar"] .tv-fila--listo { font-size: 1.1rem; }
+
+    /* ---------- Novedades: el anillo, las cuatro cifras y la tabla por área ---------- */
+
+    html[data-modo="rotar"] .tv-cuerpo > .tv-nov {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1.2fr) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.8rem 2rem;
+    }
+
+    html[data-modo="rotar"] .tv-nov > .tv-area__cab,
+    html[data-modo="rotar"] .tv-nov > .tv-vacio {
+        grid-column: 1 / -1;
+    }
+
+    html[data-modo="rotar"] .tv-nov > .tv-nov__cabeza {
+        grid-column: 1;
+        grid-row: 2 / span 2;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 0 1.5rem 0 0.5rem;
+        text-align: center;
+    }
+
+    html[data-modo="rotar"] .tv-nov > .tv-nov__cifras {
+        grid-column: 2;
+        grid-row: 2 / span 2;
+        gap: 0.8rem;
+    }
+
+    html[data-modo="rotar"] .tv-nov > .tv-nov__areas {
+        grid-column: 3;
+        grid-row: 2;
+        align-self: end;
+        font-size: 1rem;
+    }
+
+    html[data-modo="rotar"] .tv-nov > .tv-nov__turno {
+        grid-column: 3;
+        grid-row: 3;
+        align-self: start;
+        font-size: 1rem;
+    }
+
+    html[data-modo="rotar"] .tv-anillo { width: 13.5rem; }
+    html[data-modo="rotar"] .tv-anillo::before { inset: 1.2rem; }
+    html[data-modo="rotar"] .tv-anillo__valor { font-size: 5rem; }
+    html[data-modo="rotar"] .tv-anillo__meta { font-size: 1.5rem; }
+    html[data-modo="rotar"] .tv-nov__rotulo { font-size: 0.9rem; }
+    html[data-modo="rotar"] .tv-nov__falta { font-size: 2.1rem; }
+
+    html[data-modo="rotar"] .tv-nov__cifras > div { padding: 0.9rem 1.2rem; }
+    html[data-modo="rotar"] .tv-nov__cifras dt {
+        display: flex;
+        align-items: flex-end;
+        min-height: 2.3em;
+        font-size: 0.84rem;
+        line-height: 1.15;
+    }
+    html[data-modo="rotar"] .tv-nov__cifras dd { font-size: 3.6rem; }
+    html[data-modo="rotar"] .tv-nov__cifras small { font-size: 0.8rem; }
+
+    html[data-modo="rotar"] .tv-nov__areas th,
+    html[data-modo="rotar"] .tv-nov__areas td {
+        padding: 0.45rem 0.2rem;
+    }
+
+    html[data-modo="rotar"] .tv-nov__areas thead th { font-size: 0.74rem; }
+    html[data-modo="rotar"] .tv-nov__areas td { font-size: 1.2rem; }
+    html[data-modo="rotar"] .tv-nov__turno b { font-size: 1.8rem; }
+
+    html[data-modo="rotar"] .tv-calidad__rotulo { font-size: 0.74rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-modo="rotar"] .tv-cuerpo > .tv-area {
+        transition: none;
+    }
+}
