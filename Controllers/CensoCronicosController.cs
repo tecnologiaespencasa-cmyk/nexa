@@ -560,11 +560,11 @@ public partial class CensoController
 
     private static string BuildCronicoExcelXml(IReadOnlyList<CensoCronicoRecord> records, DateTime hoy)
     {
-        static string F(DateTime? d) => d.HasValue ? d.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) : string.Empty;
+        static string F(DateTime? d) => FechaExportable.Fecha(d);
         static string N(int? n) => n?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
         static string SiNo(bool b) => b ? "Sí" : "No";
-        string FTs(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), ColombiaTimeZone)
-            .ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
+        string FTs(DateTime utc) => FechaExportable.FechaHora(
+            TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), ColombiaTimeZone));
 
         var sb = new StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\"?>");
@@ -575,6 +575,8 @@ public partial class CensoController
         sb.AppendLine(" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">");
         sb.AppendLine(" <Styles>");
         sb.AppendLine("  <Style ss:ID=\"Header\"><Font ss:Bold=\"1\"/></Style>");
+        sb.AppendLine("  <Style ss:ID=\"Fecha\"><NumberFormat ss:Format=\"dd/mm/yyyy\"/></Style>");
+        sb.AppendLine("  <Style ss:ID=\"FechaHora\"><NumberFormat ss:Format=\"dd/mm/yyyy hh:mm:ss\"/></Style>");
         sb.AppendLine(" </Styles>");
         sb.AppendLine(" <Worksheet ss:Name=\"Programa Cronicos\">");
         sb.AppendLine("  <Table>");

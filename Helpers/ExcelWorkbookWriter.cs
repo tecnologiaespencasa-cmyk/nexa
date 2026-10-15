@@ -47,9 +47,14 @@ public static class ExcelWorkbookWriter
     }
 
     /// <param name="dateColumns">
-    /// Columnas (desde 0) cuyos valores llegan como fecha yyyy-MM-dd y se escriben como fecha de
-    /// Excel: así ordenan y filtran por día en vez de alfabéticamente. Un valor que no sea una
-    /// fecha se deja como texto.
+    /// Columnas (desde 0) cuyos valores llegan como fecha (dd/MM/yyyy, con hora o sin ella, o el
+    /// yyyy-MM-dd interno) y se escriben como fecha de Excel: así ordenan y filtran por día en vez
+    /// de alfabéticamente, y se siguen viendo en dd/mm/aaaa por el formato de celda. Un valor que no
+    /// sea una fecha se deja como texto.
+    /// </param>
+    /// <param name="numberColumns">
+    /// Columnas (desde 0) cuyos valores son números enteros y se escriben como número de Excel: así
+    /// se pueden sumar, promediar y ordenar. Un valor que no sea un entero se deja como texto.
     /// </param>
     public static byte[] BuildTableWorkbook(
         string worksheetName,
@@ -57,7 +62,8 @@ public static class ExcelWorkbookWriter
         IReadOnlyList<IReadOnlyList<string?>> rows,
         DateTime generatedAt,
         string documentTitle = "Informe de pacientes activos",
-        IReadOnlyCollection<int>? dateColumns = null)
+        IReadOnlyCollection<int>? dateColumns = null,
+        IReadOnlyCollection<int>? numberColumns = null)
     {
         if (headers.Count == 0)
         {
@@ -79,7 +85,7 @@ public static class ExcelWorkbookWriter
             WriteTextEntry(archive, "xl/workbook.xml", BuildWorkbook(worksheetName));
             WriteTextEntry(archive, "xl/_rels/workbook.xml.rels", BuildWorkbookRelationships());
             WriteTextEntry(archive, "xl/styles.xml", BuildStyles());
-            WriteTableWorksheetEntry(archive, headers, rows, dateColumns);
+            WriteTableWorksheetEntry(archive, headers, rows, dateColumns, numberColumns);
         }
 
         return output.ToArray();
@@ -157,7 +163,8 @@ public static class ExcelWorkbookWriter
         ZipArchive archive,
         IReadOnlyList<string> headers,
         IReadOnlyList<IReadOnlyList<string?>> rows,
-        IReadOnlyCollection<int>? dateColumns)
+        IReadOnlyCollection<int>? dateColumns,
+        IReadOnlyCollection<int>? numberColumns)
     {
         var entry = archive.CreateEntry("xl/worksheets/sheet1.xml", CompressionLevel.Optimal);
         using var stream = entry.Open();
@@ -224,10 +231,14 @@ public static class ExcelWorkbookWriter
             {
                 var reference = $"{GetColumnName(columnIndex + 1)}{rowNumber}";
                 var value = rows[rowIndex][columnIndex];
-                if (dateColumns?.Contains(columnIndex) == true
-                    && DateTime.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+                if (dateColumns?.Contains(columnIndex) == true && TryParseDate(value, out var date, out var withTime))
                 {
-                    WriteDateCell(writer, reference, date);
+                    WriteDateCell(writer, reference, date, withTime);
+                }
+                else if (numberColumns?.Contains(columnIndex) == true
+                    && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numero))
+                {
+                    WriteNumberCell(writer, reference, numero, styleIndex: 3);
                 }
                 else
                 {
@@ -305,15 +316,42 @@ public static class ExcelWorkbookWriter
         writer.WriteEndElement();
     }
 
-    private static void WriteDateCell(XmlWriter writer, string reference, DateTime value)
+    private static void WriteDateCell(XmlWriter writer, string reference, DateTime value, bool withTime = false)
     {
         writer.WriteStartElement("c");
         writer.WriteAttributeString("r", reference);
-        writer.WriteAttributeString("s", "2");
+        writer.WriteAttributeString("s", withTime ? "5" : "2");
         writer.WriteStartElement("v");
-        writer.WriteString(value.Date.ToOADate().ToString(CultureInfo.InvariantCulture));
+        writer.WriteString((withTime ? value : value.Date).ToOADate().ToString(CultureInfo.InvariantCulture));
         writer.WriteEndElement();
         writer.WriteEndElement();
+    }
+
+    /// <summary>
+    /// Las fechas que escriben los exportables: dd/MM/yyyy, dd/MM/yyyy HH:mm[:ss] y el yyyy-MM-dd que
+    /// usan internamente algunos informes. Un texto que solo empieza por una fecha no cuenta.
+    /// </summary>
+    private static bool TryParseDate(string? value, out DateTime date, out bool withTime)
+    {
+        withTime = false;
+        date = default;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        if (DateTime.TryParseExact(value, ["dd/MM/yyyy", "yyyy-MM-dd"], CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
+        {
+            return true;
+        }
+
+        if (DateTime.TryParseExact(value, ["dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm"], CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
+        {
+            withTime = true;
+            return true;
+        }
+
+        return false;
     }
 
     private static void WriteNumberCell(XmlWriter writer, string reference, int value, int styleIndex)
@@ -409,7 +447,7 @@ public static class ExcelWorkbookWriter
     private static string BuildStyles() => """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-          <numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts>
+          <numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="dd/mm/yyyy hh:mm:ss"/></numFmts>
           <fonts count="2">
             <font><sz val="11"/><name val="Calibri"/><family val="2"/></font>
             <font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/><family val="2"/></font>
@@ -424,12 +462,13 @@ public static class ExcelWorkbookWriter
             <border><left style="thin"><color rgb="FFD6DEE8"/></left><right style="thin"><color rgb="FFD6DEE8"/></right><top style="thin"><color rgb="FFD6DEE8"/></top><bottom style="thin"><color rgb="FFD6DEE8"/></bottom><diagonal/></border>
           </borders>
           <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-          <cellXfs count="5">
+          <cellXfs count="6">
             <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
             <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
             <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
             <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
             <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+            <xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
           </cellXfs>
           <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
         </styleSheet>

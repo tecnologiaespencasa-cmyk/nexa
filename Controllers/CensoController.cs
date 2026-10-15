@@ -5500,6 +5500,8 @@ public partial class CensoController : Controller
         sb.AppendLine(" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">");
         sb.AppendLine(" <Styles>");
         sb.AppendLine("  <Style ss:ID=\"Header\"><Font ss:Bold=\"1\"/></Style>");
+        sb.AppendLine("  <Style ss:ID=\"Fecha\"><NumberFormat ss:Format=\"dd/mm/yyyy\"/></Style>");
+        sb.AppendLine("  <Style ss:ID=\"FechaHora\"><NumberFormat ss:Format=\"dd/mm/yyyy hh:mm:ss\"/></Style>");
         sb.AppendLine(" </Styles>");
         sb.AppendLine(" <Worksheet ss:Name=\"Censo\">");
         sb.AppendLine("  <Table>");
@@ -6001,9 +6003,48 @@ public partial class CensoController : Controller
         return new TimeSpan(horaDesde, 0, 0);
     }
 
+    /// <summary>
+    /// Celda de los exportables .xls. Lo que ya viene con forma de fecha (día/mes/año, con hora o
+    /// sin ella, ver <see cref="FechaExportable"/>) se escribe como fecha de Excel y no como texto:
+    /// se sigue viendo igual, pero ordena y filtra por día. Lo demás va como texto.
+    /// </summary>
     private static void AppendDataCell(StringBuilder sb, string value)
     {
+        if (TryLeerFechaExportable(value, out var fecha, out var conHora))
+        {
+            var estilo = conHora ? "FechaHora" : "Fecha";
+            sb.AppendLine($"    <Cell ss:StyleID=\"{estilo}\"><Data ss:Type=\"DateTime\">{fecha:yyyy-MM-ddTHH:mm:ss.fff}</Data></Cell>");
+            return;
+        }
+
         sb.AppendLine($"    <Cell><Data ss:Type=\"String\">{EscapeForXml(value)}</Data></Cell>");
+    }
+
+    /// <summary>Reconoce exactamente los formatos que escriben los exportables; un texto que empieza por una fecha no cuenta.</summary>
+    private static bool TryLeerFechaExportable(string? value, out DateTime fecha, out bool conHora)
+    {
+        conHora = false;
+        fecha = default;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        string[] soloFecha = [FechaExportable.Formato];
+        string[] conHoraFormatos = [FechaExportable.FormatoConHora, "dd/MM/yyyy HH:mm"];
+
+        if (DateTime.TryParseExact(value, soloFecha, CultureInfo.InvariantCulture, DateTimeStyles.None, out fecha))
+        {
+            return true;
+        }
+
+        if (DateTime.TryParseExact(value, conHoraFormatos, CultureInfo.InvariantCulture, DateTimeStyles.None, out fecha))
+        {
+            conHora = true;
+            return true;
+        }
+
+        return false;
     }
 
     private static string GetAdditionalMedicationValueForExport(string? value)
@@ -6023,12 +6064,12 @@ public partial class CensoController : Controller
 
     private static string FormatDate(DateTime value)
     {
-        return value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        return FechaExportable.Fecha(value);
     }
 
     private static string FormatDateTime(DateTime value)
     {
-        return value.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+        return FechaExportable.FechaHora(value);
     }
 
     private static string FormatDateText(string? value)

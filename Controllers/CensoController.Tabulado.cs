@@ -61,11 +61,28 @@ public partial class CensoController
                     _context,
                     registros.Select(x => ((string?)x.NumeroIdentificacion, x.CensoPacienteId)).ToList(),
                     cancellationToken);
+
+                var hoyHeridas = GetColombiaNow().Date;
                 return ExportarPorReflexion(
                     registros,
                     "Clinica de heridas",
                     "censo_clinica_heridas",
-                    ("NombrePaciente", "Programas agregados", x => programasAgregados(x.NumeroIdentificacion, x.CensoPacienteId)));
+                    new ColumnaCalculada<CensoClinicaHeridasRecord>(
+                        "NombrePaciente",
+                        "Programas agregados",
+                        x => programasAgregados(x.NumeroIdentificacion, x.CensoPacienteId)),
+                    new ColumnaCalculada<CensoClinicaHeridasRecord>(
+                        "Programas agregados",
+                        "Días de estancia al momento del egreso",
+                        x => DiasDeEstancia(
+                            x.FechaIngresoPrograma,
+                            CensoVisibility.HayEgreso(x.FechaEgreso) ? x.FechaEgreso!.Value : hoyHeridas),
+                        Numerica: true),
+                    new ColumnaCalculada<CensoClinicaHeridasRecord>(
+                        "Días de estancia al momento del egreso",
+                        "Días de estancia a la fecha de hoy",
+                        x => DiasDeEstancia(x.FechaIngresoPrograma, hoyHeridas),
+                        Numerica: true));
             }
             case CensoProgramas.Npt:
             {
@@ -178,17 +195,42 @@ public partial class CensoController
         string? NombrePaciente);
 
     /// <summary>
+    /// Columna que no existe en la tabla y se calcula al exportar.
+    /// </summary>
+    /// <param name="DespuesDe">
+    /// Propiedad de la entidad —o título de otra columna calculada— después de la cual va esta.
+    /// </param>
+    /// <param name="Numerica">
+    /// La columna lleva números: va a Excel como número, no como texto, para poder sumarla u ordenarla.
+    /// </param>
+    private sealed record ColumnaCalculada<T>(
+        string DespuesDe,
+        string Titulo,
+        Func<T, string?> Valor,
+        bool Numerica = false);
+
+    /// <summary>
+    /// Días entre dos fechas, contando solo el día: la misma cuenta del informe de pacientes activos.
+    /// Sin fecha de inicio real (las cargas antiguas dejaron fechas centinela) la celda queda vacía,
+    /// que es distinto de cero días.
+    /// </summary>
+    private static string? DiasDeEstancia(DateTime inicio, DateTime fin) =>
+        inicio.Date < CensoVisibility.FechaEgresoMinima
+            ? null
+            : Math.Max(0, (fin.Date - inicio.Date).Days).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
     /// Arma un exportable con todas las propiedades de la entidad. Se usa en los programas que no
     /// tenían exportable propio, para que el archivo salga con la información completa.
     /// </summary>
-    /// <param name="extra">
-    /// Columna calculada opcional (no existe en la tabla) y la propiedad después de la cual se ubica.
+    /// <param name="extras">
+    /// Columnas calculadas, en el orden en que se insertan.
     /// </param>
     private FileContentResult ExportarPorReflexion<T>(
         IReadOnlyList<T> registros,
         string hoja,
         string archivo,
-        (string DespuesDe, string Titulo, Func<T, string?> Valor)? extra = null)
+        params ColumnaCalculada<T>[] extras)
     {
         var propiedades = typeof(T).GetProperties()
             .Where(x => x.PropertyType.IsPrimitive
@@ -207,23 +249,42 @@ public partial class CensoController
             .ToList())
             .ToList();
 
-        if (extra is { } columna)
+        // Las columnas de fecha de la entidad van a Excel como fecha, no como texto: ordenan y
+        // filtran por día. La lista acompaña a los encabezados cuando se insertan las calculadas.
+        var esFecha = propiedades
+            .Select(x => x.PropertyType == typeof(DateTime) || x.PropertyType == typeof(DateTime?))
+            .ToList();
+
+        // Cada columna calculada se ubica después de una propiedad de la entidad o de otra columna ya
+        // insertada, así que la referencia se busca sobre la lista que va creciendo.
+        var claves = propiedades.Select(x => x.Name).ToList();
+        var numericas = new List<string>();
+        foreach (var columna in extras)
         {
-            var posicion = Array.FindIndex(propiedades, x => x.Name == columna.DespuesDe) + 1;
+            var posicion = claves.IndexOf(columna.DespuesDe) + 1;
             if (posicion <= 0)
             {
                 posicion = headers.Count;
             }
 
+            claves.Insert(posicion, columna.Titulo);
             headers.Insert(posicion, columna.Titulo);
+            esFecha.Insert(posicion, false);
             for (var i = 0; i < registros.Count; i++)
             {
                 filas[i].Insert(posicion, columna.Valor(registros[i]));
             }
+
+            if (columna.Numerica)
+            {
+                numericas.Add(columna.Titulo);
+            }
         }
 
         var libro = ExcelWorkbookWriter.BuildTableWorkbook(
-            hoja, headers, filas.Select(x => (IReadOnlyList<string?>)x).ToList(), DateTime.UtcNow);
+            hoja, headers, filas.Select(x => (IReadOnlyList<string?>)x).ToList(), DateTime.UtcNow,
+            dateColumns: esFecha.Index().Where(x => x.Item).Select(x => x.Index).ToList(),
+            numberColumns: numericas.Select(titulo => headers.IndexOf(titulo)).ToList());
         return File(
             libro,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -242,7 +303,8 @@ public partial class CensoController
     internal static string? FormatearValor(object? valor) => valor switch
     {
         null => null,
-        DateTime fecha => fecha.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+        // Las fechas salen en día/mes/año, con hora solo si el dato la trae (ver FechaExportable).
+        DateTime fecha => FechaExportable.FechaOFechaHora(fecha),
         TimeSpan hora => hora.ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture),
         bool booleano => booleano ? "Sí" : "No",
         _ => valor.ToString()

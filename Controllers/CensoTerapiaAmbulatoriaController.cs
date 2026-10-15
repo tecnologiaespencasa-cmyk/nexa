@@ -1538,7 +1538,7 @@ public partial class CensoController
                     item.NombrePaciente,
                     item.TipoIdentificacion,
                     item.NumeroIdentificacion,
-                    item.FechaNacimiento.ToString("yyyy-MM-dd"),
+                    FechaExportable.Fecha(item.FechaNacimiento),
                     item.Edad.ToString(CultureInfo.InvariantCulture),
                     item.CorreoElectronico,
                     item.Cantidad.ToString(CultureInfo.InvariantCulture),
@@ -1572,28 +1572,39 @@ public partial class CensoController
                     item.GestionEnSistema ? "Sí" : "No",
                     item.EstadoGestion,
                     item.EstadoPaciente,
-                    item.FechaIngreso.ToString("yyyy-MM-dd"),
-                    item.FechaInicio.ToString("yyyy-MM-dd"),
+                    FechaExportable.Fecha(item.FechaIngreso),
+                    FechaExportable.Fecha(item.FechaInicio),
                     FormatNullableDate(item.FechaFin),
                     FormatNullableDate(item.FechaAlta),
                     item.MotivoAlta ?? string.Empty,
-                    item.AltaNotificacionEnviadaAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty,
-                    item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"),
-                    item.UpdatedAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty,
+                    FechaExportable.FechaHora(item.AltaNotificacionEnviadaAtUtc),
+                    FechaExportable.FechaHora(item.CreatedAtUtc),
+                    FechaExportable.FechaHora(item.UpdatedAtUtc),
                     prorroga?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
                     prorroga?.TipoTerapia ?? string.Empty,
-                    prorroga?.FechaSolicitudProrroga.ToString("yyyy-MM-dd") ?? string.Empty,
-                    prorroga?.FechaSolicitudAsegurador.ToString("yyyy-MM-dd") ?? string.Empty,
-                    prorroga?.FechaEntregaAutorizacion.ToString("yyyy-MM-dd") ?? string.Empty,
+                    FechaExportable.Fecha(prorroga?.FechaSolicitudProrroga),
+                    FechaExportable.Fecha(prorroga?.FechaSolicitudAsegurador),
+                    FechaExportable.Fecha(prorroga?.FechaEntregaAutorizacion),
                     prorroga?.CodigoAutorizacion ?? string.Empty,
                     prorroga?.Frecuencia.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
                     prorroga?.Cantidad ?? string.Empty,
-                    prorroga?.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty
+                    FechaExportable.FechaHora(prorroga?.CreatedAtUtc)
                 ]);
             }
         }
 
-        return ExcelWorkbookWriter.BuildTableWorkbook("Terapias Ambulatorias", headers, rows, DateTime.UtcNow);
+        // Las fechas van como fecha de Excel (se ven igual, pero ordenan y filtran por día).
+        string[] columnasFecha =
+        [
+            "FechaNacimiento", "FechaIngreso", "FechaInicio", "FechaFin", "FechaAlta",
+            "AltaNotificacionEnviadaAtUtc", "CreatedAtUtc", "UpdatedAtUtc",
+            "Prorroga_FechaSolicitudProrroga", "Prorroga_FechaSolicitudAsegurador",
+            "Prorroga_FechaEntregaAutorizacion", "Prorroga_CreatedAtUtc"
+        ];
+
+        return ExcelWorkbookWriter.BuildTableWorkbook(
+            "Terapias Ambulatorias", headers, rows, DateTime.UtcNow,
+            dateColumns: columnasFecha.Select(x => Array.IndexOf(headers, x)).Where(x => x >= 0).ToList());
     }
 
 
