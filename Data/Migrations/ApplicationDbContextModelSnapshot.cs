@@ -837,6 +837,36 @@ namespace Nexa.Data.Migrations
                     b.ToTable("censo_cronico_agudizaciones", (string)null);
                 });
 
+            modelBuilder.Entity("Nexa.Data.Entities.CensoCronicoAgudizacionAdjunto", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("CensoCronicoAgudizacionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("FileData")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CensoCronicoAgudizacionId");
+
+                    b.ToTable("censo_cronico_agudizacion_adjuntos", (string)null);
+                });
+
             modelBuilder.Entity("Nexa.Data.Entities.CensoCronicoHospitalizacion", b =>
                 {
                     b.Property<long>("Id")
@@ -1107,6 +1137,10 @@ namespace Nexa.Data.Migrations
                     b.Property<string>("Karnofsky")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("MedicoAsignado")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("MipresNutricion")
                         .HasMaxLength(2)
@@ -3987,6 +4021,17 @@ namespace Nexa.Data.Migrations
                     b.Navigation("CensoCronicoRecord");
                 });
 
+            modelBuilder.Entity("Nexa.Data.Entities.CensoCronicoAgudizacionAdjunto", b =>
+                {
+                    b.HasOne("Nexa.Data.Entities.CensoCronicoAgudizacion", "Agudizacion")
+                        .WithMany("Adjuntos")
+                        .HasForeignKey("CensoCronicoAgudizacionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agudizacion");
+                });
+
             modelBuilder.Entity("Nexa.Data.Entities.CensoCronicoHospitalizacion", b =>
                 {
                     b.HasOne("Nexa.Data.Entities.CensoCronicoRecord", "CensoCronicoRecord")
@@ -4171,6 +4216,8 @@ namespace Nexa.Data.Migrations
 
             modelBuilder.Entity("Nexa.Data.Entities.CensoCronicoAgudizacion", b =>
                 {
+                    b.Navigation("Adjuntos");
+
                     b.Navigation("Reaperturas");
                 });
 

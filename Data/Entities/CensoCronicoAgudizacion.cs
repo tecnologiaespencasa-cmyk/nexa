@@ -71,4 +71,6 @@ public class CensoCronicoAgudizacion
     public CensoCronicoRecord CensoCronicoRecord { get; set; } = null!;
 
     public ICollection<CensoCronicoKardexReapertura> Reaperturas { get; set; } = new List<CensoCronicoKardexReapertura>();
+
+    public ICollection<CensoCronicoAgudizacionAdjunto> Adjuntos { get; set; } = new List<CensoCronicoAgudizacionAdjunto>();
 }

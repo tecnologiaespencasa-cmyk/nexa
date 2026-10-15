@@ -1516,6 +1516,127 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
   color: var(--censo-ink-soft);
 }
 
+/* Segunda línea de la ficha: el estado y, a su lado, documento, edad e ingreso. Si no caben
+   juntos —varios programas en curso en una pantalla angosta— los identificadores bajan debajo. */
+.censo-ficha__linea {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.85rem;
+  margin-block-start: 0.4rem;
+}
+
+/* --------------------------------------------------------------------------
+   Estado del paciente (cápsula de la cabecera)
+
+   Dos tramos, como el segmento del carril: la palabra y, a su derecha, una
+   etiqueta por programa con el punto y el tinte que ese programa tiene en todo
+   el censo (--prog / --prog-soft los fija data-programa). Es un resumen: el
+   detalle con fechas va en el tooltip, no en pantalla.
+
+   Activo manda sobre lo demás con la palabra en tinta fuerte; todo lo que no es
+   «en curso» se apaga a gris para que el ojo caiga primero en los pacientes
+   que sí están en un programa. Con un solo programa en curso la cápsula entera
+   toma su color; con varios queda neutra y cada etiqueta lleva el suyo.
+   -------------------------------------------------------------------------- */
+.censo-estado {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid var(--censo-border-strong, var(--censo-border));
+  border-radius: 1rem;
+  background: #fff;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.censo-estado[data-programa] {
+  border-color: color-mix(in srgb, var(--prog) 45%, #fff);
+}
+
+.censo-estado__palabra {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.38rem 0.75rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--censo-ink);
+  white-space: nowrap;
+}
+
+.censo-estado__programas {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+  align-self: stretch;
+  padding: 0.18rem 0.2rem;
+  border-inline-start: 1px solid var(--censo-border);
+}
+
+.censo-estado__programa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.24rem 0.65rem 0.24rem 0.5rem;
+  border-radius: 999px;
+  background: var(--prog-soft);
+  font-weight: 800;
+  /* El matiz del programa oscurecido hacia la tinta: sobre su propio tinte claro pasa de 4.5:1
+     en los cinco programas, y el punto lleva el color puro. */
+  color: color-mix(in srgb, var(--prog) 70%, #1b2230);
+  white-space: nowrap;
+}
+
+.censo-estado__punto {
+  flex: 0 0 auto;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--prog);
+}
+
+/* Mismo gesto que la tarjeta «Sin diligenciar» del carril: el punto se vacía. */
+.censo-estado__programa--vacio .censo-estado__punto {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--prog);
+}
+
+.censo-estado--sin-diligenciar .censo-estado__palabra,
+.censo-estado--inactivo .censo-estado__palabra {
+  color: var(--censo-ink-soft);
+}
+
+.censo-estado--sin-diligenciar .censo-estado__programa {
+  color: var(--censo-ink-soft);
+}
+
+/* Inactivo: el último programa conserva su punto (se reconoce de un vistazo) pero sin tinte. */
+.censo-estado--inactivo .censo-estado__programa {
+  background: var(--censo-surface-muted, #f3f4f6);
+  color: var(--censo-ink-soft);
+}
+
+.censo-estado__rotulo {
+  padding-inline: 0.45rem 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--censo-ink-soft);
+}
+
+/* Sin programas: no es un estado, es la ausencia de uno. Borde punteado y sin tramo derecho. */
+.censo-estado--vacio {
+  border-style: dashed;
+}
+
+.censo-estado--vacio .censo-estado__palabra {
+  color: var(--censo-ink-soft);
+  font-weight: 700;
+}
+
 /* Documento, edad e ingreso en una sola linea separada por puntos. Son datos
    que se cotejan de un vistazo, no que se leen uno por uno; con etiqueta
    propia cada uno ocupaban media pantalla. Cifras tabulares para que el
@@ -1524,7 +1645,7 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
   display: flex;
   flex-wrap: wrap;
   gap: 0.15rem 0.6rem;
-  margin: 0.3rem 0 0;
+  margin: 0;
   font-size: 0.85rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;

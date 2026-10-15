@@ -1280,6 +1280,11 @@ public partial class CensoController
                 : null;
             excluyente ??= sinCerrarDeVerdad;
             var chocaConExcluyente = excluyente is not null;
+            // Clínica de heridas exige agudos o crónicos agregado. Va después de la exclusividad: con
+            // terapia abierta el motivo que se muestra es ese, no la falta de base.
+            var faltaBase = !chocaConExcluyente
+                && abierto is null
+                && CensoProgramas.FaltaBaseParaAgregar(programa, abiertos.Select(x => x.Programa));
 
             return new CensoProgramaChipViewModel
             {
@@ -1289,20 +1294,24 @@ public partial class CensoController
                 RegistroId = abierto?.RegistroId,
                 EpisodiosCerrados = episodios.Count(x =>
                     string.Equals(x.Programa, programa, StringComparison.Ordinal) && x.CerradoAtUtc != null),
-                SePuedeAgregar = abierto is null && !chocaConExcluyente,
+                SePuedeAgregar = abierto is null && !chocaConExcluyente && !faltaBase,
                 // Cabe en la ranura de estado de la tarjeta, donde al lado dice "Activo" o
                 // "Agregar". El marco compartido ya dice que son alternativas; aqui solo falta
                 // cual de las dos esta ocupando el puesto.
                 MotivoBloqueo = chocaConExcluyente
                     ? $"{CensoProgramas.NombreCorto(excluyente!)} está activo"
-                    : null,
+                    : faltaBase ? "Requiere agudos o crónicos" : null,
                 // El navegador lateral dice que esa atención está «cerrada» (tiene fecha de egreso),
                 // así que sin esta línea el bloqueo parecería una contradicción.
                 DetalleBloqueo = sinCerrarDeVerdad is not null
                     ? $"{CensoProgramas.Nombre(sinCerrarDeVerdad)} tiene fecha de egreso, pero su estado sigue en «Activo». "
                       + $"Reabre esa atención (requiere el permiso de reapertura) y guarda el alta con estado «Inactivo» "
                       + $"para poder agregar {CensoProgramas.Nombre(programa)}."
-                    : null,
+                    : faltaBase
+                        ? $"{CensoProgramas.Nombre(programa)} se suma a un programa base. Agrega primero "
+                          + $"{CensoProgramas.Nombre(CensoProgramas.Agudos)} o {CensoProgramas.Nombre(CensoProgramas.Cronicos)} "
+                          + $"al paciente y después {CensoProgramas.Nombre(programa)}."
+                        : null,
                 // Terapia ambulatoria es la única que deja al paciente sin poder sumar nada más.
                 // Se advierte al confirmar, que es cuando la persona está decidiendo.
                 AvisoAlAgregar = programa == CensoProgramas.TerapiaAmbulatoria

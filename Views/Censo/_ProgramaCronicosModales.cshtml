@@ -217,6 +217,18 @@
                     </div>
                 </section>
             </div>
+            <div class="censo-adjuntos-panel px-3 pb-2 border-top pt-2" id="cronicoAdjuntosPanel">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <strong class="small">Adjuntos</strong>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="cronicoSubirAdjuntoBtn" title="Subir PDF, Excel, CSV o imagen (máximo 10 MB)">
+                        <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true" style="vertical-align:middle"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Subir archivo
+                    </button>
+                    <input type="file" id="cronicoAdjuntoFileInput" accept=".pdf,.xls,.xlsx,.xlsm,.csv,.jpg,.jpeg,.png" class="d-none" aria-label="Seleccionar PDF, Excel, CSV o imagen" />
+                    <span id="cronicoAdjuntoUploadStatus" class="small text-muted" aria-live="polite"></span>
+                </div>
+                <ul class="list-group list-group-flush censo-adjuntos-list" id="cronicoAdjuntosList" style="max-height:140px;overflow-y:auto;"></ul>
+            </div>
             <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" role="switch" id="cronicoServiciosCargadosSwitch" />

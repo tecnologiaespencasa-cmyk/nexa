@@ -1,0 +1,51 @@
+@model CensoEstadoPacienteResumen
+@using Nexa.Data.Entities
+@{
+    // El estado del paciente en una cápsula de dos tramos, hermana de las tarjetas del carril: a la
+    // izquierda la palabra, a la derecha una etiqueta por programa con su punto y su tinte. El
+    // color no es lo único que dice el programa: su nombre va escrito.
+    var enCurso = Model.Estado is CensoEstadoPaciente.Activo or CensoEstadoPaciente.SinDiligenciar;
+    var palabra = Model.Estado switch
+    {
+        CensoEstadoPaciente.Activo => "Activo",
+        CensoEstadoPaciente.SinDiligenciar => "Sin diligenciar",
+        CensoEstadoPaciente.Inactivo => "Inactivo",
+        _ => "Sin programa"
+    };
+    var modificador = Model.Estado switch
+    {
+        CensoEstadoPaciente.Activo => "censo-estado--activo",
+        CensoEstadoPaciente.SinDiligenciar => "censo-estado--sin-diligenciar",
+        CensoEstadoPaciente.Inactivo => "censo-estado--inactivo",
+        _ => "censo-estado--vacio"
+    };
+
+    // Con un solo programa en curso la cápsula entera toma su color; con varios queda neutra y
+    // cada etiqueta lleva el suyo. Los códigos de programa son constantes del sistema.
+    var unico = enCurso && Model.Programas.Count == 1 ? Model.Programas[0].Programa : null;
+    var etiquetaAria = $"Estado del paciente: {palabra.ToLowerInvariant()}"
+        + (Model.Programas.Count > 0
+            ? (Model.Estado == CensoEstadoPaciente.Inactivo ? ", último programa " : ", ")
+                + string.Join(", ", Model.Programas.Select(p => CensoProgramas.NombreCorto(p.Programa)))
+            : string.Empty);
+}
+<span class="censo-estado @modificador" @(unico is null ? null : Html.Raw($"data-programa=\"{unico}\""))
+      role="group" aria-label="@etiquetaAria" title="@Model.Detalle">
+    <span class="censo-estado__palabra">@palabra</span>
+    @if (Model.Programas.Count > 0)
+    {
+        <span class="censo-estado__programas">
+            @if (Model.Estado == CensoEstadoPaciente.Inactivo)
+            {
+                <span class="censo-estado__rotulo">último</span>
+            }
+            @foreach (var programa in Model.Programas)
+            {
+                <span class="censo-estado__programa @(programa.SinDiligenciar ? "censo-estado__programa--vacio" : null)"
+                      @Html.Raw($"data-programa=\"{programa.Programa}\"")>
+                    <span class="censo-estado__punto" aria-hidden="true"></span>@CensoProgramas.NombreCorto(programa.Programa)
+                </span>
+            }
+        </span>
+    }
+</span>

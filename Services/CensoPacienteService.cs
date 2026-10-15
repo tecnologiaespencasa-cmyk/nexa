@@ -196,6 +196,17 @@ public class CensoPacienteService : ICensoPacienteService
                 $"antes de agregar {CensoProgramas.Nombre(programa)}.");
         }
 
+        // Clínica de heridas se suma a un programa base: sin agudos o crónicos agregado no se
+        // puede abrir. Se revisa después de la exclusividad porque con terapia abierta el motivo
+        // verdadero es ese, no la falta de base.
+        if (CensoProgramas.FaltaBaseParaAgregar(programa, abiertos.Select(x => x.Programa)))
+        {
+            return ServiceResult<CensoPacientePrograma>.Failure(
+                $"{CensoProgramas.Nombre(programa)} se suma a un programa base. " +
+                $"Agrega primero {CensoProgramas.Nombre(CensoProgramas.Agudos)} o " +
+                $"{CensoProgramas.Nombre(CensoProgramas.Cronicos)} al paciente y después {CensoProgramas.Nombre(programa)}.");
+        }
+
         var episodio = new CensoPacientePrograma
         {
             CensoPacienteId = pacienteId,

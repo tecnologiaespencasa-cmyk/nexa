@@ -38,6 +38,9 @@ public interface ICensoPacienteService
     /// Los programas que no pueden convivir con el nuevo (todos, tratándose de terapia ambulatoria)
     /// deben estar cerrados de verdad: ni con el episodio abierto ni con el registro diciendo
     /// «Activo» aunque ya tenga fecha de egreso (ver <see cref="ProgramasEgresadosPeroActivosAsync"/>).
+    ///
+    /// Clínica de heridas, además, exige que el paciente ya tenga agregado agudos o crónicos
+    /// (<see cref="Nexa.Data.Entities.CensoProgramas.FaltaBaseParaAgregar"/>).
     /// </summary>
     Task<ServiceResult<CensoPacientePrograma>> AgregarProgramaAsync(
         long pacienteId,

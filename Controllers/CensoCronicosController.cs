@@ -3,11 +3,13 @@ using System.Net;
 using System.Security.Claims;
 using System.Text;
 using Nexa.Data.Entities;
+using Nexa.Helpers;
 using Nexa.Models.Security;
 using Nexa.Models.ViewModels;
 using Nexa.Services.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 namespace Nexa.Controllers;
@@ -134,6 +136,18 @@ public partial class CensoController
     public async Task<IActionResult> ProgramaCronicos(CensoCronicoViewModel model, CancellationToken cancellationToken)
     {
         NormalizeCronicoModel(model);
+
+        // El médico que ya tenía el registro (si se retiró del directorio) sigue siendo una opción
+        // válida. Un registro nuevo no tiene ninguno.
+        if (model.EditingRecordId.HasValue)
+        {
+            model.MedicoAsignadoGuardado = await _context.CensoCronicos
+                .AsNoTracking()
+                .Where(x => x.Id == model.EditingRecordId.Value)
+                .Select(x => x.MedicoAsignado)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         await PopulateCronicoDropdownsAsync(model, cancellationToken);
         ValidateCronicoModel(model);
 
@@ -267,6 +281,9 @@ public partial class CensoController
         {
             ModelState.AddModelError(string.Empty, missingRecordMessage);
         }
+
+        // El médico que ya tenía el registro (si se retiró del directorio) sigue siendo una opción válida.
+        model.MedicoAsignadoGuardado = record?.MedicoAsignado;
 
         // Los datos básicos no se editan desde esta sección; se conservan los almacenados.
         foreach (var key in new[]
@@ -610,6 +627,7 @@ public partial class CensoController
             ("Fonoaudiología", r => r.Fonoaudiologia ?? string.Empty),
             ("Nutrición", r => r.Nutricion ?? string.Empty),
             ("Psicología", r => r.Psicologia ?? string.Empty),
+            ("Médico asignado", r => r.MedicoAsignado ?? string.Empty),
             ("Traqueostomía", r => r.Traqueostomia ?? string.Empty),
             ("Sonda nasogástrica", r => r.SondaNasogastrica ?? string.Empty),
             ("Calibre de la sonda nasogástrica", r => r.CalibreSondaNasogastrica ?? string.Empty),
@@ -722,6 +740,8 @@ public partial class CensoController
             ? CronicoEstadoInactivo
             : CronicoEstadoActivo;
         model.AuxiliarEnfermeriaOptions = await GetOpsAssistantOptionsAsync(cancellationToken);
+        model.MedicoOptions = ConservarMedicoGuardado(
+            await GetMedicoOptionsAsync(cancellationToken), model.MedicoAsignadoGuardado);
         model.TallaPanalesOptions = BuildOptions(CronicoTallaValues);
         model.EstadoMipresOptions = BuildOptions(CronicoEstadoMipresValues);
         model.MotivoEgresoOptions = BuildOptions(CronicoMotivoEgresoValues);
@@ -946,6 +966,9 @@ public partial class CensoController
         model.Fonoaudiologia = NormalizeOptionalSelect(model.Fonoaudiologia);
         model.Nutricion = NormalizeOptionalSelect(model.Nutricion);
         model.Psicologia = NormalizeOptionalSelect(model.Psicologia);
+        // Solo se recortan los espacios: el nombre con su forma canónica lo fija ValidateCronicoMedico
+        // contra el directorio. NormalizeOptionalCronicoText lo pasaría a mayúsculas.
+        model.MedicoAsignado = NormalizeOptionalSelect(model.MedicoAsignado);
         model.Traqueostomia = NormalizeOptionalSelect(model.Traqueostomia);
         model.SondaNasogastrica = NormalizeOptionalSelect(model.SondaNasogastrica);
         model.CalibreSondaNasogastrica = NormalizeOptionalCronicoText(model.CalibreSondaNasogastrica);
@@ -1180,6 +1203,59 @@ public partial class CensoController
             ModelState.AddModelError(nameof(model.EstadoMipresNutricion), "Selecciona un estado Mipres válido para nutrición.");
         }
 
+        ValidateCronicoMedico(model);
+    }
+
+    /// <summary>
+    /// El médico asignado es opcional, pero si viene tiene que ser uno de los médicos activos del
+    /// directorio (o el que el registro ya tenía guardado, ver <see cref="ConservarMedicoGuardado"/>).
+    /// Se compara sin distinguir mayúsculas y se guarda con la forma del directorio: el formulario de
+    /// crónicos pasa a mayúsculas todo lo que se escribe.
+    /// </summary>
+    private void ValidateCronicoMedico(CensoCronicoViewModel model)
+    {
+        if (string.IsNullOrWhiteSpace(model.MedicoAsignado))
+        {
+            model.MedicoAsignado = null;
+            return;
+        }
+
+        var canonico = model.MedicoOptions
+            .Select(x => x.Value)
+            .FirstOrDefault(x => string.Equals(x, model.MedicoAsignado, StringComparison.OrdinalIgnoreCase));
+
+        if (string.IsNullOrWhiteSpace(canonico))
+        {
+            ModelState.AddModelError(
+                nameof(model.MedicoAsignado),
+                model.MedicoOptions.Any() ? "Selecciona un médico válido." : "No hay médicos activos para asignar.");
+            return;
+        }
+
+        model.MedicoAsignado = canonico;
+    }
+
+    /// <summary>
+    /// Agrega el médico que el registro ya tiene guardado a las opciones, si dejó de figurar entre
+    /// los activos del directorio (se retiró, o cambió de profesión). Sin esto el campo se vería
+    /// vacío y el primer guardado borraría un dato que nadie quiso borrar, o la validación lo
+    /// rechazaría y el paciente no se podría guardar (la misma trampa que tuvo la IPS que remite,
+    /// ver la memoria «catalogos-que-rechazan-datos-reales»). Solo sobrevive el valor GUARDADO: lo
+    /// que alguien escriba en el formulario no entra por aquí.
+    /// </summary>
+    private static IReadOnlyList<SelectListItem> ConservarMedicoGuardado(
+        IReadOnlyList<SelectListItem> opciones,
+        string? guardado)
+    {
+        if (string.IsNullOrWhiteSpace(guardado)
+            || opciones.Any(x => string.Equals(x.Value, guardado, StringComparison.OrdinalIgnoreCase)))
+        {
+            return opciones;
+        }
+
+        return opciones
+            .Append(new SelectListItem { Text = guardado.Trim(), Value = guardado.Trim() })
+            .ToList();
     }
 
     private void ValidateCronicoSiNo(string? value, string fieldName, string displayName)
@@ -1383,6 +1459,7 @@ public partial class CensoController
         record.Fonoaudiologia = model.Fonoaudiologia;
         record.Nutricion = model.Nutricion;
         record.Psicologia = model.Psicologia;
+        record.MedicoAsignado = model.MedicoAsignado;
         record.Traqueostomia = model.Traqueostomia;
         record.SondaNasogastrica = model.SondaNasogastrica;
         record.CalibreSondaNasogastrica = model.CalibreSondaNasogastrica;
@@ -1459,6 +1536,8 @@ public partial class CensoController
         model.Fonoaudiologia = SiNoOrNo(record.Fonoaudiologia);
         model.Nutricion = SiNoOrNo(record.Nutricion);
         model.Psicologia = SiNoOrNo(record.Psicologia);
+        model.MedicoAsignado = record.MedicoAsignado;
+        model.MedicoAsignadoGuardado = record.MedicoAsignado;
         model.Traqueostomia = SiNoOrNo(record.Traqueostomia);
         model.SondaNasogastrica = SiNoOrNo(record.SondaNasogastrica);
         model.CalibreSondaNasogastrica = record.CalibreSondaNasogastrica;
@@ -1578,6 +1657,147 @@ public partial class CensoController
             agudizacionId = agudizacion.Id,
             enviadoAtUtc = nowUtc
         });
+    }
+
+    // ----- Adjuntos del kardex de la agudización -----
+    // Lo que el médico ordenó (el PDF de la orden, un soporte) viaja con el pedido a farmacia, igual
+    // que en agudos, clínica de heridas y NPT. Cuelga de la agudización: cada una es un pedido propio.
+    // Se pueden subir y quitar mientras farmacia no haya dado el OK al kardex; después queda solo
+    // para consulta, como el resto del documento.
+
+    [HttpGet]
+    public async Task<IActionResult> ObtenerAdjuntosCronicoAgudizacion(long agudizacionId, CancellationToken cancellationToken)
+    {
+        if (agudizacionId <= 0) return BadRequest(new { message = "ID de agudización inválido." });
+
+        var existe = await _context.CensoCronicoAgudizaciones.AnyAsync(x => x.Id == agudizacionId, cancellationToken);
+        if (!existe) return NotFound(new { message = "Agudización no encontrada." });
+
+        var adjuntos = await _context.CensoCronicoAgudizacionAdjuntos
+            .AsNoTracking()
+            .Where(x => x.CensoCronicoAgudizacionId == agudizacionId)
+            .OrderBy(x => x.UploadedAtUtc)
+            .ThenBy(x => x.Id)
+            .Select(x => new { id = x.Id, nombre = x.FileName, subidoAtUtc = x.UploadedAtUtc })
+            .ToListAsync(cancellationToken);
+
+        return Json(new { adjuntos });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(MaxAdjuntoKardexBytes + 1024 * 1024)]
+    public async Task<IActionResult> SubirAdjuntoCronicoAgudizacion(
+        long agudizacionId,
+        IFormFile? archivo,
+        CancellationToken cancellationToken)
+    {
+        if (agudizacionId <= 0) return BadRequest(new { message = "ID de agudización inválido." });
+
+        if (archivo is null || archivo.Length == 0)
+        {
+            return BadRequest(new { message = "Selecciona un archivo." });
+        }
+
+        if (archivo.Length > MaxAdjuntoKardexBytes)
+        {
+            return BadRequest(new { message = "El archivo debe pesar máximo 10 MB." });
+        }
+
+        var extension = Path.GetExtension(archivo.FileName);
+        if (!AdjuntoKardexExtensionesPermitidas.Contains(extension, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "Formato no permitido. Adjunta PDF, Excel, CSV o imagen." });
+        }
+
+        var agudizacion = await _context.CensoCronicoAgudizaciones
+            .Include(x => x.CensoCronicoRecord)
+            .FirstOrDefaultAsync(x => x.Id == agudizacionId, cancellationToken);
+        if (agudizacion is null) return NotFound(new { message = "Agudización no encontrada." });
+
+        if (agudizacion.KardexCerradoAtUtc.HasValue)
+        {
+            return BadRequest(new { message = "Kardex cerrado por farmacia: ya no admite adjuntos. Solicita la reapertura para agregar más." });
+        }
+
+        using var memoria = new MemoryStream();
+        await archivo.CopyToAsync(memoria, cancellationToken);
+
+        var nombre = Path.GetFileName(archivo.FileName);
+        // La columna admite 260 caracteres; si el nombre es más largo se conserva el final, que lleva la extensión.
+        if (nombre.Length > 260) nombre = nombre[^260..];
+
+        var adjunto = new CensoCronicoAgudizacionAdjunto
+        {
+            CensoCronicoAgudizacionId = agudizacion.Id,
+            FileName = nombre,
+            FileData = memoria.ToArray(),
+            UploadedAtUtc = DateTime.UtcNow
+        };
+
+        await _context.CensoCronicoAgudizacionAdjuntos.AddAsync(adjunto, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
+        await _auditService.LogAsync("CENSO_CRONICO_ADJUNTO_SUBIDO", "CensoCronicoAgudizacion",
+            $"Doc: {agudizacion.CensoCronicoRecord.NumeroIdentificacion}, Agudización: #{agudizacion.Numero}, Archivo: {adjunto.FileName}",
+            auditUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new
+        {
+            success = true,
+            adjunto = new { id = adjunto.Id, nombre = adjunto.FileName, subidoAtUtc = adjunto.UploadedAtUtc }
+        });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DescargarAdjuntoCronicoAgudizacion(long adjuntoId, CancellationToken cancellationToken)
+    {
+        var adjunto = await _context.CensoCronicoAgudizacionAdjuntos
+            .AsNoTracking()
+            .Where(x => x.Id == adjuntoId)
+            .Select(x => new { x.FileData, x.FileName })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (adjunto is null)
+        {
+            return NotFound();
+        }
+
+        return File(adjunto.FileData, AdjuntoArchivo.ContentType(adjunto.FileName), adjunto.FileName);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EliminarAdjuntoCronicoAgudizacion(long adjuntoId, CancellationToken cancellationToken)
+    {
+        var adjunto = await _context.CensoCronicoAgudizacionAdjuntos
+            .Include(x => x.Agudizacion)
+            .ThenInclude(a => a.CensoCronicoRecord)
+            .FirstOrDefaultAsync(x => x.Id == adjuntoId, cancellationToken);
+
+        if (adjunto is null)
+        {
+            return NotFound(new { message = "El adjunto no existe." });
+        }
+
+        if (adjunto.Agudizacion.KardexCerradoAtUtc.HasValue)
+        {
+            return BadRequest(new { message = "Kardex cerrado por farmacia: ya no admite cambios." });
+        }
+
+        var agudizacion = adjunto.Agudizacion;
+        var nombre = adjunto.FileName;
+
+        _context.CensoCronicoAgudizacionAdjuntos.Remove(adjunto);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var auditUserId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUid) ? (Guid?)parsedUid : null;
+        await _auditService.LogAsync("CENSO_CRONICO_ADJUNTO_ELIMINADO", "CensoCronicoAgudizacion",
+            $"Doc: {agudizacion.CensoCronicoRecord.NumeroIdentificacion}, Agudización: #{agudizacion.Numero}, Archivo: {nombre}",
+            auditUserId, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
+        return Json(new { success = true });
     }
 
     [HttpPost]

@@ -172,6 +172,19 @@ public class CensoCronicoViewModel : ICensoRegistroEditable
     [Display(Name = "Psicología")]
     public string? Psicologia { get; set; }
 
+    [StringLength(120, ErrorMessage = "El médico asignado no puede superar 120 caracteres.")]
+    [Display(Name = "Médico asignado")]
+    public string? MedicoAsignado { get; set; }
+
+    /// <summary>
+    /// El médico que el registro tiene guardado. Si ya no figura entre los médicos activos del
+    /// directorio se conserva como opción de ESTE paciente, para que verlo no signifique perderlo ni
+    /// quedar sin poder guardar (un paciente que ya tenía el dato no puede quedar bloqueado). Nunca
+    /// viene del formulario: si se pudiera enviar, cualquier nombre pasaría la validación.
+    /// </summary>
+    [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
+    public string? MedicoAsignadoGuardado { get; set; }
+
     [Display(Name = "Traqueostomía")]
     public string? Traqueostomia { get; set; }
 
@@ -302,6 +315,7 @@ public class CensoCronicoViewModel : ICensoRegistroEditable
     public IReadOnlyList<SelectListItem> CalibreSondaVesicalOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> CalibreSondaNasogastricaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> AuxiliarEnfermeriaOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> MedicoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> TallaPanalesOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoMipresOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> MotivoEgresoOptions { get; set; } = [];

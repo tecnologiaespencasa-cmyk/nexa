@@ -3946,6 +3946,14 @@ public partial class CensoController : Controller
     private Task<IReadOnlyList<SelectListItem>> GetOpsAssistantOptionsAsync(CancellationToken cancellationToken) =>
         BuildOpsDirectoryOptionsAsync(ProfesionesDeAuxiliar, cancellationToken);
 
+    // Valor de la profesion de los medicos en el directorio (Neon, public."User".profesion). Es el
+    // mismo directorio de los auxiliares, solo que con otro filtro: 21 activos al 2026-10-15.
+    private static readonly string[] ProfesionesDeMedico = ["MEDICO"];
+
+    /// <summary>Personal asignable en los campos de medico: solo la profesion MEDICO.</summary>
+    private Task<IReadOnlyList<SelectListItem>> GetMedicoOptionsAsync(CancellationToken cancellationToken) =>
+        BuildOpsDirectoryOptionsAsync(ProfesionesDeMedico, cancellationToken);
+
     /// <summary>Directorio completo, sin filtrar por profesion.</summary>
     private Task<IReadOnlyList<SelectListItem>> GetOpsDirectoryOptionsAsync(CancellationToken cancellationToken) =>
         BuildOpsDirectoryOptionsAsync(null, cancellationToken);

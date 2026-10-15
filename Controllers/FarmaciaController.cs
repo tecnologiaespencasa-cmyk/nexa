@@ -162,9 +162,37 @@ public partial class FarmaciaController : Controller
             .Where(x => x.IsActive)
             .ToListAsync(cancellationToken);
 
-        var model = BuildCronicoDocumentModel(agudizacion, medicamentos, normalizedType);
+        // Los adjuntos cuelgan de la agudización misma (no hay copia de despacho como en las
+        // prórrogas de agudos), así que se buscan por su id.
+        var adjuntos = await _context.CensoCronicoAgudizacionAdjuntos
+            .AsNoTracking()
+            .Where(x => x.CensoCronicoAgudizacionId == agudizacion.Id)
+            .OrderBy(x => x.UploadedAtUtc)
+            .ThenBy(x => x.Id)
+            .Select(x => new FarmaciaAdjuntoDto { Id = x.Id, FileName = x.FileName })
+            .ToListAsync(cancellationToken);
+
+        var model = BuildCronicoDocumentModel(agudizacion, medicamentos, normalizedType, adjuntos);
         ViewData["DocumentoFiltro"] = documento?.Trim();
         return View("DocumentoCronico", model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DescargarAdjuntoCronico(long adjuntoId, CancellationToken cancellationToken)
+    {
+        // Solo lo que ya llegó a farmacia: mientras la agudización no se envía, el adjunto es del censo.
+        var adjunto = await _context.CensoCronicoAgudizacionAdjuntos
+            .AsNoTracking()
+            .Where(x => x.Id == adjuntoId && x.Agudizacion.FarmaciaEnviadoAtUtc != null)
+            .Select(x => new { x.FileData, x.FileName })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (adjunto is null)
+        {
+            return NotFound();
+        }
+
+        return File(adjunto.FileData, AdjuntoArchivo.ContentType(adjunto.FileName), adjunto.FileName);
     }
 
     [HttpPost]
@@ -948,7 +976,7 @@ public partial class FarmaciaController : Controller
     }
 
 
-    private static FarmaciaPedidoViewModel MapCronicoPedido(CensoCronicoAgudizacion agudizacion)
+    private static FarmaciaPedidoViewModel MapCronicoPedido(CensoCronicoAgudizacion agudizacion, bool tieneAdjuntos)
     {
         var record = agudizacion.CensoCronicoRecord;
         return new FarmaciaPedidoViewModel
@@ -973,7 +1001,7 @@ public partial class FarmaciaController : Controller
             FarmaciaFacturado = agudizacion.FarmaciaFacturado,
             FarmaciaEmpacadoAtUtc = agudizacion.FarmaciaEmpacadoAtUtc,
             FarmaciaBolsaDesempacada = agudizacion.FarmaciaBolsaDesempacada,
-            TieneAdjuntos = false,
+            TieneAdjuntos = tieneAdjuntos,
             EsProrrogaDispatch = false,
             EsAgudizacionCronica = true,
             NumeroAgudizacionCronica = agudizacion.Numero,
@@ -1111,6 +1139,17 @@ public partial class FarmaciaController : Controller
                 .Take(take)
                 .ToListAsync(cancellationToken);
 
+        // Cuáles de estas agudizaciones traen adjuntos, para mostrar el botón en la bandeja.
+        var cronicoIds = cronicoItems.Select(x => x.Id).ToList();
+        var cronicosConAdjuntos = cronicoIds.Count == 0
+            ? []
+            : (await _context.CensoCronicoAgudizacionAdjuntos
+                .AsNoTracking()
+                .Where(x => cronicoIds.Contains(x.CensoCronicoAgudizacionId))
+                .Select(x => x.CensoCronicoAgudizacionId)
+                .Distinct()
+                .ToListAsync(cancellationToken)).ToHashSet();
+
         var heridasItems = heridasEstado is null
             ? []
             : await heridasEstado
@@ -1134,7 +1173,7 @@ public partial class FarmaciaController : Controller
                 x.Record,
                 x.TieneAdjuntos
                     || (x.Record.FarmaciaProrrogaDeId is long padre && adjuntosHeredados.Contains(padre))))
-            .Concat(cronicoItems.Select(MapCronicoPedido))
+            .Concat(cronicoItems.Select(x => MapCronicoPedido(x, cronicosConAdjuntos.Contains(x.Id))))
             .Concat(heridasItems.Select(x => MapClinicaHeridasPedido(x.Kardex, x.TieneAdjuntos)))
             .Concat(nptItems.Select(x => MapNptPedido(x.Kardex, x.TieneAdjuntos)))
             .OrderByDescending(x => x.FechaEnvioUtc)
@@ -1185,7 +1224,8 @@ public partial class FarmaciaController : Controller
     private static FarmaciaDocumentViewModel BuildCronicoDocumentModel(
         CensoCronicoAgudizacion agudizacion,
         IReadOnlyList<Medicamento> medicamentos,
-        string tipoDocumento)
+        string tipoDocumento,
+        IReadOnlyList<FarmaciaAdjuntoDto>? adjuntos = null)
     {
         var medicationCatalog = medicamentos
             .GroupBy(x => NormalizeCatalogKey(x.Nombre), StringComparer.OrdinalIgnoreCase)
@@ -1257,7 +1297,8 @@ public partial class FarmaciaController : Controller
             EntregaActual = agudizacion.FarmaciaEntregaActual,
             Firma = BuildCronicoSignatureModel(agudizacion),
             Medicamentos = rows,
-            RequisicionItems = requisicionRows
+            RequisicionItems = requisicionRows,
+            Adjuntos = adjuntos ?? []
         };
 
         if (tipoDocumento == DocumentoRequisicion)

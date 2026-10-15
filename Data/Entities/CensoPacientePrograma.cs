@@ -118,6 +118,18 @@ public static class CensoProgramas
     /// </summary>
     public static string? PrimeroQueBloquea(string? programa, IEnumerable<string?> abiertos) =>
         abiertos.FirstOrDefault(abierto => SonExcluyentes(programa, abierto));
+
+    /// <summary>
+    /// Clínica de heridas no se abre sola: se suma a una atención de agudos o de crónicos, así que
+    /// el paciente tiene que tenerla agregada primero (desde 2026-10-15). Terapia ambulatoria no
+    /// cuenta como base para esto: es excluyente con clínica de heridas.
+    ///
+    /// Solo frena AGREGAR. Quien ya tiene heridas abierta sin base (hay unos pocos, de antes de la
+    /// regla) sigue como está: nada se cierra por cuenta propia.
+    /// </summary>
+    public static bool FaltaBaseParaAgregar(string? programa, IEnumerable<string?> abiertos) =>
+        programa == ClinicaHeridas
+        && !abiertos.Any(abierto => abierto == Agudos || abierto == Cronicos);
 }
 
 /// <summary>

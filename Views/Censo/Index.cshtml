@@ -156,8 +156,6 @@
 {
                 <div class="censo-ficha__quien">
                     <h2 class="censo-ficha__nombre">@p.NombrePaciente</h2>
-                    @* Los identificadores van en una sola línea: se comparan de un vistazo, no se
-                       leen uno por uno, y cada uno con su propia etiqueta era media pantalla. *@
                     @{
                         // Desde cuándo es paciente: la más antigua de todas sus atenciones. Antes
                         // se leía del maestro, que guardaba una sola fecha de ingreso; ahora cada
@@ -169,14 +167,23 @@
                             .OrderBy(x => x)
                             .FirstOrDefault();
                     }
-                    <p class="censo-ficha__meta">
-                        <span>@p.TipoIdentificacion @p.NumeroIdentificacion</span>
-                        <span>@p.Edad años</span>
-                        @if (desde.HasValue)
-                        {
-                            <span>Paciente desde @desde.Value.ToString("dd/MM/yyyy")</span>
-                        }
-                    </p>
+                    @* El estado abre la segunda línea, antes de los identificadores. Junto al nombre
+                       no cabía: la columna mide lo que sobra del buscador y un nombre largo la llena,
+                       así que la cápsula caía sola debajo y la barra crecía una línea. Aquí hay
+                       espacio de sobra y la barra no cambia de alto. *@
+                    <div class="censo-ficha__linea">
+                        <partial name="_CensoEstadoPaciente" model="Model.ResumenEstado" />
+                        @* Los identificadores van en una sola línea: se comparan de un vistazo, no se
+                           leen uno por uno, y cada uno con su propia etiqueta era media pantalla. *@
+                        <p class="censo-ficha__meta">
+                            <span>@p.TipoIdentificacion @p.NumeroIdentificacion</span>
+                            <span>@p.Edad años</span>
+                            @if (desde.HasValue)
+                            {
+                                <span>Paciente desde @desde.Value.ToString("dd/MM/yyyy")</span>
+                            }
+                        </p>
+                    </div>
                 </div>
 }
 else

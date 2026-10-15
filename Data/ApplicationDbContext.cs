@@ -27,6 +27,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CensoNptRecord> CensoNpt => Set<CensoNptRecord>();
     public DbSet<CensoCronicoRecord> CensoCronicos => Set<CensoCronicoRecord>();
     public DbSet<CensoCronicoAgudizacion> CensoCronicoAgudizaciones => Set<CensoCronicoAgudizacion>();
+    public DbSet<CensoCronicoAgudizacionAdjunto> CensoCronicoAgudizacionAdjuntos => Set<CensoCronicoAgudizacionAdjunto>();
     public DbSet<CensoCronicoHospitalizacion> CensoCronicoHospitalizaciones => Set<CensoCronicoHospitalizacion>();
     public DbSet<CensoCronicoKardexReapertura> CensoCronicoKardexReaperturas => Set<CensoCronicoKardexReapertura>();
     public DbSet<CensoTerapiaAmbulatoriaProrroga> CensoTerapiaAmbulatoriaProrrogas => Set<CensoTerapiaAmbulatoriaProrroga>();
@@ -707,6 +708,20 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(x => new { x.CensoCronicoRecordId, x.Numero }).IsUnique();
             entity.HasIndex(x => x.FarmaciaEnviadoAtUtc);
+        });
+
+        modelBuilder.Entity<CensoCronicoAgudizacionAdjunto>(entity =>
+        {
+            entity.ToTable("censo_cronico_agudizacion_adjuntos");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.FileName).HasMaxLength(260).IsRequired();
+            entity.Property(x => x.FileData).IsRequired();
+            entity.Property(x => x.UploadedAtUtc).HasColumnType("timestamp with time zone");
+            entity.HasOne(x => x.Agudizacion)
+                .WithMany(x => x.Adjuntos)
+                .HasForeignKey(x => x.CensoCronicoAgudizacionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => x.CensoCronicoAgudizacionId);
         });
 
         modelBuilder.Entity<CensoCronicoHospitalizacion>(entity =>

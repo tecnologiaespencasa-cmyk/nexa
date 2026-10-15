@@ -333,6 +333,35 @@ public class CensoUnificadoTablaRowViewModel
     public bool TieneProrroga { get; set; }
 }
 
+/// <summary>Cómo está el paciente, en una palabra, para la cabecera de su ficha.</summary>
+public enum CensoEstadoPaciente
+{
+    /// <summary>Nunca ha tenido un programa.</summary>
+    SinPrograma,
+
+    /// <summary>Tiene al menos un programa abierto con información guardada.</summary>
+    Activo,
+
+    /// <summary>Solo tiene programas agregados que nadie ha diligenciado.</summary>
+    SinDiligenciar,
+
+    /// <summary>Tuvo programas y todos están cerrados.</summary>
+    Inactivo
+}
+
+/// <summary>Un programa dentro del resumen de estado: cuál es y si está en blanco.</summary>
+public sealed record CensoEstadoProgramaResumen(string Programa, bool SinDiligenciar);
+
+/// <summary>
+/// El estado del paciente y sus programas. Con un paciente activo, los programas abiertos; con uno
+/// inactivo, un solo elemento: el último programa que tuvo. <see cref="Detalle"/> es el texto largo
+/// del tooltip, con nombres completos y fechas.
+/// </summary>
+public sealed record CensoEstadoPacienteResumen(
+    CensoEstadoPaciente Estado,
+    IReadOnlyList<CensoEstadoProgramaResumen> Programas,
+    string Detalle);
+
 /// <summary>Modelo de la pantalla única de censo.</summary>
 public class CensoUnificadoViewModel
 {
@@ -370,6 +399,84 @@ public class CensoUnificadoViewModel
     /// <summary>Programas cuyo panel está mostrando una atención ya cerrada.</summary>
     public IReadOnlySet<string> ProgramasEnSoloLectura { get; set; } =
         new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// El estado del paciente a vuelo de pájaro, para la cabecera de la ficha: activo (y en qué
+    /// programas), inactivo (y cuál fue el último) o sin programas. Sale de las mismas atenciones
+    /// que arman el resto de la pantalla, así que no cuesta ninguna consulta.
+    ///
+    /// «Abierta» es la misma noción que usa el carril: un episodio sin cerrar. Un programa agregado
+    /// al que nadie le ha guardado nada se cuenta aparte, como en la tarjeta del carril
+    /// («Sin diligenciar»), para que la cabecera no diga «Activo» de quien solo tiene un programa
+    /// asignado en blanco.
+    /// </summary>
+    public CensoEstadoPacienteResumen ResumenEstado
+    {
+        get
+        {
+            var todas = Atenciones.Values.SelectMany(x => x).ToList();
+            var abiertas = todas.Where(x => x.Abierta).ToList();
+
+            if (abiertas.Count > 0)
+            {
+                // Mismo orden que el carril y el navegador lateral: el de la jerarquía del informe.
+                var programas = abiertas
+                    .GroupBy(x => x.Programa, StringComparer.Ordinal)
+                    .OrderBy(g => CensoProgramas.Jerarquia(g.Key))
+                    .Select(g => new CensoEstadoProgramaResumen(g.Key, g.All(a => a.SinDiligenciar)))
+                    .ToList();
+
+                var detalle = "En curso: " + string.Join("; ", programas.Select(p =>
+                {
+                    var desde = abiertas
+                        .Where(a => a.Programa == p.Programa && a.Desde.HasValue)
+                        .Select(a => a.Desde!.Value)
+                        .OrderBy(d => d)
+                        .FirstOrDefault();
+                    return CensoProgramas.Nombre(p.Programa)
+                        + (p.SinDiligenciar
+                            ? " (sin diligenciar)"
+                            : desde != default ? $" (desde {desde:dd/MM/yyyy})" : string.Empty);
+                }));
+
+                return new CensoEstadoPacienteResumen(
+                    programas.Any(p => !p.SinDiligenciar)
+                        ? CensoEstadoPaciente.Activo
+                        : CensoEstadoPaciente.SinDiligenciar,
+                    programas,
+                    detalle);
+            }
+
+            // Sin nada abierto: el último programa es el de la atención que terminó más
+            // recientemente; sin fecha de cierre se cae a la de inicio y, al final, al orden de alta.
+            var ultima = todas
+                .OrderByDescending(x => x.Hasta ?? x.Desde ?? DateTime.MinValue)
+                .ThenByDescending(x => x.EpisodioId)
+                .FirstOrDefault();
+
+            if (ultima is null)
+            {
+                return new CensoEstadoPacienteResumen(
+                    CensoEstadoPaciente.SinPrograma, [], "Todavía no tiene ningún programa.");
+            }
+
+            // Muchas atenciones cerradas no guardan la fecha del alta. Con solo la de ingreso, un
+            // «(06/07/2026)» suelto se leería como la fecha de cierre, así que se dice qué fecha es.
+            var tramo = (ultima.Desde, ultima.Hasta) switch
+            {
+                ({ } d, { } h) => $" · del {d:dd/MM/yyyy} al {h:dd/MM/yyyy}",
+                ({ } d, null) => $" · ingresó el {d:dd/MM/yyyy}",
+                (null, { } h) => $" · hasta el {h:dd/MM/yyyy}",
+                _ => string.Empty
+            };
+
+            return new CensoEstadoPacienteResumen(
+                CensoEstadoPaciente.Inactivo,
+                [new CensoEstadoProgramaResumen(ultima.Programa, false)],
+                $"Último programa: {CensoProgramas.Nombre(ultima.Programa)}{tramo}"
+                    + (string.IsNullOrWhiteSpace(ultima.Estado) ? string.Empty : $" · {ultima.Estado}"));
+        }
+    }
 
     public IReadOnlyList<CensoAtencionViewModel> AtencionesDe(string? programa) =>
         programa is not null && Atenciones.TryGetValue(programa, out var lista) ? lista : [];

@@ -139,6 +139,14 @@ public class CensoCronicoRecord
     [StringLength(2)]
     public string? Psicologia { get; set; }
 
+    /// <summary>
+    /// Médico a cargo del paciente en este programa (2026-10-15). Se guarda el nombre tal cual sale
+    /// del directorio de personal (Neon, profesión MEDICO), igual que los auxiliares: no es una
+    /// llave, y si el médico se retira el nombre guardado se conserva.
+    /// </summary>
+    [StringLength(120)]
+    public string? MedicoAsignado { get; set; }
+
     [StringLength(2)]
     public string? Traqueostomia { get; set; }
 

@@ -317,6 +317,21 @@
                                             <select asp-for="Psicologia" asp-items="Model.SiNoOptions" class="form-select">
                                             </select>
                                         </div>
+                                        <div class="col-lg-3">
+                                            @* Lista de médicos del directorio de personal (profesión MEDICO), con el mismo
+                                               comportamiento de los campos de auxiliar: se escribe y la lista filtra. El
+                                               formulario pasa a mayúsculas todo texto, pero este campo se escribe con la
+                                               forma del directorio: data-sin-mayusculas lo excluye (ver cronicos.js). *@
+                                            <label asp-for="MedicoAsignado" class="form-label"></label>
+                                            <input asp-for="MedicoAsignado" class="form-control" maxlength="120" list="cronicoMedicoOptions" autocomplete="off" placeholder="Buscar médico" data-sin-mayusculas />
+                                            <datalist id="cronicoMedicoOptions">
+                                                @foreach (var medico in Model.MedicoOptions.Where(option => !string.IsNullOrWhiteSpace(option.Value)))
+                                                {
+                                                    <option value="@medico.Value">@medico.Text</option>
+                                                }
+                                            </datalist>
+                                            <span asp-validation-for="MedicoAsignado" class="text-danger"></span>
+                                        </div>
                                     </div>
                                 </section>
 

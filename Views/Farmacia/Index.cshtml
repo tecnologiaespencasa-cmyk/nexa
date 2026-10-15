@@ -92,7 +92,7 @@
                     // hoja de adjuntos aparte, se entra por el mismo.
                     var urlAdjuntos = item.EsClinicaHeridas || item.EsNpt
                         ? Url.Action(accionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro })
-                        : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro });
+                        : Url.Action(item.AccionDocumento, new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro });
 
                     <article class="farmacia-order is-new" data-pedido-id="@item.Id" data-pedido-cronico="@(item.EsAgudizacionCronica ? "true" : "false")" data-pedido-heridas="@(item.EsClinicaHeridas ? "true" : "false")" data-pedido-npt="@(item.EsNpt ? "true" : "false")">
                         <div class="farmacia-order__identity">
@@ -272,7 +272,7 @@
                                         }
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action(item.AccionDocumento, new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
@@ -361,7 +361,7 @@
                                         }
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action(item.AccionDocumento, new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
@@ -433,7 +433,7 @@
                                         }
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action(item.AccionDocumento, new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
@@ -495,7 +495,7 @@
                                         }
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action(item.AccionDocumento, new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }
@@ -582,7 +582,7 @@
                                         }
                                         @if (item.TieneAdjuntos)
                                         {
-                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action("Documento", new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
+                                            <a class="farmacia-doc-button farmacia-doc-button--adjuntos" href="@(item.EsClinicaHeridas || item.EsNpt ? Url.Action(item.AccionDocumento, new { id = item.Id, documento = Model.DocumentoFiltro }) : Url.Action(item.AccionDocumento, new { id = item.Id, tipo = "kardex", documento = Model.DocumentoFiltro }))#farmacia-adjuntos">
                                                 <span>Adjuntos</span><small>PDF</small>
                                             </a>
                                         }

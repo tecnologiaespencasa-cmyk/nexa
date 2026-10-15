@@ -39,6 +39,11 @@
     const riesgoLesionPielInput = document.getElementById("riesgoLesionPielInput");
     const escalaMorseInput = document.getElementById("escalaMorseInput");
     const riesgoCaidaInput = document.getElementById("riesgoCaidaInput");
+    // Con el id por defecto de asp-for: así la etiqueta «Médico asignado» queda asociada al campo.
+    const medicoInput = document.getElementById("MedicoAsignado");
+    const medicoOptions = Array.from(document.querySelectorAll("#cronicoMedicoOptions option"))
+        .map((option) => option.value || "")
+        .filter((value) => value.trim());
     let direccionValidada = NexaCenso.cronicos.direccionValidada;
     let latestAddressCandidates = [];
     let barriosLoaded = barrioSelect
@@ -55,6 +60,10 @@
 
     const shouldUppercaseControl = (control) => {
         if (!control || control.disabled || control.readOnly) return false;
+        // Los campos que se escriben con la forma del directorio de personal (el médico asignado) se
+        // excluyen: pasados a mayúsculas dejarían de coincidir con la lista, y al guardar un médico
+        // que ya no figura en ella se reescribiría su nombre.
+        if (control.hasAttribute("data-sin-mayusculas")) return false;
         if (control.matches("textarea")) return true;
         if (!control.matches("input")) return false;
         const type = String(control.getAttribute("type") || "text").toLowerCase();
@@ -1182,8 +1191,158 @@
         renderAgudizacionVersions();
     };
 
+    // ----- Adjuntos del kardex de la agudización -----
+    // Se suben a la agudización activa y farmacia los ve junto al pedido. Mientras farmacia no dé el
+    // OK al kardex se pueden agregar y quitar; después la lista queda solo para consulta.
+    const obtenerAdjuntosCronicoUrl = NexaCenso.cronicos.obtenerAdjuntosCronicoUrl;
+    const subirAdjuntoCronicoUrl = NexaCenso.cronicos.subirAdjuntoCronicoUrl;
+    const descargarAdjuntoCronicoUrl = NexaCenso.cronicos.descargarAdjuntoCronicoUrl;
+    const eliminarAdjuntoCronicoUrl = NexaCenso.cronicos.eliminarAdjuntoCronicoUrl;
+    const cronicoAdjuntosListEl = document.getElementById("cronicoAdjuntosList");
+    const cronicoAdjuntoFileInput = document.getElementById("cronicoAdjuntoFileInput");
+    const cronicoSubirAdjuntoBtn = document.getElementById("cronicoSubirAdjuntoBtn");
+    const cronicoAdjuntoUploadStatus = document.getElementById("cronicoAdjuntoUploadStatus");
+    const cronicoAdjuntoMaxBytes = 10 * 1024 * 1024;
+    const cronicoAdjuntoExtensiones = [".pdf", ".xls", ".xlsx", ".xlsm", ".csv", ".jpg", ".jpeg", ".png"];
+    let cronicoAdjuntos = [];
+
+    const setCronicoAdjuntoEstado = (texto, esError) => {
+        if (!cronicoAdjuntoUploadStatus) return;
+        cronicoAdjuntoUploadStatus.textContent = texto || "";
+        cronicoAdjuntoUploadStatus.classList.toggle("text-danger", !!esError);
+        cronicoAdjuntoUploadStatus.classList.toggle("text-muted", !esError);
+    };
+
+    const renderCronicoAdjuntos = () => {
+        if (!cronicoAdjuntosListEl) return;
+        const cerrado = isCronicoDocumentClosed();
+        cronicoAdjuntosListEl.innerHTML = "";
+        if (cronicoAdjuntos.length === 0) {
+            cronicoAdjuntosListEl.innerHTML = `<li class="list-group-item py-1 small text-muted">Sin adjuntos</li>`;
+            return;
+        }
+        cronicoAdjuntos.forEach((adjunto) => {
+            const li = document.createElement("li");
+            li.className = "list-group-item d-flex align-items-center justify-content-between py-1 px-2 small";
+            const nombre = cronicoEscapeHtml(adjunto.nombre);
+            li.innerHTML = `
+                <a href="${descargarAdjuntoCronicoUrl}?adjuntoId=${encodeURIComponent(adjunto.id)}" target="_blank" rel="noopener" class="text-truncate me-2" style="max-width:260px" title="${nombre}">${nombre}</a>
+                ${cerrado ? "" : `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 censo-adjunto-delete-btn" data-adjunto-id="${cronicoEscapeHtml(adjunto.id)}" title="Eliminar adjunto" aria-label="Eliminar ${nombre}">
+                    <svg viewBox="0 0 24 24" width="14" height="14" focusable="false" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                </button>`}`;
+            cronicoAdjuntosListEl.appendChild(li);
+        });
+    };
+
+    const cargarAdjuntosCronico = async () => {
+        cronicoAdjuntos = [];
+        const agudizacionId = activeAgudizacionId;
+        if (agudizacionId && obtenerAdjuntosCronicoUrl) {
+            try {
+                const response = await fetch(`${obtenerAdjuntosCronicoUrl}?agudizacionId=${encodeURIComponent(agudizacionId)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    // Si mientras tanto se cambió de agudización, esta respuesta ya no corresponde.
+                    if (String(agudizacionId) === String(activeAgudizacionId)) cronicoAdjuntos = data.adjuntos || [];
+                } else {
+                    setCronicoAdjuntoEstado("No se pudieron cargar los adjuntos.", true);
+                }
+            } catch {
+                setCronicoAdjuntoEstado("No se pudieron cargar los adjuntos.", true);
+            }
+        }
+        renderCronicoAdjuntos();
+    };
+
+    cronicoSubirAdjuntoBtn?.addEventListener("click", () => cronicoAdjuntoFileInput?.click());
+
+    cronicoAdjuntoFileInput?.addEventListener("change", async () => {
+        const archivo = cronicoAdjuntoFileInput.files?.[0];
+        if (!archivo) return;
+        const limpiar = () => { cronicoAdjuntoFileInput.value = ""; };
+
+        if (!activeAgudizacionId) {
+            setCronicoAdjuntoEstado("Guarda la agudización primero.", true);
+            limpiar();
+            return;
+        }
+        if (isCronicoDocumentClosed()) {
+            setCronicoAdjuntoEstado("Kardex cerrado: ya no admite adjuntos.", true);
+            limpiar();
+            return;
+        }
+        const punto = archivo.name.lastIndexOf(".");
+        const extension = punto >= 0 ? archivo.name.slice(punto).toLowerCase() : "";
+        if (!cronicoAdjuntoExtensiones.includes(extension)) {
+            setCronicoAdjuntoEstado("Formato no permitido. Adjunta PDF, Excel, CSV o imagen.", true);
+            limpiar();
+            return;
+        }
+        if (archivo.size > cronicoAdjuntoMaxBytes) {
+            setCronicoAdjuntoEstado("El archivo debe pesar máximo 10 MB.", true);
+            limpiar();
+            return;
+        }
+
+        const agudizacionId = activeAgudizacionId;
+        setCronicoAdjuntoEstado("Subiendo…", false);
+        if (cronicoSubirAdjuntoBtn) cronicoSubirAdjuntoBtn.disabled = true;
+        try {
+            const formData = new FormData();
+            formData.append("agudizacionId", String(agudizacionId));
+            formData.append("archivo", archivo);
+            const response = await fetch(subirAdjuntoCronicoUrl, {
+                method: "POST",
+                body: formData,
+                headers: csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {}
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) {
+                setCronicoAdjuntoEstado(data?.message || "No fue posible subir el archivo.", true);
+                return;
+            }
+            setCronicoAdjuntoEstado("Adjunto subido.", false);
+            if (String(agudizacionId) === String(activeAgudizacionId)) await cargarAdjuntosCronico();
+        } catch {
+            setCronicoAdjuntoEstado("Error de conexión.", true);
+        } finally {
+            if (cronicoSubirAdjuntoBtn) cronicoSubirAdjuntoBtn.disabled = isCronicoDocumentClosed();
+            limpiar();
+        }
+    });
+
+    cronicoAdjuntosListEl?.addEventListener("click", async (event) => {
+        const boton = event.target.closest(".censo-adjunto-delete-btn");
+        if (!boton) return;
+        const adjuntoId = boton.dataset.adjuntoId;
+        if (!adjuntoId) return;
+        boton.disabled = true;
+        try {
+            const formData = new FormData();
+            formData.append("adjuntoId", adjuntoId);
+            const response = await fetch(eliminarAdjuntoCronicoUrl, {
+                method: "POST",
+                body: formData,
+                headers: csrfTokenInput?.value ? { "RequestVerificationToken": csrfTokenInput.value } : {}
+            });
+            if (response.ok) {
+                setCronicoAdjuntoEstado("", false);
+                await cargarAdjuntosCronico();
+                return;
+            }
+            const data = await response.json().catch(() => null);
+            setCronicoAdjuntoEstado(data?.message || "No fue posible eliminar el adjunto.", true);
+            boton.disabled = false;
+        } catch {
+            setCronicoAdjuntoEstado("Error de conexión.", true);
+            boton.disabled = false;
+        }
+    });
+
     const setCronicoDocumentClosedMode = (closed) => {
         cronicoKardexModalEl?.classList.toggle("is-document-closed", closed);
+        if (cronicoSubirAdjuntoBtn) cronicoSubirAdjuntoBtn.disabled = closed;
+        renderCronicoAdjuntos();
         cronicoClosedBanner?.classList.toggle("d-none", !closed);
         document
             .querySelectorAll("#cronicoKardexModal input, #cronicoKardexModal textarea, #cronicoKardexModal select")
@@ -1309,6 +1468,8 @@
                 try { if (item?.kardexJson) loadCronicoKardexPayload(JSON.parse(item.kardexJson)); } catch { /* sync base */ }
                 try { if (item?.requisicionJson) loadCronicoRequisitionPayload(JSON.parse(item.requisicionJson)); } catch { /* sync base */ }
                 if (cronicoServiciosSwitch) cronicoServiciosSwitch.checked = false;
+                setCronicoAdjuntoEstado("", false);
+                await cargarAdjuntosCronico();
                 setCronicoDocumentClosedMode(isCronicoDocumentClosed());
                 updateCronicoReaperturaControls();
                 updateAgudizacionReadonlyMode();
@@ -1680,8 +1841,61 @@
         }
     }
 
+    // ---- Médico asignado: se escribe y la lista filtra, pero solo vale uno de la lista ----
+    // El campo es opcional: vacío es válido. Mismo comportamiento que el auxiliar de NPT y heridas;
+    // el servidor repite la validación (ValidateCronicoMedico).
+    const getMedicoValidationMessage = () =>
+        document.querySelector("[data-valmsg-for='MedicoAsignado']");
+
+    const getCanonicalMedicoValue = (value) => {
+        const normalized = String(value || "").trim().toLocaleUpperCase("es-CO");
+        if (!normalized) return "";
+        return medicoOptions.find((item) =>
+            item.trim().toLocaleUpperCase("es-CO") === normalized) || "";
+    };
+
+    const syncMedicoValidation = (showInvalidMessage = false) => {
+        if (!medicoInput) return true;
+
+        const value = String(medicoInput.value || "").trim();
+        const canonicalValue = getCanonicalMedicoValue(value);
+        const messageElement = getMedicoValidationMessage();
+
+        if (canonicalValue) {
+            medicoInput.value = canonicalValue;
+            if (messageElement) messageElement.textContent = "";
+            return true;
+        }
+
+        if (!value) {
+            if (messageElement) messageElement.textContent = "";
+            return true;
+        }
+
+        if (showInvalidMessage && messageElement) {
+            messageElement.textContent = medicoOptions.length === 0
+                ? "No hay médicos activos para asignar."
+                : "Selecciona un médico válido.";
+        }
+
+        return false;
+    };
+
+    medicoInput?.addEventListener("input", () => syncMedicoValidation(false));
+    medicoInput?.addEventListener("change", () => syncMedicoValidation(true));
+    medicoInput?.addEventListener("blur", () => syncMedicoValidation(true));
+
     form?.addEventListener("submit", (event) => {
         const submitAction = event.submitter?.getAttribute("formaction") || "";
+
+        // El médico viaja con el guardado de la gestión del caso y con el guardado general; el de
+        // hospitalización no lo toca, así que un nombre a medias escrito ahí no debe frenarlo.
+        if (!submitAction.includes("GuardarCronicoHospitalizacion") && !syncMedicoValidation(true)) {
+            event.preventDefault();
+            medicoInput?.focus();
+            return;
+        }
+
         if (submitAction.includes("GuardarCronicoGestionCaso")
             || submitAction.includes("GuardarCronicoHospitalizacion")) {
             return;
