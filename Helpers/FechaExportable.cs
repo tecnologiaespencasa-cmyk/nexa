@@ -29,6 +29,13 @@ public static class FechaExportable
         valor.HasValue ? FechaHora(valor.Value) : string.Empty;
 
     /// <summary>
+    /// Excel no sabe de fechas anteriores a 1900: una celda con fecha fuera de ese rango daña el
+    /// archivo entero y no deja abrirlo. Los años mal digitados (0026, 0202, 0959… en el censo de
+    /// agudos) se escriben como texto, para que el archivo abra y el error siga a la vista.
+    /// </summary>
+    public static bool CabeEnExcel(DateTime valor) => valor.Year >= 1900;
+
+    /// <summary>
     /// La fecha sola cuando el dato no trae hora (fecha de ingreso, de egreso, de nacimiento) y con
     /// hora cuando sí la trae (los sellos de creación y actualización).
     /// </summary>

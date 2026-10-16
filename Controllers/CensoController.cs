@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.IO;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
@@ -6035,13 +6035,13 @@ public partial class CensoController : Controller
 
         if (DateTime.TryParseExact(value, soloFecha, CultureInfo.InvariantCulture, DateTimeStyles.None, out fecha))
         {
-            return true;
+            return FechaExportable.CabeEnExcel(fecha);
         }
 
         if (DateTime.TryParseExact(value, conHoraFormatos, CultureInfo.InvariantCulture, DateTimeStyles.None, out fecha))
         {
             conHora = true;
-            return true;
+            return FechaExportable.CabeEnExcel(fecha);
         }
 
         return false;
@@ -6106,7 +6106,12 @@ public partial class CensoController : Controller
             return string.Empty;
         }
 
-        return value
+        // Un carácter de control (los que a veces llegan al pegar texto de Word o de un PDF) no es
+        // XML válido: con uno solo, Excel rechaza el archivo entero y no lo deja abrir. Se quitan,
+        // conservando el tabulador y los saltos de línea de las observaciones.
+        var limpio = value.Where(c => c is '\t' or '\n' or '\r' || !char.IsControl(c)).ToArray();
+
+        return new string(limpio)
             .Replace("&", "&amp;", StringComparison.Ordinal)
             .Replace("<", "&lt;", StringComparison.Ordinal)
             .Replace(">", "&gt;", StringComparison.Ordinal)

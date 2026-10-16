@@ -310,10 +310,22 @@ public static class ExcelWorkbookWriter
         writer.WriteAttributeString("t", "inlineStr");
         writer.WriteStartElement("is");
         writer.WriteStartElement("t");
-        writer.WriteString(value?.Trim() ?? string.Empty);
+        writer.WriteString(SinCaracteresDeControl(value));
         writer.WriteEndElement();
         writer.WriteEndElement();
         writer.WriteEndElement();
+    }
+
+    /// <summary>
+    /// Quita los caracteres de control que a veces llegan al pegar texto de Word o de un PDF: no son
+    /// XML válido y harían fallar la escritura del archivo. Se conservan tabulador y saltos de línea.
+    /// </summary>
+    private static string SinCaracteresDeControl(string? value)
+    {
+        var limpio = (value ?? string.Empty).Trim();
+        return limpio.Any(char.IsControl)
+            ? new string(limpio.Where(c => c is '\t' or '\n' or '\r' || !char.IsControl(c)).ToArray())
+            : limpio;
     }
 
     private static void WriteDateCell(XmlWriter writer, string reference, DateTime value, bool withTime = false)
@@ -340,15 +352,17 @@ public static class ExcelWorkbookWriter
             return false;
         }
 
+        // Una fecha anterior a 1900 no existe para Excel (ToOADate ni siquiera la convierte): se deja
+        // como texto para no dañar el archivo. Ver FechaExportable.CabeEnExcel.
         if (DateTime.TryParseExact(value, ["dd/MM/yyyy", "yyyy-MM-dd"], CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
         {
-            return true;
+            return FechaExportable.CabeEnExcel(date);
         }
 
         if (DateTime.TryParseExact(value, ["dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm"], CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
         {
             withTime = true;
-            return true;
+            return FechaExportable.CabeEnExcel(date);
         }
 
         return false;
