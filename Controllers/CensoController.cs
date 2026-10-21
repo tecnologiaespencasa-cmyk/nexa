@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
@@ -536,6 +536,7 @@ public partial class CensoController : Controller
         "CLINICA NOEL",
         "IPS HUMANITAS",
         "IPS SURA CORDOBA",
+        "CLINICA DEL CAMPESTRE",
     ];
 
     private static readonly string[] MunicipiosResidenciaValues =
