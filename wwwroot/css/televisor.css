@@ -2298,17 +2298,80 @@ body[data-margen="amplio"] .tv-guias { inset: 5vh 5vw; }
 
     html[data-modo="rotar"] .tv-persona__cab h3 { font-size: 1.3rem; }
 
-    /* Dos renglones fijos: lo que recepcionó y registró, y cómo le fue con la promesa. */
+    /* Dos columnas por función: a la izquierda lo que recepcionó (cuántos, respuesta a tiempo y
+       su promedio) y a la derecha lo que registró (cuántos, creación a tiempo y su promedio). Cada
+       cifra tiene su casilla: si a alguien le falta una queda el hueco y las demás no se corren. */
     html[data-modo="rotar"] .tv-persona__cifras {
         display: grid;
         grid-template-columns: auto auto;
         justify-content: start;
-        gap: 0 1rem;
+        gap: 0 0.5rem;
     }
 
-    html[data-modo="rotar"] .tv-persona__cifras { gap: 0 0.6rem; }
     html[data-modo="rotar"] .tv-persona__cifras dd { font-size: 1.18rem; }
     html[data-modo="rotar"] .tv-persona__cifras dt { font-size: 0.7rem; }
+
+    html[data-modo="rotar"] .tv-cifra--recepciono { grid-column: 1; grid-row: 1; }
+    html[data-modo="rotar"] .tv-cifra--registro { grid-column: 2; grid-row: 1; }
+    html[data-modo="rotar"] .tv-cifra--respuesta { grid-column: 1; grid-row: 2; }
+    html[data-modo="rotar"] .tv-cifra--creacion { grid-column: 2; grid-row: 2; }
+    html[data-modo="rotar"] .tv-cifra--prom-respuesta { grid-column: 1; grid-row: 3; }
+    html[data-modo="rotar"] .tv-cifra--prom-creacion { grid-column: 2; grid-row: 3; }
+
+    /* Debajo de su porcentaje basta "en promedio"; el rótulo completo es para la tarjeta ancha. */
+    html[data-modo="rotar"] .tv-persona__cifras .tv-cifra__que { display: none; }
+    html[data-modo="rotar"] .tv-cifra--prom-respuesta dd,
+    html[data-modo="rotar"] .tv-cifra--prom-creacion dd { font-size: 1.05rem; }
+    html[data-modo="rotar"] .tv-cifra--prom-respuesta dt,
+    html[data-modo="rotar"] .tv-cifra--prom-creacion dt { white-space: normal; }
+
+    /* Tarjeta ancha (dos personas o menos en pantalla): los dos promedios van a la derecha de
+       la cabecera, grandes, en el espacio que quedaba vacío. La lista no pierde alto. */
+    html[data-modo="rotar"] .tv-persona { container: persona / inline-size; }
+
+    @container persona (min-width: 24rem) {
+        html[data-modo="rotar"] .tv-persona__cab {
+            grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+            column-gap: 0.5rem;
+        }
+
+        html[data-modo="rotar"] .tv-persona__quien { grid-column: 1 / 4; grid-row: 1; }
+        html[data-modo="rotar"] .tv-persona__cifras { display: contents; }
+
+        html[data-modo="rotar"] .tv-cifra--recepciono { grid-column: 1; grid-row: 2; }
+        html[data-modo="rotar"] .tv-cifra--registro { grid-column: 2; grid-row: 2; }
+        html[data-modo="rotar"] .tv-cifra--respuesta { grid-column: 1; grid-row: 3; }
+        html[data-modo="rotar"] .tv-cifra--creacion { grid-column: 2; grid-row: 3; }
+
+        html[data-modo="rotar"] .tv-cifra--prom-respuesta,
+        html[data-modo="rotar"] .tv-cifra--prom-creacion {
+            grid-row: 1 / span 3;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 0.1rem;
+            min-width: 7.5rem;
+            padding: 0 0.4rem 0 1rem;
+            border-left: 2px solid var(--tv-linea);
+        }
+
+        html[data-modo="rotar"] .tv-cifra--prom-respuesta { grid-column: 4; }
+        html[data-modo="rotar"] .tv-cifra--prom-creacion { grid-column: 5; }
+
+        html[data-modo="rotar"] .tv-cifra--prom-respuesta dd,
+        html[data-modo="rotar"] .tv-cifra--prom-creacion dd {
+            font-size: 1.9rem;
+            line-height: 1;
+        }
+
+        html[data-modo="rotar"] .tv-cifra--prom-respuesta dt,
+        html[data-modo="rotar"] .tv-cifra--prom-creacion dt {
+            max-width: 6.5rem;
+            line-height: 1.15;
+        }
+
+        html[data-modo="rotar"] .tv-persona__cifras .tv-cifra__que { display: inline; }
+    }
 
     html[data-modo="rotar"] .tv-lista { padding: 0.15rem 0.5rem; }
 
@@ -2329,8 +2392,8 @@ body[data-margen="amplio"] .tv-guias { inset: 5vh 5vw; }
     html[data-modo="rotar"] .tv-persona.is-cerrada .tv-persona__cifras dd { font-size: 1.02rem; }
     html[data-modo="rotar"] .tv-persona.is-cerrada .tv-persona__cifras dt { font-size: 0.66rem; }
 
-    /* Cerrada solo dice cuántos; cómo le fue con la promesa se ve cuando se abre. */
-    html[data-modo="rotar"] .tv-persona.is-cerrada .tv-persona__cifras > div:nth-child(n + 3),
+    /* Cerrada solo dice cuántos; cómo le fue con las metas se ve cuando se abre. */
+    html[data-modo="rotar"] .tv-persona.is-cerrada .tv-persona__cifras > div:not(.tv-cifra--recepciono):not(.tv-cifra--registro),
     html[data-modo="rotar"] .tv-persona.is-cerrada .tv-persona__vacia {
         display: none;
     }

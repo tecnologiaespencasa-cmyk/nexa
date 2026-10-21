@@ -1,5 +1,5 @@
 /* ============================================================
-   Hoja de vida del paciente
+   Hoja clínica del paciente
    Todo el contenido llega armado desde el servidor; este script solo agrega
    navegación y lectura: ir de la línea de vida a un ingreso, globos de ayuda,
    filtro de novedades, abrir o cerrar todos los ingresos, marcar la sección
@@ -235,6 +235,28 @@
         crecer.observe(pieza);
       });
     }, true);
+  }
+
+  /* ---- Mapa de la ubicación ----
+     El marco de Google Maps se crea solo cuando se pide: abrir la hoja no le envía la dirección
+     del paciente a nadie. */
+
+  var botonMapa = hoja.querySelector('[data-hv-ver-mapa]');
+  var mapa = hoja.querySelector('[data-hv-mapa]');
+  if (botonMapa && mapa) {
+    botonMapa.addEventListener('click', function () {
+      var abrir = mapa.hidden;
+      if (abrir && !mapa.querySelector('iframe')) {
+        var marco = document.createElement('iframe');
+        marco.src = mapa.getAttribute('data-hv-mapa');
+        marco.title = 'Mapa con la dirección del paciente';
+        marco.referrerPolicy = 'no-referrer';
+        mapa.appendChild(marco);
+      }
+      mapa.hidden = !abrir;
+      botonMapa.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+      botonMapa.querySelector('span').textContent = abrir ? 'Ocultar mapa' : 'Ver en el mapa';
+    });
   }
 
   /* ---- Imprimir con todos los ingresos desplegados ---- */

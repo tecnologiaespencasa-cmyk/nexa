@@ -675,24 +675,75 @@ body.page-paciente {
     padding: clamp(1.25rem, 3vw, 2.25rem);
 }
 
-.hv-resumen__rotulo {
-    color: var(--hv-rojo-hondo);
-    font-size: 0.82rem;
-    font-weight: 700;
-    margin: 0 0 0.6rem;
+.hv-resumen {
+    display: flex;
+    flex-direction: column;
 }
 
-.hv-resumen__frase {
-    font-size: 1.07rem;
-    line-height: 1.55;
-    margin: 0 0 0.55rem;
-    text-wrap: pretty;
+/* Tipo telegrama: un rótulo y un dato por renglón, separados por una línea punteada como los
+   renglones de un formulario. El rótulo va en versalitas pequeñas para que el ojo salte directo
+   al dato. */
+.hv-telegrama {
+    display: grid;
+    margin: 0;
 }
 
-/* Las cifras del resumen van subrayadas como con resaltador, igual que se marca una nota. */
-.hv-resumen__frase strong {
-    background: linear-gradient(transparent 60%, rgba(224, 69, 36, 0.17) 60%, rgba(224, 69, 36, 0.17) 92%, transparent 92%);
+.hv-telegrama__linea {
+    align-items: baseline;
+    border-bottom: 1px dashed var(--hv-linea);
+    display: grid;
+    gap: 0.1rem 1rem;
+    grid-template-columns: 11rem minmax(0, 1fr);
+    padding: 0.52rem 0;
+}
+
+.hv-telegrama__linea:first-child {
+    padding-top: 0;
+}
+
+.hv-telegrama dt {
+    color: var(--hv-tinta-3);
+    font-family: var(--hv-f-titulo);
+    font-size: 0.74rem;
+    font-stretch: 88%;
     font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.3;
+    text-transform: uppercase;
+}
+
+.hv-telegrama dd {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.05rem 0.55rem;
+    margin: 0;
+    min-width: 0;
+}
+
+.hv-telegrama__valor {
+    color: var(--hv-tinta);
+    font-size: 1.02rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.hv-telegrama__detalle {
+    color: var(--hv-tinta-2);
+    font-size: 0.88rem;
+    line-height: 1.35;
+}
+
+.hv-telegrama__linea--alerta .hv-telegrama__valor,
+.hv-telegrama__linea--alerta .hv-telegrama__detalle {
+    color: var(--hv-ambar);
+}
+
+.hv-telegrama__programas {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.75rem;
 }
 
 .hv-resumen__consulta {
@@ -701,7 +752,8 @@ body.page-paciente {
     display: flex;
     font-size: 0.8rem;
     gap: 0.4rem;
-    margin: 1rem 0 0;
+    margin: auto 0 0;
+    padding-top: 1rem;
 }
 
 /* --------------------------------------------------------------------------
@@ -2173,6 +2225,11 @@ body.page-paciente {
     grid-area: valor;
 }
 
+.hv-frecuencias--sin-dato .hv-frecuencias__valor {
+    color: var(--hv-tinta-3);
+    font-size: 0.76rem;
+}
+
 .hv-frecuencias__barra {
     background: var(--hv-rojo);
     border-radius: 0 4px 4px 0;
@@ -2180,6 +2237,86 @@ body.page-paciente {
     height: 8px;
     min-width: 8px;
     width: var(--w);
+}
+
+/* Ubicación */
+
+.hv-ubicacion__direccion {
+    color: var(--hv-tinta);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.hv-ubicacion__detalle {
+    color: var(--hv-tinta-2);
+    font-size: 0.86rem;
+    margin: 0.15rem 0 0;
+}
+
+.hv-ubicacion__datos {
+    display: grid;
+    font-size: 0.86rem;
+    gap: 0.35rem;
+    margin: 0.8rem 0 0;
+}
+
+.hv-ubicacion__datos div {
+    display: grid;
+    gap: 0.6rem;
+    grid-template-columns: 6.2rem minmax(0, 1fr);
+}
+
+.hv-ubicacion__datos dt {
+    color: var(--hv-tinta-3);
+    font-weight: 600;
+}
+
+.hv-ubicacion__datos dd {
+    margin: 0;
+}
+
+.hv-ubicacion__validacion {
+    align-items: baseline;
+    color: var(--hv-ambar);
+    display: flex;
+    font-size: 0.8rem;
+    gap: 0.4rem;
+    line-height: 1.35;
+    margin: 0.8rem 0 0;
+}
+
+.hv-ubicacion__validacion--ok {
+    color: var(--hv-vital);
+}
+
+.hv-ubicacion__mapa {
+    aspect-ratio: 4 / 3;
+    background: var(--hv-hoja-2);
+    border: 1px solid var(--hv-linea);
+    border-radius: 12px;
+    margin: 0.85rem 0 0;
+    overflow: hidden;
+}
+
+.hv-ubicacion__mapa[hidden] {
+    display: none;
+}
+
+.hv-ubicacion__mapa iframe {
+    border: 0;
+    display: block;
+    height: 100%;
+    width: 100%;
+}
+
+.hv-ubicacion__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.4rem;
+    margin: 0.6rem 0 0 -0.55rem;
 }
 
 .hv-diagnosticos {
@@ -2233,6 +2370,10 @@ body.page-paciente {
     .hv-resumen {
         border-left: 0;
         border-top: 1px solid var(--hv-linea-suave);
+    }
+
+    .hv-telegrama__linea {
+        grid-template-columns: 8.6rem minmax(0, 1fr);
     }
 
     .hv-consulta__fila {
@@ -2471,6 +2612,7 @@ body.page-paciente {
     .hv-indice,
     .hv-tip,
     .hv-boton-texto,
+    .hv-ubicacion__mapa,
     .hv-filtro {
         display: none !important;
     }

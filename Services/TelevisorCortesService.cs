@@ -255,6 +255,12 @@ public sealed class TelevisorCortesService : ITelevisorCortesService
             .Where(x => x.Dia == dia.Date && x.Tipo == tipo)
             .Select(x => x.DatosJson)
             .FirstOrDefaultAsync(ct);
-        return json is null ? null : JsonSerializer.Deserialize<TelevisorTablero>(json);
+        var tablero = json is null ? null : JsonSerializer.Deserialize<TelevisorTablero>(json);
+        if (tablero is not null)
+        {
+            TelevisorIndicadoresService.CompletarPromedios(tablero);
+        }
+
+        return tablero;
     }
 }

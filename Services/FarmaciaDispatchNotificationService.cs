@@ -650,6 +650,13 @@ public partial class FarmaciaDispatchNotificationService : IFarmaciaDispatchNoti
         return string.Join(" / ", parts);
     }
 
+    /// <summary>
+    /// La cantidad que farmacia pone en la requisición de un medicamento cuando el censo no guardó
+    /// una editada: dosis × dosis al día × días. La usa también la hoja clínica.
+    /// </summary>
+    public static decimal CantidadRequisicionCalculada(decimal? dosis, string? frecuencia, string? dosisAlDia, int? dias) =>
+        CalculateMedicationQuantity(new RequisitionMedication(null, dosis, frecuencia, dosisAlDia, dias));
+
     private static decimal CalculateMedicationQuantity(RequisitionMedication medication)
     {
         var dose = medication.Dose.GetValueOrDefault(1);

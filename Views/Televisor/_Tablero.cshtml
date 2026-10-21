@@ -348,26 +348,40 @@
                                    hubo 22 (2026-10-06). *@
                                 @if (p.EsOtros)
                                 {
-                                    <div title="@p.Ingresos de los @adm.Ingresos ingresos no los recepcionó Admisiones"><dd>@p.Ingresos<small>/@adm.Ingresos</small></dd><dt>@(adm.Ingresos == 1 ? "ingreso" : "ingresos")</dt></div>
+                                    <div class="tv-cifra--recepciono" title="@p.Ingresos de los @adm.Ingresos ingresos no los recepcionó Admisiones"><dd>@p.Ingresos<small>/@adm.Ingresos</small></dd><dt>@(adm.Ingresos == 1 ? "ingreso" : "ingresos")</dt></div>
                                 }
                                 else
                                 {
-                                    <div title="De los @adm.Ingresos ingresos, @p.Ingresos figuran a su nombre en «Nombre de quien recepciona el caso»"><dd>@p.Ingresos<small>/@adm.Ingresos</small></dd><dt>recepcionó</dt></div>
+                                    <div class="tv-cifra--recepciono" title="De los @adm.Ingresos ingresos, @p.Ingresos figuran a su nombre en «Nombre de quien recepciona el caso»"><dd>@p.Ingresos<small>/@adm.Ingresos</small></dd><dt>recepcionó</dt></div>
                                 }
                                 @if (!p.EsOtros && p.Registrados is int registrados)
                                 {
                                     var propios = p.Lista.Count(x => !x.Cancelado && x.RegistradoPor == p.Nombre);
-                                    <div title="De los @adm.Ingresos ingresos, registró @registrados en Nexa con su usuario: @propios de los que recepcionó y @(registrados - propios) a nombre de otra persona"><dd>@registrados<small>/@adm.Ingresos</small></dd><dt>registró</dt></div>
+                                    <div class="tv-cifra--registro" title="De los @adm.Ingresos ingresos, registró @registrados en Nexa con su usuario: @propios de los que recepcionó y @(registrados - propios) a nombre de otra persona"><dd>@registrados<small>/@adm.Ingresos</small></dd><dt>registró</dt></div>
                                 }
                                 @* Cada meta con lo suyo: la respuesta es de lo que recepcionó y la
                                    creación de lo que registró. Van una al lado de la otra. *@
                                 @if (p.Medibles > 0)
                                 {
-                                    <div title="De lo que recepcionó, cuánto respondió al asegurador en @TelevisorPromesa.Minutos minutos o menos (@MinutosBalance(p.Balance) @(p.Balance > 0 ? "de más" : "a favor"))"><dd class="@(p.Porcentaje >= 90 ? "is-bien" : p.Porcentaje >= 70 ? "is-medio" : "is-mal")">@Pct(p.Porcentaje)</dd><dt>respuesta</dt></div>
+                                    <div class="tv-cifra--respuesta" title="De lo que recepcionó, cuánto respondió al asegurador en @TelevisorPromesa.Minutos minutos o menos (@MinutosBalance(p.Balance) @(p.Balance > 0 ? "de más" : "a favor"))"><dd class="@(p.Porcentaje >= 90 ? "is-bien" : p.Porcentaje >= 70 ? "is-medio" : "is-mal")">@Pct(p.Porcentaje)</dd><dt>respuesta</dt></div>
                                 }
                                 @if (p.CreacionPorcentaje is not null)
                                 {
-                                    <div title="De los pacientes de agudos que registró, cuántos creó en @TelevisorCreacion.Minutos minutos o menos"><dd class="@(p.CreacionPorcentaje >= 90 ? "is-bien" : p.CreacionPorcentaje >= 70 ? "is-medio" : "is-mal")">@Pct(p.CreacionPorcentaje)</dd><dt>creación</dt></div>
+                                    <div class="tv-cifra--creacion" title="De los pacientes de agudos que registró, cuántos creó en @TelevisorCreacion.Minutos minutos o menos"><dd class="@(p.CreacionPorcentaje >= 90 ? "is-bien" : p.CreacionPorcentaje >= 70 ? "is-medio" : "is-mal")">@Pct(p.CreacionPorcentaje)</dd><dt>creación</dt></div>
+                                }
+                                @* Promedios de cada persona (pedido del 2026-10-21): cuánto tarda en
+                                   responder lo que recepcionó y en crear lo que registró. Verde si el
+                                   promedio está dentro de la meta. Con la tarjeta ancha van a la derecha;
+                                   angosta, debajo de su porcentaje. *@
+                                @if (p.PromedioRespuesta is double promedioRespuesta)
+                                {
+                                    var redondeado = Math.Round(promedioRespuesta, MidpointRounding.AwayFromZero);
+                                    <div class="tv-cifra--prom-respuesta" title="Promedio entre el correo y la respuesta al asegurador, en @p.Medibles @(p.Medibles == 1 ? "paciente" : "pacientes") (meta: @TelevisorPromesa.Minutos min; sin los correos de noche ni los datos por revisar)"><dd class="@(redondeado <= TelevisorPromesa.Minutos ? "is-bien" : "is-mal")">@DurLarga(promedioRespuesta)</dd><dt><span class="tv-cifra__que">respuesta </span>en promedio</dt></div>
+                                }
+                                @if (p.CreacionPromedio is double promedioCreacion)
+                                {
+                                    var redondeado = Math.Round(promedioCreacion, MidpointRounding.AwayFromZero);
+                                    <div class="tv-cifra--prom-creacion" title="Promedio desde que empezó a crear el paciente hasta la gestión completa, en los @p.CreacionTerminados que ya quedaron completos (meta: @TelevisorCreacion.Minutos min)"><dd class="@(redondeado <= TelevisorCreacion.Minutos ? "is-bien" : "is-mal")">@DurLarga(promedioCreacion)</dd><dt><span class="tv-cifra__que">creación </span>en promedio</dt></div>
                                 }
                             </dl>
                         </header>

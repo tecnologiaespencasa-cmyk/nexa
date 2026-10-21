@@ -1,0 +1,65 @@
+@model HojaVidaUbicacion
+@{
+    var consulta = Model.ConsultaMapa is null ? null : Uri.EscapeDataString(Model.ConsultaMapa);
+    var zona = string.Join(" · ", new[] { Model.Zona, Model.Area }.Where(x => x is not null));
+}
+
+@* Ubicación del paciente. El mapa no se carga solo: al abrirlo, la dirección se busca en Google
+   Maps, y eso ocurre únicamente cuando quien consulta lo pide. *@
+<section class="hv-panel hv-ubicacion" id="ubicacion" aria-labelledby="hvUbicacionTitulo">
+    <h2 id="hvUbicacionTitulo" class="hv-lateral__titulo">Ubicación</h2>
+
+    @if (Model.Direccion is not null)
+    {
+        <p class="hv-ubicacion__direccion">@Model.Direccion</p>
+    }
+    @if (Model.Detalle is not null)
+    {
+        <p class="hv-ubicacion__detalle">@Model.Detalle</p>
+    }
+
+    <dl class="hv-ubicacion__datos">
+        @if (Model.Barrio is not null)
+        {
+            <div><dt>Barrio</dt><dd>@Model.Barrio</dd></div>
+        }
+        @if (Model.Municipio is not null)
+        {
+            <div><dt>Municipio</dt><dd>@Model.Municipio</dd></div>
+        }
+        @if (zona.Length > 0)
+        {
+            <div><dt>Zona</dt><dd>@zona</dd></div>
+        }
+        @if (Model.ZonaSura is not null)
+        {
+            <div><dt>Zona SURA</dt><dd>@Model.ZonaSura</dd></div>
+        }
+    </dl>
+
+    @if (Model.Validada)
+    {
+        <p class="hv-ubicacion__validacion hv-ubicacion__validacion--ok">
+            <i class="bi bi-patch-check-fill" aria-hidden="true"></i> Dirección validada con Google
+        </p>
+    }
+    else if (Model.SinValidar)
+    {
+        <p class="hv-ubicacion__validacion">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Google no encontró la dirección; se guardó como se escribió. El punto del mapa puede no ser exacto.
+        </p>
+    }
+
+    @if (consulta is not null)
+    {
+        <div class="hv-ubicacion__mapa" data-hv-mapa="https://maps.google.com/maps?q=@(consulta)&amp;z=16&amp;output=embed" hidden></div>
+        <div class="hv-ubicacion__acciones">
+            <button type="button" class="hv-boton-texto" data-hv-ver-mapa aria-expanded="false">
+                <i class="bi bi-map" aria-hidden="true"></i><span>Ver en el mapa</span>
+            </button>
+            <a class="hv-boton-texto" href="https://www.google.com/maps/search/?api=1&amp;query=@(consulta)" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span>Abrir en Google Maps</span>
+            </a>
+        </div>
+    }
+</section>

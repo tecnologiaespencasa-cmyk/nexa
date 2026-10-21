@@ -274,6 +274,17 @@ public class TelevisorPersonaAdmisiones
 
     public double? CreacionPorcentaje { get; set; }
 
+    /// <summary>
+    /// Promedio de minutos entre el correo y la respuesta, en lo que recepcionó y se puede medir
+    /// (sin correos de noche ni datos por revisar).
+    /// </summary>
+    public double? PromedioRespuesta { get; set; }
+
+    /// <summary>Promedio de minutos de creación de los que registró y ya quedaron con gestión completa.</summary>
+    public double? CreacionPromedio { get; set; }
+
+    public int CreacionTerminados { get; set; }
+
     public List<TelevisorIngreso> Lista { get; set; } = [];
 }
 

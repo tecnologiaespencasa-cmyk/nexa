@@ -145,10 +145,10 @@ public partial class HojaVidaPacienteService : IHojaVidaPacienteService
 
         model.Identidad = ConstruirIdentidad(datos, model.Ingresos, novedades.Filas, rondas.Filas, doc, hoy);
         model.Estado = ConstruirEstadoGeneral(ingresos, datos, model.Novedades, hoy);
-        model.Resumen = ConstruirResumen(model, hoy);
+        model.Telegrama = ConstruirTelegrama(model);
         model.Alertas = ConstruirAlertas(model, datos, hoy);
         model.Cifras = ConstruirCifras(model, hoy);
-        model.MedicamentosFrecuentes = ConstruirMedicamentosFrecuentes(ingresos);
+        model.MedicamentosFrecuentes = ConstruirMedicamentosPedidos(ingresos, datos);
         model.Diagnosticos = ConstruirDiagnosticos(ingresos, model.Rondas);
         model.Linea = ConstruirLineaDeVida(model, hoy);
 
@@ -200,11 +200,11 @@ public partial class HojaVidaPacienteService : IHojaVidaPacienteService
         public List<CensoTerapiaAmbulatoriaProrroga> ProrrogasTerapia { get; set; } = [];
     }
 
-    private sealed record ProrrogaFila(long Id, long CensoRecordId, int Numero, string ProrrogaJson, DateTime CreatedAtUtc);
+    private sealed record ProrrogaFila(long Id, long CensoRecordId, int Numero, string ProrrogaJson, DateTime CreatedAtUtc, string? RequisicionFarmaciaJson);
 
-    private sealed record DespachoCopiaFila(long ProrrogaDeId, long? VersionId, string FarmaciaEstado, DateTime? EnviadoAtUtc);
+    private sealed record DespachoCopiaFila(long ProrrogaDeId, long? VersionId, string FarmaciaEstado, DateTime? EnviadoAtUtc, string? RequisicionFarmaciaJson);
 
-    private sealed record AgudizacionFila(long Id, long RegistroId, int Numero, string AgudizacionJson, string FarmaciaEstado, DateTime? EnviadoAtUtc);
+    private sealed record AgudizacionFila(long Id, long RegistroId, int Numero, string AgudizacionJson, string FarmaciaEstado, DateTime? EnviadoAtUtc, string? RequisicionFarmaciaJson);
 
     private sealed record KardexFila(long Id, long RegistroId, long? PlanId, string Tipo, string FarmaciaEstado, DateTime? EnviadoAtUtc, DateTime CreatedAtUtc);
 
@@ -367,36 +367,42 @@ public partial class HojaVidaPacienteService : IHojaVidaPacienteService
                 ViaAdministracionMedicamentoPrincipal = x.ViaAdministracionMedicamentoPrincipal,
                 FrecuenciaAdministracionMxPrincipal = x.FrecuenciaAdministracionMxPrincipal,
                 DiasMedicamentoPrincipal = x.DiasMedicamentoPrincipal,
+                NumeroDosisDiaMedicamentoPrincipal = x.NumeroDosisDiaMedicamentoPrincipal,
                 NombreMedicamentoNumero2 = x.NombreMedicamentoNumero2,
                 DosisMedicamento2 = x.DosisMedicamento2,
                 MedidaMedicamento2 = x.MedidaMedicamento2,
                 ViaAdministracionMedicamento2 = x.ViaAdministracionMedicamento2,
                 FrecuenciaAdministracionMedicamento2 = x.FrecuenciaAdministracionMedicamento2,
                 DiasMedicamento2 = x.DiasMedicamento2,
+                NumeroDosisMedicamento2 = x.NumeroDosisMedicamento2,
                 NombreMedicamentoNumero3 = x.NombreMedicamentoNumero3,
                 DosisMedicamento3 = x.DosisMedicamento3,
                 MedidaMedicamento3 = x.MedidaMedicamento3,
                 ViaAdministracionMedicamento3 = x.ViaAdministracionMedicamento3,
                 FrecuenciaAdministracionMedicamento3 = x.FrecuenciaAdministracionMedicamento3,
                 DiasMedicamento3 = x.DiasMedicamento3,
+                NumeroDosisMedicamento3 = x.NumeroDosisMedicamento3,
                 NombreMedicamentoNumero4 = x.NombreMedicamentoNumero4,
                 DosisMedicamento4 = x.DosisMedicamento4,
                 MedidaMedicamento4 = x.MedidaMedicamento4,
                 ViaAdministracionMedicamento4 = x.ViaAdministracionMedicamento4,
                 FrecuenciaAdministracionMedicamento4 = x.FrecuenciaAdministracionMedicamento4,
                 DiasMedicamento4 = x.DiasMedicamento4,
+                NumeroDosisMedicamento4 = x.NumeroDosisMedicamento4,
                 NombreMedicamentoNumero5 = x.NombreMedicamentoNumero5,
                 DosisMedicamento5 = x.DosisMedicamento5,
                 MedidaMedicamento5 = x.MedidaMedicamento5,
                 ViaAdministracionMedicamento5 = x.ViaAdministracionMedicamento5,
                 FrecuenciaAdministracionMedicamento5 = x.FrecuenciaAdministracionMedicamento5,
                 DiasMedicamento5 = x.DiasMedicamento5,
+                NumeroDosisMedicamento5 = x.NumeroDosisMedicamento5,
                 NombreMedicamentoNumero6 = x.NombreMedicamentoNumero6,
                 DosisMedicamento6 = x.DosisMedicamento6,
                 MedidaMedicamento6 = x.MedidaMedicamento6,
                 ViaAdministracionMedicamento6 = x.ViaAdministracionMedicamento6,
                 FrecuenciaAdministracionMedicamento6 = x.FrecuenciaAdministracionMedicamento6,
                 DiasMedicamento6 = x.DiasMedicamento6,
+                NumeroDosisMedicamento6 = x.NumeroDosisMedicamento6,
                 AplicacionesTotales = x.AplicacionesTotales,
                 DiasTratamientoIv = x.DiasTratamientoIv,
                 FechaInicioTratamiento = x.FechaInicioTratamiento,
@@ -434,6 +440,11 @@ public partial class HojaVidaPacienteService : IHojaVidaPacienteService
                 MotivoNovedadDevolucionProductos = x.MotivoNovedadDevolucionProductos,
                 EstadoDevolucionServicioFarmaceutico = x.EstadoDevolucionServicioFarmaceutico,
                 ProrrogaJson = x.ProrrogaJson,
+                // Las requisiciones sí se traen: de ahí sale cuánto se pidió de cada medicamento.
+                // La del ingreso y la de la primera prórroga viven en el registro; las demás, en
+                // censo_prorrogas.
+                RequisicionFarmaciaJson = x.RequisicionFarmaciaJson,
+                ProrrogaRequisicionFarmaciaJson = x.ProrrogaRequisicionFarmaciaJson,
                 FarmaciaEnviadoAtUtc = x.FarmaciaEnviadoAtUtc,
                 FarmaciaEstado = x.FarmaciaEstado,
                 CreatedAtUtc = x.CreatedAtUtc
@@ -449,7 +460,7 @@ public partial class HojaVidaPacienteService : IHojaVidaPacienteService
         var prorrogas = await contexto.CensoProrrogas
             .AsNoTracking()
             .Where(x => ids.Contains(x.CensoRecordId))
-            .Select(x => new ProrrogaFila(x.Id, x.CensoRecordId, x.Numero, x.ProrrogaJson, x.CreatedAtUtc))
+            .Select(x => new ProrrogaFila(x.Id, x.CensoRecordId, x.Numero, x.ProrrogaJson, x.CreatedAtUtc, x.RequisicionFarmaciaJson))
             .ToListAsync(ct);
 
         // El estado en farmacia de una prórroga vive en su copia de despacho, no en el registro.
@@ -457,7 +468,7 @@ public partial class HojaVidaPacienteService : IHojaVidaPacienteService
             .AsNoTracking()
             .Where(x => x.FarmaciaProrrogaDeId != null && ids.Contains(x.FarmaciaProrrogaDeId.Value))
             .Select(x => new DespachoCopiaFila(
-                x.FarmaciaProrrogaDeId!.Value, x.FarmaciaProrrogaVersionId, x.FarmaciaEstado, x.FarmaciaEnviadoAtUtc))
+                x.FarmaciaProrrogaDeId!.Value, x.FarmaciaProrrogaVersionId, x.FarmaciaEstado, x.FarmaciaEnviadoAtUtc, x.RequisicionFarmaciaJson))
             .ToListAsync(ct);
 
         return (registros, prorrogas, copias);
@@ -481,7 +492,7 @@ public partial class HojaVidaPacienteService : IHojaVidaPacienteService
             .AsNoTracking()
             .Where(x => ids.Contains(x.CensoCronicoRecordId))
             .Select(x => new AgudizacionFila(
-                x.Id, x.CensoCronicoRecordId, x.Numero, x.AgudizacionJson, x.FarmaciaEstado, x.FarmaciaEnviadoAtUtc))
+                x.Id, x.CensoCronicoRecordId, x.Numero, x.AgudizacionJson, x.FarmaciaEstado, x.FarmaciaEnviadoAtUtc, x.RequisicionFarmaciaJson))
             .ToListAsync(ct);
 
         var hospitalizaciones = await contexto.CensoCronicoHospitalizaciones

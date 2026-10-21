@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.Json;
 using Nexa.Data;
 using Nexa.Data.Entities;
 using Nexa.Data.Repositories.Models;
@@ -247,9 +249,42 @@ public partial class HojaVidaPacienteService
         identidad.Genero = Primero(m?.Genero, cronico?.Genero, herida?.Genero, npt?.Genero);
         identidad.Asegurador = Primero(m?.Asegurador, agudo?.Asegurador, herida?.Asegurador, npt?.Asegurador);
         identidad.IpsQueRemite = Primero(m?.IpsQueRemite, agudo?.IpsQueRemite, terapia?.IpsQueRemite);
+        identidad.Ubicacion = m is null ? null : ConstruirUbicacion(m);
 
         return identidad;
     }
+
+    /// <summary>
+    /// Dirección y zona del maestro. No hay coordenadas guardadas: el mapa se busca con la
+    /// dirección y el municipio, y solo cuando el usuario lo pide.
+    /// </summary>
+    private static HojaVidaUbicacion? ConstruirUbicacion(CensoPaciente m)
+    {
+        var ubicacion = new HojaVidaUbicacion
+        {
+            Direccion = Lugar(m.Direccion),
+            Detalle = Lugar(m.DetalleDireccion),
+            Barrio = Lugar(m.Barrio),
+            Municipio = Lugar(m.MunicipioResidencia),
+            Zona = Lugar(m.ZonaDireccionSegunMunicipio),
+            ZonaSura = Lugar(m.ClasificacionZonaSura),
+            Area = Lugar(m.Area),
+            Validada = m.DireccionValidada,
+            SinValidar = !m.DireccionValidada && m.AsumirDireccionErrada
+        };
+
+        if (ubicacion.Direccion is not null)
+        {
+            ubicacion.ConsultaMapa = string.Join(", ",
+                new[] { ubicacion.Direccion, ubicacion.Municipio, "Colombia" }.Where(x => x is not null));
+        }
+
+        return ubicacion.TieneDatos ? ubicacion : null;
+    }
+
+    /// <summary>"No parametrizado" es el relleno del censo cuando falta el dato, no un lugar.</summary>
+    private static string? Lugar(string? valor) =>
+        Texto(valor) is { } texto && !texto.Equals("No parametrizado", StringComparison.OrdinalIgnoreCase) ? texto : null;
 
     private static HojaVidaEstadoGeneral ConstruirEstadoGeneral(
         List<HojaVidaIngreso> ingresos,
@@ -363,136 +398,106 @@ public partial class HojaVidaPacienteService
     }
 
     // ------------------------------------------------------------------------------------------
-    // Resumen en palabras
+    // Resumen telegráfico
     // ------------------------------------------------------------------------------------------
 
-    private static IReadOnlyList<HojaVidaFrase> ConstruirResumen(HojaVidaPacienteViewModel model, DateTime hoy)
+    /// <summary>
+    /// La ficha en líneas cortas de rótulo y dato, para leerla de un vistazo. Sustituyó a las frases
+    /// en prosa: quien la consulta busca un dato puntual, no un párrafo.
+    /// </summary>
+    private static IReadOnlyList<HojaVidaTelegrama> ConstruirTelegrama(HojaVidaPacienteViewModel model)
     {
-        var frases = new List<HojaVidaFrase>();
+        var lineas = new List<HojaVidaTelegrama>();
         var estado = model.Estado;
-        var ingresos = model.Ingresos;
+        var efectivos = model.Ingresos.Where(EsEfectivo).ToList();
 
-        if (estado.Activo)
+        // La atención que empezó más recientemente, esté abierta o ya con alta.
+        var ultima = efectivos
+            .Where(i => i.FechaIngreso is not null)
+            .OrderByDescending(i => i.FechaIngreso)
+            .ThenBy(i => CensoProgramas.Jerarquia(i.Programa))
+            .FirstOrDefault();
+        if (ultima is not null)
         {
-            // Cada programa con su propia fecha de ingreso. Antes se tomaba la más antigua de todos
-            // y la frase se la atribuía a los dos: decía que el paciente estaba en agudos desde el
-            // día en que entró a crónicos.
-            // Se nombra cada programa una sola vez, con la fecha de la atención más antigua que
-            // sigue abierta: un paciente con dos registros abiertos del mismo programa hacía que la
-            // frase lo repitiera ("activo en Clínica de heridas, en Clínica de heridas y en...").
-            var enCurso = ingresos
-                .Where(i => i.Situacion is HojaVidaSituacion.EnCurso or HojaVidaSituacion.SinDiligenciar)
+            var hasta = ultima.Situacion == HojaVidaSituacion.EnCurso
+                ? "hoy"
+                : ultima.FechaAlta is { } alta
+                    ? HojaVidaFormato.Fecha(alta) + (ultima.FechaAltaEstimada ? " (estimada)" : string.Empty)
+                    : "sin fecha de alta";
+            lineas.Add(new("Última atención", $"{HojaVidaFormato.Fecha(ultima.FechaIngreso)} → {hasta}", ultima.ProgramaNombre));
+        }
+
+        if (estado.ProgramasEnCurso.Count > 0)
+        {
+            // Dos registros abiertos del mismo programa se nombran una vez, con la cuenta al lado.
+            var repetidos = model.Ingresos
+                .Where(i => i.Situacion == HojaVidaSituacion.EnCurso)
                 .GroupBy(i => i.Programa)
-                .OrderBy(g => CensoProgramas.Jerarquia(g.Key))
-                .Select(g => new
-                {
-                    Nombre = g.First().ProgramaNombre,
-                    Desde = g.Where(i => i.FechaIngreso is not null)
-                        .Select(i => i.FechaIngreso!.Value)
-                        .DefaultIfEmpty(DateTime.MinValue)
-                        .Min(),
-                    Abiertas = g.Count()
-                })
+                .Where(g => g.Count() > 1)
+                .Select(g => $"{g.First().ProgramaNombre}: {g.Count()} atenciones abiertas")
                 .ToList();
-
-            var trozos = new List<HojaVidaTrozo> { new("Está activo en ") };
-            for (var i = 0; i < enCurso.Count; i++)
-            {
-                if (i > 0)
-                {
-                    trozos.Add(new(i == enCurso.Count - 1 ? " y en " : ", en "));
-                }
-
-                var programa = enCurso[i];
-                trozos.Add(new(programa.Nombre, true));
-
-                var notas = new List<string>();
-                if (programa.Desde != DateTime.MinValue)
-                {
-                    trozos.Add(new(" desde el "));
-                    trozos.Add(new(HojaVidaFormato.FechaLarga(programa.Desde), true));
-                    notas.Add(HojaVidaFormato.Dias((hoy - programa.Desde).Days).ToLowerInvariant());
-                }
-
-                if (programa.Abiertas > 1)
-                {
-                    notas.Add($"{programa.Abiertas} atenciones abiertas");
-                }
-
-                if (notas.Count > 0)
-                {
-                    trozos.Add(new($" ({string.Join(", ", notas)})"));
-                }
-            }
-
-            trozos.Add(new("."));
-            frases.Add(new HojaVidaFrase { Trozos = trozos });
-        }
-        else if (estado.Fallecido)
-        {
-            frases.Add(Frase(("Tiene registro de fallecimiento", false),
-                (estado.FechaFallecimiento is { } f ? " del " : string.Empty, false),
-                (estado.FechaFallecimiento is { } f2 ? HojaVidaFormato.FechaLarga(f2) : string.Empty, true),
-                (". No tiene atenciones en curso.", false)));
-        }
-        else if (estado.UltimaAlta is { } alta)
-        {
-            var ultima = ingresos
-                .Where(i => i.Situacion == HojaVidaSituacion.Cerrada && i.FechaAlta == alta)
-                .OrderBy(i => CensoProgramas.Jerarquia(i.Programa))
-                .First();
-            frases.Add(Frase(("No tiene atenciones en curso. Su última alta fue el ", false),
-                (HojaVidaFormato.FechaLarga(alta), true),
-                (", en ", false),
-                (ultima.ProgramaNombre, true),
-                (ultima.FechaAltaEstimada ? " (fecha estimada)." : ".", false)));
-        }
-        else if (estado.IngresosEfectivos == 0)
-        {
-            frases.Add(Frase(("No tiene ingresos efectivos registrados en el censo.", false)));
+            lineas.Add(new("En programa",
+                string.Join(", ", estado.ProgramasEnCurso.Select(p => p.Nombre)),
+                repetidos.Count > 0 ? string.Join(" · ", repetidos) : null,
+                Programas: true));
         }
         else
         {
-            frases.Add(Frase(("No tiene atenciones en curso.", false)));
+            lineas.Add(new("En programa", "Ninguno"));
         }
 
-        if (estado.IngresosEfectivos > 0 && estado.PrimerIngreso is { } primero)
+        if (estado.Fallecido)
         {
-            frases.Add(estado.IngresosEfectivos == 1
-                ? Frase((estado.Activo ? "En total lleva " : "En total estuvo ", false), (HojaVidaFormato.Dias(estado.DiasTotales).ToLowerInvariant(), true),
-                    (" en atención domiciliaria, en un solo ingreso que empezó en ", false),
-                    (HojaVidaFormato.MesAnio(primero), true), (".", false))
-                : Frase(("En total ha pasado ", false), (HojaVidaFormato.Dias(estado.DiasTotales).ToLowerInvariant(), true),
-                    (" en atención domiciliaria, repartidos en ", false), ($"{estado.IngresosEfectivos} ingresos", true),
-                    (" desde ", false), (HojaVidaFormato.MesAnio(primero), true), (".", false)));
+            lineas.Add(new("Fallecimiento",
+                estado.FechaFallecimiento is { } fallecio ? HojaVidaFormato.Fecha(fallecio) : "Registrado, sin fecha",
+                Alerta: true));
         }
 
+        lineas.Add(new("Días totales de atención",
+            estado.IngresosEfectivos == 0
+                ? "Sin ingresos efectivos"
+                : estado.DiasTotales > 0
+                    ? HojaVidaFormato.Dias(estado.DiasTotales)
+                    : estado.Activo ? "Ingresó hoy" : "Menos de un día"));
+
+        var noEfectivos = model.Ingresos.Count(i => i.Situacion == HojaVidaSituacion.NoEfectiva);
+        lineas.Add(new("Ingresos acumulados",
+            estado.IngresosEfectivos.ToString(CultureInfo.InvariantCulture),
+            noEfectivos switch
+            {
+                0 => null,
+                1 => "y 1 solicitud que no se prestó",
+                _ => $"y {noEfectivos} solicitudes que no se prestaron"
+            }));
+
+        lineas.Add(new("Fecha primer ingreso",
+            estado.PrimerIngreso is { } primero ? HojaVidaFormato.Fecha(primero) : "Sin fecha"));
+
+        // Si el portal no respondió, "ninguna" sería una afirmación falsa: se dice que no hay dato.
+        var sinPortal = model.AvisoPortal is not null;
         var pendientes = model.Novedades.Count(n => !n.Resuelta);
-        if (pendientes > 0)
-        {
-            frases.Add(Frase(("Tiene ", false),
-                (pendientes == 1 ? "1 novedad sin resolver" : $"{pendientes} novedades sin resolver", true),
-                (" en el Portal Administrativo.", false)));
-        }
-        else if (model.Novedades.Count > 0)
-        {
-            frases.Add(Frase((model.Novedades.Count == 1
-                ? "Su única novedad del Portal Administrativo está resuelta."
-                : $"Sus {model.Novedades.Count} novedades del Portal Administrativo están resueltas.", false)));
-        }
+        lineas.Add(model.Novedades.Count == 0
+            ? new("Novedades portal", sinPortal ? "Sin dato" : "Ninguna", sinPortal ? "El portal no respondió" : null)
+            : new("Novedades portal",
+                model.Novedades.Count.ToString(CultureInfo.InvariantCulture),
+                pendientes > 0
+                    ? (pendientes == 1 ? "1 sin resolver" : $"{pendientes} sin resolver")
+                    : model.Novedades.Count == 1 ? "resuelta" : "todas resueltas",
+                Alerta: pendientes > 0));
 
-        if (model.Rondas.FirstOrDefault(r => r.IngresoClave is not null) is { } ronda)
-        {
-            frases.Add(Frase(("Llegó a nosotros por una ronda intramural en ", false), (ronda.Ips, true), (".", false)));
-        }
+        var porRonda = model.Rondas
+            .Where(r => r.IngresoEfectivo == true || r.IngresoClave is not null)
+            .OrderBy(r => r.Fecha)
+            .FirstOrDefault();
+        lineas.Add(porRonda is not null
+            ? new("Ingreso desde ronda", "Sí", $"{HojaVidaFormato.Fecha(porRonda.Fecha)} · {porRonda.Ips}")
+            : model.Rondas.Count > 0
+                ? new("Ingreso desde ronda", "No",
+                    model.Rondas.Count == 1 ? "1 ronda reportada, sin ingreso" : $"{model.Rondas.Count} rondas reportadas, ninguna con ingreso")
+                : new("Ingreso desde ronda", sinPortal ? "Sin dato" : "No", sinPortal ? "El portal no respondió" : null));
 
-        return frases;
+        return lineas;
     }
-
-    private static HojaVidaFrase Frase(params (string Texto, bool Resaltado)[] trozos) => new()
-    {
-        Trozos = trozos.Where(t => t.Texto.Length > 0).Select(t => new HojaVidaTrozo(t.Texto, t.Resaltado)).ToList()
-    };
 
     private static string UnirLista(IReadOnlyList<string> elementos) => elementos.Count switch
     {
@@ -824,23 +829,169 @@ public partial class HojaVidaPacienteService
         return cifras;
     }
 
-    private static IReadOnlyList<HojaVidaConteo> ConstruirMedicamentosFrecuentes(IEnumerable<HojaVidaIngreso> ingresos)
+    /// <summary>
+    /// Los medicamentos formulados al paciente con lo que se pidió de cada uno a farmacia: la suma
+    /// de la columna Cantidad de las requisiciones del censo (ingreso, prórrogas y agudizaciones).
+    /// Solo cuentan las atenciones que se prestaron, y nunca las copias de despacho, que repiten
+    /// la requisición de la atención de la que salieron.
+    /// </summary>
+    private static IReadOnlyList<HojaVidaMedicamentoPedido> ConstruirMedicamentosPedidos(
+        IReadOnlyList<HojaVidaIngreso> ingresos,
+        DatosCenso datos)
     {
-        // Cuántos ingresos usaron cada medicamento (una prórroga o agudización con el mismo
-        // medicamento no lo cuenta dos veces dentro del mismo ingreso).
-        return ingresos
-            .Where(EsEfectivo)
+        var efectivos = ingresos.Where(EsEfectivo).ToList();
+
+        // Clave normalizada -> el nombre tal como se escribió más veces.
+        var nombres = efectivos
             .SelectMany(i => i.Medicamentos
                 .Concat(i.Prorrogas.SelectMany(p => p.Medicamentos))
-                .Concat(i.Agudizaciones.SelectMany(a => a.Medicamentos))
-                .Select(m => m.Nombre.Trim())
-                .DistinctBy(n => n.ToUpperInvariant()))
-            .GroupBy(n => n.ToUpperInvariant())
-            .Select(g => new HojaVidaConteo(g.GroupBy(x => x).OrderByDescending(x => x.Count()).First().Key, g.Count()))
-            .OrderByDescending(x => x.Veces)
-            .ThenBy(x => x.Nombre)
+                .Concat(i.Agudizaciones.SelectMany(a => a.Medicamentos)))
+            .Select(m => m.Nombre.Trim())
+            .Where(n => n.Length > 0)
+            .GroupBy(ClaveMedicamento)
+            .ToDictionary(g => g.Key, g => g.GroupBy(x => x).OrderByDescending(x => x.Count()).First().Key);
+        if (nombres.Count == 0)
+        {
+            return [];
+        }
+
+        var prestados = efectivos
+            .Where(i => i.RegistroId is not null)
+            .Select(i => (i.Programa, i.RegistroId!.Value))
+            .ToHashSet();
+
+        // La requisición de una prórroga ya enviada es la de su copia de despacho: es la que
+        // recibió farmacia, y en los datos de junio de 2026 solo se guardó ahí. Si la prórroga
+        // todavía no se envía, vale la guardada en el registro.
+        IEnumerable<string?> RequisicionesProrrogaBase(CensoRecord registro)
+        {
+            var enviadas = datos.CopiasDespacho
+                .Where(c => c.ProrrogaDeId == registro.Id && c.VersionId is null && !string.IsNullOrWhiteSpace(c.RequisicionFarmaciaJson))
+                .Select(c => c.RequisicionFarmaciaJson)
+                .Distinct()
+                .ToList();
+            return enviadas.Count > 0 ? enviadas : [registro.ProrrogaRequisicionFarmaciaJson];
+        }
+
+        string? RequisicionProrroga(ProrrogaFila prorroga) =>
+            datos.CopiasDespacho
+                .Where(c => c.VersionId == prorroga.Id && !string.IsNullOrWhiteSpace(c.RequisicionFarmaciaJson))
+                .OrderByDescending(c => c.EnviadoAtUtc)
+                .Select(c => c.RequisicionFarmaciaJson)
+                .FirstOrDefault()
+            ?? prorroga.RequisicionFarmaciaJson;
+
+        var requisiciones = datos.Agudos
+            .Where(r => prestados.Contains((CensoProgramas.Agudos, r.Id)))
+            .SelectMany(r => RequisicionesProrrogaBase(r).Prepend(r.RequisicionFarmaciaJson))
+            .Concat(datos.Prorrogas
+                .Where(p => prestados.Contains((CensoProgramas.Agudos, p.CensoRecordId)))
+                .Select(RequisicionProrroga))
+            .Concat(datos.Agudizaciones
+                .Where(a => prestados.Contains((CensoProgramas.Cronicos, a.RegistroId)))
+                .Select(a => a.RequisicionFarmaciaJson))
+            .Where(json => !string.IsNullOrWhiteSpace(json));
+
+        // Un ingreso enviado a farmacia sin requisición editada no se quedó sin ella: farmacia la
+        // arma al vuelo con dosis × dosis al día × días. Se usa ese mismo cálculo (pasa en menos
+        // del 1 % de los ingresos con medicamento).
+        var calculadas = datos.Agudos
+            .Where(r => prestados.Contains((CensoProgramas.Agudos, r.Id))
+                && string.IsNullOrWhiteSpace(r.RequisicionFarmaciaJson)
+                && r.FarmaciaEnviadoAtUtc is not null)
+            .Select(r => new[]
+                {
+                    (r.NombreMedicamentoPrincipalTratante, r.DosisMedicamentoPrincipal, r.FrecuenciaAdministracionMxPrincipal, r.NumeroDosisDiaMedicamentoPrincipal, r.DiasMedicamentoPrincipal),
+                    (r.NombreMedicamentoNumero2, r.DosisMedicamento2, r.FrecuenciaAdministracionMedicamento2, r.NumeroDosisMedicamento2, r.DiasMedicamento2),
+                    (r.NombreMedicamentoNumero3, r.DosisMedicamento3, r.FrecuenciaAdministracionMedicamento3, r.NumeroDosisMedicamento3, r.DiasMedicamento3),
+                    (r.NombreMedicamentoNumero4, r.DosisMedicamento4, r.FrecuenciaAdministracionMedicamento4, r.NumeroDosisMedicamento4, r.DiasMedicamento4),
+                    (r.NombreMedicamentoNumero5, r.DosisMedicamento5, r.FrecuenciaAdministracionMedicamento5, r.NumeroDosisMedicamento5, r.DiasMedicamento5),
+                    (r.NombreMedicamentoNumero6, r.DosisMedicamento6, r.FrecuenciaAdministracionMedicamento6, r.NumeroDosisMedicamento6, r.DiasMedicamento6)
+                }
+                .Where(m => !string.IsNullOrWhiteSpace(m.Item1))
+                .Select(m => (Clave: ClaveMedicamento(m.Item1!),
+                    Cantidad: FarmaciaDispatchNotificationService.CantidadRequisicionCalculada(m.Item2, m.Item3, m.Item4, m.Item5)))
+                .Where(m => m.Cantidad > 0)
+                .ToList());
+
+        var pedidos = new Dictionary<string, (decimal Cantidad, int Requisiciones)>();
+        foreach (var filas in requisiciones.Select(json => FilasRequisicion(json!)).Concat(calculadas))
+        {
+            // Insumos (jeringas, guantes, soluciones) no coinciden con ningún medicamento y quedan fuera.
+            foreach (var fila in filas
+                .Where(f => nombres.ContainsKey(f.Clave))
+                .GroupBy(f => f.Clave))
+            {
+                pedidos.TryGetValue(fila.Key, out var acumulado);
+                pedidos[fila.Key] = (acumulado.Cantidad + fila.Sum(f => f.Cantidad), acumulado.Requisiciones + 1);
+            }
+        }
+
+        return nombres
+            .Select(par => pedidos.TryGetValue(par.Key, out var pedido)
+                ? new HojaVidaMedicamentoPedido(par.Value, pedido.Cantidad, pedido.Requisiciones)
+                : new HojaVidaMedicamentoPedido(par.Value, null, 0))
+            .OrderByDescending(m => m.Cantidad ?? -1)
+            .ThenBy(m => m.Nombre)
             .Take(6)
             .ToList();
+    }
+
+    /// <summary>
+    /// Filas de una requisición guardada por el censo: {"rows":[{"descripcion":..,"cantidad":..}]}.
+    /// Un JSON dañado se ignora entero en vez de tumbar la hoja.
+    /// </summary>
+    private static List<(string Clave, decimal Cantidad)> FilasRequisicion(string json)
+    {
+        var filas = new List<(string Clave, decimal Cantidad)>();
+        try
+        {
+            using var documento = JsonDocument.Parse(json);
+            if (documento.RootElement.ValueKind != JsonValueKind.Object
+                || !documento.RootElement.TryGetProperty("rows", out var rows)
+                || rows.ValueKind != JsonValueKind.Array)
+            {
+                return filas;
+            }
+
+            foreach (var row in rows.EnumerateArray())
+            {
+                var descripcion = Propiedad(row, "descripcion");
+                var cantidad = Propiedad(row, "cantidad");
+                if (string.IsNullOrWhiteSpace(descripcion)
+                    || !decimal.TryParse(cantidad?.Trim().Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var valor)
+                    || valor <= 0)
+                {
+                    continue;
+                }
+
+                filas.Add((ClaveMedicamento(descripcion), valor));
+            }
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+
+        return filas;
+    }
+
+    private static string? Propiedad(JsonElement elemento, string nombre) =>
+        elemento.ValueKind == JsonValueKind.Object
+        && elemento.TryGetProperty(nombre, out var valor)
+        && valor.ValueKind is JsonValueKind.String or JsonValueKind.Number
+            ? valor.ToString()
+            : null;
+
+    /// <summary>
+    /// La requisición escribe "CEFTRIAXONA  1 g AMPOLLA" con dos espacios y a veces añade la
+    /// presentación en un segundo renglón: se compara la primera línea, en mayúsculas y con un solo
+    /// espacio entre palabras.
+    /// </summary>
+    private static string ClaveMedicamento(string nombre)
+    {
+        var primeraLinea = nombre.Split('\n', 2)[0];
+        return string.Join(' ', primeraLinea.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToUpperInvariant();
     }
 
     private static IReadOnlyList<HojaVidaDiagnostico> ConstruirDiagnosticos(

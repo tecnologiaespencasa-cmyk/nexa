@@ -124,7 +124,36 @@ public sealed class TelevisorIndicadoresService : ITelevisorIndicadoresService
             tablero.Bloques.Add(ConstruirBloque(TelevisorBloques.Dia, "Turno único", dia, finDia, ingresos, personal, novedades, habil));
         }
 
+        CompletarPromedios(tablero);
         return tablero;
+    }
+
+    /// <summary>
+    /// Promedio de respuesta (de lo que recepcionó, sin correos de noche ni datos por revisar) y
+    /// de creación (de lo que registró y ya quedó con gestión completa) de cada tarjeta de
+    /// Admisiones, sacados de las filas del propio bloque. Se usa al armar el tablero y también al
+    /// leer una foto guardada: las fotos anteriores al 2026-10-21 no los traían, y así un turno o
+    /// un día ya cerrado también los muestra, con los mismos pacientes con que se cerró.
+    /// </summary>
+    internal static void CompletarPromedios(TelevisorTablero tablero)
+    {
+        foreach (var adm in tablero.Bloques.Select(b => b.Admisiones))
+        {
+            // Cada ingreso del bloque está en la lista de exactamente una tarjeta (la de quien lo
+            // recepcionó, u "Otros"): juntas son todos los ingresos.
+            var todos = adm.Personas.SelectMany(p => p.Lista).Where(x => !x.Cancelado).ToList();
+            foreach (var p in adm.Personas)
+            {
+                var respondidos = p.Lista.Where(x => !x.Cancelado && TelevisorPromesa.Cuenta(x.Promesa)).ToList();
+                p.PromedioRespuesta = respondidos.Count == 0 ? null : respondidos.Average(x => x.MinutosRespuesta ?? 0);
+
+                var creados = p.EsOtros
+                    ? []
+                    : todos.Where(x => x.RegistradoPor == p.Nombre && x.Creacion is TelevisorCreacion.Cumple or TelevisorCreacion.NoCumple).ToList();
+                p.CreacionTerminados = creados.Count;
+                p.CreacionPromedio = p.CreacionPorcentaje is null || creados.Count == 0 ? null : creados.Average(x => x.MinutosCreacion ?? 0);
+            }
+        }
     }
 
     // ------------------------------------------------------------------ personal y turnos

@@ -1,7 +1,7 @@
 namespace Nexa.Models.ViewModels;
 
 /// <summary>
-/// Hoja de vida del paciente: todo lo que la IPS sabe de él, armado de solo lectura desde los cinco
+/// Hoja clínica del paciente: todo lo que la IPS sabe de él, armado de solo lectura desde los cinco
 /// censos y el Portal Administrativo. No guarda nada: se calcula en cada consulta, así que una
 /// atención en curso se ve con su estado del momento.
 /// </summary>
@@ -23,7 +23,8 @@ public class HojaVidaPacienteViewModel
 
     public HojaVidaEstadoGeneral Estado { get; set; } = new();
 
-    public IReadOnlyList<HojaVidaFrase> Resumen { get; set; } = [];
+    /// <summary>El resumen de la ficha en líneas cortas, tipo telegrama: rótulo y dato.</summary>
+    public IReadOnlyList<HojaVidaTelegrama> Telegrama { get; set; } = [];
 
     /// <summary>Todos los ingresos del paciente, del más reciente al más antiguo.</summary>
     public IReadOnlyList<HojaVidaIngreso> Ingresos { get; set; } = [];
@@ -34,7 +35,8 @@ public class HojaVidaPacienteViewModel
 
     public IReadOnlyList<HojaVidaCifra> Cifras { get; set; } = [];
 
-    public IReadOnlyList<HojaVidaConteo> MedicamentosFrecuentes { get; set; } = [];
+    /// <summary>Medicamentos con las unidades pedidas a farmacia en las requisiciones del censo.</summary>
+    public IReadOnlyList<HojaVidaMedicamentoPedido> MedicamentosFrecuentes { get; set; } = [];
 
     public IReadOnlyList<HojaVidaDiagnostico> Diagnosticos { get; set; } = [];
 
@@ -81,6 +83,41 @@ public class HojaVidaIdentidad
 
     /// <summary>False cuando no existe el maestro y los datos se tomaron del registro más reciente.</summary>
     public bool DesdeMaestro { get; set; }
+
+    /// <summary>Dónde vive el paciente, según el maestro. Null si el maestro no tiene ningún dato.</summary>
+    public HojaVidaUbicacion? Ubicacion { get; set; }
+}
+
+public class HojaVidaUbicacion
+{
+    public string? Direccion { get; set; }
+
+    /// <summary>Indicaciones para llegar: apartamento, piso, "casa de rejas verdes"...</summary>
+    public string? Detalle { get; set; }
+
+    public string? Barrio { get; set; }
+
+    public string? Municipio { get; set; }
+
+    /// <summary>Zona de la dirección según el municipio (Nororiental, Sur Occidental...).</summary>
+    public string? Zona { get; set; }
+
+    public string? ZonaSura { get; set; }
+
+    /// <summary>Urbana o rural.</summary>
+    public string? Area { get; set; }
+
+    /// <summary>Google encontró la dirección cuando se registró.</summary>
+    public bool Validada { get; set; }
+
+    /// <summary>Google no la encontró y el equipo la guardó tal como la escribió.</summary>
+    public bool SinValidar { get; set; }
+
+    /// <summary>Texto con el que se busca en el mapa; null si no hay dirección.</summary>
+    public string? ConsultaMapa { get; set; }
+
+    public bool TieneDatos =>
+        Direccion is not null || Barrio is not null || Municipio is not null || Zona is not null || ZonaSura is not null;
 }
 
 public enum HojaVidaSituacion
@@ -123,13 +160,11 @@ public class HojaVidaEstadoGeneral
     public int IngresosEfectivos { get; set; }
 }
 
-/// <summary>Una frase del resumen, partida en trozos para resaltar las cifras sin armar HTML.</summary>
-public class HojaVidaFrase
-{
-    public IReadOnlyList<HojaVidaTrozo> Trozos { get; set; } = [];
-}
-
-public record HojaVidaTrozo(string Texto, bool Resaltado = false);
+/// <summary>
+/// Una línea del resumen telegráfico. <paramref name="Programas"/> pide pintar los programas en
+/// curso con su color en vez del texto; <paramref name="Alerta"/> marca un dato que pide acción.
+/// </summary>
+public record HojaVidaTelegrama(string Rotulo, string Valor, string? Detalle = null, bool Programas = false, bool Alerta = false);
 
 /// <summary>Programa abierto en la ficha: el nombre y el sufijo de su clase de color.</summary>
 public record HojaVidaProgramaEnCurso(string Nombre, string Clase);
@@ -522,7 +557,11 @@ public class HojaVidaAlerta
 
 public record HojaVidaCifra(string Etiqueta, string Valor, string? Nota = null);
 
-public record HojaVidaConteo(string Nombre, int Veces);
+/// <summary>
+/// Un medicamento formulado al paciente y lo que se le pidió a farmacia: la suma de la columna
+/// Cantidad de todas sus requisiciones. Cantidad null: se formuló pero no hay requisición guardada.
+/// </summary>
+public record HojaVidaMedicamentoPedido(string Nombre, decimal? Cantidad, int Requisiciones);
 
 public record HojaVidaDiagnostico(string Codigo, string? Descripcion, int Veces);
 

@@ -12,7 +12,7 @@
 <section class="hv-linea" id="linea" aria-labelledby="hvLineaTitulo">
     <div class="hv-seccion__cabeza">
         <div>
-            <h2 id="hvLineaTitulo" class="hv-seccion__titulo">Línea de vida</h2>
+            <h2 id="hvLineaTitulo" class="hv-seccion__titulo">Historial</h2>
             <p class="hv-seccion__ayuda">
                 Cada barra es un ingreso: empieza el día que llegó y termina en el alta. Toca una barra para ir a su detalle.
             </p>
@@ -52,7 +52,7 @@
     @* El tiempo se lee por bandas de mes alternadas: se ve cuánto duró cada cosa sin leer fechas.
        En pantallas angostas el lienzo conserva un ancho mínimo legible y se desplaza de lado dentro
        de su marco, sin mover la página. *@
-    <div class="hv-ecg" tabindex="0" role="group" aria-label="Línea de vida del paciente. En pantallas pequeñas se desplaza de lado.">
+    <div class="hv-ecg" tabindex="0" role="group" aria-label="Historial del paciente. En pantallas pequeñas se desplaza de lado.">
         <div class="hv-ecg__lienzo" style="--filas-eventos:@Math.Max(Model.FilasEventos, 1);--carriles:@Model.Carriles.Count">
 
             <div class="hv-ecg__bandas" aria-hidden="true">
@@ -94,7 +94,8 @@
             @if (Model.Marcas.Count > 0)
             {
                 <div class="hv-ecg__carril hv-ecg__carril--eventos">
-                    <span class="hv-ecg__rotulo">Lo que pasó</span>
+                    @* Sin rótulo: las figuras de la leyenda ya dicen qué es cada marca. *@
+                    <span class="hv-ecg__rotulo" aria-hidden="true"></span>
                     <div class="hv-ecg__pista">
                         @foreach (var marca in Model.Marcas)
                         {

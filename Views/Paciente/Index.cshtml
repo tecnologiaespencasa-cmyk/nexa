@@ -8,7 +8,7 @@
     var hoy = Model.ConsultadoEn.Date;
     var estadoClase = Model.Estado.Activo ? "activo" : Model.Estado.Fallecido ? "fallecido" : "inactivo";
     var pendientes = Model.Novedades.Count(n => !n.Resuelta);
-    var maxMedicamento = Model.MedicamentosFrecuentes.Count > 0 ? Model.MedicamentosFrecuentes.Max(m => m.Veces) : 1;
+    var maxMedicamento = Model.MedicamentosFrecuentes.Max(m => m.Cantidad) is { } mayor && mayor > 0 ? mayor : 1m;
     var inv = CultureInfo.InvariantCulture;
     var datosIngreso = new ViewDataDictionary(ViewData) { ["Hoy"] = hoy };
 
@@ -55,7 +55,7 @@
                     @{ Sello("hv-sello"); }
                     <span>Especialistas en Casa</span>
                 </p>
-                <h1 id="hvPortadaTitulo" class="hv-portada__titulo">Hoja de vida del paciente</h1>
+                <h1 id="hvPortadaTitulo" class="hv-portada__titulo">Hoja Clínica</h1>
                 <p class="hv-portada__texto">
                     Todo lo que un paciente ha vivido con nosotros en una sola página: sus ingresos, los medicamentos
                     y servicios que recibió, sus novedades y el tiempo que lleva en atención domiciliaria.
@@ -73,7 +73,7 @@
                         <i class="bi bi-person-exclamation" aria-hidden="true"></i>
                         <div>
                             <p class="hv-vacio__titulo">No hay ningún paciente con el documento <span class="hv-num">@HojaVidaFormato.Documento(Model.Documento)</span></p>
-                            <p>Revisa que el número esté completo. Si es un paciente nuevo, todavía no tiene hoja de vida: aparece aquí en cuanto se registra en el censo o en el Portal Administrativo.</p>
+                            <p>Revisa que el número esté completo. Si es un paciente nuevo, todavía no tiene hoja clínica: aparece aquí en cuanto se registra en el censo o en el Portal Administrativo.</p>
                             @if (Model.AvisoPortal is not null)
                             {
                                 <p class="hv-aviso"><i class="bi bi-cloud-slash" aria-hidden="true"></i> @Model.AvisoPortal</p>
@@ -88,7 +88,7 @@
             <div class="hv-barra-consulta">
                 <p class="hv-membrete">
                     @{ Sello("hv-sello"); }
-                    <span>Hoja de vida del paciente</span>
+                    <span>Hoja Clínica</span>
                 </p>
                 <partial name="_Consulta" model="Model" view-data='new ViewDataDictionary(ViewData) { ["Compacto"] = true }' />
             </div>
@@ -168,12 +168,34 @@
                 </div>
 
                 <div class="hv-resumen">
-                    <p class="hv-resumen__rotulo">En pocas palabras</p>
-                    @foreach (var frase in Model.Resumen)
-                    {
-                        @* En una sola línea a propósito: cualquier salto entre trozos se vuelve un espacio antes del punto. *@
-                        <p class="hv-resumen__frase">@foreach (var trozo in frase.Trozos) { if (trozo.Resaltado) {<strong>@trozo.Texto</strong>} else {<text>@trozo.Texto</text>} }</p>
-                    }
+                    @* Tipo telegrama: un rótulo y un dato por línea, sin prosa. *@
+                    <dl class="hv-telegrama">
+                        @foreach (var linea in Model.Telegrama)
+                        {
+                            <div class="hv-telegrama__linea @(linea.Alerta ? "hv-telegrama__linea--alerta" : null)">
+                                <dt>@linea.Rotulo</dt>
+                                <dd>
+                                    @if (linea.Programas)
+                                    {
+                                        <span class="hv-telegrama__valor hv-telegrama__programas">
+                                            @foreach (var programa in Model.Estado.ProgramasEnCurso)
+                                            {
+                                                <span class="hv-estado__programa hv-prog--@programa.Clase">@programa.Nombre</span>
+                                            }
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="hv-telegrama__valor">@linea.Valor</span>
+                                    }
+                                    @if (linea.Detalle is not null)
+                                    {
+                                        <span class="hv-telegrama__detalle">@linea.Detalle</span>
+                                    }
+                                </dd>
+                            </div>
+                        }
+                    </dl>
                     <p class="hv-resumen__consulta">
                         <i class="bi bi-clock-history" aria-hidden="true"></i>
                         <span>Consultado el @HojaVidaFormato.FechaHora(Model.ConsultadoEn)<br />Lo que está en curso se ve con su estado a esta hora.</span>
@@ -181,13 +203,17 @@
                 </div>
             </header>
 
-            <nav class="hv-indice" aria-label="Secciones de la hoja de vida">
-                <a href="#linea">Línea de vida</a>
+            <nav class="hv-indice" aria-label="Secciones de la hoja clínica">
+                <a href="#linea">Historial</a>
                 <a href="#ingresos">Ingresos <span class="hv-conteo">@Model.Ingresos.Count</span></a>
                 <a href="#novedades">Novedades <span class="hv-conteo @(pendientes > 0 ? "hv-conteo--alerta" : null)">@Model.Novedades.Count</span></a>
                 @if (Model.Rondas.Count > 0)
                 {
                     <a href="#rondas">Rondas intramurales <span class="hv-conteo">@Model.Rondas.Count</span></a>
+                }
+                @if (Model.Identidad.Ubicacion is not null)
+                {
+                    <a href="#ubicacion">Ubicación</a>
                 }
                 <a href="#cifras">En cifras</a>
             </nav>
@@ -431,6 +457,11 @@
 
                 @* ── Lateral ─────────────────────────────────────────────────── *@
                 <aside class="hv-lateral" aria-label="Resumen del paciente">
+                    @if (Model.Identidad.Ubicacion is { } ubicacion)
+                    {
+                        <partial name="_Ubicacion" model="ubicacion" />
+                    }
+
                     <section class="hv-panel" id="cifras" aria-labelledby="hvCifrasTitulo">
                         <h2 id="hvCifrasTitulo" class="hv-lateral__titulo">En cifras</h2>
                         <dl class="hv-cifras">
@@ -454,16 +485,27 @@
                     {
                         <section class="hv-panel" aria-labelledby="hvMedicamentosTitulo">
                             <h2 id="hvMedicamentosTitulo" class="hv-lateral__titulo">Medicamentos más usados</h2>
-                            <p class="hv-panel__ayuda">En cuántos ingresos se le formuló cada uno.</p>
+                            <p class="hv-panel__ayuda">Unidades pedidas a farmacia, sumando todas sus requisiciones.</p>
                             <ol class="hv-frecuencias">
                                 @foreach (var medicamento in Model.MedicamentosFrecuentes)
                                 {
-                                    var ancho = (medicamento.Veces * 100.0 / maxMedicamento).ToString("0.#", inv);
-                                    <li>
-                                        <span class="hv-frecuencias__nombre">@medicamento.Nombre</span>
-                                        <span class="hv-frecuencias__barra" style="--w:@(ancho)%" aria-hidden="true"></span>
-                                        <span class="hv-frecuencias__valor hv-num">@medicamento.Veces <span class="visually-hidden">@(medicamento.Veces == 1 ? "ingreso" : "ingresos")</span></span>
-                                    </li>
+                                    if (medicamento.Cantidad is { } cantidad)
+                                    {
+                                        var ancho = (cantidad * 100m / maxMedicamento).ToString("0.#", inv);
+                                        var requisiciones = medicamento.Requisiciones == 1 ? "1 requisición" : $"{medicamento.Requisiciones} requisiciones";
+                                        <li title="En @requisiciones">
+                                            <span class="hv-frecuencias__nombre">@medicamento.Nombre</span>
+                                            <span class="hv-frecuencias__barra" style="--w:@(ancho)%" aria-hidden="true"></span>
+                                            <span class="hv-frecuencias__valor hv-num">@cantidad.ToString("#,##0.##", CultureInfo.GetCultureInfo("es-CO")) <span class="visually-hidden">unidades, en @requisiciones</span></span>
+                                        </li>
+                                    }
+                                    else
+                                    {
+                                        <li class="hv-frecuencias--sin-dato">
+                                            <span class="hv-frecuencias__nombre">@medicamento.Nombre</span>
+                                            <span class="hv-frecuencias__valor">Sin requisición</span>
+                                        </li>
+                                    }
                                 }
                             </ol>
                         </section>
