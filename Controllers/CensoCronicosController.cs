@@ -25,6 +25,19 @@ public partial class CensoController
     // por defecto "CRONICO ESTABLE"; pasa a "Inactivo" cuando egresa del programa crónico.
     private const string CronicoEstadoActivo = "CRONICO ESTABLE";
     private const string CronicoEstadoInactivo = "Inactivo";
+
+    /// <summary>
+    /// El estado del paciente solo distingue dos cosas: si sigue en el programa o si ya egresó. En la
+    /// base, el activo se sigue guardando como "CRONICO ESTABLE" (viene de cuando el campo se elegía
+    /// a mano, con "CRONICO AGUDIZADO" al lado); de cara a quien lee el exportable son Activo e
+    /// Inactivo, igual que en los demás programas.
+    /// </summary>
+    private static string EstadoPacienteCronicoTexto(string? estado) => estado?.Trim() switch
+    {
+        null or "" => string.Empty,
+        var e when string.Equals(e, CronicoEstadoInactivo, StringComparison.OrdinalIgnoreCase) => "Inactivo",
+        _ => "Activo"
+    };
     private static readonly string[] CronicoBarthelAuditadoValues = ["Si", "No", "Sin dato"];
     private static readonly string[] CronicoCalificacionBarthelValues =
         Enumerable.Range(0, 21).Select(i => $"{i * 5}").ToArray();
@@ -604,7 +617,7 @@ public partial class CensoController
             ("Zona de dirección según municipio", r => r.ZonaDireccionSegunMunicipio ?? string.Empty),
             ("Área", r => r.Area ?? string.Empty),
             ("Clasificación del caso", r => r.ClasificacionCaso ?? string.Empty),
-            ("Estado del paciente", r => r.EstadoPaciente ?? string.Empty),
+            ("Estado del paciente", r => EstadoPacienteCronicoTexto(r.EstadoPaciente)),
             ("Diagnóstico crónico CIE10", r => r.DiagnosticoCronicoCie10 ?? string.Empty),
             ("Grupo de patología crónica", r => r.GrupoPatologiaCronica ?? string.Empty),
             ("Diagnóstico crónico complementario", r => r.DiagnosticoCronicoComplementario ?? string.Empty),
