@@ -131,7 +131,9 @@
 
                     <button type="submit" class="espacio-btn espacio-btn--primary">Filtrar</button>
                     <a class="espacio-btn espacio-btn--soft" asp-action="Activos">Limpiar</a>
+                    @* data-descarga: el cargador espera el archivo y se cierra cuando llega (nexa-loader.js). *@
                     <button type="submit" class="espacio-btn espacio-btn--soft" formaction="@Url.Action("ExportarActivosExcel")"
+                            data-descarga
                             title="Descarga el inventario con los filtros que tengas aplicados">
                         <i class="bi bi-file-earmark-excel-fill" aria-hidden="true"></i>
                         Exportar a Excel

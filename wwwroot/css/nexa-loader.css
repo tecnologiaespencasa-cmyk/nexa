@@ -141,6 +141,41 @@
   font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
+/* ---- Aviso de una descarga que falló (nexa-loader.js) ---- */
+.nexa-aviso {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #f2c2bb;
+  border-left: 5px solid #c4321f;
+  background: #fff;
+  color: #13202b;
+  box-shadow: 0 18px 40px -18px rgba(19, 32, 43, 0.55);
+  font: 600 0.92rem/1.4 'Segoe UI', system-ui, sans-serif;
+}
+.nexa-aviso__cerrar {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #5a6975;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.nexa-aviso__cerrar:hover,
+.nexa-aviso__cerrar:focus-visible {
+  color: #13202b;
+}
+
 /* ---- Reduced motion: logo estático, sin keyframes ---- */
 @media (prefers-reduced-motion: reduce) {
   .nexa-ribbon {

@@ -601,9 +601,8 @@ public class CensoReceptionViewModel : ICensoRegistroEditable
     [Display(Name = "IPS quirúrgica")]
     public string? PanAmericanIpsQuirurgica { get; set; }
 
-    [StringLength(200)]
-    [Display(Name = "Procedimiento que se realiza")]
-    public string? PanAmericanProcedimiento { get; set; }
+    [Display(Name = "Procedimientos realizados")]
+    public List<string> PanAmericanProcedimiento { get; set; } = [];
 
     [Display(Name = "Activador de la póliza")]
     public List<string> PanAmericanActivadorPoliza { get; set; } = [];
@@ -620,9 +619,7 @@ public class CensoReceptionViewModel : ICensoRegistroEditable
     [Display(Name = "Número de autorización")]
     public string? PanAmericanNumeroAutorizacion { get; set; }
 
-    public IReadOnlyList<SelectListItem> PanAmericanIpsQuirurgicaOptions { get; set; } = [];
-
-    public IReadOnlyList<SelectListItem> PanAmericanProcedimientoOptions { get; set; } = [];
+    public IReadOnlyList<string> PanAmericanProcedimientoOptions { get; set; } = [];
 
     public IReadOnlyList<string> PanAmericanActivadorPolizaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> ClasificacionRiesgoOptions { get; set; } = [];

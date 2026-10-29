@@ -278,8 +278,19 @@ public partial class CensoController : Controller
     private static readonly string[] VistoBuenoValues = ["Si", "No"];
     private static readonly string[] AseguradorValues = ["EPS SURA", "PAN-AMERICAN LIFE DE COLOMBIA", "PARTICULAR"];
     private const string AseguradorPanAmerican = "PAN-AMERICAN LIFE DE COLOMBIA";
-    private static readonly string[] PanAmericanIpsQuirurgicaValues = ["Pendiente 1", "Pendiente 2", "Pendiente 3"];
-    private static readonly string[] PanAmericanProcedimientoValues = ["Pendiente 1", "Pendiente 2", "Pendiente 3"];
+    // Varios a la vez (se guardan unidos por ", ", como el activador de la póliza). Ningún nombre puede
+    // llevar coma: la coma es el separador.
+    private static readonly string[] PanAmericanProcedimientoValues =
+    [
+        "Ritidoplastia",
+        "Lifting facial",
+        "Mamoplastia de aumento",
+        "Mastopexia sin prótesis",
+        "Mastopexia con prótesis",
+        "Liposucción",
+        "Abdominoplastia",
+        "Lipotransferencia glútea"
+    ];
     private static readonly string[] PanAmericanActivadorPolizaValues =
     [
         "Paciente",
@@ -2460,17 +2471,12 @@ public partial class CensoController : Controller
         // Excluir las copias de despacho de prórroga (FarmaciaProrrogaDeId / VersionId no nulos),
         // igual que la tabla del censo en pantalla (IsEditableCensoRecordExpression). Estas copias
         // internas del flujo de farmacia harían aparecer al paciente duplicado en el exportable.
-        var records = await _context.Censos
+        var query = _context.Censos
             .AsNoTracking()
             .Where(IsEditableCensoRecordExpression())
-            .OrderBy(x => x.Id)
-            .ToListAsync(cancellationToken);
+            .OrderBy(x => x.Id);
 
-        var idsConAdjuntos = await BuildIdsConAdjuntosSetAsync(records, cancellationToken);
-        var content = BuildExcelXml(records, idsConAdjuntos);
-        var bytes = Encoding.UTF8.GetBytes(content);
-        var fileName = $"censo_{DateTime.Now:yyyyMMdd_HHmmss}.xls";
-        return File(bytes, "application/vnd.ms-excel", fileName);
+        return await ArmarExportableAgudosAsync(query, $"censo_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx", cancellationToken);
     }
 
     [HttpGet]
@@ -2783,17 +2789,12 @@ public partial class CensoController : Controller
             cedulaFiltro,
             fechaDesde,
             fechaHasta);
-        var records = await query
+        var ordenada = query
             .OrderByDescending(x => x.FechaIngreso)
             .ThenByDescending(x => x.HoraIngreso)
-            .ThenByDescending(x => x.Id)
-            .ToListAsync(cancellationToken);
+            .ThenByDescending(x => x.Id);
 
-        var idsConAdjuntos = await BuildIdsConAdjuntosSetAsync(records, cancellationToken);
-        var content = BuildExcelXml(records, idsConAdjuntos);
-        var bytes = Encoding.UTF8.GetBytes(content);
-        var fileName = BuildFilteredExcelFileName(fechaDesde, fechaHasta);
-        return File(bytes, "application/vnd.ms-excel", fileName);
+        return await ArmarExportableAgudosAsync(ordenada, BuildFilteredExcelFileName(fechaDesde, fechaHasta), cancellationToken);
     }
 
     private async Task<HashSet<long>> BuildIdsConAdjuntosSetAsync(
@@ -3201,7 +3202,7 @@ public partial class CensoController : Controller
             ? $"_{fechaIngresoDesde?.ToString("yyyyMMdd", CultureInfo.InvariantCulture) ?? "inicio"}_{fechaIngresoHasta?.ToString("yyyyMMdd", CultureInfo.InvariantCulture) ?? "fin"}"
             : string.Empty;
 
-        return $"censo_filtro_personalizado{suffix}_{DateTime.Now:yyyyMMdd_HHmmss}.xls";
+        return $"censo_filtro_personalizado{suffix}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
     }
 
     private void ApplyCensoRecordToModel(CensoReceptionViewModel model, CensoRecord record)
@@ -3270,7 +3271,7 @@ public partial class CensoController : Controller
         model.PanAmericanFechaCirugia = record.PanAmericanFechaCirugia;
         model.PanAmericanNombreCirujano = record.PanAmericanNombreCirujano;
         model.PanAmericanIpsQuirurgica = record.PanAmericanIpsQuirurgica;
-        model.PanAmericanProcedimiento = record.PanAmericanProcedimiento;
+        model.PanAmericanProcedimiento = SepararPanAmericanLista(record.PanAmericanProcedimiento);
         model.PanAmericanActivadorPoliza = string.IsNullOrWhiteSpace(record.PanAmericanActivadorPoliza)
             ? []
             : record.PanAmericanActivadorPoliza
@@ -3483,7 +3484,19 @@ public partial class CensoController : Controller
                 censoRecord.PanAmericanFechaCirugia = model.PanAmericanFechaCirugia?.Date;
                 censoRecord.PanAmericanNombreCirujano = string.IsNullOrWhiteSpace(model.PanAmericanNombreCirujano) ? null : model.PanAmericanNombreCirujano.Trim();
                 censoRecord.PanAmericanIpsQuirurgica = string.IsNullOrWhiteSpace(model.PanAmericanIpsQuirurgica) ? null : model.PanAmericanIpsQuirurgica.Trim();
-                censoRecord.PanAmericanProcedimiento = string.IsNullOrWhiteSpace(model.PanAmericanProcedimiento) ? null : model.PanAmericanProcedimiento.Trim();
+                // Se aceptan los del catálogo y, además, los que este registro ya tenía guardados aunque
+                // ya no estén en él (antes era una lista con "Pendiente 1/2/3"): desmarcarlos es decisión
+                // de quien edita, no de un cambio de catálogo.
+                var procedimientosGuardados = SepararPanAmericanLista(censoRecord.PanAmericanProcedimiento);
+                var procedimientos = (model.PanAmericanProcedimiento ?? [])
+                    .Select(value => value?.Trim() ?? string.Empty)
+                    .Select(value => PanAmericanProcedimientoValues.FirstOrDefault(x => string.Equals(x, value, StringComparison.OrdinalIgnoreCase))
+                        ?? procedimientosGuardados.FirstOrDefault(x => string.Equals(x, value, StringComparison.OrdinalIgnoreCase)))
+                    .OfType<string>()
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(value => Array.IndexOf(PanAmericanProcedimientoValues, value) is var i && i >= 0 ? i : int.MaxValue)
+                    .ToList();
+                censoRecord.PanAmericanProcedimiento = procedimientos.Count == 0 ? null : string.Join(", ", procedimientos);
                 var activadoresPoliza = (model.PanAmericanActivadorPoliza ?? [])
                     .Where(value => PanAmericanActivadorPolizaValues.Contains(value, StringComparer.OrdinalIgnoreCase))
                     .ToList();
@@ -3717,8 +3730,14 @@ public partial class CensoController : Controller
         model.IpsQueRemiteOptions = BuildOptions(IpsQueRemiteValues);
         model.VistoBuenoOptions = BuildOptions(VistoBuenoValues);
         model.AseguradorOptions = BuildOptions(AseguradorValues);
-        model.PanAmericanIpsQuirurgicaOptions = BuildOptions(PanAmericanIpsQuirurgicaValues);
-        model.PanAmericanProcedimientoOptions = BuildOptions(PanAmericanProcedimientoValues);
+        // Un valor guardado que ya no está en el catálogo se muestra como una casilla más, marcada,
+        // solo en ese registro, para que no se pierda al volver a guardar.
+        model.PanAmericanProcedimientoOptions = PanAmericanProcedimientoValues
+            .Concat((model.PanAmericanProcedimiento ?? [])
+                .Where(value => !string.IsNullOrWhiteSpace(value)
+                    && !PanAmericanProcedimientoValues.Contains(value, StringComparer.OrdinalIgnoreCase)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         model.PanAmericanActivadorPolizaOptions = PanAmericanActivadorPolizaValues;
         model.ClasificacionRiesgoOptions = BuildOptions(ClasificacionRiesgoValues);
         model.AdministracionMedicamentosOptions = BuildOptions(AdministracionMedicamentosValues);
@@ -5184,6 +5203,11 @@ public partial class CensoController : Controller
         return string.Equals(Normalize(first), Normalize(second), StringComparison.OrdinalIgnoreCase);
     }
 
+    private static List<string> SepararPanAmericanLista(string? valor) =>
+        string.IsNullOrWhiteSpace(valor)
+            ? []
+            : valor.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
     private void ValidateCensoStringLengths(CensoReceptionViewModel model)
     {
         var entityType = _context.Model.FindEntityType(typeof(CensoRecord));
@@ -5490,443 +5514,524 @@ public partial class CensoController : Controller
         return !string.IsNullOrWhiteSpace(fullName) ? fullName : User.Identity?.Name ?? "Usuario sin nombre";
     }
 
-    private static string BuildExcelXml(IReadOnlyList<CensoRecord> records, HashSet<long>? idsConAdjuntos = null)
+    /// <summary>
+    /// Hoja "Censo" del exportable de agudos: una fila por atención. Las 197 columnas de siempre
+    /// conservan su nombre y su orden; las que faltaban (Pan-American, dirección validada, quién y
+    /// cuándo marcó la gestión, kardex cerrado, estado de farmacia…) van al final para no correr las
+    /// demás. Fuera quedan solo datos técnicos: ids internos, las firmas (imágenes) y las marcas de
+    /// "visto" y de notificaciones de farmacia.
+    /// </summary>
+    private static (List<string> Encabezados, List<IReadOnlyList<string?>> Filas) BuildAgudosHojaCenso(
+        IReadOnlyList<CensoRecord> records,
+        HashSet<long>? idsConAdjuntos,
+        IReadOnlyDictionary<long, IReadOnlyList<CensoProrroga>> prorrogasAdicionales)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("<?xml version=\"1.0\"?>");
-        sb.AppendLine("<?mso-application progid=\"Excel.Sheet\"?>");
-        sb.AppendLine("<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\"");
-        sb.AppendLine(" xmlns:o=\"urn:schemas-microsoft-com:office:office\"");
-        sb.AppendLine(" xmlns:x=\"urn:schemas-microsoft-com:office:excel\"");
-        sb.AppendLine(" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">");
-        sb.AppendLine(" <Styles>");
-        sb.AppendLine("  <Style ss:ID=\"Header\"><Font ss:Bold=\"1\"/></Style>");
-        sb.AppendLine("  <Style ss:ID=\"Fecha\"><NumberFormat ss:Format=\"dd/mm/yyyy\"/></Style>");
-        sb.AppendLine("  <Style ss:ID=\"FechaHora\"><NumberFormat ss:Format=\"dd/mm/yyyy hh:mm:ss\"/></Style>");
-        sb.AppendLine(" </Styles>");
-        sb.AppendLine(" <Worksheet ss:Name=\"Censo\">");
-        sb.AppendLine("  <Table>");
+        var encabezados = new List<string>(240);
 
-        sb.AppendLine("   <Row>");
-        AppendHeaderCell(sb, "Id");
-        AppendHeaderCell(sb, "Asegurador");
-        AppendHeaderCell(sb, "EsProrroga");
-        AppendHeaderCell(sb, "FechaIngreso");
-        AppendHeaderCell(sb, "HoraIngreso");
-        AppendHeaderCell(sb, "FechaRespuesta");
-        AppendHeaderCell(sb, "HoraRespuesta");
-        AppendHeaderCell(sb, "FechaGestionFarmacia");
-        AppendHeaderCell(sb, "HoraGestionFarmacia");
-        AppendHeaderCell(sb, "GestionCompletaPendiente");
-        AppendHeaderCell(sb, "GestionAnalistaAsistencial");
-        AppendHeaderCell(sb, "IndicadorTiempoRespuestaMinutos");
-        AppendHeaderCell(sb, "IndicadorTiempoGestionMinutos");
-        AppendHeaderCell(sb, "NombrePerfilGestionaCaso");
-        AppendHeaderCell(sb, "NombreRecepcionaCaso");
-        AppendHeaderCell(sb, "NombreRealizaKardex");
-        AppendHeaderCell(sb, "NombrePaciente");
-        AppendHeaderCell(sb, "TipoIdentificacion");
-        AppendHeaderCell(sb, "NumeroIdentificacion");
-        AppendHeaderCell(sb, "CodigoCie10");
-        AppendHeaderCell(sb, "DiagnosticoDescriptivo");
-        AppendHeaderCell(sb, "FechaNacimiento");
-        AppendHeaderCell(sb, "Edad");
-        AppendHeaderCell(sb, "CorreoElectronico");
-        AppendHeaderCell(sb, "Direccion");
-        AppendHeaderCell(sb, "DetalleDireccion");
-        AppendHeaderCell(sb, "ClasificacionZonaSura");
-        AppendHeaderCell(sb, "MunicipioResidencia");
-        AppendHeaderCell(sb, "Barrio");
-        AppendHeaderCell(sb, "ZonaDireccionSegunMunicipio");
-        AppendHeaderCell(sb, "Area");
-        AppendHeaderCell(sb, "IpsQueRemite");
-        AppendHeaderCell(sb, "VistoBuenoRangoFueraAnexo");
-        AppendHeaderCell(sb, "Telefono1");
-        AppendHeaderCell(sb, "Telefono2");
-        AppendHeaderCell(sb, "Telefono3");
-        AppendHeaderCell(sb, "ClasificacionRiesgo");
-        AppendHeaderCell(sb, "AdministracionMedicamentos");
-        AppendHeaderCell(sb, "NombreMedicamentoPrincipalTratante");
-        AppendHeaderCell(sb, "DosisMedicamentoPrincipal");
-        AppendHeaderCell(sb, "MedidaMedicamentoPrincipal");
-        AppendHeaderCell(sb, "ViaAdministracionMedicamentoPrincipal");
-        AppendHeaderCell(sb, "FrecuenciaAdministracionMxPrincipal");
-        AppendHeaderCell(sb, "DiasMedicamentoPrincipal");
-        AppendHeaderCell(sb, "NumeroDosisDiaMedicamentoPrincipal");
-        AppendHeaderCell(sb, "NombreMedicamentoNumero2");
-        AppendHeaderCell(sb, "DosisMedicamento2");
-        AppendHeaderCell(sb, "MedidaMedicamento2");
-        AppendHeaderCell(sb, "ViaAdministracionMedicamento2");
-        AppendHeaderCell(sb, "FrecuenciaAdministracionMedicamento2");
-        AppendHeaderCell(sb, "DiasMedicamento2");
-        AppendHeaderCell(sb, "NumeroDosisMedicamento2");
-        AppendHeaderCell(sb, "NombreMedicamentoNumero3");
-        AppendHeaderCell(sb, "DosisMedicamento3");
-        AppendHeaderCell(sb, "MedidaMedicamento3");
-        AppendHeaderCell(sb, "ViaAdministracionMedicamento3");
-        AppendHeaderCell(sb, "FrecuenciaAdministracionMedicamento3");
-        AppendHeaderCell(sb, "DiasMedicamento3");
-        AppendHeaderCell(sb, "NumeroDosisMedicamento3");
-        AppendHeaderCell(sb, "NombreMedicamentoNumero4");
-        AppendHeaderCell(sb, "DosisMedicamento4");
-        AppendHeaderCell(sb, "MedidaMedicamento4");
-        AppendHeaderCell(sb, "ViaAdministracionMedicamento4");
-        AppendHeaderCell(sb, "FrecuenciaAdministracionMedicamento4");
-        AppendHeaderCell(sb, "DiasMedicamento4");
-        AppendHeaderCell(sb, "NumeroDosisMedicamento4");
-        AppendHeaderCell(sb, "NombreMedicamentoNumero5");
-        AppendHeaderCell(sb, "DosisMedicamento5");
-        AppendHeaderCell(sb, "MedidaMedicamento5");
-        AppendHeaderCell(sb, "ViaAdministracionMedicamento5");
-        AppendHeaderCell(sb, "FrecuenciaAdministracionMedicamento5");
-        AppendHeaderCell(sb, "DiasMedicamento5");
-        AppendHeaderCell(sb, "NumeroDosisMedicamento5");
-        AppendHeaderCell(sb, "NombreMedicamentoNumero6");
-        AppendHeaderCell(sb, "DosisMedicamento6");
-        AppendHeaderCell(sb, "MedidaMedicamento6");
-        AppendHeaderCell(sb, "ViaAdministracionMedicamento6");
-        AppendHeaderCell(sb, "FrecuenciaAdministracionMedicamento6");
-        AppendHeaderCell(sb, "DiasMedicamento6");
-        AppendHeaderCell(sb, "NumeroDosisMedicamento6");
-        AppendHeaderCell(sb, "AplicacionesTotales");
-        AppendHeaderCell(sb, "DiasTratamientoIv");
-        AppendHeaderCell(sb, "CambioFrecuenciaAdministracionTto");
-        AppendHeaderCell(sb, "FrecuenciaAjustada");
-        AppendHeaderCell(sb, "MedicamentoFrecuenciaAjustada");
-        AppendHeaderCell(sb, "FechaInicioTratamiento");
-        AppendHeaderCell(sb, "FechaFinTratamiento");
-        AppendHeaderCell(sb, "FechaPromesaInicioTto");
-        AppendHeaderCell(sb, "HoraPromesaInicioTto");
-        AppendHeaderCell(sb, "IndicadorOportunidadInicioTto");
-        AppendHeaderCell(sb, "AuxiliarAsignado");
-        AppendHeaderCell(sb, "Estado");
-        AppendHeaderCell(sb, "AutorizacionEvento");
-        AppendHeaderCell(sb, "ResponsableLlamadaBienvenida");
-        AppendHeaderCell(sb, "EstadoLlamadaBienvenida");
-        AppendHeaderCell(sb, "ObservacionesPlanManejo");
-        AppendHeaderCell(sb, "NumeroTelefonoLlamadaBienvenida");
-        AppendHeaderCell(sb, "NumeroDiasAutorizado");
-        AppendHeaderCell(sb, "RequiereServiciosComplementarios");
-        AppendHeaderCell(sb, "RequiereCuidador");
-        AppendHeaderCell(sb, "ServicioComplementario");
-        AppendHeaderCell(sb, "PacienteGestante");
-        AppendHeaderCell(sb, "Nebulizaciones");
-        AppendHeaderCell(sb, "NutricionParenteral");
-        AppendHeaderCell(sb, "NutricionEnteral");
-        AppendHeaderCell(sb, "PacienteAnticoagulado");
-        AppendHeaderCell(sb, "LaboratorioClinicoProcedimiento");
-        AppendHeaderCell(sb, "Aislamiento");
-        AppendHeaderCell(sb, "TipoAislamiento");
-        AppendHeaderCell(sb, "CateterismoOSv");
-        AppendHeaderCell(sb, "CateterPicc");
-        AppendHeaderCell(sb, "NumeroCalibreSonda");
-        AppendHeaderCell(sb, "FechaUltimoCambioSonda");
-        AppendHeaderCell(sb, "AuxiliarAsignadoCateterismo");
-        AppendHeaderCell(sb, "FechaProximoCambioSonda");
-        AppendHeaderCell(sb, "FechaUltimaCuracionPicc");
-        AppendHeaderCell(sb, "FechaAlta");
-        AppendHeaderCell(sb, "NombreQuienGestionaAlta");
-        AppendHeaderCell(sb, "AltaTardia");
-        AppendHeaderCell(sb, "FechaPrimerSeguimiento24Horas");
-        AppendHeaderCell(sb, "FechaSegundoSeguimiento48Horas");
-        AppendHeaderCell(sb, "FechaTercerSeguimiento72Horas");
-        AppendHeaderCell(sb, "ObservacionAltaTardia");
-        AppendHeaderCell(sb, "NombreQuienRealizaSeguimientoAltaTardia");
-        AppendHeaderCell(sb, "PacienteRehospitalizado");
-        AppendHeaderCell(sb, "FechaRegistroReporteRehospitalizacion");
-        AppendHeaderCell(sb, "FechaRehospitalizacion");
-        AppendHeaderCell(sb, "MotivoRehospitalizacion");
-        AppendHeaderCell(sb, "AmpliacionMotivoRehospitalizacion");
-        AppendHeaderCell(sb, "RemitidoPorRehospitalizacion");
-        AppendHeaderCell(sb, "IpsIntramuralRehospitalizacion");
-        AppendHeaderCell(sb, "FechaPrimerSeguimientoRehospitalizacion");
-        AppendHeaderCell(sb, "FechaSegundoSeguimientoRehospitalizacion");
-        AppendHeaderCell(sb, "FechaTercerSeguimientoRehospitalizacion");
-        AppendHeaderCell(sb, "FechaAltaHospitalizacion");
-        AppendHeaderCell(sb, "ObservacionRehospitalizacion");
-        AppendHeaderCell(sb, "FechaNovedadDevolucionProductos");
-        AppendHeaderCell(sb, "MotivoNovedadDevolucionProductos");
-        AppendHeaderCell(sb, "NotificacionAuxiliarDevolucionProductos");
-        AppendHeaderCell(sb, "FechaMaximaDevolucionProductos");
-        AppendHeaderCell(sb, "EstadoDevolucionServicioFarmaceutico");
-        AppendHeaderCell(sb, "CreatedAtUtc");
-        AppendHeaderCell(sb, "Adjuntos");
-        AppendHeaderCell(sb, "TuvoReaperturaKardex");
-        AppendHeaderCell(sb, "Reapertura_SolicitadaPor");
-        AppendHeaderCell(sb, "Reapertura_AprobadaPor");
-        AppendHeaderCell(sb, "Prorroga_Tipo");
-        AppendHeaderCell(sb, "Prorroga_MedicamentoPrincipal");
-        AppendHeaderCell(sb, "Prorroga_Dosis");
-        AppendHeaderCell(sb, "Prorroga_Medida");
-        AppendHeaderCell(sb, "Prorroga_Via");
-        AppendHeaderCell(sb, "Prorroga_Frecuencia");
-        AppendHeaderCell(sb, "Prorroga_Dias");
-        AppendHeaderCell(sb, "Prorroga_SegundoMedicamento");
-        AppendHeaderCell(sb, "Prorroga_Medicamento2");
-        AppendHeaderCell(sb, "Prorroga_Dosis2");
-        AppendHeaderCell(sb, "Prorroga_Medida2");
-        AppendHeaderCell(sb, "Prorroga_Via2");
-        AppendHeaderCell(sb, "Prorroga_Frecuencia2");
-        AppendHeaderCell(sb, "Prorroga_Dias2");
-        AppendHeaderCell(sb, "Prorroga_TercerMedicamento");
-        AppendHeaderCell(sb, "Prorroga_Medicamento3");
-        AppendHeaderCell(sb, "Prorroga_Dosis3");
-        AppendHeaderCell(sb, "Prorroga_Medida3");
-        AppendHeaderCell(sb, "Prorroga_Via3");
-        AppendHeaderCell(sb, "Prorroga_Frecuencia3");
-        AppendHeaderCell(sb, "Prorroga_Dias3");
-        AppendHeaderCell(sb, "Prorroga_CuartoMedicamento");
-        AppendHeaderCell(sb, "Prorroga_Medicamento4");
-        AppendHeaderCell(sb, "Prorroga_Dosis4");
-        AppendHeaderCell(sb, "Prorroga_Medida4");
-        AppendHeaderCell(sb, "Prorroga_Via4");
-        AppendHeaderCell(sb, "Prorroga_Frecuencia4");
-        AppendHeaderCell(sb, "Prorroga_Dias4");
-        AppendHeaderCell(sb, "Prorroga_QuintoMedicamento");
-        AppendHeaderCell(sb, "Prorroga_Medicamento5");
-        AppendHeaderCell(sb, "Prorroga_Dosis5");
-        AppendHeaderCell(sb, "Prorroga_Medida5");
-        AppendHeaderCell(sb, "Prorroga_Via5");
-        AppendHeaderCell(sb, "Prorroga_Frecuencia5");
-        AppendHeaderCell(sb, "Prorroga_Dias5");
-        AppendHeaderCell(sb, "Prorroga_SextoMedicamento");
-        AppendHeaderCell(sb, "Prorroga_Medicamento6");
-        AppendHeaderCell(sb, "Prorroga_Dosis6");
-        AppendHeaderCell(sb, "Prorroga_Medida6");
-        AppendHeaderCell(sb, "Prorroga_Via6");
-        AppendHeaderCell(sb, "Prorroga_Frecuencia6");
-        AppendHeaderCell(sb, "Prorroga_Dias6");
-        AppendHeaderCell(sb, "Prorroga_AplicacionesTotales");
-        AppendHeaderCell(sb, "Prorroga_DiasTratamientoIv");
-        AppendHeaderCell(sb, "Prorroga_FechaInicio");
-        AppendHeaderCell(sb, "Prorroga_FechaFin");
-        AppendHeaderCell(sb, "Prorroga_FechaOrdenamiento");
-        AppendHeaderCell(sb, "Prorroga_HoraPromesa");
-        AppendHeaderCell(sb, "Prorroga_AuxiliarAsignado");
-        AppendHeaderCell(sb, "Prorroga_NumeroDiasExtension");
-        AppendHeaderCell(sb, "Prorroga_NotificadoAsegurador");
-        sb.AppendLine("   </Row>");
+        encabezados.Add("Id");
+        encabezados.Add("Asegurador");
+        encabezados.Add("EsProrroga");
+        encabezados.Add("FechaIngreso");
+        encabezados.Add("HoraIngreso");
+        encabezados.Add("FechaRespuesta");
+        encabezados.Add("HoraRespuesta");
+        encabezados.Add("FechaGestionFarmacia");
+        encabezados.Add("HoraGestionFarmacia");
+        encabezados.Add("GestionCompletaPendiente");
+        encabezados.Add("GestionAnalistaAsistencial");
+        encabezados.Add("IndicadorTiempoRespuestaMinutos");
+        encabezados.Add("IndicadorTiempoGestionMinutos");
+        encabezados.Add("NombrePerfilGestionaCaso");
+        encabezados.Add("NombreRecepcionaCaso");
+        encabezados.Add("NombreRealizaKardex");
+        encabezados.Add("NombrePaciente");
+        encabezados.Add("TipoIdentificacion");
+        encabezados.Add("NumeroIdentificacion");
+        encabezados.Add("CodigoCie10");
+        encabezados.Add("DiagnosticoDescriptivo");
+        encabezados.Add("FechaNacimiento");
+        encabezados.Add("Edad");
+        encabezados.Add("CorreoElectronico");
+        encabezados.Add("Direccion");
+        encabezados.Add("DetalleDireccion");
+        encabezados.Add("ClasificacionZonaSura");
+        encabezados.Add("MunicipioResidencia");
+        encabezados.Add("Barrio");
+        encabezados.Add("ZonaDireccionSegunMunicipio");
+        encabezados.Add("Area");
+        encabezados.Add("IpsQueRemite");
+        encabezados.Add("VistoBuenoRangoFueraAnexo");
+        encabezados.Add("Telefono1");
+        encabezados.Add("Telefono2");
+        encabezados.Add("Telefono3");
+        encabezados.Add("ClasificacionRiesgo");
+        encabezados.Add("AdministracionMedicamentos");
+        encabezados.Add("NombreMedicamentoPrincipalTratante");
+        encabezados.Add("DosisMedicamentoPrincipal");
+        encabezados.Add("MedidaMedicamentoPrincipal");
+        encabezados.Add("ViaAdministracionMedicamentoPrincipal");
+        encabezados.Add("FrecuenciaAdministracionMxPrincipal");
+        encabezados.Add("DiasMedicamentoPrincipal");
+        encabezados.Add("NumeroDosisDiaMedicamentoPrincipal");
+        encabezados.Add("NombreMedicamentoNumero2");
+        encabezados.Add("DosisMedicamento2");
+        encabezados.Add("MedidaMedicamento2");
+        encabezados.Add("ViaAdministracionMedicamento2");
+        encabezados.Add("FrecuenciaAdministracionMedicamento2");
+        encabezados.Add("DiasMedicamento2");
+        encabezados.Add("NumeroDosisMedicamento2");
+        encabezados.Add("NombreMedicamentoNumero3");
+        encabezados.Add("DosisMedicamento3");
+        encabezados.Add("MedidaMedicamento3");
+        encabezados.Add("ViaAdministracionMedicamento3");
+        encabezados.Add("FrecuenciaAdministracionMedicamento3");
+        encabezados.Add("DiasMedicamento3");
+        encabezados.Add("NumeroDosisMedicamento3");
+        encabezados.Add("NombreMedicamentoNumero4");
+        encabezados.Add("DosisMedicamento4");
+        encabezados.Add("MedidaMedicamento4");
+        encabezados.Add("ViaAdministracionMedicamento4");
+        encabezados.Add("FrecuenciaAdministracionMedicamento4");
+        encabezados.Add("DiasMedicamento4");
+        encabezados.Add("NumeroDosisMedicamento4");
+        encabezados.Add("NombreMedicamentoNumero5");
+        encabezados.Add("DosisMedicamento5");
+        encabezados.Add("MedidaMedicamento5");
+        encabezados.Add("ViaAdministracionMedicamento5");
+        encabezados.Add("FrecuenciaAdministracionMedicamento5");
+        encabezados.Add("DiasMedicamento5");
+        encabezados.Add("NumeroDosisMedicamento5");
+        encabezados.Add("NombreMedicamentoNumero6");
+        encabezados.Add("DosisMedicamento6");
+        encabezados.Add("MedidaMedicamento6");
+        encabezados.Add("ViaAdministracionMedicamento6");
+        encabezados.Add("FrecuenciaAdministracionMedicamento6");
+        encabezados.Add("DiasMedicamento6");
+        encabezados.Add("NumeroDosisMedicamento6");
+        encabezados.Add("AplicacionesTotales");
+        encabezados.Add("DiasTratamientoIv");
+        encabezados.Add("CambioFrecuenciaAdministracionTto");
+        encabezados.Add("FrecuenciaAjustada");
+        encabezados.Add("MedicamentoFrecuenciaAjustada");
+        encabezados.Add("FechaInicioTratamiento");
+        encabezados.Add("FechaFinTratamiento");
+        encabezados.Add("FechaPromesaInicioTto");
+        encabezados.Add("HoraPromesaInicioTto");
+        encabezados.Add("IndicadorOportunidadInicioTto");
+        encabezados.Add("AuxiliarAsignado");
+        encabezados.Add("Estado");
+        encabezados.Add("AutorizacionEvento");
+        encabezados.Add("ResponsableLlamadaBienvenida");
+        encabezados.Add("EstadoLlamadaBienvenida");
+        encabezados.Add("ObservacionesPlanManejo");
+        encabezados.Add("NumeroTelefonoLlamadaBienvenida");
+        encabezados.Add("NumeroDiasAutorizado");
+        encabezados.Add("RequiereServiciosComplementarios");
+        encabezados.Add("RequiereCuidador");
+        encabezados.Add("ServicioComplementario");
+        encabezados.Add("PacienteGestante");
+        encabezados.Add("Nebulizaciones");
+        encabezados.Add("NutricionParenteral");
+        encabezados.Add("NutricionEnteral");
+        encabezados.Add("PacienteAnticoagulado");
+        encabezados.Add("LaboratorioClinicoProcedimiento");
+        encabezados.Add("Aislamiento");
+        encabezados.Add("TipoAislamiento");
+        encabezados.Add("CateterismoOSv");
+        encabezados.Add("CateterPicc");
+        encabezados.Add("NumeroCalibreSonda");
+        encabezados.Add("FechaUltimoCambioSonda");
+        encabezados.Add("AuxiliarAsignadoCateterismo");
+        encabezados.Add("FechaProximoCambioSonda");
+        encabezados.Add("FechaUltimaCuracionPicc");
+        encabezados.Add("FechaAlta");
+        encabezados.Add("NombreQuienGestionaAlta");
+        encabezados.Add("AltaTardia");
+        encabezados.Add("FechaPrimerSeguimiento24Horas");
+        encabezados.Add("FechaSegundoSeguimiento48Horas");
+        encabezados.Add("FechaTercerSeguimiento72Horas");
+        encabezados.Add("ObservacionAltaTardia");
+        encabezados.Add("NombreQuienRealizaSeguimientoAltaTardia");
+        encabezados.Add("PacienteRehospitalizado");
+        encabezados.Add("FechaRegistroReporteRehospitalizacion");
+        encabezados.Add("FechaRehospitalizacion");
+        encabezados.Add("MotivoRehospitalizacion");
+        encabezados.Add("AmpliacionMotivoRehospitalizacion");
+        encabezados.Add("RemitidoPorRehospitalizacion");
+        encabezados.Add("IpsIntramuralRehospitalizacion");
+        encabezados.Add("FechaPrimerSeguimientoRehospitalizacion");
+        encabezados.Add("FechaSegundoSeguimientoRehospitalizacion");
+        encabezados.Add("FechaTercerSeguimientoRehospitalizacion");
+        encabezados.Add("FechaAltaHospitalizacion");
+        encabezados.Add("ObservacionRehospitalizacion");
+        encabezados.Add("FechaNovedadDevolucionProductos");
+        encabezados.Add("MotivoNovedadDevolucionProductos");
+        encabezados.Add("NotificacionAuxiliarDevolucionProductos");
+        encabezados.Add("FechaMaximaDevolucionProductos");
+        encabezados.Add("EstadoDevolucionServicioFarmaceutico");
+        encabezados.Add("CreatedAtUtc");
+        encabezados.Add("Adjuntos");
+        encabezados.Add("TuvoReaperturaKardex");
+        encabezados.Add("Reapertura_SolicitadaPor");
+        encabezados.Add("Reapertura_AprobadaPor");
+        encabezados.Add("Prorroga_Tipo");
+        encabezados.Add("Prorroga_MedicamentoPrincipal");
+        encabezados.Add("Prorroga_Dosis");
+        encabezados.Add("Prorroga_Medida");
+        encabezados.Add("Prorroga_Via");
+        encabezados.Add("Prorroga_Frecuencia");
+        encabezados.Add("Prorroga_Dias");
+        encabezados.Add("Prorroga_SegundoMedicamento");
+        encabezados.Add("Prorroga_Medicamento2");
+        encabezados.Add("Prorroga_Dosis2");
+        encabezados.Add("Prorroga_Medida2");
+        encabezados.Add("Prorroga_Via2");
+        encabezados.Add("Prorroga_Frecuencia2");
+        encabezados.Add("Prorroga_Dias2");
+        encabezados.Add("Prorroga_TercerMedicamento");
+        encabezados.Add("Prorroga_Medicamento3");
+        encabezados.Add("Prorroga_Dosis3");
+        encabezados.Add("Prorroga_Medida3");
+        encabezados.Add("Prorroga_Via3");
+        encabezados.Add("Prorroga_Frecuencia3");
+        encabezados.Add("Prorroga_Dias3");
+        encabezados.Add("Prorroga_CuartoMedicamento");
+        encabezados.Add("Prorroga_Medicamento4");
+        encabezados.Add("Prorroga_Dosis4");
+        encabezados.Add("Prorroga_Medida4");
+        encabezados.Add("Prorroga_Via4");
+        encabezados.Add("Prorroga_Frecuencia4");
+        encabezados.Add("Prorroga_Dias4");
+        encabezados.Add("Prorroga_QuintoMedicamento");
+        encabezados.Add("Prorroga_Medicamento5");
+        encabezados.Add("Prorroga_Dosis5");
+        encabezados.Add("Prorroga_Medida5");
+        encabezados.Add("Prorroga_Via5");
+        encabezados.Add("Prorroga_Frecuencia5");
+        encabezados.Add("Prorroga_Dias5");
+        encabezados.Add("Prorroga_SextoMedicamento");
+        encabezados.Add("Prorroga_Medicamento6");
+        encabezados.Add("Prorroga_Dosis6");
+        encabezados.Add("Prorroga_Medida6");
+        encabezados.Add("Prorroga_Via6");
+        encabezados.Add("Prorroga_Frecuencia6");
+        encabezados.Add("Prorroga_Dias6");
+        encabezados.Add("Prorroga_AplicacionesTotales");
+        encabezados.Add("Prorroga_DiasTratamientoIv");
+        encabezados.Add("Prorroga_FechaInicio");
+        encabezados.Add("Prorroga_FechaFin");
+        encabezados.Add("Prorroga_FechaOrdenamiento");
+        encabezados.Add("Prorroga_HoraPromesa");
+        encabezados.Add("Prorroga_AuxiliarAsignado");
+        encabezados.Add("Prorroga_NumeroDiasExtension");
+        encabezados.Add("Prorroga_NotificadoAsegurador");
+        // Campos que el exportable no traía (2026-10-29).
+        encabezados.Add("Prorroga_SeguimientoMedico");
+        encabezados.Add("ProrrogasAdicionales");
+        encabezados.Add("PanAmericanFechaCirugia");
+        encabezados.Add("PanAmericanNombreCirujano");
+        encabezados.Add("PanAmericanIpsQuirurgica");
+        encabezados.Add("PanAmericanProcedimiento");
+        encabezados.Add("PanAmericanActivadorPoliza");
+        encabezados.Add("PanAmericanCartaAutorizacion");
+        encabezados.Add("PanAmericanFechaSolicitud");
+        encabezados.Add("PanAmericanNumeroAutorizacion");
+        encabezados.Add("DireccionValidada");
+        encabezados.Add("AsumirDireccionErrada");
+        encabezados.Add("GestionCompletaAtUtc");
+        encabezados.Add("GestionCompletaPor");
+        encabezados.Add("GestionAnalistaAtUtc");
+        encabezados.Add("GestionAnalistaPor");
+        encabezados.Add("KardexCerradoAtUtc");
+        encabezados.Add("ProrrogaCerradaAtUtc");
+        encabezados.Add("FarmaciaEstado");
+        encabezados.Add("FarmaciaEnviadoAtUtc");
+        encabezados.Add("FarmaciaEmpacadoAtUtc");
+        encabezados.Add("FarmaciaFechaHoraRecepcionUtc");
+        encabezados.Add("FarmaciaNombreRecibe");
+        encabezados.Add("FarmaciaOkKardex");
+        encabezados.Add("FarmaciaEsEntregaParcial");
+        encabezados.Add("FarmaciaCantidadEntregas");
+        encabezados.Add("FarmaciaEntregaActual");
+        encabezados.Add("FarmaciaFacturado");
+        encabezados.Add("FarmaciaBolsaDesempacada");
+        encabezados.Add("FarmaciaFirmaActualizadaAtUtc");
+
+        var filas = new List<IReadOnlyList<string?>>(records.Count);
 
         foreach (var item in records)
         {
-            sb.AppendLine("   <Row>");
-            AppendDataCell(sb, item.Id.ToString());
-            AppendDataCell(sb, item.Asegurador);
-            AppendDataCell(sb, item.EsProrroga ? "Si" : "No");
-            AppendDataCell(sb, FormatDate(item.FechaIngreso));
-            AppendDataCell(sb, item.HoraIngreso.ToString(@"hh\:mm"));
-            AppendDataCell(sb, FormatDate(item.FechaRespuesta));
-            AppendDataCell(sb, item.HoraRespuesta.ToString(@"hh\:mm"));
+            var fila = new List<string?>(encabezados.Count);
+            fila.Add(item.Id.ToString());
+            fila.Add(item.Asegurador);
+            fila.Add(item.EsProrroga ? "Si" : "No");
+            fila.Add(FormatDate(item.FechaIngreso));
+            fila.Add(item.HoraIngreso.ToString(@"hh\:mm"));
+            fila.Add(FormatDate(item.FechaRespuesta));
+            fila.Add(item.HoraRespuesta.ToString(@"hh\:mm"));
             // FechaGestionFarmacia/HoraGestionFarmacia son DateTime/TimeSpan no nulos que solo se
             // llenan al despachar a farmacia (ver los ExecuteSqlInterpolated de dispatch); un
             // registro que nunca llegó ahí se queda en su valor por defecto (0001-01-01 / 00:00),
             // que no es una fecha real y no debe imprimirse tal cual.
             var gestionFarmaciaRegistrada = item.FechaGestionFarmacia != default;
-            AppendDataCell(sb, gestionFarmaciaRegistrada ? FormatDate(item.FechaGestionFarmacia) : string.Empty);
-            AppendDataCell(sb, gestionFarmaciaRegistrada ? item.HoraGestionFarmacia.ToString(@"hh\:mm") : string.Empty);
-            AppendDataCell(sb, item.GestionCompletaPendiente);
-            AppendDataCell(sb, item.GestionAnalistaAsistencial ? "Sí" : "No");
-            AppendDataCell(sb, item.IndicadorTiempoRespuestaMinutos.ToString());
-            AppendDataCell(sb, item.IndicadorTiempoGestionMinutos.ToString());
-            AppendDataCell(sb, item.NombrePerfilGestionaCaso);
-            AppendDataCell(sb, item.NombreRecepcionaCaso);
-            AppendDataCell(sb, item.NombreRealizaKardex);
-            AppendDataCell(sb, item.NombrePaciente);
-            AppendDataCell(sb, item.TipoIdentificacion);
-            AppendDataCell(sb, item.NumeroIdentificacion);
-            AppendDataCell(sb, item.CodigoCie10);
-            AppendDataCell(sb, item.DiagnosticoDescriptivo);
-            AppendDataCell(sb, FormatDate(item.FechaNacimiento));
-            AppendDataCell(sb, item.Edad.ToString());
-            AppendDataCell(sb, item.CorreoElectronico);
-            AppendDataCell(sb, item.Direccion);
-            AppendDataCell(sb, item.DetalleDireccion ?? "");
-            AppendDataCell(sb, item.ClasificacionZonaSura);
-            AppendDataCell(sb, item.MunicipioResidencia);
-            AppendDataCell(sb, item.Barrio);
-            AppendDataCell(sb, item.ZonaDireccionSegunMunicipio);
-            AppendDataCell(sb, item.Area);
-            AppendDataCell(sb, item.IpsQueRemite);
-            AppendDataCell(sb, item.VistoBuenoRangoFueraAnexo);
-            AppendDataCell(sb, item.Telefono1);
-            AppendDataCell(sb, item.Telefono2);
-            AppendDataCell(sb, item.Telefono3 ?? string.Empty);
-            AppendDataCell(sb, item.ClasificacionRiesgo);
-            AppendDataCell(sb, item.AdministracionMedicamentos);
-            AppendDataCell(sb, item.NombreMedicamentoPrincipalTratante ?? string.Empty);
-            AppendDataCell(sb, FormatNullableDecimal(item.DosisMedicamentoPrincipal));
-            AppendDataCell(sb, item.MedidaMedicamentoPrincipal ?? string.Empty);
-            AppendDataCell(sb, item.ViaAdministracionMedicamentoPrincipal ?? string.Empty);
-            AppendDataCell(sb, item.FrecuenciaAdministracionMxPrincipal);
-            AppendDataCell(sb, item.DiasMedicamentoPrincipal?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
-            AppendDataCell(sb, item.NumeroDosisDiaMedicamentoPrincipal);
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero2));
-            AppendDataCell(sb, FormatNullableDecimal(item.DosisMedicamento2));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.MedidaMedicamento2));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento2));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento2));
-            AppendDataCell(sb, item.DiasMedicamento2?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento2));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero3));
-            AppendDataCell(sb, FormatNullableDecimal(item.DosisMedicamento3));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.MedidaMedicamento3));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento3));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento3));
-            AppendDataCell(sb, item.DiasMedicamento3?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento3));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero4));
-            AppendDataCell(sb, FormatNullableDecimal(item.DosisMedicamento4));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.MedidaMedicamento4));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento4));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento4));
-            AppendDataCell(sb, item.DiasMedicamento4?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento4));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero5));
-            AppendDataCell(sb, FormatNullableDecimal(item.DosisMedicamento5));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.MedidaMedicamento5));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento5));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento5));
-            AppendDataCell(sb, item.DiasMedicamento5?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento5));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero6));
-            AppendDataCell(sb, FormatNullableDecimal(item.DosisMedicamento6));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.MedidaMedicamento6));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento6));
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento6));
-            AppendDataCell(sb, item.DiasMedicamento6?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
-            AppendDataCell(sb, GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento6));
-            AppendDataCell(sb, item.AplicacionesTotales ?? string.Empty);
-            AppendDataCell(sb, item.DiasTratamientoIv ?? string.Empty);
-            AppendDataCell(sb, item.CambioFrecuenciaAdministracionTto ?? string.Empty);
-            AppendDataCell(sb, item.FrecuenciaAjustada ?? string.Empty);
-            AppendDataCell(sb, item.MedicamentoFrecuenciaAjustada ?? string.Empty);
-            AppendDataCell(sb, FormatNullableDate(item.FechaInicioTratamiento));
-            AppendDataCell(sb, FormatNullableDate(item.FechaFinTratamiento));
-            AppendDataCell(sb, FormatNullableDate(item.FechaPromesaInicioTto));
-            AppendDataCell(sb, item.HoraPromesaInicioTto ?? string.Empty);
-            AppendDataCell(sb, CalculateIndicadorOportunidadInicioTto(item));
-            AppendDataCell(sb, item.AuxiliarAsignado ?? string.Empty);
-            AppendDataCell(sb, item.Estado ?? string.Empty);
-            AppendDataCell(sb, item.AutorizacionEvento ?? string.Empty);
-            AppendDataCell(sb, item.ResponsableLlamadaBienvenida ?? string.Empty);
-            AppendDataCell(sb, item.EstadoLlamadaBienvenida ?? string.Empty);
-            AppendDataCell(sb, item.ObservacionesPlanManejo ?? string.Empty);
-            AppendDataCell(sb, item.NumeroTelefonoLlamadaBienvenida ?? string.Empty);
-            AppendDataCell(sb, item.NumeroDiasAutorizado ?? string.Empty);
-            AppendDataCell(sb, item.RequiereServiciosComplementarios ?? string.Empty);
-            AppendDataCell(sb, item.RequiereCuidador ?? string.Empty);
-            AppendDataCell(sb, item.ServicioComplementario ?? string.Empty);
-            AppendDataCell(sb, item.PacienteGestante ?? string.Empty);
-            AppendDataCell(sb, item.Nebulizaciones ?? string.Empty);
-            AppendDataCell(sb, item.NutricionParenteral ?? string.Empty);
-            AppendDataCell(sb, item.NutricionEnteral ?? string.Empty);
-            AppendDataCell(sb, item.PacienteAnticoagulado ?? string.Empty);
-            AppendDataCell(sb, item.LaboratorioClinicoProcedimiento ?? string.Empty);
-            AppendDataCell(sb, item.Aislamiento ?? string.Empty);
-            AppendDataCell(sb, item.TipoAislamiento ?? string.Empty);
-            AppendDataCell(sb, item.CateterismoOSv ?? string.Empty);
-            AppendDataCell(sb, item.CateterPicc ?? string.Empty);
-            AppendDataCell(sb, item.NumeroCalibreSonda?.ToString() ?? string.Empty);
-            AppendDataCell(sb, FormatNullableDate(item.FechaUltimoCambioSonda));
-            AppendDataCell(sb, item.AuxiliarAsignadoCateterismo ?? string.Empty);
-            AppendDataCell(sb, FormatNullableDate(item.FechaProximoCambioSonda));
-            AppendDataCell(sb, FormatNullableDate(item.FechaUltimaCuracionPicc));
-            AppendDataCell(sb, FormatNullableDate(item.FechaAlta));
-            AppendDataCell(sb, item.NombreQuienGestionaAlta ?? string.Empty);
-            AppendDataCell(sb, item.AltaTardia ?? string.Empty);
-            AppendDataCell(sb, FormatNullableDate(item.FechaPrimerSeguimiento24Horas));
-            AppendDataCell(sb, FormatNullableDate(item.FechaSegundoSeguimiento48Horas));
-            AppendDataCell(sb, FormatNullableDate(item.FechaTercerSeguimiento72Horas));
-            AppendDataCell(sb, item.ObservacionAltaTardia ?? string.Empty);
-            AppendDataCell(sb, item.NombreQuienRealizaSeguimientoAltaTardia ?? string.Empty);
-            AppendDataCell(sb, item.PacienteRehospitalizado ?? string.Empty);
-            AppendDataCell(sb, FormatNullableDate(item.FechaRegistroReporteRehospitalizacion));
-            AppendDataCell(sb, FormatNullableDate(item.FechaRehospitalizacion));
-            AppendDataCell(sb, item.MotivoRehospitalizacion ?? string.Empty);
-            AppendDataCell(sb, item.AmpliacionMotivoRehospitalizacion ?? string.Empty);
-            AppendDataCell(sb, item.RemitidoPorRehospitalizacion ?? string.Empty);
-            AppendDataCell(sb, item.IpsIntramuralRehospitalizacion ?? string.Empty);
-            AppendDataCell(sb, FormatNullableDate(item.FechaPrimerSeguimientoRehospitalizacion));
-            AppendDataCell(sb, FormatNullableDate(item.FechaSegundoSeguimientoRehospitalizacion));
-            AppendDataCell(sb, FormatNullableDate(item.FechaTercerSeguimientoRehospitalizacion));
-            AppendDataCell(sb, FormatNullableDate(item.FechaAltaHospitalizacion));
-            AppendDataCell(sb, item.ObservacionRehospitalizacion ?? string.Empty);
-            AppendDataCell(sb, FormatNullableDate(item.FechaNovedadDevolucionProductos));
-            AppendDataCell(sb, item.MotivoNovedadDevolucionProductos ?? string.Empty);
-            AppendDataCell(sb, item.NotificacionAuxiliarDevolucionProductos ?? string.Empty);
-            AppendDataCell(sb, FormatNullableDate(item.FechaMaximaDevolucionProductos));
-            AppendDataCell(sb, item.EstadoDevolucionServicioFarmaceutico ?? string.Empty);
-            AppendDataCell(sb, FormatDateTime(item.CreatedAtUtc));
-            AppendDataCell(sb, idsConAdjuntos?.Contains(item.Id) == true ? "Sí" : "No");
-            AppendDataCell(sb, item.TuvoReaperturaKardex ? "Sí" : "No");
-            AppendDataCell(sb, item.ReaperturaSolicitadaPor ?? string.Empty);
-            AppendDataCell(sb, item.ReaperturaAprobadaPor ?? string.Empty);
-            ProrrogaExportDto? prorroga = null;
-            if (!string.IsNullOrWhiteSpace(item.ProrrogaJson))
-            {
-                try { prorroga = JsonSerializer.Deserialize<ProrrogaExportDto>(item.ProrrogaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); } catch { }
-            }
-            AppendDataCell(sb, prorroga?.TipoProrroga ?? "");
-            AppendDataCell(sb, prorroga?.NombreMedicamentoPrincipal ?? "");
-            AppendDataCell(sb, prorroga?.DosisMedicamentoPrincipal ?? "");
-            AppendDataCell(sb, prorroga?.MedidaMedicamentoPrincipal ?? "");
-            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamentoPrincipal ?? "");
-            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMxPrincipal ?? "");
-            AppendDataCell(sb, prorroga?.DiasMedicamentoPrincipal ?? "");
-            AppendDataCell(sb, prorroga?.TieneSegundoMedicamento == true ? "Sí" : "No");
-            AppendDataCell(sb, prorroga?.NombreMedicamentoNumero2 ?? "");
-            AppendDataCell(sb, prorroga?.DosisMedicamento2 ?? "");
-            AppendDataCell(sb, prorroga?.MedidaMedicamento2 ?? "");
-            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamento2 ?? "");
-            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMedicamento2 ?? "");
-            AppendDataCell(sb, prorroga?.DiasMedicamento2 ?? "");
-            AppendDataCell(sb, prorroga?.TieneTercerMedicamento == true ? "Sí" : "No");
-            AppendDataCell(sb, prorroga?.NombreMedicamentoNumero3 ?? "");
-            AppendDataCell(sb, prorroga?.DosisMedicamento3 ?? "");
-            AppendDataCell(sb, prorroga?.MedidaMedicamento3 ?? "");
-            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamento3 ?? "");
-            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMedicamento3 ?? "");
-            AppendDataCell(sb, prorroga?.DiasMedicamento3 ?? "");
-            AppendDataCell(sb, prorroga?.TieneCuartoMedicamento == true ? "Sí" : "No");
-            AppendDataCell(sb, prorroga?.NombreMedicamentoNumero4 ?? "");
-            AppendDataCell(sb, prorroga?.DosisMedicamento4 ?? "");
-            AppendDataCell(sb, prorroga?.MedidaMedicamento4 ?? "");
-            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamento4 ?? "");
-            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMedicamento4 ?? "");
-            AppendDataCell(sb, prorroga?.DiasMedicamento4 ?? "");
-            AppendDataCell(sb, prorroga?.TieneQuintoMedicamento == true ? "Sí" : "No");
-            AppendDataCell(sb, prorroga?.NombreMedicamentoNumero5 ?? "");
-            AppendDataCell(sb, prorroga?.DosisMedicamento5 ?? "");
-            AppendDataCell(sb, prorroga?.MedidaMedicamento5 ?? "");
-            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamento5 ?? "");
-            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMedicamento5 ?? "");
-            AppendDataCell(sb, prorroga?.DiasMedicamento5 ?? "");
-            AppendDataCell(sb, prorroga?.TieneSextoMedicamento == true ? "Sí" : "No");
-            AppendDataCell(sb, prorroga?.NombreMedicamentoNumero6 ?? "");
-            AppendDataCell(sb, prorroga?.DosisMedicamento6 ?? "");
-            AppendDataCell(sb, prorroga?.MedidaMedicamento6 ?? "");
-            AppendDataCell(sb, prorroga?.ViaAdministracionMedicamento6 ?? "");
-            AppendDataCell(sb, prorroga?.FrecuenciaAdministracionMedicamento6 ?? "");
-            AppendDataCell(sb, prorroga?.DiasMedicamento6 ?? "");
-            AppendDataCell(sb, prorroga?.AplicacionesTotales ?? "");
-            AppendDataCell(sb, prorroga?.DiasTratamientoIv ?? "");
-            AppendDataCell(sb, FormatDateText(prorroga?.FechaInicioTratamiento));
-            AppendDataCell(sb, FormatDateText(prorroga?.FechaFinTratamiento));
-            AppendDataCell(sb, FormatDateText(prorroga?.FechaPromesaInicioTto));
-            var prorrogaHoraDisplay = (!string.IsNullOrWhiteSpace(prorroga?.HoraPromesaDesde) && !string.IsNullOrWhiteSpace(prorroga?.HoraPromesaHasta))
-                ? $"Entre {prorroga!.HoraPromesaDesde} y {prorroga.HoraPromesaHasta}"
-                : string.Empty;
-            AppendDataCell(sb, prorrogaHoraDisplay);
-            AppendDataCell(sb, prorroga?.AuxiliarAsignado ?? "");
-            AppendDataCell(sb, prorroga?.NumeroDiasExtension ?? "");
-            AppendDataCell(sb, prorroga?.NotificadoAsegurador == true ? "Sí" : "No");
-            sb.AppendLine("   </Row>");
+            fila.Add(gestionFarmaciaRegistrada ? FormatDate(item.FechaGestionFarmacia) : string.Empty);
+            fila.Add(gestionFarmaciaRegistrada ? item.HoraGestionFarmacia.ToString(@"hh\:mm") : string.Empty);
+            fila.Add(item.GestionCompletaPendiente);
+            fila.Add(item.GestionAnalistaAsistencial ? "Sí" : "No");
+            fila.Add(item.IndicadorTiempoRespuestaMinutos.ToString());
+            fila.Add(item.IndicadorTiempoGestionMinutos.ToString());
+            fila.Add(item.NombrePerfilGestionaCaso);
+            fila.Add(item.NombreRecepcionaCaso);
+            fila.Add(item.NombreRealizaKardex);
+            fila.Add(item.NombrePaciente);
+            fila.Add(item.TipoIdentificacion);
+            fila.Add(item.NumeroIdentificacion);
+            fila.Add(item.CodigoCie10);
+            fila.Add(item.DiagnosticoDescriptivo);
+            fila.Add(FormatDate(item.FechaNacimiento));
+            fila.Add(item.Edad.ToString());
+            fila.Add(item.CorreoElectronico);
+            fila.Add(item.Direccion);
+            fila.Add(item.DetalleDireccion ?? "");
+            fila.Add(item.ClasificacionZonaSura);
+            fila.Add(item.MunicipioResidencia);
+            fila.Add(item.Barrio);
+            fila.Add(item.ZonaDireccionSegunMunicipio);
+            fila.Add(item.Area);
+            fila.Add(item.IpsQueRemite);
+            fila.Add(item.VistoBuenoRangoFueraAnexo);
+            fila.Add(item.Telefono1);
+            fila.Add(item.Telefono2);
+            fila.Add(item.Telefono3 ?? string.Empty);
+            fila.Add(item.ClasificacionRiesgo);
+            fila.Add(item.AdministracionMedicamentos);
+            fila.Add(item.NombreMedicamentoPrincipalTratante ?? string.Empty);
+            fila.Add(FormatNullableDecimal(item.DosisMedicamentoPrincipal));
+            fila.Add(item.MedidaMedicamentoPrincipal ?? string.Empty);
+            fila.Add(item.ViaAdministracionMedicamentoPrincipal ?? string.Empty);
+            fila.Add(item.FrecuenciaAdministracionMxPrincipal);
+            fila.Add(item.DiasMedicamentoPrincipal?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+            fila.Add(item.NumeroDosisDiaMedicamentoPrincipal);
+            fila.Add(GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero2));
+            fila.Add(FormatNullableDecimal(item.DosisMedicamento2));
+            fila.Add(GetAdditionalMedicationValueForExport(item.MedidaMedicamento2));
+            fila.Add(GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento2));
+            fila.Add(GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento2));
+            fila.Add(item.DiasMedicamento2?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+            fila.Add(GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento2));
+            fila.Add(GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero3));
+            fila.Add(FormatNullableDecimal(item.DosisMedicamento3));
+            fila.Add(GetAdditionalMedicationValueForExport(item.MedidaMedicamento3));
+            fila.Add(GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento3));
+            fila.Add(GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento3));
+            fila.Add(item.DiasMedicamento3?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+            fila.Add(GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento3));
+            fila.Add(GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero4));
+            fila.Add(FormatNullableDecimal(item.DosisMedicamento4));
+            fila.Add(GetAdditionalMedicationValueForExport(item.MedidaMedicamento4));
+            fila.Add(GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento4));
+            fila.Add(GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento4));
+            fila.Add(item.DiasMedicamento4?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+            fila.Add(GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento4));
+            fila.Add(GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero5));
+            fila.Add(FormatNullableDecimal(item.DosisMedicamento5));
+            fila.Add(GetAdditionalMedicationValueForExport(item.MedidaMedicamento5));
+            fila.Add(GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento5));
+            fila.Add(GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento5));
+            fila.Add(item.DiasMedicamento5?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+            fila.Add(GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento5));
+            fila.Add(GetAdditionalMedicationValueForExport(item.NombreMedicamentoNumero6));
+            fila.Add(FormatNullableDecimal(item.DosisMedicamento6));
+            fila.Add(GetAdditionalMedicationValueForExport(item.MedidaMedicamento6));
+            fila.Add(GetAdditionalMedicationValueForExport(item.ViaAdministracionMedicamento6));
+            fila.Add(GetAdditionalMedicationValueForExport(item.FrecuenciaAdministracionMedicamento6));
+            fila.Add(item.DiasMedicamento6?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+            fila.Add(GetAdditionalMedicationValueForExport(item.NumeroDosisMedicamento6));
+            fila.Add(item.AplicacionesTotales ?? string.Empty);
+            fila.Add(item.DiasTratamientoIv ?? string.Empty);
+            fila.Add(item.CambioFrecuenciaAdministracionTto ?? string.Empty);
+            fila.Add(item.FrecuenciaAjustada ?? string.Empty);
+            fila.Add(item.MedicamentoFrecuenciaAjustada ?? string.Empty);
+            fila.Add(FormatNullableDate(item.FechaInicioTratamiento));
+            fila.Add(FormatNullableDate(item.FechaFinTratamiento));
+            fila.Add(FormatNullableDate(item.FechaPromesaInicioTto));
+            fila.Add(item.HoraPromesaInicioTto ?? string.Empty);
+            fila.Add(CalculateIndicadorOportunidadInicioTto(item));
+            fila.Add(item.AuxiliarAsignado ?? string.Empty);
+            fila.Add(item.Estado ?? string.Empty);
+            fila.Add(item.AutorizacionEvento ?? string.Empty);
+            fila.Add(item.ResponsableLlamadaBienvenida ?? string.Empty);
+            fila.Add(item.EstadoLlamadaBienvenida ?? string.Empty);
+            fila.Add(item.ObservacionesPlanManejo ?? string.Empty);
+            fila.Add(item.NumeroTelefonoLlamadaBienvenida ?? string.Empty);
+            fila.Add(item.NumeroDiasAutorizado ?? string.Empty);
+            fila.Add(item.RequiereServiciosComplementarios ?? string.Empty);
+            fila.Add(item.RequiereCuidador ?? string.Empty);
+            fila.Add(item.ServicioComplementario ?? string.Empty);
+            fila.Add(item.PacienteGestante ?? string.Empty);
+            fila.Add(item.Nebulizaciones ?? string.Empty);
+            fila.Add(item.NutricionParenteral ?? string.Empty);
+            fila.Add(item.NutricionEnteral ?? string.Empty);
+            fila.Add(item.PacienteAnticoagulado ?? string.Empty);
+            fila.Add(item.LaboratorioClinicoProcedimiento ?? string.Empty);
+            fila.Add(item.Aislamiento ?? string.Empty);
+            fila.Add(item.TipoAislamiento ?? string.Empty);
+            fila.Add(item.CateterismoOSv ?? string.Empty);
+            fila.Add(item.CateterPicc ?? string.Empty);
+            fila.Add(item.NumeroCalibreSonda?.ToString() ?? string.Empty);
+            fila.Add(FormatNullableDate(item.FechaUltimoCambioSonda));
+            fila.Add(item.AuxiliarAsignadoCateterismo ?? string.Empty);
+            fila.Add(FormatNullableDate(item.FechaProximoCambioSonda));
+            fila.Add(FormatNullableDate(item.FechaUltimaCuracionPicc));
+            fila.Add(FormatNullableDate(item.FechaAlta));
+            fila.Add(item.NombreQuienGestionaAlta ?? string.Empty);
+            fila.Add(item.AltaTardia ?? string.Empty);
+            fila.Add(FormatNullableDate(item.FechaPrimerSeguimiento24Horas));
+            fila.Add(FormatNullableDate(item.FechaSegundoSeguimiento48Horas));
+            fila.Add(FormatNullableDate(item.FechaTercerSeguimiento72Horas));
+            fila.Add(item.ObservacionAltaTardia ?? string.Empty);
+            fila.Add(item.NombreQuienRealizaSeguimientoAltaTardia ?? string.Empty);
+            fila.Add(item.PacienteRehospitalizado ?? string.Empty);
+            fila.Add(FormatNullableDate(item.FechaRegistroReporteRehospitalizacion));
+            fila.Add(FormatNullableDate(item.FechaRehospitalizacion));
+            fila.Add(item.MotivoRehospitalizacion ?? string.Empty);
+            fila.Add(item.AmpliacionMotivoRehospitalizacion ?? string.Empty);
+            fila.Add(item.RemitidoPorRehospitalizacion ?? string.Empty);
+            fila.Add(item.IpsIntramuralRehospitalizacion ?? string.Empty);
+            fila.Add(FormatNullableDate(item.FechaPrimerSeguimientoRehospitalizacion));
+            fila.Add(FormatNullableDate(item.FechaSegundoSeguimientoRehospitalizacion));
+            fila.Add(FormatNullableDate(item.FechaTercerSeguimientoRehospitalizacion));
+            fila.Add(FormatNullableDate(item.FechaAltaHospitalizacion));
+            fila.Add(item.ObservacionRehospitalizacion ?? string.Empty);
+            fila.Add(FormatNullableDate(item.FechaNovedadDevolucionProductos));
+            fila.Add(item.MotivoNovedadDevolucionProductos ?? string.Empty);
+            fila.Add(item.NotificacionAuxiliarDevolucionProductos ?? string.Empty);
+            fila.Add(FormatNullableDate(item.FechaMaximaDevolucionProductos));
+            fila.Add(item.EstadoDevolucionServicioFarmaceutico ?? string.Empty);
+            fila.Add(FormatDateTime(item.CreatedAtUtc));
+            fila.Add(idsConAdjuntos?.Contains(item.Id) == true ? "Sí" : "No");
+            fila.Add(item.TuvoReaperturaKardex ? "Sí" : "No");
+            fila.Add(item.ReaperturaSolicitadaPor ?? string.Empty);
+            fila.Add(item.ReaperturaAprobadaPor ?? string.Empty);
+            var prorroga = LeerProrroga(item.ProrrogaJson);
+            fila.AddRange(ValoresProrroga(prorroga));
+            // Campos que el exportable no traía (2026-10-29), en el orden de sus encabezados.
+            fila.Add(SeguimientoMedicoTexto(prorroga?.SeguimientoMedico));
+            fila.Add((prorrogasAdicionales.TryGetValue(item.Id, out var adicionales) ? adicionales.Count : 0).ToString(CultureInfo.InvariantCulture));
+            fila.Add(FormatNullableDate(item.PanAmericanFechaCirugia));
+            fila.Add(item.PanAmericanNombreCirujano ?? string.Empty);
+            fila.Add(item.PanAmericanIpsQuirurgica ?? string.Empty);
+            fila.Add(item.PanAmericanProcedimiento ?? string.Empty);
+            fila.Add(item.PanAmericanActivadorPoliza ?? string.Empty);
+            fila.Add(item.PanAmericanCartaAutorizacion ?? string.Empty);
+            fila.Add(FormatNullableDate(item.PanAmericanFechaSolicitud));
+            fila.Add(item.PanAmericanNumeroAutorizacion ?? string.Empty);
+            fila.Add(item.DireccionValidada ? "Sí" : "No");
+            fila.Add(item.AsumirDireccionErrada ? "Sí" : "No");
+            fila.Add(FechaExportable.FechaHora(item.GestionCompletaAtUtc));
+            fila.Add(item.GestionCompletaPor ?? string.Empty);
+            fila.Add(FechaExportable.FechaHora(item.GestionAnalistaAtUtc));
+            fila.Add(item.GestionAnalistaPor ?? string.Empty);
+            fila.Add(FechaExportable.FechaHora(item.KardexCerradoAtUtc));
+            fila.Add(FechaExportable.FechaHora(item.ProrrogaCerradaAtUtc));
+            fila.Add(item.FarmaciaEstado ?? string.Empty);
+            fila.Add(FechaExportable.FechaHora(item.FarmaciaEnviadoAtUtc));
+            fila.Add(FechaExportable.FechaHora(item.FarmaciaEmpacadoAtUtc));
+            fila.Add(FechaExportable.FechaHora(item.FarmaciaFechaHoraRecepcionUtc));
+            fila.Add(item.FarmaciaNombreRecibe ?? string.Empty);
+            fila.Add(item.FarmaciaOkKardex ? "Sí" : "No");
+            fila.Add(item.FarmaciaEsEntregaParcial switch { true => "Sí", false => "No", null => string.Empty });
+            fila.Add(item.FarmaciaCantidadEntregas?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+            fila.Add(item.FarmaciaEntregaActual.ToString(CultureInfo.InvariantCulture));
+            fila.Add(item.FarmaciaFacturado ? "Sí" : "No");
+            fila.Add(item.FarmaciaBolsaDesempacada ? "Sí" : "No");
+            fila.Add(FechaExportable.FechaHora(item.FarmaciaFirmaActualizadaAtUtc));
+            filas.Add(fila);
         }
 
-        sb.AppendLine("  </Table>");
-        sb.AppendLine(" </Worksheet>");
-        sb.AppendLine("</Workbook>");
-        return sb.ToString();
+        return (encabezados, filas);
+    }
+
+    /// <summary>
+    /// Las 51 columnas de una prórroga, en el orden de siempre del exportable (Prorroga_Tipo …
+    /// Prorroga_NotificadoAsegurador). Las usan la hoja Censo, para la prórroga guardada en la
+    /// atención, y la hoja Prórrogas, para todas.
+    /// </summary>
+    private static List<string?> ValoresProrroga(ProrrogaExportDto? prorroga)
+    {
+        var valores = new List<string?>(51);
+        valores.Add(prorroga?.TipoProrroga ?? "");
+        valores.Add(prorroga?.NombreMedicamentoPrincipal ?? "");
+        valores.Add(prorroga?.DosisMedicamentoPrincipal ?? "");
+        valores.Add(prorroga?.MedidaMedicamentoPrincipal ?? "");
+        valores.Add(prorroga?.ViaAdministracionMedicamentoPrincipal ?? "");
+        valores.Add(prorroga?.FrecuenciaAdministracionMxPrincipal ?? "");
+        valores.Add(prorroga?.DiasMedicamentoPrincipal ?? "");
+        valores.Add(prorroga?.TieneSegundoMedicamento == true ? "Sí" : "No");
+        valores.Add(prorroga?.NombreMedicamentoNumero2 ?? "");
+        valores.Add(prorroga?.DosisMedicamento2 ?? "");
+        valores.Add(prorroga?.MedidaMedicamento2 ?? "");
+        valores.Add(prorroga?.ViaAdministracionMedicamento2 ?? "");
+        valores.Add(prorroga?.FrecuenciaAdministracionMedicamento2 ?? "");
+        valores.Add(prorroga?.DiasMedicamento2 ?? "");
+        valores.Add(prorroga?.TieneTercerMedicamento == true ? "Sí" : "No");
+        valores.Add(prorroga?.NombreMedicamentoNumero3 ?? "");
+        valores.Add(prorroga?.DosisMedicamento3 ?? "");
+        valores.Add(prorroga?.MedidaMedicamento3 ?? "");
+        valores.Add(prorroga?.ViaAdministracionMedicamento3 ?? "");
+        valores.Add(prorroga?.FrecuenciaAdministracionMedicamento3 ?? "");
+        valores.Add(prorroga?.DiasMedicamento3 ?? "");
+        valores.Add(prorroga?.TieneCuartoMedicamento == true ? "Sí" : "No");
+        valores.Add(prorroga?.NombreMedicamentoNumero4 ?? "");
+        valores.Add(prorroga?.DosisMedicamento4 ?? "");
+        valores.Add(prorroga?.MedidaMedicamento4 ?? "");
+        valores.Add(prorroga?.ViaAdministracionMedicamento4 ?? "");
+        valores.Add(prorroga?.FrecuenciaAdministracionMedicamento4 ?? "");
+        valores.Add(prorroga?.DiasMedicamento4 ?? "");
+        valores.Add(prorroga?.TieneQuintoMedicamento == true ? "Sí" : "No");
+        valores.Add(prorroga?.NombreMedicamentoNumero5 ?? "");
+        valores.Add(prorroga?.DosisMedicamento5 ?? "");
+        valores.Add(prorroga?.MedidaMedicamento5 ?? "");
+        valores.Add(prorroga?.ViaAdministracionMedicamento5 ?? "");
+        valores.Add(prorroga?.FrecuenciaAdministracionMedicamento5 ?? "");
+        valores.Add(prorroga?.DiasMedicamento5 ?? "");
+        valores.Add(prorroga?.TieneSextoMedicamento == true ? "Sí" : "No");
+        valores.Add(prorroga?.NombreMedicamentoNumero6 ?? "");
+        valores.Add(prorroga?.DosisMedicamento6 ?? "");
+        valores.Add(prorroga?.MedidaMedicamento6 ?? "");
+        valores.Add(prorroga?.ViaAdministracionMedicamento6 ?? "");
+        valores.Add(prorroga?.FrecuenciaAdministracionMedicamento6 ?? "");
+        valores.Add(prorroga?.DiasMedicamento6 ?? "");
+        valores.Add(prorroga?.AplicacionesTotales ?? "");
+        valores.Add(prorroga?.DiasTratamientoIv ?? "");
+        valores.Add(FormatDateText(prorroga?.FechaInicioTratamiento));
+        valores.Add(FormatDateText(prorroga?.FechaFinTratamiento));
+        valores.Add(FormatDateText(prorroga?.FechaPromesaInicioTto));
+        var prorrogaHoraDisplay = (!string.IsNullOrWhiteSpace(prorroga?.HoraPromesaDesde) && !string.IsNullOrWhiteSpace(prorroga?.HoraPromesaHasta))
+            ? $"Entre {prorroga!.HoraPromesaDesde} y {prorroga.HoraPromesaHasta}"
+            : string.Empty;
+        valores.Add(prorrogaHoraDisplay);
+        valores.Add(prorroga?.AuxiliarAsignado ?? "");
+        valores.Add(prorroga?.NumeroDiasExtension ?? "");
+        valores.Add(prorroga?.NotificadoAsegurador == true ? "Sí" : "No");
+        return valores;
+    }
+
+    private static ProrrogaExportDto? LeerProrroga(string? prorrogaJson)
+    {
+        if (string.IsNullOrWhiteSpace(prorrogaJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<ProrrogaExportDto>(prorrogaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static void AppendHeaderCell(StringBuilder sb, string value)
@@ -6335,5 +6440,6 @@ public partial class CensoController : Controller
         public string? AuxiliarAsignado { get; set; }
         public string? NumeroDiasExtension { get; set; }
         public bool? NotificadoAsegurador { get; set; }
+        public string? SeguimientoMedico { get; set; }
     }
 }

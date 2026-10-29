@@ -65,27 +65,83 @@ public static class ExcelWorkbookWriter
         IReadOnlyCollection<int>? dateColumns = null,
         IReadOnlyCollection<int>? numberColumns = null)
     {
-        if (headers.Count == 0)
+        return BuildMultiSheetWorkbook(
+            [new TableSheet(worksheetName, headers, rows, dateColumns, numberColumns)],
+            generatedAt,
+            documentTitle);
+    }
+
+    /// <summary>
+    /// Una hoja de un libro de varias hojas.
+    /// </summary>
+    /// <param name="DetectDates">
+    /// Cualquier celda cuyo contenido sea exactamente una fecha de los exportables (dd/MM/yyyy, con
+    /// hora o sin ella) se escribe como fecha de Excel, en cualquier columna. Para hojas de muchas
+    /// columnas donde marcarlas una por una sería frágil (el censo de agudos).
+    /// </param>
+    public sealed record TableSheet(
+        string Name,
+        IReadOnlyList<string> Headers,
+        IReadOnlyList<IReadOnlyList<string?>> Rows,
+        IReadOnlyCollection<int>? DateColumns = null,
+        IReadOnlyCollection<int>? NumberColumns = null,
+        bool DetectDates = false);
+
+    /// <summary>
+    /// Libro con varias hojas de tabla (encabezado fijo, filtro y fechas dd/mm/aaaa en cada una).
+    /// Excel no admite dos hojas con el mismo nombre ni nombres de más de 31 caracteres.
+    /// </summary>
+    public static byte[] BuildMultiSheetWorkbook(
+        IReadOnlyList<TableSheet> sheets,
+        DateTime generatedAt,
+        string documentTitle)
+    {
+        if (sheets.Count == 0)
         {
-            throw new ArgumentException("El libro debe tener al menos una columna.", nameof(headers));
+            throw new ArgumentException("El libro debe tener al menos una hoja.", nameof(sheets));
         }
 
-        if (rows.Any(row => row.Count != headers.Count))
+        foreach (var sheet in sheets)
         {
-            throw new ArgumentException("Cada fila debe tener el mismo número de columnas que el encabezado.", nameof(rows));
+            if (sheet.Headers.Count == 0)
+            {
+                throw new ArgumentException($"La hoja '{sheet.Name}' debe tener al menos una columna.", nameof(sheets));
+            }
+
+            if (sheet.Rows.Any(row => row.Count != sheet.Headers.Count))
+            {
+                throw new ArgumentException($"Cada fila de la hoja '{sheet.Name}' debe tener el mismo número de columnas que el encabezado.", nameof(sheets));
+            }
+        }
+
+        var names = sheets.Select(x => SafeWorksheetName(x.Name)).ToList();
+        if (names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != names.Count)
+        {
+            throw new ArgumentException("Dos hojas no pueden llamarse igual.", nameof(sheets));
         }
 
         using var output = new MemoryStream();
         using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
         {
-            WriteTextEntry(archive, "[Content_Types].xml", BuildContentTypes());
+            WriteTextEntry(archive, "[Content_Types].xml", BuildContentTypes(sheets.Count));
             WriteTextEntry(archive, "_rels/.rels", BuildRootRelationships());
             WriteTextEntry(archive, "docProps/app.xml", BuildAppProperties());
             WriteTextEntry(archive, "docProps/core.xml", BuildCoreProperties(generatedAt, documentTitle));
-            WriteTextEntry(archive, "xl/workbook.xml", BuildWorkbook(worksheetName));
-            WriteTextEntry(archive, "xl/_rels/workbook.xml.rels", BuildWorkbookRelationships());
+            WriteTextEntry(archive, "xl/workbook.xml", BuildWorkbook(names));
+            WriteTextEntry(archive, "xl/_rels/workbook.xml.rels", BuildWorkbookRelationships(sheets.Count));
             WriteTextEntry(archive, "xl/styles.xml", BuildStyles());
-            WriteTableWorksheetEntry(archive, headers, rows, dateColumns, numberColumns);
+            for (var index = 0; index < sheets.Count; index++)
+            {
+                var sheet = sheets[index];
+                WriteTableWorksheetEntry(
+                    archive,
+                    $"xl/worksheets/sheet{index + 1}.xml",
+                    sheet.Headers,
+                    sheet.Rows,
+                    sheet.DateColumns,
+                    sheet.NumberColumns,
+                    sheet.DetectDates);
+            }
         }
 
         return output.ToArray();
@@ -161,12 +217,14 @@ public static class ExcelWorkbookWriter
 
     private static void WriteTableWorksheetEntry(
         ZipArchive archive,
+        string path,
         IReadOnlyList<string> headers,
         IReadOnlyList<IReadOnlyList<string?>> rows,
         IReadOnlyCollection<int>? dateColumns,
-        IReadOnlyCollection<int>? numberColumns)
+        IReadOnlyCollection<int>? numberColumns,
+        bool detectDates)
     {
-        var entry = archive.CreateEntry("xl/worksheets/sheet1.xml", CompressionLevel.Optimal);
+        var entry = archive.CreateEntry(path, CompressionLevel.Optimal);
         using var stream = entry.Open();
         using var writer = XmlWriter.Create(stream, CreateXmlSettings());
         var lastRow = rows.Count + 1;
@@ -231,7 +289,7 @@ public static class ExcelWorkbookWriter
             {
                 var reference = $"{GetColumnName(columnIndex + 1)}{rowNumber}";
                 var value = rows[rowIndex][columnIndex];
-                if (dateColumns?.Contains(columnIndex) == true && TryParseDate(value, out var date, out var withTime))
+                if ((detectDates || dateColumns?.Contains(columnIndex) == true) && TryParseDate(value, out var date, out var withTime))
                 {
                     WriteDateCell(writer, reference, date, withTime);
                 }
@@ -409,18 +467,23 @@ public static class ExcelWorkbookWriter
         };
     }
 
-    private static string BuildContentTypes() => """
-        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-          <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-          <Default Extension="xml" ContentType="application/xml"/>
-          <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-          <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-          <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
-          <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
-          <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
-        </Types>
-        """;
+    private static string BuildContentTypes(int sheetCount = 1)
+    {
+        var sheets = string.Concat(Enumerable.Range(1, sheetCount).Select(index =>
+            $"""<Override PartName="/xl/worksheets/sheet{index}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>"""));
+        return $"""
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+              <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+              <Default Extension="xml" ContentType="application/xml"/>
+              <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+              {sheets}
+              <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+              <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+              <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+            </Types>
+            """;
+    }
 
     private static string BuildRootRelationships() => """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -431,32 +494,48 @@ public static class ExcelWorkbookWriter
         </Relationships>
         """;
 
-    private static string BuildWorkbook(string worksheetName = "ACTIVOS")
+    /// <summary>Excel no admite en el nombre de una hoja \ / ? * [ ] : ni más de 31 caracteres.</summary>
+    private static string SafeWorksheetName(string worksheetName)
     {
-        var safeWorksheetName = worksheetName.Trim();
-        if (safeWorksheetName.Length > 31)
+        var safe = new string(worksheetName.Trim().Where(c => c is not ('\\' or '/' or '?' or '*' or '[' or ']' or ':')).ToArray());
+        if (safe.Length > 31)
         {
-            safeWorksheetName = safeWorksheetName[..31];
+            safe = safe[..31];
         }
 
-        safeWorksheetName = SecurityElement.Escape(safeWorksheetName) ?? "Hoja 1";
+        return string.IsNullOrWhiteSpace(safe) ? "Hoja" : safe;
+    }
+
+    private static string BuildWorkbook(string worksheetName = "ACTIVOS") => BuildWorkbook([SafeWorksheetName(worksheetName)]);
+
+    private static string BuildWorkbook(IReadOnlyList<string> worksheetNames)
+    {
+        // Las hojas se enlazan con rId1..rIdN; los estilos van después (ver BuildWorkbookRelationships).
+        var sheets = string.Concat(worksheetNames.Select((name, index) =>
+            $"""<sheet name="{SecurityElement.Escape(name)}" sheetId="{index + 1}" r:id="rId{index + 1}"/>"""));
 
         return $"""
             <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
               <bookViews><workbookView/></bookViews>
-              <sheets><sheet name="{safeWorksheetName}" sheetId="1" r:id="rId1"/></sheets>
+              <sheets>{sheets}</sheets>
             </workbook>
             """;
     }
 
-    private static string BuildWorkbookRelationships() => """
-        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-          <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-          <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-        </Relationships>
-        """;
+    private static string BuildWorkbookRelationships(int sheetCount = 1)
+    {
+        var sheets = string.Concat(Enumerable.Range(1, sheetCount).Select(index =>
+            $"""<Relationship Id="rId{index}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{index}.xml"/>"""));
+
+        return $"""
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+              {sheets}
+              <Relationship Id="rId{sheetCount + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+            </Relationships>
+            """;
+    }
 
     private static string BuildStyles() => """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
