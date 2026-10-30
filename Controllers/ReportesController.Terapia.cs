@@ -28,6 +28,14 @@ public partial class ReportesController
             query = query.Where(x => x.MunicipioResidencia == f.Municipio);
         }
 
+        if (f.Asegurador is not null)
+        {
+            var pacientes = PacientesDelAsegurador(contexto, f.Asegurador);
+            query = query.Where(x => x.CensoPacienteId == null
+                ? f.Asegurador == FiltroAseguradorSura
+                : pacientes.Contains(x.CensoPacienteId.Value));
+        }
+
         var filas = await query
             .Select(x => new
             {

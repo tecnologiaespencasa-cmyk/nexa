@@ -3,7 +3,7 @@ using Nexa.Services.Models;
 namespace Nexa.Services.Interfaces;
 
 /// <summary>
-/// Reporte diario de farmacia para dirección asistencial: los despachos que pasaron a Por
+/// Reporte diario de farmacia para la líder de operaciones: los despachos que pasaron a Por
 /// desempacar en el día y siguen así al corte de las 11:00 p. m.
 /// </summary>
 public interface IFarmaciaReportePorDesempacarService

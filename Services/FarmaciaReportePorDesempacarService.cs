@@ -13,20 +13,20 @@ using Npgsql;
 namespace Nexa.Services;
 
 /// <summary>
-/// Reporte diario de farmacia para dirección asistencial (pedido del 2026-09-23). Lleva los
+/// Reporte diario de farmacia para la líder de operaciones (antes dirección asistencial; pedido del 2026-09-23). Lleva los
 /// despachos que en el día cumplieron las 72 horas empacados sin firma y que al corte de las
 /// 11:00 p. m. siguen mostrándose "Por desempacar" en la bandeja: sin firmar y sin la bolsa
 /// desempacada.
 ///
 /// Cada corte cubre las 24 horas desde el corte anterior, así que ningún despacho queda entre dos
-/// reportes. Se envía aunque no haya ninguno: así dirección asistencial sabe que el reporte corrió.
+/// reportes. Se envía aunque no haya ninguno: así operaciones sabe que el reporte corrió.
 /// Solo lee la base. El paso a Por desempacar lo sigue haciendo la bandeja al abrirse
 /// (FarmaciaController.ApplyEmpacadoTimeoutAsync), así que un despacho vencido que nadie ha visto
 /// todavía figura como Empacado y el reporte lo cuenta igual.
 /// </summary>
 public class FarmaciaReportePorDesempacarService : IFarmaciaReportePorDesempacarService
 {
-    public const string DireccionAsistencialEmail = "direccionasistencial@especialistasencasa.com";
+    public const string DestinatarioEmail = "lideroperativo@especialistasencasa.com";
 
     /// <summary>
     /// Hora del corte, en hora Colombia. En los 90 días anteriores a su creación ningún despacho
@@ -120,7 +120,7 @@ public class FarmaciaReportePorDesempacarService : IFarmaciaReportePorDesempacar
             var reporte = await ConstruirAsync(corte, ahoraUtc, cancellationToken);
             despachos = reporte.Despachos.Count;
             var resultado = await _emailService.SendAsync(
-                ConstruirCorreo(reporte, [DireccionAsistencialEmail]),
+                ConstruirCorreo(reporte, [DestinatarioEmail]),
                 cancellationToken);
 
             if (!resultado.Succeeded)
@@ -136,7 +136,7 @@ public class FarmaciaReportePorDesempacarService : IFarmaciaReportePorDesempacar
             await _auditService.LogAsync(
                 "FARMACIA_REPORTE_POR_DESEMPACAR",
                 "Farmacia",
-                $"Reporte del {corte.Dia:dd/MM/yyyy} enviado a {DireccionAsistencialEmail}: {despachos} despacho(s) por desempacar.",
+                $"Reporte del {corte.Dia:dd/MM/yyyy} enviado a {DestinatarioEmail}: {despachos} despacho(s) por desempacar.",
                 null,
                 null,
                 cancellationToken);
@@ -171,7 +171,7 @@ public class FarmaciaReportePorDesempacarService : IFarmaciaReportePorDesempacar
                 HastaUtc = corte.HastaUtc,
                 Estado = FarmaciaReporteDiarioEstados.Enviando,
                 Intentos = 1,
-                Destinatarios = DireccionAsistencialEmail,
+                Destinatarios = DestinatarioEmail,
                 Instancia = instancia,
                 CreadoAtUtc = ahoraUtc,
                 IntentoAtUtc = ahoraUtc
@@ -445,7 +445,7 @@ public class FarmaciaReportePorDesempacarService : IFarmaciaReportePorDesempacar
 
         if (destinatariosDePrueba is not null)
         {
-            html.Append($"""<tr><td style="padding:12px 28px;background:#fff7e0;border-radius:6px 6px 0 0;font-size:12px;line-height:1.5;color:#7a5200;"><strong>Correo de prueba</strong> enviado solo a {E(string.Join(", ", destinatariosDePrueba))}. El reporte real sale todos los días a las 11:00 p. m. a {E(DireccionAsistencialEmail)}.</td></tr>""");
+            html.Append($"""<tr><td style="padding:12px 28px;background:#fff7e0;border-radius:6px 6px 0 0;font-size:12px;line-height:1.5;color:#7a5200;"><strong>Correo de prueba</strong> enviado solo a {E(string.Join(", ", destinatariosDePrueba))}. El reporte real sale todos los días a las 11:00 p. m. a {E(DestinatarioEmail)}.</td></tr>""");
         }
 
         html.Append("""<tr><td style="padding:24px 28px 6px;">""");

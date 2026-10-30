@@ -104,7 +104,7 @@
             <h1 id="rpCensoTitulo">Censo de hoy</h1>
             <p>
                 <time datetime="@Model.Hoy.ToString("yyyy-MM-dd", inv)" class="rp-mayuscula">@Model.Hoy.ToString("dddd d 'de' MMMM", culture)</time>
-                · Lo que está activo en este momento. No cambia con las fechas ni con el municipio.
+                · Lo que está activo en este momento. No cambia con las fechas, el municipio ni el asegurador.
             </p>
         </div>
         <p class="rp-cabecera__hora">
@@ -336,6 +336,10 @@
                     <span>Municipio</span>
                     <select name="Municipio" asp-items="Model.FilterOptions.Municipios"></select>
                 </label>
+                <label class="rp-campo rp-campo--asegurador">
+                    <span>Asegurador</span>
+                    <select name="Asegurador" asp-items="Model.FilterOptions.Aseguradores"></select>
+                </label>
                 <div class="rp-filtros__acciones">
                     <button type="submit" class="rp-boton">Aplicar</button>
                     <a class="rp-boton rp-boton--quieto" asp-controller="Reportes" asp-action="Index" asp-route-Vista="@Model.Vista" data-rp-conserva-vista>Limpiar</a>
@@ -351,9 +355,16 @@
                 {
                     <b>@etiqueta</b>
                 }
-                @if (!string.IsNullOrWhiteSpace(Model.Filters.Municipio))
+                @{
+                    var sinDatoEnPortal = string.Join(" ni ", new[]
+                    {
+                        string.IsNullOrWhiteSpace(Model.Filters.Municipio) ? null : "municipio",
+                        Model.Filters.Asegurador is null ? null : "asegurador"
+                    }.OfType<string>());
+                }
+                @if (sinDatoEnPortal.Length > 0)
                 {
-                    <em>El Portal Administrativo no registra municipio: su panel no se filtra por municipio.</em>
+                    <em>El Portal Administrativo no registra @sinDatoEnPortal: su panel no se filtra por @sinDatoEnPortal.</em>
                 }
             </div>
         }

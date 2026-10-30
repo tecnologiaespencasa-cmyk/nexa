@@ -38,6 +38,12 @@ public partial class ReportesController
             visibles = visibles.Where(x => x.MunicipioResidencia == f.Municipio);
         }
 
+        if (f.Asegurador is not null)
+        {
+            var patron = PatronAsegurador(f.Asegurador);
+            visibles = visibles.Where(x => EF.Functions.ILike(x.Asegurador, patron));
+        }
+
         var delPeriodo = FiltrarGestionAgudos(
             visibles.Where(x => x.FechaIngreso >= p.Desde && x.FechaIngreso < p.HastaExclusivo), f);
 

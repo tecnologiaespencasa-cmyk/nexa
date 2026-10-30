@@ -685,6 +685,11 @@ body.page-reportes {
     min-width: 220px;
 }
 
+/* Lo justo para leer "Todos los aseguradores" completo. */
+.rp-campo--asegurador select {
+    min-width: 205px;
+}
+
 .rp-campo input:focus,
 .rp-campo select:focus {
     border-color: var(--rp-tinta-2);
@@ -695,6 +700,55 @@ body.page-reportes {
 .rp-filtros__acciones {
     display: flex;
     gap: 6px;
+}
+
+/* En computador los filtros van en una sola línea: los periodos se compactan y Municipio cede
+   ancho antes de que nada salte de renglón. */
+@media (min-width: 1280px) {
+    .rp-filtros {
+        flex-wrap: nowrap;
+        gap: 12px;
+    }
+
+    .rp-filtros__rapidos {
+        flex: none;
+        flex-wrap: nowrap;
+    }
+
+    .rp-rapido {
+        padding: 7px 8px;
+    }
+
+    .rp-filtros__campos {
+        flex: 1 1 auto;
+        flex-wrap: nowrap;
+        gap: 8px;
+        justify-content: flex-end;
+        min-width: 0;
+    }
+
+    .rp-filtros__campos .rp-campo,
+    .rp-filtros__acciones {
+        flex: none;
+    }
+
+    .rp-filtros__campos .rp-campo input[type="date"] {
+        min-width: 0;
+        width: 132px;
+    }
+
+    .rp-filtros__campos .rp-campo--ancho {
+        flex: 0 1 220px;
+    }
+
+    .rp-filtros__campos .rp-campo--ancho select {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .rp-filtros__acciones .rp-boton {
+        padding-inline: 12px;
+    }
 }
 
 .rp-boton {
@@ -2338,7 +2392,8 @@ td > .rp-tenue:only-child {
 
     .rp-campo input,
     .rp-campo select,
-    .rp-campo--ancho select {
+    .rp-campo--ancho select,
+    .rp-campo--asegurador select {
         min-width: 0;
         width: 100%;
     }

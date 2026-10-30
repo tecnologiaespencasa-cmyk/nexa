@@ -178,6 +178,8 @@ public class ReportesFilterViewModel
 
     public string? Municipio { get; init; }
 
+    public string? Asegurador { get; init; }
+
     /// <summary>Solo para enlaces anteriores; se traduce a <see cref="Vista"/>.</summary>
     public string? Programa { get; init; }
 
@@ -196,6 +198,8 @@ public class ReportesFilterViewModel
 public class ReportesFilterOptionsViewModel
 {
     public IReadOnlyList<SelectListItem> Municipios { get; init; } = [];
+
+    public IReadOnlyList<SelectListItem> Aseguradores { get; init; } = [];
 
     public IReadOnlyList<SelectListItem> EstadosGestion { get; init; } = [];
 

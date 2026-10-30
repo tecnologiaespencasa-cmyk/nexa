@@ -26,6 +26,12 @@ public partial class ReportesController
             query = query.Where(x => x.MunicipioResidencia == f.Municipio);
         }
 
+        if (f.Asegurador is not null)
+        {
+            var patron = PatronAsegurador(f.Asegurador);
+            query = query.Where(x => EF.Functions.ILike(x.Asegurador, patron));
+        }
+
         var filas = await query
             .Select(x => new
             {

@@ -166,6 +166,10 @@ public partial class ReportesController : Controller
             Desde = desde,
             Hasta = hasta,
             Municipio = NormalizeText(filters.Municipio),
+            Asegurador = Aseguradores
+                .Where(x => EsIgual(filters.Asegurador, x.Valor))
+                .Select(x => (string?)x.Valor)
+                .FirstOrDefault(),
             Vista = ReportesVistas.Normalizar(filters.Vista, filters.Programa),
             EstadoGestion = NormalizeText(filters.EstadoGestion),
             EstadoCenso = NormalizeText(filters.EstadoCenso),
@@ -216,6 +220,39 @@ public partial class ReportesController : Controller
     // ==========================================================================================
     // Filtros
     // ==========================================================================================
+
+    private const string FiltroAseguradorSura = "EPS SURA";
+
+    /// <summary>
+    /// Opciones del filtro de asegurador. El dato está escrito de varias formas según el censo y la
+    /// época ("EPS SURA", "Sura EPS", "SURA"; "PAN-AMERICAN LIFE DE COLOMBIA", "PANAMERICAN LIFE"): el
+    /// patrón las reúne por la palabra, igual que <see cref="AseguradoraAgudos"/>.
+    /// </summary>
+    private static readonly (string Valor, string Etiqueta, string Patron)[] Aseguradores =
+    [
+        (FiltroAseguradorSura, "EPS SURA", "%sura%"),
+        ("PAN AMERICAN", "PAN AMERICAN", "%pan%american%"),
+        ("PARTICULAR", "PARTICULARES", "%particular%")
+    ];
+
+    private static string PatronAsegurador(string filtro) => Aseguradores.First(x => x.Valor == filtro).Patron;
+
+    /// <summary>
+    /// Crónicos y terapia ambulatoria no guardan asegurador en su censo: se lee del maestro del
+    /// paciente. Esos programas atienden a EPS Sura (el informe de activos parte de lo mismo), así que
+    /// un maestro sin asegurador cuenta como EPS Sura y solo sale de ahí quien tenga otro escrito.
+    /// </summary>
+    private static IQueryable<long> PacientesDelAsegurador(ApplicationDbContext contexto, string filtro)
+    {
+        var maestro = contexto.CensoPacientes.AsNoTracking();
+        var patron = PatronAsegurador(filtro);
+        return (filtro == FiltroAseguradorSura
+                ? maestro.Where(x => x.Asegurador == null
+                    || x.Asegurador.Trim() == string.Empty
+                    || EF.Functions.ILike(x.Asegurador, patron))
+                : maestro.Where(x => x.Asegurador != null && EF.Functions.ILike(x.Asegurador, patron)))
+            .Select(x => x.Id);
+    }
 
     private async Task<ReportesFilterOptionsViewModel> BuildFilterOptionsAsync(
         ApplicationDbContext contexto,
@@ -274,7 +311,8 @@ public partial class ReportesController : Controller
         return new ReportesFilterOptionsViewModel
         {
             Municipios = BuildSelectOptions(municipios.Select(x => (x, EtiquetaMunicipio(x))), filters.Municipio, "Todos"),
-            EstadosGestion = BuildSelectOptions([("Pendiente", "Pendiente"), ("Completa", "Completa")], filters.EstadoGestion, "Todas", ordenar: false),
+            Aseguradores = BuildSelectOptions(Aseguradores.Select(x => (x.Valor, x.Etiqueta)), filters.Asegurador, "Todos los aseguradores", ordenar: false),
+            EstadosGestion =BuildSelectOptions([("Pendiente", "Pendiente"), ("Completa", "Completa")], filters.EstadoGestion, "Todas", ordenar: false),
             EstadosCenso = BuildSelectOptions(estadosCenso.Select(x => (x, EtiquetaEstadoAgudos(x))), filters.EstadoCenso, "Todos"),
             TiposNovedad = BuildSelectOptions(categoriasPortal.Select(x => (x, EtiquetaCategoriaNovedad(x))), filters.TipoNovedad, "Todos", ordenar: false)
         };
@@ -319,6 +357,11 @@ public partial class ReportesController : Controller
             labels.Add($"Municipio: {filters.Municipio}");
         }
 
+        if (filters.Asegurador is not null)
+        {
+            labels.Add($"Asegurador: {Aseguradores.First(x => x.Valor == filters.Asegurador).Etiqueta}");
+        }
+
         if (!string.IsNullOrWhiteSpace(filters.EstadoGestion))
         {
             labels.Add($"Agudos · gestión {filters.EstadoGestion.ToLowerInvariant()}");
@@ -354,6 +397,7 @@ public partial class ReportesController : Controller
         }
 
         Agregar("Municipio", f.Municipio);
+        Agregar("Asegurador", f.Asegurador);
         Agregar("EstadoGestion", f.EstadoGestion);
         Agregar("EstadoCenso", f.EstadoCenso);
         Agregar("TipoNovedad", f.TipoNovedad);
