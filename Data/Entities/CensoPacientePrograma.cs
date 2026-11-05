@@ -63,26 +63,26 @@ public static class CensoProgramas
 
     /// <summary>
     /// Jerarquía para el informe de pacientes activos: cuando un paciente está activo en varios
-    /// programas se reporta una sola vez, con el programa de menor número. La define la operación:
-    /// 1 NPT, 2 crónicos, 3 VAC, 4 clínica de heridas, 5 agudos, 6 terapia ambulatoria.
+    /// programas se reporta una sola vez, con el programa de menor número. La define la operación
+    /// (actualizada el 2026-11-05 al entrar Cuidadores al informe): 1 NPT, 2 crónicos,
+    /// 3 cuidadores, 4 VAC, 5 clínica de heridas, 6 agudos, 7 terapia ambulatoria.
     ///
     /// <see cref="Vac"/> solo aparece en el informe: un paciente de clínica de heridas con VAC en
     /// Sí se reporta como VAC, y vuelve a reportarse como clínica de heridas en cuanto lo pasan a
     /// No, porque el informe lee el estado del momento y no guarda nada.
     ///
     /// También ordena los programas en el carril del paciente y en el navegador lateral, para que
-    /// el orden de la pantalla y el del informe sean el mismo. Cuidadores solo está aquí por ese
-    /// orden: por ahora el informe de activos no lo incluye.
+    /// el orden de la pantalla y el del informe sean el mismo.
     /// </summary>
     public static int Jerarquia(string? programa) => programa switch
     {
         Npt => 1,
         Cronicos => 2,
-        Vac => 3,
-        ClinicaHeridas => 4,
-        Agudos => 5,
-        TerapiaAmbulatoria => 6,
-        Cuidadores => 7,
+        Cuidadores => 3,
+        Vac => 4,
+        ClinicaHeridas => 5,
+        Agudos => 6,
+        TerapiaAmbulatoria => 7,
         _ => 99
     };
 

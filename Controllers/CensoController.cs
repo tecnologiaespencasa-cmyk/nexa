@@ -2596,6 +2596,30 @@ public partial class CensoController : Controller
             })
             .ToListAsync(cancellationToken);
 
+        // Cuidadores (desde 2026-11-05): mismo criterio que heridas y NPT, solo el estado «Activo» y
+        // sin egreso. «Suspendido» y «Pendiente» no dejan la atención cerrada, pero el paciente no
+        // está recibiendo el servicio, así que no se reporta como activo. Su censo no guarda zona,
+        // diagnóstico ni aseguradora: se leen del maestro, y una aseguradora vacía cuenta como EPS
+        // Sura, igual que en el filtro de Reportes.
+        var cuidadores = await _context.CensoCuidadores
+            .AsNoTracking()
+            .Where(x => x.FechaEgreso == null && x.Estado == CuidadorEstados.Activo)
+            .Select(x => new CandidatoActivo
+            {
+                Programa = CensoProgramas.Cuidadores,
+                Id = x.Id,
+                FechaIngreso = x.FechaInicioAtencion ?? x.FechaReporteEps,
+                NombrePaciente = x.NombrePaciente,
+                TipoIdentificacion = x.TipoIdentificacion,
+                NumeroIdentificacion = x.NumeroIdentificacion,
+                Zona = _context.CensoPacientes.Where(p => p.Id == x.CensoPacienteId).Select(p => p.ClasificacionZonaSura).FirstOrDefault(),
+                Diagnostico = _context.CensoPacientes.Where(p => p.Id == x.CensoPacienteId).Select(p => p.DiagnosticoDescriptivo).FirstOrDefault(),
+                Asegurador = _context.CensoPacientes.Where(p => p.Id == x.CensoPacienteId).Select(p => p.Asegurador).FirstOrDefault()
+                    ?? AseguradorSura,
+                Estado = x.Estado
+            })
+            .ToListAsync(cancellationToken);
+
         // Un programa recién asignado todavía no tiene fila en su censo: el episodio nace con
         // RegistroId nulo y solo se enlaza cuando alguien guarda el formulario por primera vez. El
         // paciente ya está en el programa —se lo asignaron—, así que el informe lo reporta con los
@@ -2632,6 +2656,7 @@ public partial class CensoController : Controller
             .Concat(heridas)
             .Concat(npt)
             .Concat(terapia)
+            .Concat(cuidadores)
             .ToList();
 
         // Cuando el programa ya tiene fila guardada manda la fila: sus datos son los reales y los del
@@ -2666,14 +2691,17 @@ public partial class CensoController : Controller
                 // EPS Sura, igual que en sus consultas de arriba. Los demás la traen del maestro.
                 Asegurador = e.Programa is CensoProgramas.TerapiaAmbulatoria or CensoProgramas.Cronicos
                     ? AseguradorSura
-                    : e.Asegurador,
+                    : e.Programa == CensoProgramas.Cuidadores
+                        ? e.Asegurador ?? AseguradorSura
+                        : e.Asegurador,
                 Estado = null
             })
             .ToList();
 
         // Un paciente activo en varios programas se reporta una sola vez, con el programa de mayor
-        // jerarquía: NPT, crónicos, VAC, clínica de heridas, agudos y terapia ambulatoria en ese
-        // orden. Dentro del programa ganador se toma su atención más reciente.
+        // jerarquía (CensoProgramas.Jerarquia): NPT, crónicos, cuidadores, VAC, clínica de heridas,
+        // agudos y terapia ambulatoria en ese orden. Dentro del programa ganador se toma su
+        // atención más reciente.
         var filas = conRegistro
             .Concat(pendientes)
             .GroupBy(x => x.NumeroIdentificacion, StringComparer.OrdinalIgnoreCase)
@@ -2723,6 +2751,8 @@ public partial class CensoController : Controller
     {
         CensoProgramas.Agudos => NormalizeActivePatientProgram(null, candidato.Estado),
         CensoProgramas.Cronicos => RotuloInformeCronico,
+        // En singular, como «Agudo» y «Crónico» y como lo nombra la operación.
+        CensoProgramas.Cuidadores => "Cuidador",
         _ => CensoProgramas.Nombre(candidato.Programa)
     };
 

@@ -567,21 +567,32 @@
 
     // ----- CIE-10 -----
     // El endpoint responde { found, codigo, diagnostico }. El diagnóstico es de solo lectura:
-    // lo dicta el catálogo, no el usuario.
+    // lo dicta el catálogo, no el usuario. Esto solo lo muestra mientras se diligencia: el que
+    // decide al guardar es el servidor (ResolverDiagnosticoCie10Async), porque si alguien pulsa
+    // Guardar antes de que llegue la respuesta, aquí todavía se vería el diagnóstico anterior.
+    //
+    // Se escucha también "change" y no solo "blur": el extractor de remisión llena el código con
+    // un evento change sin pasar por el campo, y antes el diagnóstico se quedaba con el anterior.
     const cie10 = document.getElementById("codigoCie10MaestroInput");
     const diagnostico = document.getElementById("diagnosticoMaestroInput");
-    cie10?.addEventListener("blur", async () => {
+    let ultimoCie10Consultado = null;
+    const consultarDiagnostico = async () => {
         const codigo = (cie10.value || "").trim().toUpperCase();
         cie10.value = codigo;
-        if (!diagnostico) return;
+        if (!diagnostico || codigo === ultimoCie10Consultado) return;
+        ultimoCie10Consultado = codigo;
         if (!/^[A-Z][0-9]{3}$/.test(codigo)) {
             diagnostico.value = "";
             return;
         }
+        // Mientras llega la respuesta no se deja a la vista el diagnóstico del código anterior.
+        diagnostico.value = "";
         try {
             const respuesta = await fetch(`${buscarDiagnosticoCie10Url}?codigo=${encodeURIComponent(codigo)}`);
             if (!respuesta.ok) return;
             const datos = await respuesta.json();
+            // Si mientras tanto cambiaron el código, esta respuesta ya no corresponde.
+            if ((cie10.value || "").trim().toUpperCase() !== codigo) return;
             diagnostico.value = datos?.found ? datos.diagnostico : "";
             if (datos?.found) {
                 cie10.setCustomValidity("");
@@ -589,9 +600,12 @@
                 cie10.setCustomValidity("Ese código CIE10 no está en el catálogo.");
                 cie10.reportValidity();
             }
-        } catch { /* sin conexión: el usuario puede continuar y reintentar */ }
-    });
+        } catch { /* sin conexión: el servidor resuelve el diagnóstico al guardar */ }
+    };
+    cie10?.addEventListener("blur", consultarDiagnostico);
+    cie10?.addEventListener("change", consultarDiagnostico);
     cie10?.addEventListener("focus", () => cie10.setCustomValidity(""));
+    ultimoCie10Consultado = (cie10?.value || "").trim().toUpperCase();
 
     // La aplicación valida el token antifalsificación en todo POST, así que las llamadas
     // por fetch deben enviarlo en la cabecera igual que lo hacen los formularios.

@@ -182,6 +182,7 @@ public partial class CensoController
     {
         TraducirErroresDeFormato();
         NormalizarPaciente(paciente);
+        await ResolverDiagnosticoCie10Async(paciente, cancellationToken);
 
         // La dirección se valida con el mismo servicio que usa el censo de agudos, para que el
         // maestro y los programas apliquen exactamente el mismo criterio.
@@ -1568,6 +1569,54 @@ public partial class CensoController
                 nameof(CensoUnificadoViewModel.Paciente) + "." + nameof(p.FechaNacimiento),
                 "El paciente no puede nacer hoy. Ingresa la fecha real de nacimiento.");
         }
+    }
+
+    /// <summary>
+    /// El diagnóstico descriptivo lo dicta el catálogo según el código CIE10; nunca lo que llegó en el
+    /// formulario. Hasta el 2026-11-05 el maestro guardaba el texto que traía el navegador, y ese
+    /// texto solo se actualizaba cuando el campo del código perdía el foco y respondía la consulta:
+    /// quien cambiaba el código y pulsaba Guardar (o Enter) enseguida, o lo llenaba el extractor de
+    /// remisión, guardaba el código nuevo con el diagnóstico viejo, y de ahí se replicaba a agudos,
+    /// NPT y terapia. Es el mismo criterio que ya aplicaba el formulario de agudos.
+    ///
+    /// Un código que no está en el catálogo solo se rechaza si es nuevo: si es el que el paciente ya
+    /// tenía guardado se conserva con su diagnóstico, para no impedir guardar fichas antiguas.
+    /// </summary>
+    private async Task ResolverDiagnosticoCie10Async(CensoPacienteFormViewModel p, CancellationToken ct)
+    {
+        // Lo que se muestra al volver con errores es el valor resuelto aquí, no el texto enviado.
+        ModelState.Remove(nameof(CensoUnificadoViewModel.Paciente) + "." + nameof(p.DiagnosticoDescriptivo));
+
+        if (string.IsNullOrWhiteSpace(p.CodigoCie10))
+        {
+            p.DiagnosticoDescriptivo = null;
+            return;
+        }
+
+        if (_cie10Catalog.TryGetValue(p.CodigoCie10, out var diagnostico))
+        {
+            p.DiagnosticoDescriptivo = diagnostico;
+            return;
+        }
+
+        var guardado = p.PacienteId.HasValue
+            ? await _context.CensoPacientes.AsNoTracking()
+                .Where(x => x.Id == p.PacienteId.Value)
+                .Select(x => new { x.CodigoCie10, x.DiagnosticoDescriptivo })
+                .FirstOrDefaultAsync(ct)
+            : null;
+
+        if (guardado is not null
+            && string.Equals(NormalizeCie10(guardado.CodigoCie10), p.CodigoCie10, StringComparison.OrdinalIgnoreCase))
+        {
+            p.DiagnosticoDescriptivo = guardado.DiagnosticoDescriptivo;
+            return;
+        }
+
+        p.DiagnosticoDescriptivo = null;
+        ModelState.AddModelError(
+            nameof(CensoUnificadoViewModel.Paciente) + "." + nameof(p.CodigoCie10),
+            $"El código CIE10 «{p.CodigoCie10}» no está en el catálogo. Revisa el código.");
     }
 
     /// <summary>
