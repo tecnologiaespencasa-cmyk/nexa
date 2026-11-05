@@ -45,6 +45,7 @@ body.page-reportes {
     --prog-heridas: #0f9d76;
     --prog-npt: #d97400;
     --prog-terapia: #006be6;
+    --prog-cuidadores: #c2337a;
     --prog-portal: #3d5a73;
 
     /* Estado: reservado para estado, siempre con texto al lado. */
@@ -90,6 +91,7 @@ body.page-reportes {
 .rp [data-programa="CLINICA_HERIDAS"] { --prog: var(--prog-heridas); }
 .rp [data-programa="NPT"] { --prog: var(--prog-npt); }
 .rp [data-programa="TERAPIA_AMBULATORIA"] { --prog: var(--prog-terapia); }
+.rp [data-programa="CUIDADORES"] { --prog: var(--prog-cuidadores); }
 .rp [data-programa="PORTAL"] { --prog: var(--prog-portal); }
 
 .rp *,

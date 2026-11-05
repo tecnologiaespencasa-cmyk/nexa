@@ -216,6 +216,32 @@ public class CensoTabuladoService : ICensoTabuladoService
                 .ToListAsync(ct));
         }
 
+        {
+            var q = _context.CensoCuidadores.AsNoTracking();
+            if (!string.IsNullOrWhiteSpace(doc)) q = q.Where(x => x.NumeroIdentificacion == doc);
+            if (desde.HasValue) q = q.Where(x => (x.FechaInicioAtencion ?? x.FechaReporteEps) >= desde.Value);
+            if (hasta.HasValue) q = q.Where(x => (x.FechaInicioAtencion ?? x.FechaReporteEps) <= hasta.Value);
+
+            // Esta tabla no guarda los datos básicos: el tabulado los lee del maestro.
+            filas.AddRange(await q
+                .OrderByDescending(x => x.FechaInicioAtencion ?? x.FechaReporteEps).ThenByDescending(x => x.Id)
+                .Select(x => new CensoUnificadoTablaRowViewModel
+                {
+                    Programa = CensoProgramas.Cuidadores,
+                    RegistroId = x.Id,
+                    PacienteId = x.CensoPacienteId,
+                    NombrePaciente = x.NombrePaciente,
+                    TipoIdentificacion = x.TipoIdentificacion,
+                    NumeroIdentificacion = x.NumeroIdentificacion,
+                    FechaIngreso = x.FechaInicioAtencion ?? x.FechaReporteEps,
+                    Estado = x.Estado,
+                    Asegurador = _context.CensoPacientes.Where(p => p.Id == x.CensoPacienteId).Select(p => p.Asegurador).FirstOrDefault(),
+                    ClasificacionZonaSura = _context.CensoPacientes.Where(p => p.Id == x.CensoPacienteId).Select(p => p.ClasificacionZonaSura).FirstOrDefault(),
+                    DiagnosticoDescriptivo = _context.CensoPacientes.Where(p => p.Id == x.CensoPacienteId).Select(p => p.DiagnosticoDescriptivo).FirstOrDefault()
+                })
+                .ToListAsync(ct));
+        }
+
         // El estado abierto/cerrado sale de los episodios, que es donde vive esa noción unificada.
         var claves = filas.Select(x => x.RegistroId).Distinct().ToList();
         var episodios = await _context.CensoPacienteProgramas
@@ -297,6 +323,11 @@ public class CensoTabuladoService : ICensoTabuladoService
             case CensoProgramas.TerapiaAmbulatoria:
                 model.TipoDetalle = typeof(CensoTerapiaAmbulatoriaRecord);
                 model.RegistrosDetalle = (await _context.CensoTerapiasAmbulatorias.AsNoTracking()
+                    .Where(x => ids.Contains(x.Id)).ToListAsync(ct)).Cast<object>().ToList();
+                break;
+            case CensoProgramas.Cuidadores:
+                model.TipoDetalle = typeof(CensoCuidadorRecord);
+                model.RegistrosDetalle = (await _context.CensoCuidadores.AsNoTracking()
                     .Where(x => ids.Contains(x.Id)).ToListAsync(ct)).Cast<object>().ToList();
                 break;
         }

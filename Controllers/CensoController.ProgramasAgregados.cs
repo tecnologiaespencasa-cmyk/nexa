@@ -26,6 +26,7 @@ public partial class CensoController
         CensoProgramas.ClinicaHeridas => "Clínica de heridas",
         CensoProgramas.Npt => "NPT",
         CensoProgramas.TerapiaAmbulatoria => "Terapia ambulatoria",
+        CensoProgramas.Cuidadores => "Cuidadores",
         _ => programa
     };
 
@@ -93,6 +94,15 @@ public partial class CensoController
         abiertos.AddRange(terapia
             .Where(x => !CensoPacienteService.EsTerapiaCerrada(x.EstadoPaciente))
             .Select(x => (Doc(x.NumeroIdentificacion), x.CensoPacienteId, CensoProgramas.TerapiaAmbulatoria, true)));
+
+        var cuidadores = await contexto.CensoCuidadores.AsNoTracking()
+            .Where(x => docs.Contains(x.NumeroIdentificacion.Trim().ToUpper())
+                || (x.CensoPacienteId != null && ids.Contains(x.CensoPacienteId.Value)))
+            .Select(x => new { x.NumeroIdentificacion, x.CensoPacienteId, x.Estado, x.FechaEgreso })
+            .ToListAsync(ct);
+        abiertos.AddRange(cuidadores
+            .Where(x => !CensoPacienteService.EsCuidadorCerrado(x.Estado, x.FechaEgreso))
+            .Select(x => (Doc(x.NumeroIdentificacion), x.CensoPacienteId, CensoProgramas.Cuidadores, true)));
 
         // Programa asignado en el carril que todavía no tiene formulario guardado.
         var pendientes = await contexto.CensoPacienteProgramas.AsNoTracking()

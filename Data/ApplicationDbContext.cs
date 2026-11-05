@@ -25,6 +25,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<CensoNptKardexAdjunto> CensoNptKardexAdjuntos => Set<CensoNptKardexAdjunto>();
     public DbSet<CensoNptRecord> CensoNpt => Set<CensoNptRecord>();
+    public DbSet<CensoCuidadorRecord> CensoCuidadores => Set<CensoCuidadorRecord>();
     public DbSet<CensoCronicoRecord> CensoCronicos => Set<CensoCronicoRecord>();
     public DbSet<CensoCronicoAgudizacion> CensoCronicoAgudizaciones => Set<CensoCronicoAgudizacion>();
     public DbSet<CensoCronicoAgudizacionAdjunto> CensoCronicoAgudizacionAdjuntos => Set<CensoCronicoAgudizacionAdjunto>();
@@ -527,6 +528,36 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(x => x.NumeroIdentificacion);
             entity.HasIndex(x => x.FechaIngresoPrograma);
             entity.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<CensoCuidadorRecord>(entity =>
+        {
+            entity.ToTable("censo_cuidadores");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.CensoPacienteId);
+            entity.HasIndex(x => x.NumeroIdentificacion);
+            entity.Property(x => x.TipoIdentificacion).HasMaxLength(3).IsRequired();
+            entity.Property(x => x.NumeroIdentificacion).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.NombrePaciente).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.FechaReporteEps).HasColumnType("date");
+            entity.Property(x => x.FechaInicioAtencion).HasColumnType("date");
+            entity.Property(x => x.NombreResponsable).HasMaxLength(200);
+            entity.Property(x => x.ParentescoResponsable).HasMaxLength(80);
+            entity.Property(x => x.TelefonoResponsable).HasMaxLength(10);
+            entity.Property(x => x.DireccionResponsable).HasMaxLength(300);
+            entity.Property(x => x.DiasAtencion).HasMaxLength(80);
+            entity.Property(x => x.Horario).HasMaxLength(20);
+            entity.Property(x => x.FechaCertificacionDependencia).HasColumnType("date");
+            entity.Property(x => x.FechaVencimientoCertificado).HasColumnType("date");
+            entity.Property(x => x.Observacion).HasMaxLength(2000);
+            entity.Property(x => x.VerificacionDerechos).HasMaxLength(2000);
+            entity.Property(x => x.FechaVerificacionDerechos).HasColumnType("date");
+            entity.Property(x => x.AuxiliarAsignado).HasMaxLength(200);
+            entity.Property(x => x.Estado).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.FechaEgreso).HasColumnType("date");
+            entity.Property(x => x.MotivoEgreso).HasMaxLength(500);
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
+            entity.Property(x => x.UpdatedAtUtc).HasColumnType("timestamp with time zone");
         });
 
         modelBuilder.Entity<CensoNptRecord>(entity =>

@@ -13,6 +13,7 @@ public static class CensoProgramas
     public const string ClinicaHeridas = "CLINICA_HERIDAS";
     public const string Npt = "NPT";
     public const string TerapiaAmbulatoria = "TERAPIA_AMBULATORIA";
+    public const string Cuidadores = "CUIDADORES";
 
     /// <summary>
     /// VAC no es un programa que se agregue al paciente: es un estado del censo de clínica de
@@ -28,7 +29,8 @@ public static class CensoProgramas
         Cronicos,
         ClinicaHeridas,
         Npt,
-        TerapiaAmbulatoria
+        TerapiaAmbulatoria,
+        Cuidadores
     ];
 
     public static bool EsValido(string? programa) =>
@@ -42,6 +44,7 @@ public static class CensoProgramas
         ClinicaHeridas => "Clínica de heridas",
         Npt => "NPT",
         TerapiaAmbulatoria => "Terapia ambulatoria",
+        Cuidadores => "Cuidadores",
         _ => programa ?? string.Empty
     };
 
@@ -54,6 +57,7 @@ public static class CensoProgramas
         ClinicaHeridas => "Heridas",
         Npt => "NPT",
         TerapiaAmbulatoria => "Terapia",
+        Cuidadores => "Cuidadores",
         _ => programa ?? string.Empty
     };
 
@@ -67,7 +71,8 @@ public static class CensoProgramas
     /// No, porque el informe lee el estado del momento y no guarda nada.
     ///
     /// También ordena los programas en el carril del paciente y en el navegador lateral, para que
-    /// el orden de la pantalla y el del informe sean el mismo.
+    /// el orden de la pantalla y el del informe sean el mismo. Cuidadores solo está aquí por ese
+    /// orden: por ahora el informe de activos no lo incluye.
     /// </summary>
     public static int Jerarquia(string? programa) => programa switch
     {
@@ -77,6 +82,7 @@ public static class CensoProgramas
         ClinicaHeridas => 4,
         Agudos => 5,
         TerapiaAmbulatoria => 6,
+        Cuidadores => 7,
         _ => 99
     };
 
@@ -104,12 +110,19 @@ public static class CensoProgramas
     ///
     /// Terapia ambulatoria es exclusiva con **todo**, incluidos los adicionales: es una
     /// modalidad ambulatoria completa, no una atención que se sume a un domiciliario.
+    ///
+    /// Cuidadores es adicional, pero de los programas base solo convive con crónicos: va solo o
+    /// junto a crónicos, nunca con agudos (ni con terapia, por la regla anterior).
     /// </summary>
     public static bool SonExcluyentes(string? a, string? b) =>
         a is not null
         && b is not null
         && !string.Equals(a, b, StringComparison.Ordinal)
-        && (a == TerapiaAmbulatoria || b == TerapiaAmbulatoria || (EsBase(a) && EsBase(b)));
+        && (a == TerapiaAmbulatoria
+            || b == TerapiaAmbulatoria
+            || (EsBase(a) && EsBase(b))
+            || (a == Cuidadores && b == Agudos)
+            || (a == Agudos && b == Cuidadores));
 
     /// <summary>
     /// De los programas abiertos del paciente, el primero que impide abrir <paramref name="programa"/>.

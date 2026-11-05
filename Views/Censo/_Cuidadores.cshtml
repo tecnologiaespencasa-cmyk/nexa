@@ -1,0 +1,341 @@
+@model CensoCuidadorViewModel
+@using Nexa.Data.Entities
+@*
+    Programa Cuidadores dentro de la pantalla única del censo.
+
+    Cada sección es su propio formulario y solo envía sus campos: la acción de cada una escribe
+    únicamente lo suyo. Los ids llevan el prefijo "cuidador" porque los programas conviven en un
+    mismo documento y varios tienen campos que se llaman igual (Estado, FechaEgreso, Observacion).
+    Los datos básicos no se piden aquí: son los del maestro.
+*@
+@{
+    var tieneRegistro = Model.EditingRecordId.HasValue;
+    Func<object?, object?> Obligatorio = _ => Html.Raw("<span class=\"censo-required\" aria-hidden=\"true\">*</span>");
+}
+
+<div class="tab-content">
+    <div class="tab-pane fade" id="tab-cuidadores-recepcion" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <div class="censo-card-heading">
+                    <span class="censo-card-heading__eyebrow">Cuidadores</span>
+                    <h2 class="h5 mb-0">Recepción del ingreso</h2>
+                </div>
+            </div>
+            <div class="card-body">
+                <form asp-action="GuardarCuidadoresRecepcion" asp-controller="Censo" method="post" class="censo-form-shell">
+                    <input type="hidden" name="EditingRecordId" value="@Model.EditingRecordId" />
+                    <input type="hidden" name="CedulaFiltro" value="@Model.CedulaFiltro" />
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger censo-validation-summary mb-4" role="alert"></div>
+
+                    <section class="censo-field-section">
+                        <div class="row g-3 censo-field-section__grid">
+                            <div class="col-lg-4">
+                                <label class="form-label" for="cuidadorFechaReporte">Fecha de reporte por parte de la EPS</label>@Obligatorio(null)
+                                <input asp-for="FechaReporteEps" id="cuidadorFechaReporte" type="date" class="form-control"
+                                       max="@DateTime.Today.ToString("yyyy-MM-dd")" data-cuidador-fecha="reporte" />
+                                <span asp-validation-for="FechaReporteEps" class="text-danger"></span>
+                            </div>
+                            <div class="col-lg-4">
+                                <label class="form-label" for="cuidadorFechaInicio">Fecha de inicio de atención</label>
+                                <input asp-for="FechaInicioAtencion" id="cuidadorFechaInicio" type="date" class="form-control"
+                                       data-cuidador-fecha="inicio" />
+                                <span asp-validation-for="FechaInicioAtencion" class="text-danger"></span>
+                            </div>
+                            @* Un resultado, no algo que se escriba: se muestra como el tiempo de respuesta
+                               de las demás recepciones. *@
+                            <div class="col-lg-4">
+                                <span class="form-label d-block">Oportunidad de inicio</span>
+                                <p class="censo-recepcion__indicador" aria-live="polite">
+                                    <span class="censo-recepcion__cifra @(Model.OportunidadInicioDias.HasValue ? null : "censo-recepcion__cifra--vacia")" data-cuidador-oportunidad>
+                                        @(Model.OportunidadInicioDias?.ToString() ?? "—")
+                                    </span>
+                                    <span class="censo-recepcion__unidad" data-cuidador-oportunidad-unidad hidden="@(!Model.OportunidadInicioDias.HasValue)">días</span>
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="censo-form-actions censo-form-actions--inline">
+                        <button type="submit" class="btn btn-primary censo-save-button">
+                            <span>Guardar recepción</span>
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="tab-cuidadores-responsable" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <div class="censo-card-heading">
+                    <span class="censo-card-heading__eyebrow">Cuidadores</span>
+                    <h2 class="h5 mb-0">Responsable</h2>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (!tieneRegistro)
+                {
+                    <div class="alert alert-warning mb-0">Guarda primero la recepción del ingreso para registrar el responsable.</div>
+                }
+                else
+                {
+                    <form asp-action="GuardarCuidadoresResponsable" asp-controller="Censo" method="post" class="censo-form-shell">
+                        <input type="hidden" name="EditingRecordId" value="@Model.EditingRecordId" />
+                        <input type="hidden" name="CedulaFiltro" value="@Model.CedulaFiltro" />
+
+                        <section class="censo-field-section">
+                            <div class="row g-3 censo-field-section__grid">
+                                <div class="col-lg-5">
+                                    <label class="form-label" for="cuidadorNombreResponsable">Nombre del responsable</label>
+                                    <input asp-for="NombreResponsable" id="cuidadorNombreResponsable" class="form-control" maxlength="200"
+                                           autocomplete="off" data-cuidador-solo-letras />
+                                    <span asp-validation-for="NombreResponsable" class="text-danger"></span>
+                                </div>
+                                <div class="col-lg-4">
+                                    <label class="form-label" for="cuidadorParentesco">Parentesco</label>
+                                    <input asp-for="ParentescoResponsable" id="cuidadorParentesco" class="form-control" maxlength="80" autocomplete="off" />
+                                    <span asp-validation-for="ParentescoResponsable" class="text-danger"></span>
+                                </div>
+                                <div class="col-lg-3">
+                                    <label class="form-label" for="cuidadorTelefono">Teléfono</label>
+                                    <input asp-for="TelefonoResponsable" id="cuidadorTelefono" class="form-control" maxlength="10"
+                                           inputmode="numeric" autocomplete="off" data-cuidador-solo-numeros />
+                                    <span asp-validation-for="TelefonoResponsable" class="text-danger"></span>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label" for="cuidadorDireccion">Dirección</label>
+                                    <input asp-for="DireccionResponsable" id="cuidadorDireccion" class="form-control" maxlength="300"
+                                           autocomplete="off" readonly="@Model.DireccionMismaDelPaciente" />
+                                    <span asp-validation-for="DireccionResponsable" class="text-danger"></span>
+                                    <div class="form-check mt-2">
+                                        <input asp-for="DireccionMismaDelPaciente" id="cuidadorDireccionMisma" class="form-check-input"
+                                               data-direccion-paciente="@Model.DireccionPaciente" />
+                                        <label class="form-check-label" for="cuidadorDireccionMisma">Misma dirección del paciente</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <div class="censo-form-actions censo-form-actions--inline">
+                            <button type="submit" class="btn btn-primary censo-save-button">
+                                <span>Guardar responsable</span>
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+                            </button>
+                        </div>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="tab-cuidadores-plan" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <div class="censo-card-heading">
+                    <span class="censo-card-heading__eyebrow">Cuidadores</span>
+                    <h2 class="h5 mb-0">Plan de manejo</h2>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (!tieneRegistro)
+                {
+                    <div class="alert alert-warning mb-0">Guarda primero la recepción del ingreso para registrar el plan de manejo.</div>
+                }
+                else
+                {
+                    <form asp-action="GuardarCuidadoresPlan" asp-controller="Censo" method="post" class="censo-form-shell">
+                        <input type="hidden" name="EditingRecordId" value="@Model.EditingRecordId" />
+                        <input type="hidden" name="CedulaFiltro" value="@Model.CedulaFiltro" />
+
+                        <section class="censo-field-section">
+                            <div class="censo-field-section__header">
+                                <h3>Atención del cuidador</h3>
+                            </div>
+                            <div class="row g-3 censo-field-section__grid">
+                                <div class="col-lg-3">
+                                    <label class="form-label" for="cuidadorHoras">Tiempo de cuidador (horas al día)</label>
+                                    <input asp-for="TiempoCuidadorHorasDia" id="cuidadorHoras" type="number" class="form-control" min="1" max="24" step="1" inputmode="numeric" />
+                                    <span asp-validation-for="TiempoCuidadorHorasDia" class="text-danger"></span>
+                                </div>
+                                <div class="col-lg-3">
+                                    <label class="form-label" for="cuidadorHorario">Horario</label>
+                                    <select asp-for="Horario" id="cuidadorHorario" asp-items="Model.HorarioOptions" class="form-select">
+                                        <option value="">Selecciona...</option>
+                                    </select>
+                                    <span asp-validation-for="Horario" class="text-danger"></span>
+                                </div>
+                                <div class="col-12">
+                                    <div>
+                                    <span class="form-label d-block" id="cuidadorDiasEtiqueta">Días de atención</span>
+                                    <div class="censo-dias" role="group" aria-labelledby="cuidadorDiasEtiqueta">
+                                        @foreach (var dia in Model.DiasSemanaOptions)
+                                        {
+                                            <label class="censo-dia">
+                                                <input type="checkbox" name="DiasAtencion" value="@dia"
+                                                       @(Model.DiasAtencion.Contains(dia, StringComparer.OrdinalIgnoreCase) ? "checked" : null) />
+                                                <span>@dia</span>
+                                            </label>
+                                        }
+                                    </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="censo-field-section">
+                            <div class="censo-field-section__header">
+                                <h3>Programa de permanentes</h3>
+                            </div>
+                            <div class="row g-3 censo-field-section__grid">
+                                @* Se leen de Programa crónicos cada vez que se abre la ficha: no se
+                                   escriben ni se guardan aquí. *@
+                                <div class="col-lg-6">
+                                    <div>
+                                        <span class="form-label d-block">¿Está en programa permanentes?</span>
+                                        <p class="censo-cuidador-dato">@(Model.EnProgramaPermanentes ? "Sí" : "No")</p>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div>
+                                        <span class="form-label d-block">Fecha de ingreso a permanente</span>
+                                        <p class="censo-cuidador-dato">@(Model.FechaIngresoPermanentes?.ToString("dd/MM/yyyy") ?? "—")</p>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <p class="censo-cuidador-nota">Se toman de Programa crónicos.</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="censo-field-section">
+                            <div class="censo-field-section__header">
+                                <h3>Dependencia funcional</h3>
+                            </div>
+                            <div class="row g-3 censo-field-section__grid">
+                                <div class="col-lg-6">
+                                    <label class="form-label" for="cuidadorBarthel">Escala de Barthel</label>
+                                    <input asp-for="EscalaBarthel" id="cuidadorBarthel" type="number" class="form-control" min="0" max="100" step="1" inputmode="numeric" />
+                                    <span asp-validation-for="EscalaBarthel" class="text-danger"></span>
+                                </div>
+                                <div class="col-lg-6">
+                                    <label class="form-label" for="cuidadorFechaCertificacion">Fecha de certificación de dependencia funcional</label>
+                                    <input asp-for="FechaCertificacionDependencia" id="cuidadorFechaCertificacion" type="date" class="form-control" />
+                                    <span asp-validation-for="FechaCertificacionDependencia" class="text-danger"></span>
+                                </div>
+                                <div class="col-lg-6">
+                                    <label class="form-label" for="cuidadorMeses">Tiempo de ordenamiento (meses)</label>
+                                    <input asp-for="TiempoOrdenamientoMeses" id="cuidadorMeses" type="number" class="form-control" min="0" step="1" inputmode="numeric" />
+                                    <span asp-validation-for="TiempoOrdenamientoMeses" class="text-danger"></span>
+                                </div>
+                                <div class="col-lg-6">
+                                    <label class="form-label" for="cuidadorFechaVencimiento">Fecha de vencimiento del certificado de dependencia</label>
+                                    <input asp-for="FechaVencimientoCertificado" id="cuidadorFechaVencimiento" type="date" class="form-control" />
+                                    <span asp-validation-for="FechaVencimientoCertificado" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="censo-field-section">
+                            <div class="censo-field-section__header">
+                                <h3>Seguimiento</h3>
+                            </div>
+                            <div class="row g-3 censo-field-section__grid">
+                                <div class="col-lg-8">
+                                    <label class="form-label" for="cuidadorVerificacion">Verificación de derechos</label>
+                                    <textarea asp-for="VerificacionDerechos" id="cuidadorVerificacion" class="form-control" rows="2" maxlength="2000"></textarea>
+                                    <span asp-validation-for="VerificacionDerechos" class="text-danger"></span>
+                                </div>
+                                <div class="col-lg-4">
+                                    <label class="form-label" for="cuidadorFechaVerificacion">Fecha de verificación de derechos</label>
+                                    <input asp-for="FechaVerificacionDerechos" id="cuidadorFechaVerificacion" type="date" class="form-control" />
+                                    <span asp-validation-for="FechaVerificacionDerechos" class="text-danger"></span>
+                                </div>
+                                <div class="col-lg-8">
+                                    <label class="form-label" for="cuidadorObservacion">Observación</label>
+                                    <textarea asp-for="Observacion" id="cuidadorObservacion" class="form-control" rows="3" maxlength="2000"></textarea>
+                                    <span asp-validation-for="Observacion" class="text-danger"></span>
+                                </div>
+                                <div class="col-lg-4">
+                                    <label class="form-label" for="cuidadorAuxiliar">Auxiliar asignado</label>
+                                    <input asp-for="AuxiliarAsignado" id="cuidadorAuxiliar" class="form-control" maxlength="200"
+                                           list="cuidadorAuxiliarOptions" autocomplete="off" placeholder="Buscar auxiliar asignado" />
+                                    <datalist id="cuidadorAuxiliarOptions">
+                                        @foreach (var auxiliar in Model.AuxiliarEnfermeriaOptions.Where(x => !string.IsNullOrWhiteSpace(x.Value)))
+                                        {
+                                            <option value="@auxiliar.Value">@auxiliar.Text</option>
+                                        }
+                                    </datalist>
+                                    <span asp-validation-for="AuxiliarAsignado" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </section>
+
+                        <div class="censo-form-actions censo-form-actions--inline">
+                            <button type="submit" class="btn btn-primary censo-save-button">
+                                <span>Guardar plan de manejo</span>
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+                            </button>
+                        </div>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="tab-cuidadores-estado" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <div class="censo-card-heading">
+                    <span class="censo-card-heading__eyebrow">Cuidadores</span>
+                    <h2 class="h5 mb-0">Estado</h2>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (!tieneRegistro)
+                {
+                    <div class="alert alert-warning mb-0">Guarda primero la recepción del ingreso para registrar el estado.</div>
+                }
+                else
+                {
+                    <form asp-action="GuardarCuidadoresEstado" asp-controller="Censo" method="post" class="censo-form-shell">
+                        <input type="hidden" name="EditingRecordId" value="@Model.EditingRecordId" />
+                        <input type="hidden" name="CedulaFiltro" value="@Model.CedulaFiltro" />
+
+                        <section class="censo-field-section">
+                            <div class="row g-3 censo-field-section__grid">
+                                <div class="col-lg-4">
+                                    <label class="form-label" for="cuidadorEstado">Estado en programa</label>@Obligatorio(null)
+                                    <select asp-for="Estado" id="cuidadorEstado" asp-items="Model.EstadoOptions" class="form-select"></select>
+                                    <span asp-validation-for="Estado" class="text-danger"></span>
+                                </div>
+                                <div class="col-lg-4">
+                                    <label class="form-label" for="cuidadorFechaEgreso">Fecha de egreso</label>
+                                    <input asp-for="FechaEgreso" id="cuidadorFechaEgreso" type="date" class="form-control" />
+                                    <span asp-validation-for="FechaEgreso" class="text-danger"></span>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label" for="cuidadorMotivoEgreso">Motivo de egreso o cancelación</label>
+                                    <textarea asp-for="MotivoEgreso" id="cuidadorMotivoEgreso" class="form-control" rows="2" maxlength="500"></textarea>
+                                    <span asp-validation-for="MotivoEgreso" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <p class="censo-cuidador-nota mt-3 mb-0">
+                                La atención se cierra al quedar «Cancelado» o al registrar la fecha de egreso, y pasa a ser de solo lectura.
+                            </p>
+                        </section>
+
+                        <div class="censo-form-actions censo-form-actions--inline">
+                            <button type="submit" class="btn btn-primary censo-save-button">
+                                <span>Guardar estado</span>
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+                            </button>
+                        </div>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</div>

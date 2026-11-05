@@ -503,7 +503,34 @@
         if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) anios -= 1;
         edad.value = Math.max(0, anios);
     };
-    fechaNacimiento?.addEventListener("change", calcularEdad);
+
+    // Edades en que se expide cada documento. Se avisa apenas se elige la fecha o el tipo; quien
+    // impide guardar es el servidor (RangosEdadPorDocumento en CensoController.Unificado.cs, que
+    // debe decir lo mismo).
+    const rangosEdadPorDocumento = {
+        RC: { desde: 0, hasta: 6, nombre: "registro civil (RC)", requisito: "6 años o menos" },
+        TI: { desde: 7, hasta: 17, nombre: "tarjeta de identidad (TI)", requisito: "entre 7 y 17 años" },
+        CC: { desde: 18, hasta: null, nombre: "cédula de ciudadanía (CC)", requisito: "18 años o más" }
+    };
+    const avisoEdadDocumento = document.getElementById("edadDocumentoAviso");
+    const revisarEdadSegunDocumento = () => {
+        if (!avisoEdadDocumento) return;
+        const rango = rangosEdadPorDocumento[String(tipoIdentificacionMaestro?.value || "").trim().toUpperCase()];
+        const conFecha = Boolean(fechaNacimiento?.value) && edad && edad.value !== "";
+        const anios = Number(edad?.value);
+        const fuera = rango && conFecha
+            && (anios < rango.desde || (rango.hasta !== null && anios > rango.hasta));
+        avisoEdadDocumento.hidden = !fuera;
+        if (fuera) {
+            avisoEdadDocumento.textContent = `Con ${rango.nombre} el paciente debe tener ${rango.requisito}.`;
+        }
+    };
+
+    fechaNacimiento?.addEventListener("change", () => {
+        calcularEdad();
+        revisarEdadSegunDocumento();
+    });
+    tipoIdentificacionMaestro?.addEventListener("change", revisarEdadSegunDocumento);
 
     // ----- Indicador de tiempo de respuesta -----
     // Hay una recepción por programa abierto, así que esto se engancha por formulario y no
@@ -877,6 +904,7 @@
     });
 
     calcularEdad();
+    revisarEdadSegunDocumento();
 
     // Los formularios de programa llegan desde parciales, sin panel marcado como activo:
     // el que se abre lo decide esta pantalla, con la seccion pedida por URL o la primera

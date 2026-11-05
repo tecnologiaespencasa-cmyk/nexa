@@ -116,6 +116,15 @@ public partial class CensoController
                 nombre = await q.OrderByDescending(x => x.Id).Select(x => x.NombrePaciente).FirstOrDefaultAsync(cancellationToken);
                 break;
             }
+            case CensoProgramas.Cuidadores:
+            {
+                var q = _context.CensoCuidadores.AsNoTracking().Where(x => x.NumeroIdentificacion == doc);
+                total = await q.CountAsync(cancellationToken);
+                abiertos = await q.CountAsync(x => x.FechaEgreso == null
+                    && x.Estado != CuidadorEstados.Cancelado, cancellationToken);
+                nombre = await q.OrderByDescending(x => x.Id).Select(x => x.NombrePaciente).FirstOrDefaultAsync(cancellationToken);
+                break;
+            }
             default:
             {
                 var q = _context.CensoTerapiasAmbulatorias.AsNoTracking().Where(x => x.NumeroIdentificacion == doc);
@@ -207,6 +216,7 @@ public partial class CensoController
 
         ValidarUbicacionResuelta(paciente);
         ValidarFechaNacimiento(paciente);
+        ValidarEdadSegunDocumento(paciente);
 
         await ValidarObligatoriosPorProgramaAsync(paciente, cancellationToken);
 
@@ -605,6 +615,9 @@ public partial class CensoController
             case CensoProgramas.TerapiaAmbulatoria:
                 model.TerapiaAmbulatoria = (CensoTerapiaAmbulatoriaViewModel)submodelo;
                 break;
+            case CensoProgramas.Cuidadores:
+                model.Cuidadores = (CensoCuidadorViewModel)submodelo;
+                break;
         }
 
         return View("Index", model);
@@ -678,6 +691,9 @@ public partial class CensoController
                 x.MotivoEgreso ?? x.Estado));
         await CargarAsync(CensoProgramas.TerapiaAmbulatoria, _context.CensoTerapiasAmbulatorias,
             x => new FilaDeAtencion(x.Id, x.FechaInicio, x.FechaAlta, x.MotivoAlta ?? x.EstadoPaciente));
+        await CargarAsync(CensoProgramas.Cuidadores, _context.CensoCuidadores,
+            x => new FilaDeAtencion(x.Id, x.FechaInicioAtencion ?? x.FechaReporteEps, x.FechaEgreso,
+                x.MotivoEgreso ?? x.Estado));
 
         foreach (var programa in CensoProgramas.Todos)
         {
@@ -977,6 +993,18 @@ public partial class CensoController
             await PopulateTerapiaAmbulatoriaAdjuntosAsync(terapia, ct);
             AplicarMaestroAModeloTerapia(terapia, paciente);
             model.TerapiaAmbulatoria = terapia;
+        }
+
+        if (seleccionadas.TryGetValue(CensoProgramas.Cuidadores, out var atencionCuidadores))
+        {
+            var cuidadores = new CensoCuidadorViewModel { CedulaFiltro = doc };
+            var registro = await BuscarRegistroAsync(_context.CensoCuidadores, atencionCuidadores.RegistroId, ct);
+            if (registro is not null)
+            {
+                ApplyCuidadorRecordToModel(cuidadores, registro);
+            }
+            await PopulateCuidadorModelAsync(cuidadores, paciente, ct);
+            model.Cuidadores = cuidadores;
         }
     }
 
@@ -1540,6 +1568,55 @@ public partial class CensoController
                 nameof(CensoUnificadoViewModel.Paciente) + "." + nameof(p.FechaNacimiento),
                 "El paciente no puede nacer hoy. Ingresa la fecha real de nacimiento.");
         }
+    }
+
+    /// <summary>
+    /// Edades en que la Registraduría expide cada documento: registro civil de 0 a 6 años, tarjeta
+    /// de identidad de 7 a 17 y cédula de ciudadanía desde los 18. Un paciente fuera de su rango es
+    /// un error de digitación: casi siempre la fecha de nacimiento que quedó en el valor de partida
+    /// (CC con edad 0) o el tipo mal elegido (RC de un adulto). Cédula de extranjería, pasaporte, PE
+    /// y PPT se expiden a cualquier edad útil y no tienen rango. Pedido el 2026-11-05.
+    ///
+    /// Debe coincidir con rangosEdadPorDocumento de censo-unificado.js, que avisa en pantalla.
+    /// </summary>
+    private static readonly Dictionary<string, (int Desde, int? Hasta, string Nombre)> RangosEdadPorDocumento =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["RC"] = (0, 6, "registro civil (RC)"),
+            ["TI"] = (7, 17, "tarjeta de identidad (TI)"),
+            ["CC"] = (18, null, "cédula de ciudadanía (CC)")
+        };
+
+    /// <summary>
+    /// La edad se calcula aquí desde la fecha, sin creer el campo Edad que manda el formulario.
+    /// Solo se revisa al guardar los datos básicos: un paciente antiguo con este error se corrige
+    /// la próxima vez que alguien guarde su ficha, no se bloquea nada más.
+    /// </summary>
+    private void ValidarEdadSegunDocumento(CensoPacienteFormViewModel p)
+    {
+        var hoy = GetColombiaNow().Date;
+        if (string.IsNullOrWhiteSpace(p.TipoIdentificacion)
+            || !RangosEdadPorDocumento.TryGetValue(p.TipoIdentificacion.Trim(), out var rango)
+            || p.FechaNacimiento.Date >= hoy)
+        {
+            return;
+        }
+
+        var edad = CalculateAge(p.FechaNacimiento, hoy);
+        if (edad >= rango.Desde && (rango.Hasta is null || edad <= rango.Hasta))
+        {
+            return;
+        }
+
+        var requisito = rango.Hasta is null
+            ? $"{rango.Desde} años o más"
+            : rango.Desde == 0
+                ? $"{rango.Hasta} años o menos"
+                : $"entre {rango.Desde} y {rango.Hasta} años";
+        ModelState.AddModelError(
+            nameof(CensoUnificadoViewModel.Paciente) + "." + nameof(p.FechaNacimiento),
+            $"Con {rango.Nombre} el paciente debe tener {requisito} (según la fecha de nacimiento tiene {edad}). "
+            + "Corrige la fecha de nacimiento o el tipo de identificación.");
     }
 
     private string UsuarioActual() =>

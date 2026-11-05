@@ -69,7 +69,13 @@ public sealed class CensoAtencionCerradaFilter(ApplicationDbContext context) : I
 
             // Terapia ambulatoria: ninguna de sus secciones sobrevive al alta.
             ["GuardarTerapiaAmbulatoriaProrroga"] = (CensoProgramas.TerapiaAmbulatoria, "tab-terapia-prorroga"),
-            ["GuardarTerapiaAmbulatoriaGestionAlta"] = (CensoProgramas.TerapiaAmbulatoria, "tab-terapia-gestion-alta")
+            ["GuardarTerapiaAmbulatoriaGestionAlta"] = (CensoProgramas.TerapiaAmbulatoria, "tab-terapia-gestion-alta"),
+
+            // Cuidadores: ninguna de sus secciones sobrevive al cierre.
+            ["GuardarCuidadoresRecepcion"] = (CensoProgramas.Cuidadores, "tab-cuidadores-recepcion"),
+            ["GuardarCuidadoresResponsable"] = (CensoProgramas.Cuidadores, "tab-cuidadores-responsable"),
+            ["GuardarCuidadoresPlan"] = (CensoProgramas.Cuidadores, "tab-cuidadores-plan"),
+            ["GuardarCuidadoresEstado"] = (CensoProgramas.Cuidadores, "tab-cuidadores-estado")
         };
 
     public async Task OnActionExecutionAsync(ActionExecutingContext ctx, ActionExecutionDelegate next)
@@ -118,8 +124,10 @@ public sealed class CensoAtencionCerradaFilter(ApplicationDbContext context) : I
         {
             controlador.TempData["ErrorMessage"] =
                 $"«{seccion?.Titulo ?? "Esta sección"}» no se puede modificar en una atención dada de alta. "
-                + "Lo que sí se puede registrar después del alta es la devolución de productos, "
-                + "el activo fijo y los seguimientos de hospitalización.";
+                + (destino.Programa == CensoProgramas.Cuidadores
+                    ? "Reabre la atención si necesitas corregirla."
+                    : "Lo que sí se puede registrar después del alta es la devolución de productos, "
+                      + "el activo fijo y los seguimientos de hospitalización.");
         }
 
         var documento = ctx.ActionArguments.Values

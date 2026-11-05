@@ -472,6 +472,9 @@ public class CensoPacienteService : ICensoPacienteService
                     case CensoProgramas.TerapiaAmbulatoria:
                         await ReplicarTerapiaAsync(paciente, registroId, cancellationToken);
                         break;
+                    case CensoProgramas.Cuidadores:
+                        await ReplicarCuidadoresAsync(paciente, registroId, cancellationToken);
+                        break;
                 }
             }
 
@@ -677,6 +680,30 @@ public class CensoPacienteService : ICensoPacienteService
         r.UpdatedAtUtc = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Cuidadores solo copia identificación y nombre; lo demás lo lee del maestro. La dirección del
+    /// responsable sigue a la del paciente mientras tenga marcada «Misma dirección del paciente».
+    /// </summary>
+    private async Task ReplicarCuidadoresAsync(CensoPaciente p, long registroId, CancellationToken ct)
+    {
+        var r = await _context.CensoCuidadores.FirstOrDefaultAsync(x => x.Id == registroId, ct);
+        if (r is null)
+        {
+            return;
+        }
+
+        r.CensoPacienteId = p.Id;
+        r.NombrePaciente = Preferir(p.NombrePaciente, r.NombrePaciente);
+        r.TipoIdentificacion = Preferir(p.TipoIdentificacion, r.TipoIdentificacion);
+        r.NumeroIdentificacion = Preferir(p.NumeroIdentificacion, r.NumeroIdentificacion);
+        if (r.DireccionMismaDelPaciente)
+        {
+            r.DireccionResponsable = p.Direccion;
+        }
+
+        r.UpdatedAtUtc = DateTime.UtcNow;
+    }
+
     private async Task ReplicarTerapiaAsync(CensoPaciente p, long registroId, CancellationToken ct)
     {
         var r = await _context.CensoTerapiasAmbulatorias.FirstOrDefaultAsync(x => x.Id == registroId, ct);
@@ -819,6 +846,16 @@ public class CensoPacienteService : ICensoPacienteService
                 var cerrado = EsTerapiaCerrada(fila.EstadoPaciente);
                 Conciliar(episodios, pacienteId, CensoProgramas.TerapiaAmbulatoria, fila.Id, cerrado,
                     fila.MotivoAlta ?? fila.EstadoPaciente);
+            }
+
+            var cuidadores = await _context.CensoCuidadores
+                .Where(x => x.CensoPacienteId == pacienteId || x.NumeroIdentificacion.ToUpper() == doc)
+                .Select(x => new { x.Id, x.Estado, x.FechaEgreso, x.MotivoEgreso })
+                .ToListAsync(cancellationToken);
+            foreach (var fila in cuidadores)
+            {
+                Conciliar(episodios, pacienteId, CensoProgramas.Cuidadores, fila.Id,
+                    EsCuidadorCerrado(fila.Estado, fila.FechaEgreso), fila.MotivoEgreso ?? fila.Estado);
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -1064,6 +1101,26 @@ public class CensoPacienteService : ICensoPacienteService
     public static bool CronicoEgresadoPeroActivo(string? estadoPaciente, DateTime? fechaEgreso) =>
         CensoVisibility.HayEgreso(fechaEgreso)
         && !string.Equals(estadoPaciente, "Inactivo", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Cuidadores: se cierra con el egreso o al cancelarse. «Suspendido» y «Pendiente» no cierran:
+    /// el paciente sigue en el programa y la atención se puede seguir diligenciando.
+    /// </summary>
+    public static bool EsCuidadorCerrado(string? estado, DateTime? fechaEgreso) =>
+        CensoVisibility.HayEgreso(fechaEgreso)
+        || string.Equals(estado, CuidadorEstados.Cancelado, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Registrar un egreso cierra la atención, y una atención cerrada es de solo lectura: si el
+    /// estado se quedara en «Activo» o «Pendiente» diría lo contrario de lo que pasó, sin forma de
+    /// corregirlo (lo que ocurrió en clínica de heridas con CE 125957). «Suspendido» se respeta.
+    /// </summary>
+    public static string? EstadoCuidadorAlRegistrarEgreso(string? estado, DateTime? fechaEgreso) =>
+        CensoVisibility.HayEgreso(fechaEgreso)
+        && (string.Equals(estado, CuidadorEstados.Activo, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(estado, CuidadorEstados.Pendiente, StringComparison.OrdinalIgnoreCase))
+            ? CuidadorEstados.Cancelado
+            : estado;
 
     /// <summary>
     /// Terapia ambulatoria: se cierra cuando el paciente sale de "Activo". El censo tuvo además un

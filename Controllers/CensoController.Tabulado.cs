@@ -93,6 +93,8 @@ public partial class CensoController
                     .ToListAsync(cancellationToken);
                 return ExportarPorReflexion(registros, "NPT", "censo_npt");
             }
+            case CensoProgramas.Cuidadores:
+                return await ExportarCuidadoresExcel(cedulaPaciente, cancellationToken);
             default:
                 // Sin programa no hay exportable: el que bajaba "todos los programas" con las
                 // trece columnas nucleo se retiro porque no era la informacion completa de

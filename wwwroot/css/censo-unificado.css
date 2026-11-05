@@ -35,6 +35,8 @@
   --prog-npt-soft: rgba(217, 116, 0, 0.1);
   --prog-terapia: #006be6;
   --prog-terapia-soft: rgba(0, 107, 230, 0.1);
+  --prog-cuidadores: #c2337a;
+  --prog-cuidadores-soft: rgba(194, 51, 122, 0.1);
 }
 
 /* El matiz activo se hereda: cada bloque marcado con data-programa lo fija una
@@ -63,6 +65,11 @@
 [data-programa="TERAPIA_AMBULATORIA"] {
   --prog: var(--prog-terapia);
   --prog-soft: var(--prog-terapia-soft);
+}
+
+[data-programa="CUIDADORES"] {
+  --prog: var(--prog-cuidadores);
+  --prog-soft: var(--prog-cuidadores-soft);
 }
 
 /* --------------------------------------------------------------------------
@@ -1892,4 +1899,78 @@ button.censo-programa--agregable:focus-visible .censo-programa__mas {
     grid-row: auto;
     margin-block-start: 0.35rem;
   }
+}
+
+/* --------------------------------------------------------------------------
+   Programa Cuidadores
+   Los días de atención son una semana que se marca de un vistazo: siete
+   casillas reales con forma de ficha, en el color del programa.
+   -------------------------------------------------------------------------- */
+
+.censo-dias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.censo-dia {
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+}
+
+.censo-dia input {
+  position: absolute;
+  opacity: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.censo-dia span {
+  display: block;
+  min-inline-size: 6rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid #d7dfea;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: var(--censo-ink-soft);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: center;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.censo-dia input:checked + span {
+  border-color: var(--prog, var(--rojo));
+  background: var(--prog-soft, transparent);
+  color: var(--prog, var(--rojo));
+}
+
+.censo-dia input:focus-visible + span {
+  outline: 2px solid var(--prog, var(--rojo));
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .censo-dia span {
+    transition: none;
+  }
+}
+
+/* Dato que el sistema trae de otro programa: se lee, no se escribe. */
+.censo-cuidador-dato {
+  margin: 0;
+  padding-block-start: 0.35rem;
+  color: var(--prog, var(--rojo));
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.censo-cuidador-nota {
+  margin: 0;
+  color: var(--censo-ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }

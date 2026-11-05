@@ -383,6 +383,8 @@ public class CensoUnificadoViewModel
 
     public CensoTerapiaAmbulatoriaViewModel? TerapiaAmbulatoria { get; set; }
 
+    public CensoCuidadorViewModel? Cuidadores { get; set; }
+
     /// <summary>Programa cuya pestaña se abre al cargar.</summary>
     public string? ProgramaActivo { get; set; }
 

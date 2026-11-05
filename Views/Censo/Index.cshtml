@@ -378,6 +378,10 @@ else
                                         <input asp-for="Paciente.FechaNacimiento" type="date" class="form-control"
                                                id="fechaNacimientoMaestroInput" max="@DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd")" />
                                         <span asp-validation-for="Paciente.FechaNacimiento" class="text-danger"></span>
+                                        @* Aviso inmediato; el que bloquea es ValidarEdadSegunDocumento en el servidor. *@
+                                        @* Sin .d-block: esa clase lleva display:block !important y anula el atributo
+                                           hidden, con lo que el aviso no se ocultaba nunca. *@
+                                        <div class="text-danger small" id="edadDocumentoAviso" role="alert" hidden></div>
                                     </div>
                                     <div class="col-lg-2">
                                         <label asp-for="Paciente.Edad" class="form-label"></label>
@@ -634,6 +638,14 @@ else
                 <partial name="_TerapiaAmbulatoria" model="Model.TerapiaAmbulatoria" />
             </div>
 }
+@* Cuidadores no usa la recepción compartida: la suya es otra y va dentro de su propio parcial. *@
+@if (Model.Cuidadores is not null)
+{
+            <div data-programa="@CensoProgramas.Cuidadores"
+                 data-solo-lectura="@(Model.EsSoloLectura(CensoProgramas.Cuidadores) ? "true" : null)">
+                <partial name="_Cuidadores" model="Model.Cuidadores" />
+            </div>
+}
         </div>
 
         @* El tabulado se consulta en Reportes. Aqui solo quedan los informes y exportables que se
@@ -778,6 +790,10 @@ else
 @if (Model.TerapiaAmbulatoria is not null)
 {
     <partial name="_TerapiaAmbulatoriaScripts" model="Model.TerapiaAmbulatoria" />
+}
+@if (Model.Cuidadores is not null)
+{
+    <script src="~/js/censo/cuidadores.js" asp-append-version="true"></script>
 }
     @* Valores del servidor para wwwroot/js/censo/censo-unificado.js. El resto del script es estático
        y el navegador lo guarda en caché. *@

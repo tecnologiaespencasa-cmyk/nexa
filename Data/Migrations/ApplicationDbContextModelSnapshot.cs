@@ -1267,6 +1267,122 @@ namespace Nexa.Data.Migrations
                     b.ToTable("censo_cronicos", (string)null);
                 });
 
+            modelBuilder.Entity("Nexa.Data.Entities.CensoCuidadorRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AuxiliarAsignado")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<long?>("CensoPacienteId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DiasAtencion")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<bool>("DireccionMismaDelPaciente")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("DireccionResponsable")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int?>("EscalaBarthel")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("FechaCertificacionDependencia")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaEgreso")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaInicioAtencion")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("FechaReporteEps")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaVencimientoCertificado")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FechaVerificacionDerechos")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Horario")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("MotivoEgreso")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("NombrePaciente")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NombreResponsable")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NumeroIdentificacion")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Observacion")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("ParentescoResponsable")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("TelefonoResponsable")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int?>("TiempoCuidadorHorasDia")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TiempoOrdenamientoMeses")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TipoIdentificacion")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VerificacionDerechos")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CensoPacienteId");
+
+                    b.HasIndex("NumeroIdentificacion");
+
+                    b.ToTable("censo_cuidadores", (string)null);
+                });
+
             modelBuilder.Entity("Nexa.Data.Entities.CensoKardexReaperturaSolicitud", b =>
                 {
                     b.Property<long>("Id")

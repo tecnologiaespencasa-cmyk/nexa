@@ -120,6 +120,20 @@ public static class CensoProgramaSecciones
             "Alta del paciente y motivo.")
     ];
 
+    // Su recepción no es la compartida: no llega por correo sino por reporte de la EPS, y vive en la
+    // fila del programa. Por eso no usa Recepcion(prefijo).
+    private static readonly IReadOnlyList<CensoSeccion> Cuidadores =
+    [
+        new("tab-cuidadores-recepcion", "Recepción", "Recepción del ingreso",
+            "Reporte de la EPS, inicio de la atención y oportunidad."),
+        new("tab-cuidadores-responsable", "Responsable", "Responsable",
+            "Quién responde por el paciente y cómo ubicarlo."),
+        new("tab-cuidadores-plan", "Plan", "Plan de manejo",
+            "Horas, días, certificación de dependencia y auxiliar."),
+        new("tab-cuidadores-estado", "Estado", "Estado",
+            "Estado en el programa y egreso.")
+    ];
+
     public static IReadOnlyList<CensoSeccion> De(string? programa) => programa switch
     {
         CensoProgramas.Agudos => Agudos,
@@ -127,6 +141,7 @@ public static class CensoProgramaSecciones
         CensoProgramas.ClinicaHeridas => ClinicaHeridas,
         CensoProgramas.Npt => Npt,
         CensoProgramas.TerapiaAmbulatoria => TerapiaAmbulatoria,
+        CensoProgramas.Cuidadores => Cuidadores,
         _ => []
     };
 
@@ -174,7 +189,7 @@ public static class CensoProgramaSecciones
         "tab-npt-seguimiento-hospitalizado",
         "tab-npt-devolucion-productos"
 
-        // Terapia ambulatoria no tiene ninguna: sus tres secciones son la atención misma.
+        // Terapia ambulatoria y Cuidadores no tienen ninguna: sus secciones son la atención misma.
     };
 
     /// <summary>

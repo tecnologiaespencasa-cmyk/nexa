@@ -199,6 +199,18 @@ public partial class CensoController
                 return $"Alta retirada (era «{antes}»), estado: «Activo»";
             }
 
+            case CensoProgramas.Cuidadores:
+            {
+                var r = await _context.CensoCuidadores.FirstOrDefaultAsync(x => x.Id == registroId, ct);
+                if (r is null) { return null; }
+                var antes = r.MotivoEgreso ?? r.Estado;
+                r.Estado = CuidadorEstados.Activo;
+                r.FechaEgreso = null;
+                r.MotivoEgreso = null;
+                r.UpdatedAtUtc = DateTime.UtcNow;
+                return $"Egreso retirado (era «{antes}»), estado: «Activo»";
+            }
+
             default:
                 return null;
         }
