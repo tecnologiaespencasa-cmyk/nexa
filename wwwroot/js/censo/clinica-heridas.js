@@ -11,21 +11,15 @@
 
     // Id del registro abierto: sin el no hay requisiciones que pedir.
     const recordIdActual = NexaCenso.clinicaHeridas.recordIdActual;
-    const validarDireccionUrl = NexaCenso.clinicaHeridas.validarDireccionUrl;
     const buscarBarriosUrl = NexaCenso.clinicaHeridas.buscarBarriosUrl;
-    const defaultsMunicipioUrl = NexaCenso.clinicaHeridas.defaultsMunicipioUrl;
     const buscarDiagnosticoCie10Url = NexaCenso.clinicaHeridas.buscarDiagnosticoCie10Url;
     const buscarPacienteOtrosCensosUrl = NexaCenso.clinicaHeridas.buscarPacienteOtrosCensosUrl;
     const form = document.getElementById("clinicaHeridasForm");
-    const csrfTokenInput = form?.querySelector("input[name='__RequestVerificationToken']");
     const direccionInput = document.getElementById("direccionInput");
-    const validarDireccionBtn = document.getElementById("validarDireccionBtn");
-    const limpiarDireccionBtn = document.getElementById("limpiarDireccionBtn");
     const asumirDireccionCheck = document.getElementById("asumirDireccionErradaCheck");
     const direccionEsValidaInput = document.getElementById("heridasDireccionEsValidaInput");
     const direccionMessage = document.getElementById("direccionValidacionMensaje");
     const direccionServerMessage = document.getElementById("direccionValidacionServerMensaje");
-    const usarSugerenciaServerBtn = document.getElementById("usarSugerenciaDireccionBtnServer");
     const municipioSelect = document.getElementById("municipioResidenciaSelect");
     const clasificacionSelect = document.getElementById("clasificacionZonaSuraSelect");
     const barrioSelect = document.getElementById("barrioSelect");
@@ -54,18 +48,10 @@
         }))
         .filter((option) => option.value.length > 0);
     let direccionValidada = NexaCenso.clinicaHeridas.direccionValidada;
-    let latestAddressCandidates = [];
     let barriosLoaded = barrioSelect
         ? Array.from(barrioSelect.options).map((option) => (option.value || "").trim()).filter((value) => !!value)
         : [];
     let lastValidationDistrict = "";
-
-    const escapeHtml = (value) => String(value || "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
 
     const shouldUppercaseControl = (control) => {
         if (!control || control.disabled || control.readOnly) {
@@ -229,13 +215,6 @@
         if (direccionServerMessage) direccionServerMessage.remove();
     };
 
-    const setDireccionMessage = (type, html) => {
-        if (!direccionMessage) return;
-        direccionMessage.className = `alert alert-${type} mt-2`;
-        direccionMessage.innerHTML = html;
-        direccionMessage.classList.remove("d-none");
-    };
-
     const clearDireccionMessage = () => {
         if (!direccionMessage) return;
         direccionMessage.className = "alert d-none mt-2";
@@ -299,26 +278,6 @@
         syncSelectPlaceholderState(barrioSelect);
     };
 
-    const applyMunicipalityDefaults = async (municipio, barrio, district) => {
-        if (!municipio) return;
-
-        try {
-            const url = new URL(defaultsMunicipioUrl, window.location.origin);
-            url.searchParams.set("municipio", municipio);
-            if (barrio) url.searchParams.set("barrio", barrio);
-            if (district) url.searchParams.set("district", district);
-            if (direccionInput?.value) url.searchParams.set("direccion", direccionInput.value);
-
-            const response = await fetch(url);
-            if (!response.ok) return;
-
-            const data = await response.json();
-            setSelectValue(clasificacionSelect, data.clasificacionZonaSura);
-            setSelectValue(zonaSelect, data.zonaDireccionSegunMunicipio);
-        } catch {
-        }
-    };
-
     const loadBarriosByMunicipio = async (municipio, term, selectedBarrio, preserveCurrentSelection = true) => {
         if (!municipio) {
             barriosLoaded = [];
@@ -342,219 +301,6 @@
             setBarrioOptions([], "", false);
         }
     };
-
-    const clearAddressDerivedFields = () => {
-        lastValidationDistrict = "";
-        barriosLoaded = [];
-        setBarrioOptions([], "", false);
-        setSelectValue(clasificacionSelect, "");
-        setSelectValue(municipioSelect, "");
-        setSelectValue(zonaSelect, "");
-        if (asumirDireccionCheck) asumirDireccionCheck.checked = false;
-    };
-
-    const clearAllAddressData = () => {
-        if (direccionInput) direccionInput.value = "";
-        setDireccionValidada(false);
-        latestAddressCandidates = [];
-        clearAddressDerivedFields();
-        clearDireccionMessage();
-        clearServerDireccionMessage();
-    };
-
-    const applyAddressCandidate = async (candidate) => {
-        if (!candidate) return;
-
-        const selectedMunicipality = candidate.municipality || "";
-        const selectedNeighborhood = (candidate.neighborhood || candidate.district || "").trim();
-        lastValidationDistrict = candidate.district || "";
-
-        if (direccionInput && candidate.formattedAddress && !asumirDireccionCheck?.checked) {
-            direccionInput.value = candidate.formattedAddress;
-        }
-
-        if (municipioSelect) {
-            const hasOption = selectedMunicipality
-                ? Array.from(municipioSelect.options).some((x) => x.value === selectedMunicipality)
-                : false;
-            municipioSelect.value = hasOption ? selectedMunicipality : "";
-        }
-
-        await applyMunicipalityDefaults(selectedMunicipality, selectedNeighborhood, lastValidationDistrict);
-        await loadBarriosByMunicipio(selectedMunicipality, selectedNeighborhood || "a", selectedNeighborhood, false);
-
-        if (barrioSelect) {
-            setBarrioOptions(barriosLoaded, selectedNeighborhood, false);
-        }
-
-        setSelectValue(zonaSelect, candidate.zonaDireccionSegunMunicipio);
-        setSelectValue(clasificacionSelect, candidate.clasificacionZonaSura);
-
-        setDireccionValidada(true);
-        latestAddressCandidates = [];
-        setDireccionMessage("success", "Direccion seleccionada correctamente desde las coincidencias de Google.");
-    };
-
-    const renderAddressCandidates = (candidates, message) => {
-        const safeCandidates = (candidates || []).filter((x) => !!x && !!x.formattedAddress);
-        latestAddressCandidates = safeCandidates;
-
-        if (safeCandidates.length === 0) return false;
-
-        const optionsHtml = safeCandidates
-            .map((candidate, index) => {
-                const municipio = candidate.municipality ? ` (${escapeHtml(candidate.municipality)})` : "";
-                return `<button type="button" class="btn btn-sm btn-outline-secondary d-block text-start w-100 mb-1 js-direccion-candidate" data-index="${index}">${escapeHtml(candidate.formattedAddress)}${municipio}</button>`;
-            })
-            .join("");
-
-        setDireccionMessage(
-            "warning",
-            `${escapeHtml(message || "Selecciona la direccion correcta antes de continuar:")}<div class="mt-2">${optionsHtml}</div>`);
-
-        document.querySelectorAll(".js-direccion-candidate").forEach((button) => {
-            button.addEventListener("click", async () => {
-                const index = Number(button.getAttribute("data-index"));
-                if (!Number.isFinite(index) || index < 0 || index >= latestAddressCandidates.length) return;
-                await applyAddressCandidate(latestAddressCandidates[index]);
-            });
-        });
-
-        return true;
-    };
-
-    if (validarDireccionBtn && direccionInput && csrfTokenInput) {
-        validarDireccionBtn.addEventListener("click", async () => {
-            if (!direccionInput.value.trim()) {
-                setDireccionMessage("warning", "Debes escribir una dirección para validarla.");
-                return;
-            }
-
-            validarDireccionBtn.disabled = true;
-            clearDireccionMessage();
-            clearServerDireccionMessage();
-            try {
-                const response = await fetch(validarDireccionUrl, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "RequestVerificationToken": csrfTokenInput.value
-                    },
-                    body: JSON.stringify({ direccion: direccionInput.value.trim() })
-                });
-                if (!response.ok) {
-                    throw new Error("No se pudo validar la dirección.");
-                }
-
-                const data = await response.json();
-                setDireccionValidada(data.isValid === true);
-                latestAddressCandidates = [];
-
-                const shouldClearDerivedData = data.outcome === "invalid" || data.outcome === "unavailable";
-                const hasAddressCandidates = data.requiresSelection === true
-                    && Array.isArray(data.candidates)
-                    && data.candidates.length > 0;
-                const suggestedBarrio = (data.neighborhood || data.district || "").trim();
-
-                if (shouldClearDerivedData) {
-                    clearAddressDerivedFields();
-                }
-
-                if (!shouldClearDerivedData && hasAddressCandidates) {
-                    clearAddressDerivedFields();
-                    setDireccionValidada(false);
-                    renderAddressCandidates(data.candidates, data.message);
-                    return;
-                }
-
-                if (!shouldClearDerivedData && municipioSelect && data.municipality) {
-                    const hasOption = Array.from(municipioSelect.options).some((x) => x.value === data.municipality);
-                    if (hasOption) {
-                        if (barrioSelect) barrioSelect.value = "";
-                        municipioSelect.value = data.municipality;
-                        syncSelectPlaceholderState(municipioSelect);
-                        lastValidationDistrict = data.district || "";
-                        await applyMunicipalityDefaults(data.municipality, suggestedBarrio, lastValidationDistrict);
-                        await loadBarriosByMunicipio(data.municipality, suggestedBarrio || "a", suggestedBarrio, false);
-                    }
-                }
-
-                if (!shouldClearDerivedData && barrioSelect) {
-                    setBarrioOptions(barriosLoaded, suggestedBarrio, false);
-                }
-
-                if (!shouldClearDerivedData && zonaSelect && data.zonaDireccionSegunMunicipio) {
-                    zonaSelect.value = data.zonaDireccionSegunMunicipio;
-                    syncSelectPlaceholderState(zonaSelect);
-                }
-
-                if (!shouldClearDerivedData && clasificacionSelect && data.clasificacionZonaSura) {
-                    clasificacionSelect.value = data.clasificacionZonaSura;
-                    syncSelectPlaceholderState(clasificacionSelect);
-                }
-
-                if (data.isValid) {
-                    if (data.formattedAddress && !asumirDireccionCheck?.checked) {
-                        direccionInput.value = data.formattedAddress;
-                    }
-                    setDireccionMessage("success", data.message || "Direccion validada correctamente.");
-                    return;
-                }
-
-                let html = data.message || "La dirección no pudo ser validada.";
-                if (data.suggestedAddress) {
-                    html += `<br/>Sugerencia: <strong>${escapeHtml(data.suggestedAddress)}</strong> <button type="button" class="btn btn-sm btn-link p-0 ms-2" id="usarSugerenciaDireccionBtnClient">Usar sugerencia</button>`;
-                }
-                setDireccionMessage("warning", html);
-                document.getElementById("usarSugerenciaDireccionBtnClient")?.addEventListener("click", (event) => {
-                    event.preventDefault();
-                    direccionInput.value = data.suggestedAddress || "";
-                    setDireccionValidada(false);
-                });
-            } catch {
-                clearAddressDerivedFields();
-                setDireccionMessage("danger", "No fue posible validar la dirección. Intenta nuevamente o marca 'Asumir dirección errada y continuar'.");
-                setDireccionValidada(false);
-            } finally {
-                validarDireccionBtn.disabled = false;
-            }
-        });
-    }
-
-    if (direccionInput) {
-        direccionInput.addEventListener("input", () => {
-            setDireccionValidada(false);
-            clearServerDireccionMessage();
-        });
-    }
-
-    if (limpiarDireccionBtn && direccionInput) {
-        limpiarDireccionBtn.addEventListener("click", () => {
-            clearAllAddressData();
-        });
-    }
-
-    usarSugerenciaServerBtn?.addEventListener("click", () => {
-        const suggested = usarSugerenciaServerBtn.previousElementSibling?.textContent || "";
-        if (direccionInput && suggested) {
-            direccionInput.value = suggested.trim();
-            setDireccionValidada(false);
-        }
-    });
-
-    municipioSelect?.addEventListener("change", async () => {
-        const municipio = municipioSelect.value || "";
-        lastValidationDistrict = "";
-        if (barrioSelect) barrioSelect.value = "";
-        await applyMunicipalityDefaults(municipio, "", "");
-        await loadBarriosByMunicipio(municipio, "a", "");
-    });
-
-    barrioSelect?.addEventListener("change", async () => {
-        const municipio = municipioSelect ? municipioSelect.value : "";
-        const barrio = barrioSelect.value || "";
-        await applyMunicipalityDefaults(municipio, barrio, lastValidationDistrict);
-    });
 
     // El código y el diagnóstico son dos campos: aquí sólo se escribe el código y el
     // descriptivo lo pone el listado de heridas, que viaja completo en el datalist. Son
@@ -1848,10 +1594,5 @@
             return;
         }
 
-        if (direccionInput?.value.trim() && !direccionValidada && !asumirDireccionCheck?.checked) {
-            event.preventDefault();
-            setDireccionMessage("warning", "Debes validar la dirección o marcar 'Asumir dirección errada y continuar'.");
-            direccionInput?.focus();
-        }
     });
 })();

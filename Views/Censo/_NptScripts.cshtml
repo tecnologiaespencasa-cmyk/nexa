@@ -74,11 +74,7 @@
     <script>
         window.NexaCenso = window.NexaCenso || {};
         window.NexaCenso.npt = {
-            validarDireccionUrl: "@Url.Action("ValidarDireccion", "Censo")",
-            buscarBarriosUrl: "@Url.Action("BuscarBarrios", "Censo")",
-            defaultsMunicipioUrl: "@Url.Action("ObtenerDefaultsMunicipio", "Censo")",
             buscarDiagnosticoCie10Url: "@Url.Action("BuscarDiagnosticoCie10", "Censo")",
-            direccionValidada: @Model.DireccionEsValida.ToString().ToLowerInvariant(),
         };
     </script>
     <script src="~/js/censo/npt.js" asp-append-version="true"></script>

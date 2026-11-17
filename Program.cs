@@ -80,7 +80,7 @@ builder.Services.AddScoped<ITelevisorCortesService, TelevisorCortesService>();
 builder.Services.AddHostedService<TelevisorCortesHostedService>();
 builder.Services.AddHostedService<AuditRetentionHostedService>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
-builder.Services.AddHttpClient<IAddressValidationService, GoogleAddressValidationService>();
+builder.Services.AddHttpClient<IAddressValidationService, OpenAiAddressValidationService>();
 builder.Services.AddHttpClient<IEmailService, GraphEmailService>();
 builder.Services.AddHttpClient<ISharePointDocumentService, SharePointDocumentService>();
 builder.Services.AddHttpClient<IRemisionExtractionService, RemisionExtractionService>();

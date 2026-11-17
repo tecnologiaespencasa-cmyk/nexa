@@ -107,10 +107,10 @@ public class HojaVidaUbicacion
     /// <summary>Urbana o rural.</summary>
     public string? Area { get; set; }
 
-    /// <summary>Google encontró la dirección cuando se registró.</summary>
+    /// <summary>La dirección se validó al registrarla (con Google hasta 2026-11-17, desde entonces con la IA).</summary>
     public bool Validada { get; set; }
 
-    /// <summary>Google no la encontró y el equipo la guardó tal como la escribió.</summary>
+    /// <summary>No se pudo validar y el equipo la guardó tal como la escribió.</summary>
     public bool SinValidar { get; set; }
 
     /// <summary>Texto con el que se busca en el mapa; null si no hay dirección.</summary>

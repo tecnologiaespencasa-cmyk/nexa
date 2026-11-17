@@ -166,7 +166,7 @@ public partial class CensoController
 
         var direccionParaGuardar = model.Direccion ?? string.Empty;
         // La dirección viene del maestro: si allí ya quedó validada (o aceptada a mano) y no cambió,
-        // no se vuelve a consultar a Google (cada consulta cuenta contra las 10.000 gratis del mes).
+        // no se vuelve a consultar al validador de direcciones (cada consulta a la IA cuesta).
         var direccionGuardada = await DireccionYaValidadaEnMaestroAsync(
             model.NumeroIdentificacion, model.Direccion, model.AsumirDireccionErrada, cancellationToken);
         if (direccionGuardada is { } decisionGuardada)
@@ -1362,7 +1362,7 @@ public partial class CensoController
 
             if (!string.IsNullOrWhiteSpace(direccionValidation.FormattedAddress))
             {
-                direccionParaGuardar = direccionValidation.FormattedAddress;
+                direccionParaGuardar = direccionValidation.FormattedAddressWithDetail!;
                 model.Direccion = direccionParaGuardar;
             }
 

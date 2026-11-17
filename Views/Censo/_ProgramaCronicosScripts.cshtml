@@ -28,12 +28,8 @@
     <script>
         window.NexaCenso = window.NexaCenso || {};
         window.NexaCenso.cronicos = {
-            validarDireccionUrl: "@Url.Action("ValidarDireccion", "Censo")",
-            buscarBarriosUrl: "@Url.Action("BuscarBarrios", "Censo")",
-            defaultsMunicipioUrl: "@Url.Action("ObtenerDefaultsMunicipio", "Censo")",
             buscarDiagnosticoCie10Url: "@Url.Action("BuscarDiagnosticoCie10", "Censo")",
             buscarGrupoPatologiaCronicaUrl: "@Url.Action("BuscarGrupoPatologiaCronica", "Censo")",
-            direccionValidada: @Model.DireccionEsValida.ToString().ToLowerInvariant(),
             guardarAgudizacionUrl: "@Url.Action("GuardarCronicoAgudizacion", "Censo")",
             obtenerAgudizacionesUrl: "@Url.Action("ObtenerCronicoAgudizaciones", "Censo")",
             cronicoRecordId: @(Model.EditingRecordId?.ToString() ?? "0"),

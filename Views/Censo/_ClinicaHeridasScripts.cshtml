@@ -36,9 +36,7 @@
         window.NexaCenso = window.NexaCenso || {};
         window.NexaCenso.clinicaHeridas = {
             recordIdActual: @(Model.EditingRecordId?.ToString() ?? "null"),
-            validarDireccionUrl: "@Url.Action("ValidarDireccion", "Censo")",
             buscarBarriosUrl: "@Url.Action("BuscarBarrios", "Censo")",
-            defaultsMunicipioUrl: "@Url.Action("ObtenerDefaultsMunicipio", "Censo")",
             buscarDiagnosticoCie10Url: "@Url.Action("BuscarDiagnosticoCie10", "Censo")",
             buscarPacienteOtrosCensosUrl: "@Url.Action("BuscarPacienteOtrosCensos", "Censo")",
             direccionValidada: @Model.DireccionEsValida.ToString().ToLowerInvariant(),

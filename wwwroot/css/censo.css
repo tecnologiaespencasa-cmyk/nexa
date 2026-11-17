@@ -990,32 +990,6 @@
   white-space: nowrap;
 }
 
-#validarDireccionBtn {
-  border-color: rgba(37, 150, 190, 1) !important;
-  background: rgba(37, 150, 190, 1) !important;
-  color: #ffffff !important;
-}
-
-#validarDireccionBtn:hover,
-#validarDireccionBtn:focus {
-  border-color: rgba(28, 130, 165, 1) !important;
-  background: rgba(28, 130, 165, 1) !important;
-  color: #ffffff !important;
-}
-
-#limpiarDireccionBtn {
-  border-color: rgb(202, 55, 23) !important;
-  background: rgb(202, 55, 23) !important;
-  color: #ffffff !important;
-}
-
-#limpiarDireccionBtn:hover,
-#limpiarDireccionBtn:focus {
-  border-color: rgb(175, 47, 19) !important;
-  background: rgb(175, 47, 19) !important;
-  color: #ffffff !important;
-}
-
 .censo-page .input-group > .btn:hover,
 .censo-page .btn-outline-secondary:hover {
   color: #5a291e;
@@ -2210,22 +2184,6 @@
   border-radius: 8px !important;
   min-height: 2.75rem;
   min-width: 8.4rem;
-}
-
-#validarDireccionBtn,
-#validarDireccionBtn:hover,
-#validarDireccionBtn:focus {
-  background: var(--censo-blue) !important;
-  border-color: var(--censo-blue) !important;
-  color: #ffffff !important;
-}
-
-#limpiarDireccionBtn,
-#limpiarDireccionBtn:hover,
-#limpiarDireccionBtn:focus {
-  background: #ffffff !important;
-  border-color: #aac5ef !important;
-  color: var(--censo-blue) !important;
 }
 
 .censo-page .form-check {

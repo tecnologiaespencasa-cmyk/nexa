@@ -613,9 +613,10 @@
         document.querySelector("input[name='__RequestVerificationToken']")?.value;
 
     // ----- Dirección -----
-    // Mismo comportamiento que tenía el censo de agudos: se valida contra el servicio de
-    // direcciones y con el resultado se completan municipio, barrio, zona Sura y zona según
-    // municipio. El endpoint espera { Direccion } y responde con el municipio canónico, el
+    // La dirección la ubica la IA (el mismo modelo de OpenAI del extractor; desde 2026-11-17 ya
+    // no se usa Google Maps). Con el resultado se completan municipio, barrio, zona Sura, zona
+    // según municipio, área (urbana o rural) y el detalle (apto, torre…) que la IA separa de la
+    // vía y la placa. El endpoint espera { Direccion } y responde con el municipio canónico, el
     // barrio sugerido, las zonas inferidas y la lista de barrios de ese municipio.
     const direccion = document.getElementById("direccionMaestroInput");
     const direccionEsValida = document.getElementById("direccionEsValidaInput");
@@ -627,6 +628,35 @@
     const zonaDireccion = document.getElementById("zonaDireccionMaestroSelect");
     const zonaSura = document.getElementById("clasificacionZonaSuraMaestroSelect");
     const asumirErrada = document.querySelector('[name="Paciente.AsumirDireccionErrada"]');
+    const detalleDireccion = document.querySelector('[name="Paciente.DetalleDireccion"]');
+    const areaDireccion = document.getElementById("areaMaestroSelect");
+
+    // Lo que la IA separa de la dirección (APTO 202, TORRE 3…) pasa al detalle. El detalle que
+    // venía guardado es de la dirección guardada, y el que puso la IA es de la dirección que se
+    // validó: si ahora se valida OTRA dirección, ese detalle se reemplaza. Lo que la persona haya
+    // escrito a mano en el detalle se conserva (y no se repite si se valida dos veces).
+    // La dirección se compara por sus tres números (vía, placa y casa): "CR 28F # 111 -148" y
+    // "CARRERA 28F # 111-148" son la misma, aunque la IA cambie la forma de escribirla.
+    const claveDireccion = (texto) => (String(texto || "").toUpperCase().match(/\d+\s*[A-Z]{0,3}\b/g) || [])
+        .slice(0, 3).map((x) => x.replace(/\s+/g, "")).join("-");
+    const direccionGuardada = claveDireccion(direccion?.value);
+    const barrioGuardado = (document.getElementById("barrioMaestroInput")?.value || "").trim();
+    let detalleReemplazable = (detalleDireccion?.value || "").trim();
+    const aplicarDetalleYArea = (datos) => {
+        const nuevo = String(datos?.detalle || "").trim();
+        if (detalleDireccion) {
+            const actual = detalleDireccion.value.trim();
+            const esOtraDireccion = claveDireccion(datos?.formattedAddress) !== direccionGuardada;
+            if (!actual || (actual === detalleReemplazable && (nuevo || esOtraDireccion))) {
+                detalleDireccion.value = nuevo;
+                detalleReemplazable = nuevo;
+            } else if (nuevo && !actual.toUpperCase().includes(nuevo.toUpperCase())) {
+                detalleDireccion.value = `${actual} ${nuevo}`.slice(0, 200);
+                detalleReemplazable = null;
+            }
+        }
+        elegirOpcion(areaDireccion, datos?.area);
+    };
 
     const mostrarMensaje = (texto, tono) => {
         if (!mensajeDireccion) return;
@@ -748,7 +778,10 @@
     // Con el municipio ya resuelto se carga SU catalogo completo de barrios, no solo los que
     // devolvio la validacion: si no, el listado se quedaba en dos o tres y no habia forma de
     // elegir otro barrio del mismo municipio.
-    const aplicarUbicacion = async (municipioDetectado, barrioDetectado) => {
+    // zonaPreferida: la que dedujo el servidor por las direcciones vecinas; manda sobre la que se
+    // calcula solo con el barrio, que en Medellín queda "No Parametrizado" si el barrio no está
+    // en su tabla.
+    const aplicarUbicacion = async (municipioDetectado, barrioDetectado, zonaPreferida) => {
         if (!municipioDetectado) { return; }
         if (!elegirOpcion(municipio, municipioDetectado)) { return; }
 
@@ -772,9 +805,50 @@
             }
         } catch { /* se conserva lo que hubiera */ }
 
-        if (barrio && barrioDetectado) {
-            barrio.value = String(barrioDetectado).toLocaleUpperCase("es-CO");
+        // El barrio de la dirección anterior no sirve para la nueva: si no se detectó otro, queda
+        // vacío para que se elija (antes se quedaba el viejo junto a la zona nueva).
+        if (barrio) {
+            barrio.value = barrioDetectado ? String(barrioDetectado).toLocaleUpperCase("es-CO") : "";
         }
+
+        if (zonaPreferida && String(zonaPreferida).trim().toUpperCase() !== "NO PARAMETRIZADO") {
+            elegirOpcion(zonaDireccion, zonaPreferida);
+        }
+    };
+
+    // Barrios de las direcciones vecinas, para elegir con un clic cuando no hay uno claro (o para
+    // cambiar el sugerido). La zona ya vino de esas mismas vecinas; solo si no hay zona se calcula
+    // por el barrio elegido.
+    const mostrarOpcionesBarrio = (opciones) => {
+        if (!mensajeDireccion || !Array.isArray(opciones) || !opciones.length || !barrio) { return; }
+        const actual = barrio.value.trim().toUpperCase();
+        const lista = [...new Set(opciones.map((x) => String(x || "").trim().toLocaleUpperCase("es-CO")))]
+            .filter((x) => x && x !== actual);
+        if (!lista.length) { return; }
+        const fila = document.createElement("div");
+        fila.className = "d-flex flex-wrap gap-1 mt-2";
+        if (actual) {
+            const otro = document.createElement("span");
+            otro.className = "small me-1 align-self-center";
+            otro.textContent = "¿Otro barrio?";
+            fila.appendChild(otro);
+        }
+        lista.forEach((nombre) => {
+            const boton = document.createElement("button");
+            boton.type = "button";
+            boton.className = "btn btn-sm btn-outline-secondary";
+            boton.textContent = nombre;
+            boton.addEventListener("click", () => {
+                barrio.value = nombre;
+                const zona = String(zonaDireccion?.value || "").trim().toUpperCase();
+                if (!zona || zona === "NO PARAMETRIZADO") { resolverZonaPorBarrio(); }
+                // Elegido el barrio, las sugerencias ya no hacen falta: queda solo la confirmación.
+                const municipioElegido = municipio?.selectedOptions?.[0]?.textContent?.trim() || municipio?.value || "";
+                mostrarMensaje(`Dirección ubicada en ${municipioElegido}, barrio ${nombre}.`, "success");
+            });
+            fila.appendChild(boton);
+        });
+        mensajeDireccion.appendChild(fila);
     };
 
     // Cuando la direccion da varias coincidencias se eligen; no se adivina por el usuario.
@@ -786,16 +860,20 @@
             const boton = document.createElement("button");
             boton.type = "button";
             boton.className = "btn btn-sm btn-outline-secondary d-block text-start w-100 mt-1";
-            boton.textContent = candidato.municipality
-                ? `${candidato.formattedAddress} (${candidato.municipality})`
+            const lugar = [candidato.neighborhood, candidato.municipality].filter(Boolean).join(", ");
+            boton.textContent = lugar
+                ? `${candidato.formattedAddress} — ${lugar}`
                 : candidato.formattedAddress;
             boton.addEventListener("click", async () => {
                 if (direccion && candidato.formattedAddress) {
                     direccion.value = candidato.formattedAddress;
+                    aplicarDetalleYArea(candidato);
                 }
+                if (asumirErrada) { asumirErrada.checked = false; }
                 await aplicarUbicacion(
                     candidato.municipality,
-                    (candidato.neighborhood || candidato.district || "").trim());
+                    (candidato.neighborhood || candidato.district || "").trim(),
+                    candidato.zonaDireccionSegunMunicipio);
                 if (direccionEsValida) { direccionEsValida.value = "true"; }
                 mostrarMensaje("Direccion seleccionada correctamente.", "success");
             });
@@ -813,7 +891,7 @@
         }
 
         if (botonValidar) { botonValidar.disabled = true; }
-        mostrarMensaje("Validando direccion...", "secondary");
+        mostrarMensaje("Ubicando la dirección…", "secondary");
 
         try {
             const respuesta = await fetch(validarDireccionUrl, {
@@ -832,7 +910,17 @@
             const datos = await respuesta.json();
             if (direccionEsValida) { direccionEsValida.value = datos.isValid ? "true" : "false"; }
 
-            const barrioDetectado = (datos.neighborhood || datos.district || "").trim();
+            // Si es la misma dirección que ya estaba guardada, manda el barrio que eligió una persona;
+            // el de las vecinas queda como opción.
+            const esLaGuardada = direccionGuardada && claveDireccion(datos.formattedAddress) === direccionGuardada;
+            const barrioDetectado = (esLaGuardada && barrioGuardado)
+                ? barrioGuardado
+                : (datos.neighborhood || datos.district || "").trim();
+            if (esLaGuardada && barrioGuardado && datos.neighborhood
+                && datos.neighborhood.toUpperCase() !== barrioGuardado.toUpperCase()) {
+                datos.barrioOpciones = [datos.neighborhood, ...(datos.barrioOpciones || [])];
+                datos.message = `Dirección ubicada en ${datos.municipality}. Se conserva el barrio guardado.`;
+            }
             const sinResolver = datos.outcome === "invalid" || datos.outcome === "unavailable";
             const hayCoincidencias = datos.requiresSelection === true
                 && Array.isArray(datos.candidates) && datos.candidates.length > 0;
@@ -848,20 +936,25 @@
             }
 
             if (!sinResolver) {
-                await aplicarUbicacion(datos.municipality, barrioDetectado);
+                await aplicarUbicacion(datos.municipality, barrioDetectado, datos.zonaDireccionSegunMunicipio);
             }
 
             if (datos.isValid) {
-                if (datos.formattedAddress && !asumirErrada?.checked && direccion) {
+                // Si la dirección se pudo ubicar, "Asumir dirección errada" ya no aplica: se
+                // desmarca y queda la dirección normalizada, con el detalle aparte.
+                if (asumirErrada) { asumirErrada.checked = false; }
+                if (datos.formattedAddress && direccion) {
                     direccion.value = datos.formattedAddress;
+                    aplicarDetalleYArea(datos);
                 }
-                mostrarMensaje(datos.message || "Direccion validada correctamente.", "success");
+                mostrarMensaje(datos.message || "Dirección validada.", "success");
+                mostrarOpcionesBarrio(datos.barrioOpciones);
                 return;
             }
 
             mostrarMensaje(
-                `${datos.message || "No se pudo confirmar la direccion."}`
-                + ' Corrige la direccion o marca "Asumir direccion errada y continuar".',
+                `${datos.message || "No se pudo ubicar la dirección."}`
+                + " Corrígela o marca «Asumir dirección errada y continuar».",
                 "warning");
 
             if (datos.suggestedAddress && direccion) {

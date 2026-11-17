@@ -40,13 +40,13 @@
     @if (Model.Validada)
     {
         <p class="hv-ubicacion__validacion hv-ubicacion__validacion--ok">
-            <i class="bi bi-patch-check-fill" aria-hidden="true"></i> Dirección validada con Google
+            <i class="bi bi-patch-check-fill" aria-hidden="true"></i> Dirección validada
         </p>
     }
     else if (Model.SinValidar)
     {
         <p class="hv-ubicacion__validacion">
-            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Google no encontró la dirección; se guardó como se escribió. El punto del mapa puede no ser exacto.
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i> La dirección no se pudo validar; se guardó como se escribió. El punto del mapa puede no ser exacto.
         </p>
     }
 

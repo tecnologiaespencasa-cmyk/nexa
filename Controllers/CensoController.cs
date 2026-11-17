@@ -1073,7 +1073,7 @@ public partial class CensoController : Controller
             && (existingAddressRecord!.DireccionValidada
                 || (existingAddressRecord.AsumirDireccionErrada && model.AsumirDireccionErrada));
         // Un registro nuevo de agudos trae la dirección del maestro: si allí ya quedó validada, no se
-        // vuelve a consultar a Google (cada consulta cuenta contra las 10.000 gratis del mes).
+        // vuelve a consultar al validador de direcciones (cada consulta a la IA cuesta).
         var decisionGuardada = canReusePersistedAddressDecision
             ? (Validada: existingAddressRecord!.DireccionValidada, Asumida: existingAddressRecord.AsumirDireccionErrada)
             : await DireccionYaValidadaEnMaestroAsync(model.NumeroIdentificacion, model.Direccion, model.AsumirDireccionErrada, cancellationToken);
@@ -2203,52 +2203,87 @@ public partial class CensoController : Controller
     {
         var direccion = request?.Direccion?.Trim() ?? string.Empty;
         var result = await _addressValidationService.ValidateAddressAsync(direccion, cancellationToken);
-        var municipioCanonical = ToCanonicalMunicipality(result.Municipality);
-        var barrioSugerido = result.Neighborhood?.Trim();
-        var districtSugerido = result.District?.Trim();
-        var barrios = !string.IsNullOrWhiteSpace(municipioCanonical)
-            ? await BuscarBarriosAsync(municipioCanonical, barrioSugerido ?? "a", cancellationToken)
-            : [];
-        var zonaInferida = !string.IsNullOrWhiteSpace(municipioCanonical)
-            ? InferZonaDireccionSegunMunicipio(municipioCanonical, barrioSugerido, districtSugerido, result.FormattedAddress)
-            : null;
-        var candidateDtos = result.Candidates
-            .Take(3)
-            .Select(candidate =>
-            {
-                var candidateMunicipio = ToCanonicalMunicipality(candidate.Municipality);
-                var candidateBarrio = candidate.Neighborhood?.Trim();
-                var candidateDistrict = candidate.District?.Trim();
-                var candidateZona = !string.IsNullOrWhiteSpace(candidateMunicipio)
-                    ? InferZonaDireccionSegunMunicipio(candidateMunicipio, candidateBarrio, candidateDistrict, candidate.FormattedAddress)
-                    : null;
+        var resuelta = result.Outcome is AddressValidationOutcome.Valid or AddressValidationOutcome.Doubtful;
 
-                return new
-                {
-                    formattedAddress = candidate.FormattedAddress,
-                    municipality = candidateMunicipio,
-                    neighborhood = candidateBarrio,
-                    district = candidateDistrict,
-                    clasificacionZonaSura = !string.IsNullOrWhiteSpace(candidateMunicipio) ? InferClasificacionZonaSura(candidateMunicipio) : null,
-                    zonaDireccionSegunMunicipio = candidateZona,
-                    isValid = candidate.IsReliable
-                };
-            })
-            .ToList();
+        // La IA interpreta la dirección y el municipio; el barrio y la zona salen de las direcciones
+        // vecinas que el censo ya tiene validadas (CensoController.Cuadricula.cs), salvo que la
+        // persona haya escrito el barrio.
+        async Task<(string? Municipio, string? Barrio, string? Zona, UbicacionVecina? Vecina)> UbicarAsync(
+            string? municipio, string? barrioEscrito, string? direccionNormalizada)
+        {
+            var canonico = ToCanonicalMunicipality(municipio);
+            if (string.IsNullOrWhiteSpace(canonico))
+            {
+                return (null, null, null, null);
+            }
+
+            var vecina = await UbicarPorVecinasAsync(canonico, direccionNormalizada, cancellationToken);
+            var barrio = string.IsNullOrWhiteSpace(barrioEscrito) ? vecina?.Barrio : barrioEscrito.Trim();
+            // En Medellín la zona sale de las vecinas, salvo que el barrio escrito ya la diga; si el
+            // barrio escrito no está en la tabla de zonas ("CENTRO"), también mandan las vecinas.
+            var zonaPorBarrio = InferZonaDireccionSegunMunicipio(canonico, barrio, null, direccionNormalizada);
+            var zona = NormalizeKey(canonico) == "MEDELLIN" && vecina?.Zona is not null
+                       && (string.IsNullOrWhiteSpace(barrioEscrito) || NormalizeKey(zonaPorBarrio) == "NOPARAMETRIZADO")
+                ? vecina.Zona
+                : zonaPorBarrio;
+            return (canonico, barrio, zona, string.IsNullOrWhiteSpace(barrioEscrito) ? vecina : null);
+        }
+
+        var principal = resuelta
+            ? await UbicarAsync(result.Municipality, result.Neighborhood, result.FormattedAddress)
+            : (null, null, null, null);
+        var barrios = !string.IsNullOrWhiteSpace(principal.Municipio)
+            ? await BuscarBarriosAsync(principal.Municipio, principal.Barrio ?? "a", cancellationToken)
+            : [];
+
+        var candidateDtos = new List<object>();
+        foreach (var candidate in result.Candidates.Take(3))
+        {
+            var ubicado = await UbicarAsync(candidate.Municipality, candidate.Neighborhood, candidate.FormattedAddress);
+            candidateDtos.Add(new
+            {
+                formattedAddress = candidate.FormattedAddress,
+                municipality = ubicado.Municipio,
+                neighborhood = ubicado.Barrio,
+                district = (string?)null,
+                clasificacionZonaSura = !string.IsNullOrWhiteSpace(ubicado.Municipio) ? InferClasificacionZonaSura(ubicado.Municipio) : null,
+                zonaDireccionSegunMunicipio = ubicado.Zona,
+                detalle = candidate.Detail,
+                area = candidate.Area,
+                isValid = candidate.IsReliable
+            });
+        }
+
+        // Mensajes cortos: lo demás ya se ve en los campos que se llenaron.
+        var mensaje = result.Message;
+        var opcionesBarrio = principal.Vecina?.Opciones ?? [];
+        if (result.Outcome == AddressValidationOutcome.Valid && principal.Municipio is not null)
+        {
+            mensaje = !string.IsNullOrWhiteSpace(principal.Barrio) && principal.Vecina is null
+                ? $"Dirección ubicada en {principal.Municipio}, barrio {principal.Barrio}."
+                : !string.IsNullOrWhiteSpace(principal.Barrio)
+                    ? $"Dirección ubicada en {principal.Municipio}. Barrio según direcciones vecinas: confírmalo."
+                    : opcionesBarrio.Count > 0
+                        ? $"Dirección ubicada en {principal.Municipio}. Elige el barrio:"
+                        : $"Dirección ubicada en {principal.Municipio}. Escribe el barrio.";
+        }
 
         return Json(new
         {
             outcome = result.Outcome.ToString().ToLowerInvariant(),
-            message = result.Message,
+            message = mensaje.Trim(),
             formattedAddress = result.FormattedAddress,
             suggestedAddress = result.SuggestedAddress,
             isValid = result.Outcome == AddressValidationOutcome.Valid,
-            municipality = municipioCanonical,
-            neighborhood = barrioSugerido,
-            district = districtSugerido,
-            clasificacionZonaSura = !string.IsNullOrWhiteSpace(municipioCanonical) ? InferClasificacionZonaSura(municipioCanonical) : null,
-            zonaDireccionSegunMunicipio = zonaInferida,
+            municipality = principal.Municipio,
+            neighborhood = principal.Barrio,
+            district = (string?)null,
+            clasificacionZonaSura = !string.IsNullOrWhiteSpace(principal.Municipio) ? InferClasificacionZonaSura(principal.Municipio) : null,
+            zonaDireccionSegunMunicipio = principal.Zona,
+            detalle = result.Detail,
+            area = result.Area,
             neighborhoodOptions = barrios,
+            barrioOpciones = opcionesBarrio,
             requiresSelection = result.RequiresSelection,
             candidates = candidateDtos
         });
@@ -5200,7 +5235,7 @@ public partial class CensoController : Controller
 
             if (!string.IsNullOrWhiteSpace(direccionValidation.FormattedAddress) && !model.AsumirDireccionErrada)
             {
-                direccionParaGuardar = direccionValidation.FormattedAddress;
+                direccionParaGuardar = direccionValidation.FormattedAddressWithDetail!;
                 model.Direccion = direccionParaGuardar;
             }
 
