@@ -15,8 +15,6 @@ public class GoogleAddressValidationService : IAddressValidationService
     private const string GeocodingBaseUrl = "https://maps.googleapis.com/maps/api/geocode/";
     private const string AntioquiaComponents = "administrative_area:Antioquia|country:CO";
     private const int SupplementalCandidateTarget = 3;
-    private const int MaxSupplementalAddressQueries = 5;
-    private static readonly TimeSpan SupplementalAddressQueryTimeout = TimeSpan.FromMilliseconds(1200);
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> StaticNeighborhoodCatalog =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
         {
@@ -158,6 +156,10 @@ public class GoogleAddressValidationService : IAddressValidationService
 
             if (!string.Equals(status, "OK", StringComparison.OrdinalIgnoreCase))
             {
+                _logger.LogWarning(
+                    "Google rechazó la validación de dirección: {Estado} {Motivo}",
+                    status,
+                    root.TryGetProperty("error_message", out var motivo) ? motivo.GetString() : null);
                 return new AddressValidationResult
                 {
                     Outcome = AddressValidationOutcome.Unavailable,
@@ -184,19 +186,12 @@ public class GoogleAddressValidationService : IAddressValidationService
                 };
             }
 
+            // Una dirección es UNA consulta a Google. Antes, si la primera respuesta no conservaba la
+            // placa, se lanzaban hasta 5 consultas más con barrios vecinos para ofrecer alternativas:
+            // con las búsquedas de barrios, el censo llegó a ~64.000 consultas en octubre de 2026
+            // (unas 67 por paciente nuevo) y Google cobra pasadas las 10.000 gratis del mes.
             var bestCandidate = candidates[0];
             var preservesHouseNumber = DoesFormattedAddressPreserveInputHouseNumber(normalizedAddress, bestCandidate.FormattedAddress);
-            if (candidates.Count < SupplementalCandidateTarget && !preservesHouseNumber)
-            {
-                candidates = await AddSupplementalAddressCandidatesAsync(
-                    normalizedAddress,
-                    apiKey,
-                    candidates,
-                    cancellationToken);
-                candidates = OrderAddressCandidatesByInputMatch(normalizedAddress, candidates);
-                bestCandidate = candidates[0];
-                preservesHouseNumber = DoesFormattedAddressPreserveInputHouseNumber(normalizedAddress, bestCandidate.FormattedAddress);
-            }
 
             if (candidates.Count > 1)
             {
@@ -326,198 +321,6 @@ public class GoogleAddressValidationService : IAddressValidationService
             .ToList();
     }
 
-    private async Task<IReadOnlyList<AddressValidationCandidate>> AddSupplementalAddressCandidatesAsync(
-        string address,
-        string apiKey,
-        IReadOnlyList<AddressValidationCandidate> currentCandidates,
-        CancellationToken cancellationToken)
-    {
-        var merged = currentCandidates.ToList();
-        var seen = new HashSet<string>(
-            merged.Select(candidate => NormalizeLookup(candidate.FormattedAddress)),
-            StringComparer.OrdinalIgnoreCase);
-
-        foreach (var query in BuildSupplementalAddressQueries(address, currentCandidates.FirstOrDefault()))
-        {
-            if (CountCandidatesPreservingInput(address, merged) >= SupplementalCandidateTarget)
-            {
-                break;
-            }
-
-            var supplementalCandidates = await SearchAddressCandidatesAsync(query, apiKey, cancellationToken);
-            foreach (var candidate in supplementalCandidates)
-            {
-                if (string.IsNullOrWhiteSpace(candidate.FormattedAddress))
-                {
-                    continue;
-                }
-
-                if (!seen.Add(NormalizeLookup(candidate.FormattedAddress)))
-                {
-                    continue;
-                }
-
-                merged.Add(candidate);
-                if (CountCandidatesPreservingInput(address, merged) >= SupplementalCandidateTarget)
-                {
-                    break;
-                }
-            }
-        }
-
-        return OrderAddressCandidatesByInputMatch(address, merged)
-            .Take(SupplementalCandidateTarget)
-            .ToList();
-    }
-
-    private async Task<IReadOnlyList<AddressValidationCandidate>> SearchAddressCandidatesAsync(
-        string query,
-        string apiKey,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var requestUri =
-                $"json?address={Uri.EscapeDataString(query)}" +
-                $"&components={Uri.EscapeDataString(AntioquiaComponents)}" +
-                $"&key={Uri.EscapeDataString(apiKey)}&language=es&region=co";
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(SupplementalAddressQueryTimeout);
-
-            using var response = await _httpClient.GetAsync(requestUri, timeoutCts.Token);
-            if (!response.IsSuccessStatusCode)
-            {
-                return [];
-            }
-
-            await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token);
-            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: timeoutCts.Token);
-            var root = document.RootElement;
-            if (!root.TryGetProperty("status", out var statusElement)
-                || !string.Equals(statusElement.GetString(), "OK", StringComparison.OrdinalIgnoreCase)
-                || !root.TryGetProperty("results", out var resultsElement)
-                || resultsElement.GetArrayLength() == 0)
-            {
-                return [];
-            }
-
-            return BuildAddressCandidates(resultsElement);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return [];
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "No se pudo consultar una direccion complementaria en Google.");
-            return [];
-        }
-    }
-
-    private IReadOnlyList<string> BuildSupplementalAddressQueries(
-        string address,
-        AddressValidationCandidate? bestCandidate)
-    {
-        var queries = new List<string>();
-        var municipality = bestCandidate?.Municipality?.Trim();
-
-        if (!string.IsNullOrWhiteSpace(bestCandidate?.Neighborhood))
-        {
-            AddNeighborhoodQuery(bestCandidate.Neighborhood);
-        }
-
-        if (!string.IsNullOrWhiteSpace(bestCandidate?.District))
-        {
-            AddNeighborhoodQuery(bestCandidate.District);
-        }
-
-        if (!string.IsNullOrWhiteSpace(municipality)
-            && _neighborhoodCatalog.TryGetValue(NormalizeLookup(municipality), out var municipalityNeighborhoods))
-        {
-            foreach (var neighborhood in PrioritizeSupplementalNeighborhoods(
-                         municipalityNeighborhoods,
-                         bestCandidate?.Neighborhood,
-                         bestCandidate?.District))
-            {
-                AddNeighborhoodQuery(neighborhood);
-            }
-        }
-
-        AddQuery(!string.IsNullOrWhiteSpace(municipality)
-            ? $"{address}, {municipality}, Antioquia, Colombia"
-            : $"{address}, Antioquia, Colombia");
-
-        return queries;
-
-        void AddNeighborhoodQuery(string? neighborhood)
-        {
-            if (string.IsNullOrWhiteSpace(neighborhood))
-            {
-                return;
-            }
-
-            AddQuery(!string.IsNullOrWhiteSpace(municipality)
-                ? $"{address} {neighborhood}, {municipality}, Antioquia, Colombia"
-                : $"{address} {neighborhood}, Antioquia, Colombia");
-        }
-
-        void AddQuery(string query)
-        {
-            if (queries.Count >= MaxSupplementalAddressQueries)
-            {
-                return;
-            }
-
-            if (queries.Any(existing => string.Equals(NormalizeLookup(existing), NormalizeLookup(query), StringComparison.Ordinal)))
-            {
-                return;
-            }
-
-            queries.Add(query);
-        }
-    }
-
-    private static IReadOnlyList<string> PrioritizeSupplementalNeighborhoods(
-        IReadOnlyList<string> municipalityNeighborhoods,
-        string? candidateNeighborhood,
-        string? candidateDistrict)
-    {
-        var selected = new List<string>();
-        var selectedKeys = new HashSet<string>(StringComparer.Ordinal);
-
-        Add(candidateNeighborhood);
-        Add(candidateDistrict);
-
-        foreach (var neighborhood in municipalityNeighborhoods)
-        {
-            if (selected.Count >= MaxSupplementalAddressQueries)
-            {
-                break;
-            }
-
-            Add(neighborhood);
-        }
-
-        return selected;
-
-        void Add(string? neighborhood)
-        {
-            if (selected.Count >= MaxSupplementalAddressQueries || string.IsNullOrWhiteSpace(neighborhood))
-            {
-                return;
-            }
-
-            var key = NormalizeLookup(neighborhood);
-            if (string.IsNullOrWhiteSpace(key) || !selectedKeys.Add(key))
-            {
-                return;
-            }
-
-            selected.Add(neighborhood.Trim());
-        }
-    }
-
     private static IReadOnlyList<AddressValidationCandidate> OrderAddressCandidatesByInputMatch(
         string address,
         IReadOnlyList<AddressValidationCandidate> candidates)
@@ -534,13 +337,6 @@ public class GoogleAddressValidationService : IAddressValidationService
         return candidates
             .Take(SupplementalCandidateTarget)
             .ToList();
-    }
-
-    private static int CountCandidatesPreservingInput(
-        string address,
-        IReadOnlyList<AddressValidationCandidate> candidates)
-    {
-        return candidates.Count(candidate => DoesFormattedAddressPreserveInputHouseNumber(address, candidate.FormattedAddress));
     }
 
     private static bool DoesFormattedAddressPreserveInputHouseNumber(string originalAddress, string formattedAddress)
@@ -641,131 +437,23 @@ public class GoogleAddressValidationService : IAddressValidationService
                || string.Equals(locationType, "RANGE_INTERPOLATED", StringComparison.OrdinalIgnoreCase);
     }
 
-    public async Task<IReadOnlyList<string>> SearchNeighborhoodsAsync(
+    /// <summary>
+    /// Barrios del catálogo local del municipio. Ya no se le preguntan a Google: eran tres consultas
+    /// por cada lista de barrios (y la ficha arma una por programa al abrirse), el grueso del cobro.
+    /// Los barrios que el censo ya tiene guardados los suma el controlador.
+    /// </summary>
+    public Task<IReadOnlyList<string>> SearchNeighborhoodsAsync(
         string municipality,
         string term,
         CancellationToken cancellationToken = default)
     {
         var municipalityNormalized = municipality?.Trim();
-        var termNormalized = term?.Trim();
         if (string.IsNullOrWhiteSpace(municipalityNormalized))
         {
-            return [];
+            return Task.FromResult<IReadOnlyList<string>>([]);
         }
 
-        var staticNeighborhoods = GetStaticNeighborhoods(municipalityNormalized, termNormalized);
-        var shouldReturnStaticOnly = !string.IsNullOrWhiteSpace(termNormalized) && termNormalized.Length <= 1;
-        if (staticNeighborhoods.Count > 0 && shouldReturnStaticOnly)
-        {
-            return staticNeighborhoods;
-        }
-
-        var apiKey = _configuration["GoogleMaps:ApiKey"]?.Trim();
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            return staticNeighborhoods;
-        }
-
-        try
-        {
-            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var queries = BuildNeighborhoodQueries(municipalityNormalized, termNormalized);
-
-            // Las tres consultas no dependen una de otra: se lanzan a la vez. Iban en fila y cada
-            // búsqueda tardaba la suma de las tres, y la ficha del paciente hace varias al abrirse.
-            // Los resultados se unen en el mismo orden de las consultas, así que la lista sale igual.
-            var porConsulta = await Task.WhenAll(queries.Select(query =>
-                ConsultarBarriosEnGoogleAsync(query, apiKey, municipalityNormalized, cancellationToken)));
-            foreach (var neighborhood in porConsulta.SelectMany(x => x))
-            {
-                set.Add(neighborhood);
-            }
-
-            if (set.Count == 0)
-            {
-                return staticNeighborhoods;
-            }
-
-            if (staticNeighborhoods.Count == 0)
-            {
-                return set.OrderBy(x => x).Take(60).ToList();
-            }
-
-            return staticNeighborhoods
-                .Concat(set)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(x => x)
-                .Take(80)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error consultando barrios por municipio en Google.");
-            return staticNeighborhoods;
-        }
-    }
-
-    /// <summary>Los barrios que devuelve Google para una consulta, en el orden en que llegan.</summary>
-    private async Task<List<string>> ConsultarBarriosEnGoogleAsync(
-        string query,
-        string apiKey,
-        string municipalityNormalized,
-        CancellationToken cancellationToken)
-    {
-        var encontrados = new List<string>();
-        var requestUri =
-            $"json?address={Uri.EscapeDataString(query)}" +
-            $"&components={Uri.EscapeDataString(AntioquiaComponents)}" +
-            $"&key={Uri.EscapeDataString(apiKey)}&language=es&region=co";
-
-        using var response = await _httpClient.GetAsync(requestUri, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            return encontrados;
-        }
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        var root = document.RootElement;
-        if (!root.TryGetProperty("status", out var statusElement)
-            || !string.Equals(statusElement.GetString(), "OK", StringComparison.OrdinalIgnoreCase))
-        {
-            return encontrados;
-        }
-
-        if (!root.TryGetProperty("results", out var resultsElement))
-        {
-            return encontrados;
-        }
-
-        foreach (var result in resultsElement.EnumerateArray())
-        {
-            if (!IsAntioquiaColombiaResult(result) || !IsMunicipalityMatch(result, municipalityNormalized))
-            {
-                continue;
-            }
-
-            var neighborhood = GetAddressComponent(result, "sublocality_level_1")
-                               ?? GetAddressComponent(result, "neighborhood")
-                               ?? GetAddressComponent(result, "sublocality");
-
-            if (string.IsNullOrWhiteSpace(neighborhood))
-            {
-                continue;
-            }
-
-            if (string.Equals(
-                NormalizeLookup(neighborhood),
-                NormalizeLookup(municipalityNormalized),
-                StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            encontrados.Add(neighborhood.Trim());
-        }
-
-        return encontrados;
+        return Task.FromResult(GetStaticNeighborhoods(municipalityNormalized, term?.Trim()));
     }
 
     private IReadOnlyList<string> GetStaticNeighborhoods(string municipality, string? term)
@@ -858,29 +546,6 @@ public class GoogleAddressValidationService : IAddressValidationService
         }
     }
 
-    private static IReadOnlyList<string> BuildNeighborhoodQueries(string municipality, string? term)
-    {
-        var normalizedTerm = term?.Trim() ?? string.Empty;
-        var broadQuery = normalizedTerm.Length <= 1;
-
-        if (broadQuery)
-        {
-            return
-            [
-                $"barrios {municipality}, Antioquia, Colombia",
-                $"barrios en {municipality}, Antioquia, Colombia",
-                $"{municipality}, Antioquia, Colombia"
-            ];
-        }
-
-        return
-        [
-            $"{normalizedTerm}, {municipality}, Antioquia, Colombia",
-            $"barrio {normalizedTerm}, {municipality}, Antioquia, Colombia",
-            $"barrios {municipality}, Antioquia, Colombia"
-        ];
-    }
-
     private static bool IsAntioquiaColombiaResult(JsonElement result)
     {
         var department = GetAddressComponent(result, "administrative_area_level_1");
@@ -896,43 +561,6 @@ public class GoogleAddressValidationService : IAddressValidationService
                          || normalizedCountryLong.Contains("COLOMBIA", StringComparison.Ordinal);
 
         return isAntioquia && isColombia;
-    }
-
-    private static bool IsMunicipalityMatch(JsonElement result, string municipality)
-    {
-        var municipalityLookup = NormalizeLookup(municipality);
-        if (string.IsNullOrWhiteSpace(municipalityLookup))
-        {
-            return false;
-        }
-
-        var candidates = new[]
-        {
-            GetAddressComponent(result, "locality"),
-            GetAddressComponent(result, "administrative_area_level_2"),
-            GetAddressComponent(result, "administrative_area_level_3"),
-            GetAddressComponent(result, "sublocality_level_1"),
-            GetAddressComponent(result, "sublocality")
-        };
-
-        foreach (var candidate in candidates)
-        {
-            if (string.Equals(NormalizeLookup(candidate), municipalityLookup, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        if (result.TryGetProperty("formatted_address", out var formattedAddressElement))
-        {
-            var formattedAddress = formattedAddressElement.GetString();
-            if (NormalizeLookup(formattedAddress).Contains(municipalityLookup, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static string NormalizeLookup(string? value)

@@ -74,7 +74,20 @@ public partial class CensoController
         ValidateTerapiaAmbulatoriaModel(model);
 
         var direccionParaGuardar = model.Direccion ?? string.Empty;
-        if (ShouldValidateTerapiaAddress(model))
+        // La dirección viene del maestro: si allí ya quedó validada (o aceptada a mano) y no cambió,
+        // no se vuelve a consultar a Google (cada consulta cuenta contra las 10.000 gratis del mes).
+        var direccionGuardada = await DireccionYaValidadaEnMaestroAsync(
+            model.NumeroIdentificacion, model.Direccion, model.AsumirDireccionErrada, cancellationToken);
+        if (direccionGuardada is { } decisionGuardada)
+        {
+            model.DireccionEsValida = decisionGuardada.Validada;
+            model.AsumirDireccionErrada = decisionGuardada.Asumida;
+            model.DireccionSugerida = null;
+            model.DireccionMensajeValidacion = decisionGuardada.Validada
+                ? "Dirección validada previamente."
+                : "Dirección aceptada manualmente.";
+        }
+        else if (ShouldValidateTerapiaAddress(model))
         {
             var direccionValidation = await _addressValidationService.ValidateAddressAsync(direccionParaGuardar, cancellationToken);
             ApplyTerapiaAddressValidationResult(model, direccionValidation, ref direccionParaGuardar);

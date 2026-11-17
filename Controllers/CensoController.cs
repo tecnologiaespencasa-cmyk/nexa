@@ -1072,11 +1072,16 @@ public partial class CensoController : Controller
         var canReusePersistedAddressDecision = addressIsUnchanged
             && (existingAddressRecord!.DireccionValidada
                 || (existingAddressRecord.AsumirDireccionErrada && model.AsumirDireccionErrada));
+        // Un registro nuevo de agudos trae la dirección del maestro: si allí ya quedó validada, no se
+        // vuelve a consultar a Google (cada consulta cuenta contra las 10.000 gratis del mes).
+        var decisionGuardada = canReusePersistedAddressDecision
+            ? (Validada: existingAddressRecord!.DireccionValidada, Asumida: existingAddressRecord.AsumirDireccionErrada)
+            : await DireccionYaValidadaEnMaestroAsync(model.NumeroIdentificacion, model.Direccion, model.AsumirDireccionErrada, cancellationToken);
 
-        if (canReusePersistedAddressDecision)
+        if (decisionGuardada is { } decision)
         {
-            model.DireccionEsValida = existingAddressRecord!.DireccionValidada;
-            model.AsumirDireccionErrada = existingAddressRecord.AsumirDireccionErrada;
+            model.DireccionEsValida = decision.Validada;
+            model.AsumirDireccionErrada = decision.Asumida;
             model.DireccionSugerida = null;
             model.DireccionMensajeValidacion = model.AsumirDireccionErrada
                 ? "Dirección aceptada manualmente."
@@ -2202,7 +2207,7 @@ public partial class CensoController : Controller
         var barrioSugerido = result.Neighborhood?.Trim();
         var districtSugerido = result.District?.Trim();
         var barrios = !string.IsNullOrWhiteSpace(municipioCanonical)
-            ? await _addressValidationService.SearchNeighborhoodsAsync(municipioCanonical, barrioSugerido ?? "a", cancellationToken)
+            ? await BuscarBarriosAsync(municipioCanonical, barrioSugerido ?? "a", cancellationToken)
             : [];
         var zonaInferida = !string.IsNullOrWhiteSpace(municipioCanonical)
             ? InferZonaDireccionSegunMunicipio(municipioCanonical, barrioSugerido, districtSugerido, result.FormattedAddress)
@@ -2259,7 +2264,7 @@ public partial class CensoController : Controller
         }
 
         var queryTerm = string.IsNullOrWhiteSpace(term) ? "a" : term.Trim();
-        var neighborhoods = await _addressValidationService.SearchNeighborhoodsAsync(municipalityCanonical, queryTerm, cancellationToken);
+        var neighborhoods = await BuscarBarriosAsync(municipalityCanonical, queryTerm, cancellationToken);
         if (neighborhoods.Count == 0)
         {
             neighborhoods = ["NO PARAMETRIZADO"];

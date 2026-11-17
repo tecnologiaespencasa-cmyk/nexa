@@ -186,7 +186,20 @@ public partial class CensoController
 
         // La dirección se valida con el mismo servicio que usa el censo de agudos, para que el
         // maestro y los programas apliquen exactamente el mismo criterio.
-        if (!string.IsNullOrWhiteSpace(paciente.Direccion))
+        // Si la dirección es la misma que ya quedó validada (o aceptada a mano) en el maestro, no se
+        // vuelve a consultar a Google: cada guardado la revalidaba aunque nadie la hubiera tocado.
+        var direccionGuardada = await DireccionYaValidadaEnMaestroAsync(
+            paciente.NumeroIdentificacion, paciente.Direccion, paciente.AsumirDireccionErrada, cancellationToken);
+        if (direccionGuardada is { } decisionGuardada)
+        {
+            paciente.DireccionEsValida = decisionGuardada.Validada;
+            paciente.AsumirDireccionErrada = decisionGuardada.Asumida;
+            paciente.DireccionSugerida = null;
+            paciente.DireccionMensajeValidacion = decisionGuardada.Validada
+                ? "Dirección validada previamente."
+                : "Dirección aceptada manualmente.";
+        }
+        else if (!string.IsNullOrWhiteSpace(paciente.Direccion))
         {
             var validacion = await _addressValidationService.ValidateAddressAsync(
                 paciente.Direccion,
