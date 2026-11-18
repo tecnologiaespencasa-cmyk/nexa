@@ -545,6 +545,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.ParentescoResponsable).HasMaxLength(80);
             entity.Property(x => x.TelefonoResponsable).HasMaxLength(10);
             entity.Property(x => x.DireccionResponsable).HasMaxLength(300);
+            entity.Property(x => x.ServicioAutorizado).HasMaxLength(30);
             entity.Property(x => x.DiasAtencion).HasMaxLength(80);
             entity.Property(x => x.Horario).HasMaxLength(20);
             entity.Property(x => x.FechaCertificacionDependencia).HasColumnType("date");
@@ -671,6 +672,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.RiesgoCaida).HasMaxLength(50);
             entity.Property(x => x.EducacionPlanCuidados).HasMaxLength(2);
             entity.Property(x => x.RequiereCuidador).HasMaxLength(2);
+            entity.Property(x => x.TipoAsistencia).HasMaxLength(30);
             entity.Property(x => x.TerapiaFisica).HasMaxLength(2);
             entity.Property(x => x.TerapiaRespiratoria).HasMaxLength(2);
             entity.Property(x => x.TerapiaOcupacional).HasMaxLength(2);

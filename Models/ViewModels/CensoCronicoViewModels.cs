@@ -151,8 +151,12 @@ public class CensoCronicoViewModel : ICensoRegistroEditable
     [Display(Name = "Educación y plan de cuidados / enfermería")]
     public string? EducacionPlanCuidados { get; set; }
 
-    [Display(Name = "Requiere cuidador")]
+    // Se llamó «Requiere cuidador» hasta 2026-11-18; la propiedad conserva el nombre de la columna.
+    [Display(Name = "Requiere asistencia")]
     public string? RequiereCuidador { get; set; }
+
+    [Display(Name = "Tipo de asistencia")]
+    public string? TipoAsistencia { get; set; }
 
     [Display(Name = "Terapia física")]
     public string? TerapiaFisica { get; set; }
@@ -318,6 +322,7 @@ public class CensoCronicoViewModel : ICensoRegistroEditable
     public IReadOnlyList<SelectListItem> MedicoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> TallaPanalesOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> EstadoMipresOptions { get; set; } = [];
+    public IReadOnlyList<SelectListItem> TipoAsistenciaOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> MotivoEgresoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> MedidaMedicamentoOptions { get; set; } = [];
     public IReadOnlyList<SelectListItem> ViaAdministracionMedicamentoOptions { get; set; } = [];

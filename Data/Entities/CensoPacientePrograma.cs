@@ -64,8 +64,12 @@ public static class CensoProgramas
     /// <summary>
     /// Jerarquía para el informe de pacientes activos: cuando un paciente está activo en varios
     /// programas se reporta una sola vez, con el programa de menor número. La define la operación
-    /// (actualizada el 2026-11-05 al entrar Cuidadores al informe): 1 NPT, 2 crónicos,
-    /// 3 cuidadores, 4 VAC, 5 clínica de heridas, 6 agudos, 7 terapia ambulatoria.
+    /// (actualizada el 2026-11-18): 1 NPT, 2 crónicos, 3 crónico con cuidador, 4 cuidadores,
+    /// 5 VAC, 6 clínica de heridas, 7 agudos, 8 terapia ambulatoria.
+    ///
+    /// El 3, «crónico con cuidador», no es un programa: es el crónico que además está activo en
+    /// Cuidadores. Por eso no tiene número aquí; lo resuelve el informe
+    /// (CensoController.ExportarPacientesActivos), que cambia el rótulo de la fila de crónicos.
     ///
     /// <see cref="Vac"/> solo aparece en el informe: un paciente de clínica de heridas con VAC en
     /// Sí se reporta como VAC, y vuelve a reportarse como clínica de heridas en cuanto lo pasan a
@@ -78,11 +82,12 @@ public static class CensoProgramas
     {
         Npt => 1,
         Cronicos => 2,
-        Cuidadores => 3,
-        Vac => 4,
-        ClinicaHeridas => 5,
-        Agudos => 6,
-        TerapiaAmbulatoria => 7,
+        // 3 = crónico con cuidador (ver arriba).
+        Cuidadores => 4,
+        Vac => 5,
+        ClinicaHeridas => 6,
+        Agudos => 7,
+        TerapiaAmbulatoria => 8,
         _ => 99
     };
 

@@ -56,6 +56,9 @@ public class CensoCuidadorViewModel : ICensoRegistroEditable
     public string? DireccionPaciente { get; set; }
 
     // ----- Plan de manejo -----
+    [Display(Name = "Servicio autorizado")]
+    public string? ServicioAutorizado { get; set; }
+
     [Display(Name = "Tiempo de cuidador (horas al día)")]
     public int? TiempoCuidadorHorasDia { get; set; }
 
@@ -126,6 +129,9 @@ public class CensoCuidadorViewModel : ICensoRegistroEditable
 
     [BindNever]
     public IReadOnlyList<SelectListItem> HorarioOptions { get; set; } = [];
+
+    [BindNever]
+    public IReadOnlyList<SelectListItem> ServicioAutorizadoOptions { get; set; } = [];
 
     [BindNever]
     public IReadOnlyList<SelectListItem> EstadoOptions { get; set; } = [];

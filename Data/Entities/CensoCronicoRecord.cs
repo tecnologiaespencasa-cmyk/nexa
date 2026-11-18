@@ -118,8 +118,16 @@ public class CensoCronicoRecord
     [StringLength(2)]
     public string? EducacionPlanCuidados { get; set; }
 
+    /// <summary>
+    /// «Requiere asistencia» en pantalla y en el exportable (hasta 2026-11-18 se llamó «Requiere
+    /// cuidador»; la columna conserva su nombre para no mover datos). Sí/No.
+    /// </summary>
     [StringLength(2)]
     public string? RequiereCuidador { get; set; }
+
+    /// <summary>Con «Requiere asistencia» en Sí: <see cref="ServiciosAsistencia"/> (Cuidador o Auxiliar de enfermería).</summary>
+    [StringLength(30)]
+    public string? TipoAsistencia { get; set; }
 
     [StringLength(2)]
     public string? TerapiaFisica { get; set; }

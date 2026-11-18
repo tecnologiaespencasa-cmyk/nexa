@@ -302,7 +302,7 @@ public partial class HojaVidaPacienteService
 
         ingreso.Servicios = Servicios(
             (EsSi(r.EducacionPlanCuidados), "Educación en plan de cuidados", null),
-            (EsSi(r.RequiereCuidador), "Requiere cuidador", null),
+            (EsSi(r.RequiereCuidador), "Requiere asistencia", r.TipoAsistencia),
             (EsSi(r.TerapiaFisica), "Terapia física", null),
             (EsSi(r.TerapiaRespiratoria), "Terapia respiratoria", null),
             (EsSi(r.TerapiaOcupacional), "Terapia ocupacional", null),

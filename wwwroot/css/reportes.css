@@ -202,7 +202,7 @@ body.page-reportes {
 .rp-fichas {
     display: grid;
     gap: 10px;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .rp-unicos {
@@ -826,7 +826,7 @@ body.page-reportes {
 .rp-resumen {
     display: grid;
     gap: 10px 0;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     list-style: none;
     margin: 0;
     padding: 0;
@@ -2015,6 +2015,7 @@ body.page-reportes {
 .rp-tono--n2 { background: var(--rp-n2); }
 .rp-tono--n3 { background: var(--rp-n3); }
 .rp-tono--n4 { background: var(--rp-n4); }
+.rp-tono--critico { background: var(--rp-critico); }
 
 /* --------------------------------------------------------------------------
    Tablas y listas
@@ -2205,6 +2206,106 @@ td > .rp-tenue:only-child {
     color: var(--rp-ok-tinta);
 }
 
+.rp-etiqueta--alerta {
+    background: var(--rp-alerta-fondo);
+    border-color: var(--rp-alerta-linea);
+    color: var(--rp-alerta-tinta);
+}
+
+.rp-etiqueta--critico {
+    background: var(--rp-critico-fondo);
+    border-color: var(--rp-critico-linea);
+    color: var(--rp-critico-tinta);
+}
+
+.rp-certificados {
+    margin-top: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   La semana del cuidado (cuidadores): una columna por día, de lunes a domingo,
+   con las horas de cuidado que suman los activos que ese día reciben al
+   cuidador. Es la carga de la semana para repartir el personal; el fin de
+   semana va sobre fondo gris, como en los demás gráficos por día.
+   -------------------------------------------------------------------------- */
+.rp-semana {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.rp-semana li {
+    border-radius: 10px;
+    display: grid;
+    grid-template-rows: auto 160px auto auto;
+    justify-items: center;
+    min-width: 0;
+    padding: 8px 4px 10px;
+    text-align: center;
+}
+
+.rp-semana li.is-finde {
+    background: var(--rp-finde);
+}
+
+.rp-semana__horas {
+    color: var(--rp-tinta-3);
+    font-size: 0.76rem;
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+
+.rp-semana__horas strong {
+    color: var(--rp-tinta);
+    font-family: var(--rp-f-titulo);
+    font-size: 1.3rem;
+    font-stretch: 76%;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.rp-semana__pista {
+    align-self: stretch;
+    background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), var(--rp-rejilla) calc(25% - 1px) 25%);
+    border-bottom: 1px solid var(--rp-eje);
+    position: relative;
+    width: 100%;
+}
+
+.rp-semana__barra {
+    background: var(--prog);
+    border-radius: 6px 6px 0 0;
+    bottom: 0;
+    height: calc(var(--h) * 1%);
+    left: 50%;
+    position: absolute;
+    transform: translateX(-50%);
+    width: min(62%, 48px);
+}
+
+.rp-semana li:hover .rp-semana__barra {
+    filter: brightness(0.86);
+}
+
+.rp-semana__dia {
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-top: 7px;
+}
+
+.rp-semana__corto {
+    display: none;
+}
+
+.rp-semana__pacientes {
+    color: var(--rp-tinta-3);
+    font-size: 0.74rem;
+    line-height: 1.25;
+}
+
 .rp-tiempos {
     display: grid;
     gap: 12px;
@@ -2305,8 +2406,8 @@ td > .rp-tenue:only-child {
     }
 }
 
-/* Sin ancho para siete columnas: "Personas" pasa arriba y las fichas quedan en una fila de seis. */
-@media (max-width: 1279.98px) {
+/* Sin ancho para ocho columnas: "Personas" pasa arriba y las fichas quedan en una fila de siete. */
+@media (max-width: 1599.98px) {
     .rp-tablero {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -2341,15 +2442,17 @@ td > .rp-tenue:only-child {
         position: static;
         width: auto;
     }
+}
 
+@media (max-width: 1279.98px) {
     .rp-resumen {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 1099.98px) {
     .rp-fichas {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
 
@@ -2407,6 +2510,28 @@ td > .rp-tenue:only-child {
     .rp-fichas,
     .rp-resumen {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .rp-semana {
+        gap: 2px;
+    }
+
+    .rp-semana li {
+        grid-template-rows: auto 120px auto auto;
+        padding-inline: 0;
+    }
+
+    .rp-semana__horas strong {
+        font-size: 1.05rem;
+    }
+
+    .rp-semana__largo,
+    .rp-semana__palabra {
+        display: none;
+    }
+
+    .rp-semana__corto {
+        display: inline;
     }
 
     .rp-combos {

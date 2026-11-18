@@ -15,10 +15,10 @@ using Microsoft.EntityFrameworkCore;
 namespace Nexa.Controllers;
 
 /// <summary>
-/// Tablero de reportes: los cinco censos más las novedades del Portal Administrativo.
+/// Tablero de reportes: los seis censos más las novedades del Portal Administrativo.
 ///
 /// Cada programa se arma en su propio archivo parcial (ReportesController.Agudos.cs, .Cronicos.cs,
-/// .Heridas.cs, .Npt.cs, .Terapia.cs, .Portal.cs). Este archivo solo resuelve el periodo, los filtros
+/// .Heridas.cs, .Npt.cs, .Terapia.cs, .Cuidadores.cs, .Portal.cs). Este archivo solo resuelve el periodo, los filtros
 /// y las piezas comunes de gráfico.
 ///
 /// Reglas que valen para todo el tablero:
@@ -90,12 +90,13 @@ public partial class ReportesController : Controller
         var heridasTask = ConContextoPropioAsync(c => ConstruirHeridasAsync(c, f, periodo, hoy, cancellationToken));
         var nptTask = ConContextoPropioAsync(c => ConstruirNptAsync(c, f, periodo, hoy, cancellationToken));
         var terapiaTask = ConContextoPropioAsync(c => ConstruirTerapiaAsync(c, f, periodo, hoy, cancellationToken));
+        var cuidadoresTask = ConContextoPropioAsync(c => ConstruirCuidadoresAsync(c, f, periodo, hoy, cancellationToken));
         var opcionesTask = ConContextoPropioAsync(c => BuildFilterOptionsAsync(c, f, cancellationToken));
         var portalTask = ConstruirPortalAsync(f, periodo, ahora, cancellationToken);
         var censoHoyTask = ConContextoPropioAsync(c => ConstruirCensoHoyAsync(c, cancellationToken));
         var portalHoyTask = ConstruirPortalHoyAsync(cancellationToken);
 
-        await Task.WhenAll(tabuladoTask, agudosTask, cronicosTask, heridasTask, nptTask, terapiaTask, opcionesTask, portalTask,
+        await Task.WhenAll(tabuladoTask, agudosTask, cronicosTask, heridasTask, nptTask, terapiaTask, cuidadoresTask, opcionesTask, portalTask,
             censoHoyTask, portalHoyTask);
 
         var model = new ReportesDashboardViewModel
@@ -116,6 +117,7 @@ public partial class ReportesController : Controller
             Heridas = heridasTask.Result,
             Npt = nptTask.Result,
             Terapia = terapiaTask.Result,
+            Cuidadores = cuidadoresTask.Result,
             Portal = portalTask.Result,
             ActiveFilterLabels = BuildActiveFilterLabels(f),
             RutaTablero = BuildRutaTablero(f),
@@ -259,9 +261,9 @@ public partial class ReportesController : Controller
         ReportesFilterViewModel filters,
         CancellationToken cancellationToken)
     {
-        // Municipios de los cinco censos. Las opciones de agudos se toman sobre el mismo universo que
-        // los indicadores para no ofrecer valores que solo existen en copias internas de despacho a
-        // farmacia (filtrarlos daría cero).
+        // Municipios de los seis censos; el de cuidadores sale del maestro, que es donde vive. Las
+        // opciones de agudos se toman sobre el mismo universo que los indicadores para no ofrecer
+        // valores que solo existen en copias internas de despacho a farmacia (filtrarlos daría cero).
         var municipios = new List<string>();
         municipios.AddRange(await contexto.Censos.AsNoTracking()
             .Where(CensoVisibility.EditableRecord(contexto))
@@ -287,6 +289,14 @@ public partial class ReportesController : Controller
         municipios.AddRange(await contexto.CensoTerapiasAmbulatorias.AsNoTracking()
             .Where(x => x.MunicipioResidencia != null && x.MunicipioResidencia != string.Empty)
             .Select(x => x.MunicipioResidencia!)
+            .Distinct()
+            .ToListAsync(cancellationToken));
+
+        municipios.AddRange(await contexto.CensoCuidadores.AsNoTracking()
+            .Where(x => x.CensoPacienteId != null)
+            .Select(x => contexto.CensoPacientes.Where(m => m.Id == x.CensoPacienteId).Select(m => m.MunicipioResidencia).FirstOrDefault())
+            .Where(x => x != null && x != string.Empty)
+            .Select(x => x!)
             .Distinct()
             .ToListAsync(cancellationToken));
 

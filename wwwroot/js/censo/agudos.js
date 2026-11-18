@@ -1013,6 +1013,78 @@
         });
     }
 
+    // ----- Kardex frente al plan de manejo (2026-11-18) -----
+    // Caso CC 1040754554: el kardex guardado traía 3 medicamentos y la ventana mostraba 1, porque las
+    // filas 2 a 6 se ocultan cuando el plan de manejo no tiene ese medicamento, y el plan nunca se
+    // guardó con ellos («Enviar a farmacia» guarda el kardex y la requisición, no el plan).
+    const kardexMedicamentoNombres = [
+        "NombreMedicamentoPrincipalTratante", "NombreMedicamentoNumero2", "NombreMedicamentoNumero3",
+        "NombreMedicamentoNumero4", "NombreMedicamentoNumero5", "NombreMedicamentoNumero6"
+    ];
+
+    // Una fila tiene datos si trae un medicamento, o una dosis con fecha de inicio o vehículo. La dosis
+    // sola no cuenta (los kardex viejos guardaban «MILIGRAMOS INTRAVENOSA INFUSION CONTINUA» en filas
+    // vacías), ni la fecha sola (queda en filas a las que se les borró el medicamento).
+    const kardexRowValue = (row, field) =>
+        String(document.querySelector(`#censoKardexModal [data-kardex-med-row='${row}'] [data-kardex-med-field='${field}']`)?.value || "").trim();
+    const kardexRowMedicationName = (row) =>
+        kardexRowValue(row, "presentacion").replace(new RegExp(`^Medicamento\\s*${row}\\s*`, "i"), "").trim();
+    const kardexRowHasData = (row) =>
+        !!(kardexRowMedicationName(row)
+            || (kardexRowValue(row, "dosisFrecuencia") && (kardexRowValue(row, "fechaInicio") || kardexRowValue(row, "vehiculoReconstitucion"))));
+
+    // Lo guardado en el kardex se muestra siempre, aunque el plan no tenga ese medicamento: si no, el
+    // kardex parece tener menos medicamentos de los que farmacia recibió.
+    const showKardexRowsWithSavedData = () => {
+        for (let row = 2; row <= 6; row += 1) {
+            if (kardexRowHasData(row)) {
+                document.querySelector(`#censoKardexModal [data-kardex-med-row='${row}']`)?.classList.remove("d-none");
+            }
+        }
+    };
+
+    // Los medicamentos del plan tal como están GUARDADOS (los que pintó el servidor al cargar la ficha)
+    // y una firma de esos campos para saber si alguien los cambió sin guardar.
+    const isSi = (value) => /^s[ií]$/i.test(String(value || "").trim());
+    const hasMedicationName = (value) => {
+        const text = String(value || "").trim();
+        return text.length > 0 && text.toUpperCase() !== "NO";
+    };
+    const planMedicationControls = () => Array.from(form?.querySelectorAll("[name]") || [])
+        .filter((control) => /Medicamento/.test(control.name) && control.type !== "hidden");
+    const planMedicationSignature = () => planMedicationControls()
+        .map((control) => `${control.name}=${control.type === "checkbox" || control.type === "radio" ? control.checked : control.value}`)
+        .join("|");
+    const savedPlan = {
+        administracion: getFormValue("AdministracionMedicamentos"),
+        nombres: kardexMedicamentoNombres.map((name) => getFormValue(name)),
+        firma: planMedicationSignature()
+    };
+    const savedPlanHasMedication = (row) => isSi(savedPlan.administracion) && hasMedicationName(savedPlan.nombres[row - 1]);
+
+    // Avisos antes de enviar a farmacia: plan con cambios sin guardar, o kardex con medicamentos que el
+    // plan guardado no tiene. Devuelve los párrafos del aviso (vacío si todo cuadra).
+    const kardexVsPlanWarnings = () => {
+        const warnings = [];
+        if (planMedicationSignature() !== savedPlan.firma) {
+            warnings.push("El <strong>plan de manejo</strong> tiene cambios en los medicamentos que <strong>no se han guardado</strong>. «Enviar a farmacia» guarda el kardex y la requisición, pero no el plan.");
+        }
+        const missing = [];
+        for (let row = 1; row <= 6; row += 1) {
+            if (kardexRowHasData(row) && !savedPlanHasMedication(row)) {
+                const name = kardexRowMedicationName(row) || kardexRowValue(row, "dosisFrecuencia").slice(0, 60);
+                missing.push(`Medicamento ${row}${name ? `: ${escapeHtml(name)}` : ""}`);
+            }
+        }
+        if (missing.length > 0) {
+            const admin = isSi(savedPlan.administracion)
+                ? ""
+                : " (está guardado con «Administración de medicamentos: No»)";
+            warnings.push(`El kardex trae medicamentos que el plan de manejo guardado no tiene${admin}:<br>${missing.join("<br>")}`);
+        }
+        return warnings;
+    };
+
     const collectKardexPayload = () => {
         const fields = {};
         document.querySelectorAll("#censoKardexModal [data-kardex-field]").forEach((control) => {
@@ -1064,6 +1136,7 @@
                     if (control) control.value = value;
                 });
             });
+            showKardexRowsWithSavedData();
         }
     };
 
@@ -1987,6 +2060,20 @@
                     "<p class=\"mb-0\">Antes de enviar el kardex de una nueva prórroga a farmacia, guárdala en la sección <strong>Prórroga o cambio</strong>.</p>",
                     "warning");
                 return;
+            }
+
+            if (!isProrrogaDocumentContext()) {
+                const warnings = kardexVsPlanWarnings();
+                if (warnings.length > 0) {
+                    const enviar = await window.censoConfirmar({
+                        titulo: "Revisa el plan de manejo antes de enviar",
+                        mensaje: warnings.map((text) => `<p>${text}</p>`).join("")
+                            + "<p class=\"mb-0\">Farmacia recibirá el kardex tal como está. Guarda el plan de manejo para que el censo, los reportes y la Hoja Clínica queden con los mismos medicamentos.</p>",
+                        textoConfirmar: "Enviar de todos modos",
+                        tono: "advertencia"
+                    });
+                    if (!enviar) return;
+                }
             }
 
             enviarFarmaciaKardexBtn.disabled = true;

@@ -216,6 +216,22 @@
     sondaVesicalSelect?.addEventListener("change", syncSondaVesical);
     syncSondaVesical();
 
+    // «Requiere asistencia» en Sí pide el tipo (Cuidador o Auxiliar de enfermería); en No se oculta y se limpia.
+    const requiereAsistenciaSelect = document.getElementById("requiereAsistenciaSelect");
+    const tipoAsistenciaFields = document.getElementById("tipoAsistenciaFields");
+    const syncTipoAsistencia = () => {
+        if (!tipoAsistenciaFields) return;
+        const activo = String(requiereAsistenciaSelect?.value || "").trim().toUpperCase() === "SI";
+        tipoAsistenciaFields.classList.toggle("d-none", !activo);
+        tipoAsistenciaFields.querySelectorAll("select").forEach((control) => {
+            control.disabled = !activo;
+            control.required = activo;
+            if (!activo) control.value = "";
+        });
+    };
+    requiereAsistenciaSelect?.addEventListener("change", syncTipoAsistencia);
+    syncTipoAsistencia();
+
     const mipresPanalesSelect = document.getElementById("mipresPanalesSelect");
     const mipresPanalesFields = document.getElementById("mipresPanalesFields");
     const syncMipresPanales = () => {
@@ -852,6 +868,69 @@
         }
     };
 
+    // ----- Kardex frente a la agudización guardada (2026-11-18) -----
+    // Mismo arreglo que en agudos: las filas 2 a 6 del kardex se ocultan cuando la agudización no tiene
+    // ese medicamento, aunque el kardex guardado sí lo traiga (pasaba en las agudizaciones 16, 20 y 23:
+    // farmacia recibió un medicamento que la ventana no mostraba). Y «Enviar a farmacia» guarda el kardex
+    // y la requisición, no la agudización, que tiene su propio botón «Guardar agudización».
+    const cronicoKardexRowValue = (row, field) =>
+        String(document.querySelector(`#cronicoKardexModal [data-kardex-med-row='${row}'] [data-kardex-med-field='${field}']`)?.value || "").trim();
+    const cronicoKardexRowName = (row) =>
+        cronicoKardexRowValue(row, "presentacion").replace(new RegExp(`^Medicamento\\s*${row}\\s*`, "i"), "").trim();
+    // Con medicamento, o con dosis más fecha de inicio o vehículo; una fila con solo la fecha no cuenta.
+    const cronicoKardexRowHasData = (row) =>
+        !!(cronicoKardexRowName(row)
+            || (cronicoKardexRowValue(row, "dosisFrecuencia")
+                && (cronicoKardexRowValue(row, "fechaInicio") || cronicoKardexRowValue(row, "vehiculoReconstitucion"))));
+    const showCronicoKardexRowsWithSavedData = () => {
+        for (let row = 2; row <= 6; row += 1) {
+            if (cronicoKardexRowHasData(row)) {
+                document.querySelector(`#cronicoKardexModal [data-kardex-med-row='${row}']`)?.classList.remove("d-none");
+            }
+        }
+    };
+
+    const savedAgudizacionPayload = () => {
+        try { return JSON.parse(getActiveAgudizacionItem()?.agudizacionJson || "{}") || {}; } catch { return {}; }
+    };
+    const cronicoMedText = (value) => String(value ?? "").trim().toUpperCase();
+    // Firma de los medicamentos y fechas de la agudización, para comparar lo que hay en pantalla con lo guardado.
+    const agudizacionMedsSignature = (payload) => JSON.stringify({
+        meds: (Array.isArray(payload?.medicamentos) ? payload.medicamentos : [])
+            .map((m) => {
+                const numero = Number(m?.numero) || 0;
+                const activo = numero === 1 || !!m?.activo;
+                return activo
+                    ? [numero, cronicoMedText(m.nombre), cronicoMedText(m.dosis), cronicoMedText(m.medida), cronicoMedText(m.via), cronicoMedText(m.frecuencia), cronicoMedText(m.dias)]
+                    : [numero];
+            })
+            .sort((a, b) => a[0] - b[0]),
+        inicio: cronicoMedText(payload?.fechaInicioTratamiento)
+    });
+    const savedAgudizacionHasMedication = (saved, row) => {
+        const med = (Array.isArray(saved?.medicamentos) ? saved.medicamentos : []).find((m) => Number(m?.numero) === row);
+        const nombre = String(med?.nombre || "").trim();
+        return !!med && (row === 1 || !!med.activo) && nombre.length > 0 && nombre.toUpperCase() !== "NO";
+    };
+    const cronicoKardexWarnings = () => {
+        const saved = savedAgudizacionPayload();
+        const warnings = [];
+        if (agudizacionMedsSignature(collectAgudizacionPayload()) !== agudizacionMedsSignature(saved)) {
+            warnings.push("La <strong>agudización</strong> tiene cambios en los medicamentos que <strong>no se han guardado</strong>. «Enviar a farmacia» guarda el kardex y la requisición, pero no la agudización.");
+        }
+        const missing = [];
+        for (let row = 1; row <= 6; row += 1) {
+            if (cronicoKardexRowHasData(row) && !savedAgudizacionHasMedication(saved, row)) {
+                const name = cronicoKardexRowName(row) || cronicoKardexRowValue(row, "dosisFrecuencia").slice(0, 60);
+                missing.push(`Medicamento ${row}${name ? `: ${cronicoEscapeHtml(name)}` : ""}`);
+            }
+        }
+        if (missing.length > 0) {
+            warnings.push(`El kardex trae medicamentos que la agudización guardada no tiene:<br>${missing.join("<br>")}`);
+        }
+        return warnings;
+    };
+
     const collectCronicoKardexPayload = () => {
         const fields = {};
         document.querySelectorAll("#cronicoKardexModal [data-kardex-field]").forEach((control) => {
@@ -910,6 +989,7 @@
                     if (control) control.value = value;
                 });
             });
+            showCronicoKardexRowsWithSavedData();
         }
     };
 
@@ -1290,6 +1370,17 @@
         if (isCronicoDocumentClosed()) {
             showCronicoFeedback("Kardex cerrado", "<p class=\"mb-0\">Este kardex ya fue aprobado por farmacia y no se puede reenviar.</p>", "warning");
             return;
+        }
+        const warnings = cronicoKardexWarnings();
+        if (warnings.length > 0 && window.censoConfirmar) {
+            const enviar = await window.censoConfirmar({
+                titulo: "Revisa la agudización antes de enviar",
+                mensaje: warnings.map((text) => `<p>${text}</p>`).join("")
+                    + "<p class=\"mb-0\">Farmacia recibirá el kardex tal como está. Guarda la agudización para que el censo, los reportes y la Hoja Clínica queden con los mismos medicamentos.</p>",
+                textoConfirmar: "Enviar de todos modos",
+                tono: "advertencia"
+            });
+            if (!enviar) return;
         }
         enviarFarmaciaCronicoBtn.disabled = true;
         try {

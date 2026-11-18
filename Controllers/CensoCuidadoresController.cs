@@ -350,6 +350,11 @@ public partial class CensoController
         IReadOnlyList<SelectListItem> auxiliares,
         string? auxiliarGuardado)
     {
+        if (ServiciosAsistencia.Normalizar(model.ServicioAutorizado) is null)
+        {
+            ModelState.AddModelError(nameof(model.ServicioAutorizado), "Selecciona el servicio autorizado: Cuidador o Auxiliar de enfermería.");
+        }
+
         if (model.TiempoCuidadorHorasDia is < 1 or > 24)
         {
             ModelState.AddModelError(nameof(model.TiempoCuidadorHorasDia), "Indica un número de horas entre 1 y 24.");
@@ -393,6 +398,7 @@ public partial class CensoController
             .Where(dia => (model.DiasAtencion ?? []).Contains(dia, StringComparer.OrdinalIgnoreCase))
             .ToList();
 
+        record.ServicioAutorizado = ServiciosAsistencia.Normalizar(model.ServicioAutorizado);
         record.TiempoCuidadorHorasDia = model.TiempoCuidadorHorasDia;
         record.DiasAtencion = dias.Count == 0 ? null : string.Join(", ", dias);
         record.Horario = CuidadorHorarioValues.FirstOrDefault(x =>
@@ -429,6 +435,7 @@ public partial class CensoController
         model.TelefonoResponsable = record.TelefonoResponsable;
         model.DireccionResponsable = record.DireccionResponsable;
         model.DireccionMismaDelPaciente = record.DireccionMismaDelPaciente;
+        model.ServicioAutorizado = record.ServicioAutorizado;
         model.TiempoCuidadorHorasDia = record.TiempoCuidadorHorasDia;
         model.DiasAtencion = string.IsNullOrWhiteSpace(record.DiasAtencion)
             ? []
@@ -456,6 +463,7 @@ public partial class CensoController
     {
         model.DiasSemanaOptions = CuidadorDiasValues;
         model.HorarioOptions = BuildOptions(CuidadorHorarioValues);
+        model.ServicioAutorizadoOptions = BuildOptions(ServiciosAsistencia.Todos);
         model.EstadoOptions = BuildOptions(CuidadorEstados.Todos);
 
         var auxiliares = await GetOpsAssistantOptionsAsync(cancellationToken);
@@ -560,6 +568,7 @@ public partial class CensoController
             ("Edad", (_, m) => m?.Edad.ToString(CultureInfo.InvariantCulture), false, true),
             ("Género", (_, m) => m?.Genero, false, false),
             ("Asegurador", (_, m) => m?.Asegurador, false, false),
+            (TituloIpsQueRemite, (_, m) => m?.IpsQueRemite, false, false),
             ("CIE10", (_, m) => m?.CodigoCie10, false, false),
             ("Diagnóstico", (_, m) => m?.DiagnosticoDescriptivo, false, false),
             ("Nombre del responsable", (r, _) => r.NombreResponsable, false, false),
@@ -571,6 +580,7 @@ public partial class CensoController
             ("Municipio", (_, m) => m?.MunicipioResidencia, false, false),
             ("Zona dirección según municipio", (_, m) => m?.ZonaDireccionSegunMunicipio, false, false),
             ("Clasificación zona Sura", (_, m) => m?.ClasificacionZonaSura, false, false),
+            ("Servicio autorizado", (r, _) => r.ServicioAutorizado, false, false),
             ("Tiempo de cuidador (horas al día)", (r, _) => r.TiempoCuidadorHorasDia?.ToString(CultureInfo.InvariantCulture), false, true),
             ("Días de atención", (r, _) => r.DiasAtencion, false, false),
             ("Horario", (r, _) => r.Horario, false, false),

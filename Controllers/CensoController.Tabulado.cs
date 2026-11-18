@@ -57,16 +57,19 @@ public partial class CensoController
                     .ToListAsync(cancellationToken);
 
                 // Los programas que cada paciente tiene agregados hoy (ver CensoController.ProgramasAgregados.cs).
-                var programasAgregados = await ProgramasAgregadosAsync(
-                    _context,
-                    registros.Select(x => ((string?)x.NumeroIdentificacion, x.CensoPacienteId)).ToList(),
-                    cancellationToken);
+                var pacientesHeridas = registros.Select(x => ((string?)x.NumeroIdentificacion, x.CensoPacienteId)).ToList();
+                var programasAgregados = await ProgramasAgregadosAsync(_context, pacientesHeridas, cancellationToken);
+                var ipsHeridas = await IpsQueRemiteDelMaestroAsync(_context, pacientesHeridas, cancellationToken);
 
                 var hoyHeridas = GetColombiaNow().Date;
                 return ExportarPorReflexion(
                     registros,
                     "Clinica de heridas",
                     "censo_clinica_heridas",
+                    new ColumnaCalculada<CensoClinicaHeridasRecord>(
+                        nameof(CensoClinicaHeridasRecord.Asegurador),
+                        TituloIpsQueRemite,
+                        x => ipsHeridas(x.NumeroIdentificacion, x.CensoPacienteId)),
                     new ColumnaCalculada<CensoClinicaHeridasRecord>(
                         "NombrePaciente",
                         "Programas agregados",
@@ -91,7 +94,18 @@ public partial class CensoController
                     .Where(x => string.IsNullOrEmpty(doc) || x.NumeroIdentificacion == doc)
                     .OrderBy(x => x.Id)
                     .ToListAsync(cancellationToken);
-                return ExportarPorReflexion(registros, "NPT", "censo_npt");
+                var ipsNpt = await IpsQueRemiteDelMaestroAsync(
+                    _context,
+                    registros.Select(x => ((string?)x.NumeroIdentificacion, x.CensoPacienteId)).ToList(),
+                    cancellationToken);
+                return ExportarPorReflexion(
+                    registros,
+                    "NPT",
+                    "censo_npt",
+                    new ColumnaCalculada<CensoNptRecord>(
+                        nameof(CensoNptRecord.Asegurador),
+                        TituloIpsQueRemite,
+                        x => ipsNpt(x.NumeroIdentificacion, x.CensoPacienteId)));
             }
             case CensoProgramas.Cuidadores:
                 return await ExportarCuidadoresExcel(cedulaPaciente, cancellationToken);
@@ -210,6 +224,40 @@ public partial class CensoController
         string Titulo,
         Func<T, string?> Valor,
         bool Numerica = false);
+
+    internal const string TituloIpsQueRemite = "IPS que remite";
+
+    /// <summary>
+    /// La IPS que remite es un dato del paciente: se diligencia en "Remisión y contacto" de la ficha
+    /// y vive en el maestro. Agudos y terapia la copian en su censo, y por eso eran los únicos
+    /// exportables que la traían; crónicos, clínica de heridas, NPT y cuidadores no tienen columna
+    /// propia y la leen de aquí. El paciente se reconoce por su <c>CensoPacienteId</c> y, si la fila
+    /// no está vinculada al maestro, por documento, igual que <see cref="ProgramasAgregadosAsync"/>.
+    /// </summary>
+    internal static async Task<Func<string?, long?, string?>> IpsQueRemiteDelMaestroAsync(
+        ApplicationDbContext contexto,
+        IReadOnlyCollection<(string? Documento, long? PacienteId)> pacientes,
+        CancellationToken ct)
+    {
+        static string Doc(string? valor) => (valor ?? string.Empty).Trim().ToUpperInvariant();
+
+        var ids = pacientes.Where(x => x.PacienteId.HasValue).Select(x => x.PacienteId!.Value).Distinct().ToList();
+        var docs = pacientes.Where(x => !x.PacienteId.HasValue).Select(x => Doc(x.Documento)).Where(x => x.Length > 0).Distinct().ToList();
+
+        var maestros = await contexto.CensoPacientes.AsNoTracking()
+            .Where(x => ids.Contains(x.Id) || docs.Contains(x.NumeroIdentificacion.Trim().ToUpper()))
+            .Select(x => new { x.Id, x.NumeroIdentificacion, x.IpsQueRemite })
+            .ToListAsync(ct);
+
+        var porId = maestros.ToDictionary(x => x.Id, x => x.IpsQueRemite);
+        var porDocumento = maestros
+            .GroupBy(x => Doc(x.NumeroIdentificacion))
+            .ToDictionary(g => g.Key, g => g.First().IpsQueRemite);
+
+        return (documento, pacienteId) => pacienteId is long id
+            ? porId.GetValueOrDefault(id)
+            : porDocumento.GetValueOrDefault(Doc(documento));
+    }
 
     /// <summary>
     /// Días entre dos fechas, contando solo el día: la misma cuenta del informe de pacientes activos.

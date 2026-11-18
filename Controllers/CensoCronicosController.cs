@@ -578,13 +578,20 @@ public partial class CensoController
             .ThenByDescending(x => x.Id)
             .ToListAsync(cancellationToken);
 
-        var content = BuildCronicoExcelXml(records, GetColombiaNow().Date);
+        var ipsQueRemite = await IpsQueRemiteDelMaestroAsync(
+            _context,
+            records.Select(x => ((string?)x.NumeroIdentificacion, x.CensoPacienteId)).ToList(),
+            cancellationToken);
+        var content = BuildCronicoExcelXml(records, GetColombiaNow().Date, ipsQueRemite);
         var bytes = Encoding.UTF8.GetBytes(content);
         var fileName = $"censo_cronicos_{DateTime.Now:yyyyMMdd_HHmmss}.xls";
         return File(bytes, "application/vnd.ms-excel", fileName);
     }
 
-    private static string BuildCronicoExcelXml(IReadOnlyList<CensoCronicoRecord> records, DateTime hoy)
+    private static string BuildCronicoExcelXml(
+        IReadOnlyList<CensoCronicoRecord> records,
+        DateTime hoy,
+        Func<string?, long?, string?> ipsQueRemite)
     {
         static string F(DateTime? d) => FechaExportable.Fecha(d);
         static string N(int? n) => n?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
@@ -611,6 +618,8 @@ public partial class CensoController
         {
             ("Id", r => r.Id.ToString(CultureInfo.InvariantCulture)),
             ("Fuente de ingreso", r => r.FuenteIngreso),
+            // El censo de crónicos no tiene la columna: el dato es del paciente y vive en el maestro.
+            (TituloIpsQueRemite, r => ipsQueRemite(r.NumeroIdentificacion, r.CensoPacienteId) ?? string.Empty),
             ("Fecha de ingreso", r => F(r.FechaIngreso)),
             ("Días de estancia", r => Math.Max(0, (hoy - r.FechaIngreso.Date).Days).ToString(CultureInfo.InvariantCulture)),
             ("Tipo de identificación", r => r.TipoIdentificacion),
@@ -648,7 +657,8 @@ public partial class CensoController
             ("Escala Morse", r => r.EscalaMorse.HasValue ? r.EscalaMorse.Value.ToString(CultureInfo.InvariantCulture) : string.Empty),
             ("Riesgo de caída", r => r.RiesgoCaida ?? string.Empty),
             ("Educación y plan de cuidados", r => r.EducacionPlanCuidados ?? string.Empty),
-            ("Requiere cuidador", r => r.RequiereCuidador ?? string.Empty),
+            ("Requiere asistencia", r => r.RequiereCuidador ?? string.Empty),
+            ("Tipo de asistencia", r => r.TipoAsistencia ?? string.Empty),
             ("Terapia física", r => r.TerapiaFisica ?? string.Empty),
             ("Terapia respiratoria", r => r.TerapiaRespiratoria ?? string.Empty),
             ("Terapia ocupacional", r => r.TerapiaOcupacional ?? string.Empty),
@@ -772,6 +782,7 @@ public partial class CensoController
             await GetMedicoOptionsAsync(cancellationToken), model.MedicoAsignadoGuardado);
         model.TallaPanalesOptions = BuildOptions(CronicoTallaValues);
         model.EstadoMipresOptions = BuildOptions(CronicoEstadoMipresValues);
+        model.TipoAsistenciaOptions = BuildOptions(ServiciosAsistencia.Todos);
         model.MotivoEgresoOptions = BuildOptions(CronicoMotivoEgresoValues);
         model.MedidaMedicamentoOptions = BuildOptions(MedidaMedicamentoValues);
         model.ViaAdministracionMedicamentoOptions = BuildOptions(ViaAdministracionMedicamentoValues);
@@ -988,6 +999,10 @@ public partial class CensoController
     {
         model.EducacionPlanCuidados = NormalizeOptionalSelect(model.EducacionPlanCuidados);
         model.RequiereCuidador = NormalizeOptionalSelect(model.RequiereCuidador);
+        // El tipo de asistencia solo aplica cuando «Requiere asistencia» está en Sí.
+        model.TipoAsistencia = string.Equals(model.RequiereCuidador, "Si", StringComparison.OrdinalIgnoreCase)
+            ? ServiciosAsistencia.Normalizar(model.TipoAsistencia) ?? NormalizeOptionalSelect(model.TipoAsistencia)
+            : null;
         model.TerapiaFisica = NormalizeOptionalSelect(model.TerapiaFisica);
         model.TerapiaRespiratoria = NormalizeOptionalSelect(model.TerapiaRespiratoria);
         model.TerapiaOcupacional = NormalizeOptionalSelect(model.TerapiaOcupacional);
@@ -1183,7 +1198,12 @@ public partial class CensoController
     private void ValidateCronicoServicios(CensoCronicoViewModel model)
     {
         ValidateCronicoSiNo(model.EducacionPlanCuidados, nameof(model.EducacionPlanCuidados), "educación y plan de cuidados");
-        ValidateCronicoSiNo(model.RequiereCuidador, nameof(model.RequiereCuidador), "requiere cuidador");
+        ValidateCronicoSiNo(model.RequiereCuidador, nameof(model.RequiereCuidador), "requiere asistencia");
+        if (string.Equals(model.RequiereCuidador, "Si", StringComparison.OrdinalIgnoreCase)
+            && ServiciosAsistencia.Normalizar(model.TipoAsistencia) is null)
+        {
+            ModelState.AddModelError(nameof(model.TipoAsistencia), "Selecciona el tipo de asistencia: Cuidador o Auxiliar de enfermería.");
+        }
         ValidateCronicoSiNo(model.TerapiaFisica, nameof(model.TerapiaFisica), "terapia física");
         ValidateCronicoSiNo(model.TerapiaRespiratoria, nameof(model.TerapiaRespiratoria), "terapia respiratoria");
         ValidateCronicoSiNo(model.TerapiaOcupacional, nameof(model.TerapiaOcupacional), "terapia ocupacional");
@@ -1481,6 +1501,9 @@ public partial class CensoController
     {
         record.EducacionPlanCuidados = model.EducacionPlanCuidados;
         record.RequiereCuidador = model.RequiereCuidador;
+        record.TipoAsistencia = string.Equals(model.RequiereCuidador, "Si", StringComparison.OrdinalIgnoreCase)
+            ? ServiciosAsistencia.Normalizar(model.TipoAsistencia)
+            : null;
         record.TerapiaFisica = model.TerapiaFisica;
         record.TerapiaRespiratoria = model.TerapiaRespiratoria;
         record.TerapiaOcupacional = model.TerapiaOcupacional;
@@ -1558,6 +1581,7 @@ public partial class CensoController
 
         model.EducacionPlanCuidados = SiNoOrNo(record.EducacionPlanCuidados);
         model.RequiereCuidador = SiNoOrNo(record.RequiereCuidador);
+        model.TipoAsistencia = record.TipoAsistencia;
         model.TerapiaFisica = SiNoOrNo(record.TerapiaFisica);
         model.TerapiaRespiratoria = SiNoOrNo(record.TerapiaRespiratoria);
         model.TerapiaOcupacional = SiNoOrNo(record.TerapiaOcupacional);

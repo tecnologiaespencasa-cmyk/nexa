@@ -49,6 +49,13 @@ public partial class ReportesController
             .Select(x => x.NumeroIdentificacion)
             .ToList();
 
+        var cuidadores = (await contexto.CensoCuidadores.AsNoTracking()
+                .Select(x => new { x.NumeroIdentificacion, x.FechaEgreso, x.Estado, x.TiempoCuidadorHorasDia })
+                .ToListAsync(ct))
+            .Where(x => EsActivoSinEgreso(x.FechaEgreso, x.Estado))
+            .ToList();
+        var horasDeCuidado = cuidadores.Sum(x => x.TiempoCuidadorHorasDia ?? 0);
+
         var programas = new (string Programa, string Vista, IReadOnlyList<string> Documentos, string? Destacado)[]
         {
             ("AGUDOS", ReportesVistas.Agudos, agudos, null),
@@ -56,7 +63,9 @@ public partial class ReportesController
             ("CLINICA_HERIDAS", ReportesVistas.Heridas, heridas.Select(x => x.NumeroIdentificacion).ToList(),
                 $"{ReportesFormato.Entero(heridas.Count(x => EsIgual(x.Vac, "Si")))} con VAC"),
             ("NPT", ReportesVistas.Npt, npt, null),
-            ("TERAPIA_AMBULATORIA", ReportesVistas.Terapia, terapia, null)
+            ("TERAPIA_AMBULATORIA", ReportesVistas.Terapia, terapia, null),
+            ("CUIDADORES", ReportesVistas.Cuidadores, cuidadores.Select(x => x.NumeroIdentificacion).ToList(),
+                $"{ReportesFormato.Entero(horasDeCuidado)} {(horasDeCuidado == 1 ? "hora" : "horas")} de cuidado al día")
         };
 
         // Una persona es un documento. Se cuentan programas distintos por documento: dos registros
@@ -142,6 +151,7 @@ public partial class ReportesController
         ReportesVistas.Heridas => "Clínica de heridas",
         ReportesVistas.Npt => "NPT",
         ReportesVistas.Terapia => "Terapia ambulatoria",
+        ReportesVistas.Cuidadores => "Cuidadores",
         _ => vista
     };
 

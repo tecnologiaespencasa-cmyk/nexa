@@ -15,6 +15,31 @@ public static class CuidadorEstados
 }
 
 /// <summary>
+/// Servicio de asistencia en casa (2026-11-18): el que la EPS autoriza en el programa Cuidadores
+/// («Servicio autorizado») y el que requiere un paciente de Programa crónicos («Requiere
+/// asistencia»). El informe de pacientes activos distingue «Crónico con cuidador» de «Crónico con
+/// auxiliar de enfermería» según el servicio autorizado en Cuidadores.
+/// </summary>
+public static class ServiciosAsistencia
+{
+    public const string Cuidador = "Cuidador";
+    public const string AuxiliarEnfermeria = "Auxiliar de enfermería";
+
+    public static readonly string[] Todos = [Cuidador, AuxiliarEnfermeria];
+
+    /// <summary>La forma guardada del valor (sin importar mayúsculas ni tildes), o null si no es uno de la lista.</summary>
+    public static string? Normalizar(string? valor)
+    {
+        var clave = Clave(valor);
+        return clave.Length == 0 ? null : Todos.FirstOrDefault(x => Clave(x) == clave);
+    }
+
+    private static string Clave(string? valor) =>
+        new string((valor ?? string.Empty).Normalize(System.Text.NormalizationForm.FormD)
+            .Where(char.IsLetter).Select(char.ToUpperInvariant).ToArray());
+}
+
+/// <summary>
 /// Una atención del programa Cuidadores. Solo guarda lo propio del programa: los datos básicos del
 /// paciente viven en el maestro y el exportable los lee de allí. Identificación y nombre se copian
 /// porque el censo, la conciliación de episodios y el tabulado buscan por documento en cada tabla.
@@ -72,6 +97,10 @@ public class CensoCuidadorRecord
     public bool DireccionMismaDelPaciente { get; set; }
 
     // ----- Plan de manejo -----
+    /// <summary>Lo que autorizó la EPS: <see cref="ServiciosAsistencia"/> (Cuidador o Auxiliar de enfermería).</summary>
+    [StringLength(30)]
+    public string? ServicioAutorizado { get; set; }
+
     public int? TiempoCuidadorHorasDia { get; set; }
 
     /// <summary>Días de la semana separados por ", ", en orden de lunes a domingo.</summary>

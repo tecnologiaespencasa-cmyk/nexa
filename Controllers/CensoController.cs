@@ -2656,7 +2656,8 @@ public partial class CensoController : Controller
                 Diagnostico = _context.CensoPacientes.Where(p => p.Id == x.CensoPacienteId).Select(p => p.DiagnosticoDescriptivo).FirstOrDefault(),
                 Asegurador = _context.CensoPacientes.Where(p => p.Id == x.CensoPacienteId).Select(p => p.Asegurador).FirstOrDefault()
                     ?? AseguradorSura,
-                Estado = x.Estado
+                Estado = x.Estado,
+                ServicioAutorizado = x.ServicioAutorizado
             })
             .ToListAsync(cancellationToken);
 
@@ -2739,29 +2740,48 @@ public partial class CensoController : Controller
             .ToList();
 
         // Un paciente activo en varios programas se reporta una sola vez, con el programa de mayor
-        // jerarquía (CensoProgramas.Jerarquia): NPT, crónicos, cuidadores, VAC, clínica de heridas,
-        // agudos y terapia ambulatoria en ese orden. Dentro del programa ganador se toma su
-        // atención más reciente.
+        // jerarquía (CensoProgramas.Jerarquia): 1 NPT, 2 crónicos, 3 crónico con cuidador,
+        // 4 cuidador, 5 VAC, 6 clínica de heridas, 7 agudos y 8 terapia ambulatoria. Dentro del
+        // programa ganador se toma su atención más reciente.
+        //
+        // «Crónico con cuidador» (desde 2026-11-18) no es un programa: es el paciente de Programa
+        // Crónicos que además está activo en Cuidadores. Crónicos ya le gana a Cuidadores, así que
+        // la fila sigue siendo la de crónicos (su ingreso, zona y diagnóstico) y solo cambia el
+        // rótulo. El crónico solo sigue saliendo «Crónico»; el que solo tiene Cuidadores, «Cuidador».
         var filas = conRegistro
             .Concat(pendientes)
             .GroupBy(x => x.NumeroIdentificacion, StringComparer.OrdinalIgnoreCase)
-            .Select(grupo => grupo
-                .OrderBy(x => CensoProgramas.Jerarquia(x.Programa))
-                .ThenByDescending(x => x.FechaIngreso)
-                .ThenByDescending(x => x.Id)
-                .First())
-            .Select(x => new ActivePatientReportRow
+            .Select(grupo =>
+            {
+                var elegido = grupo
+                    .OrderBy(x => CensoProgramas.Jerarquia(x.Programa))
+                    .ThenByDescending(x => x.FechaIngreso)
+                    .ThenByDescending(x => x.Id)
+                    .First();
+                // La atención de Cuidadores que cuenta es la más reciente; un Cuidadores asignado y aún
+                // sin diligenciar no tiene servicio todavía y cuenta como cuidador.
+                var cuidador = grupo
+                    .Where(x => x.Programa == CensoProgramas.Cuidadores)
+                    .OrderByDescending(x => x.FechaIngreso)
+                    .ThenByDescending(x => x.Id)
+                    .FirstOrDefault();
+                var conCuidador = elegido.Programa == CensoProgramas.Cronicos && cuidador is not null;
+                return (Candidato: elegido, ConCuidador: conCuidador, Cuidador: cuidador);
+            })
+            .Select(par => new ActivePatientReportRow
             {
                 CurrentDate = currentDate,
-                FullName = x.NombrePaciente,
-                IdentificationType = x.TipoIdentificacion,
-                IdentificationNumber = x.NumeroIdentificacion,
-                Zone = x.Zona ?? string.Empty,
-                AdmissionDate = x.FechaIngreso.Date,
-                LengthOfStayDays = Math.Max(0, (currentDate - x.FechaIngreso.Date).Days),
-                Diagnosis = x.Diagnostico ?? string.Empty,
-                Program = NombreProgramaInforme(x),
-                Insurer = x.Asegurador ?? string.Empty
+                FullName = par.Candidato.NombrePaciente,
+                IdentificationType = par.Candidato.TipoIdentificacion,
+                IdentificationNumber = par.Candidato.NumeroIdentificacion,
+                Zone = par.Candidato.Zona ?? string.Empty,
+                AdmissionDate = par.Candidato.FechaIngreso.Date,
+                LengthOfStayDays = Math.Max(0, (currentDate - par.Candidato.FechaIngreso.Date).Days),
+                Diagnosis = par.Candidato.Diagnostico ?? string.Empty,
+                Program = par.ConCuidador
+                    ? EsAuxiliarEnfermeria(par.Cuidador) ? RotuloInformeCronicoConAuxiliar : RotuloInformeCronicoConCuidador
+                    : NombreProgramaInforme(par.Candidato),
+                Insurer = par.Candidato.Asegurador ?? string.Empty
             })
             // El informe es de los pacientes de EPS Sura y de nadie más. Se filtra sobre la
             // fila ya elegida, que es la que se imprime, y no sobre cada candidata: así el
@@ -2791,12 +2811,26 @@ public partial class CensoController : Controller
     {
         CensoProgramas.Agudos => NormalizeActivePatientProgram(null, candidato.Estado),
         CensoProgramas.Cronicos => RotuloInformeCronico,
-        // En singular, como «Agudo» y «Crónico» y como lo nombra la operación.
-        CensoProgramas.Cuidadores => "Cuidador",
+        // En singular, como «Agudo» y «Crónico» y como lo nombra la operación. Desde 2026-11-18 el
+        // paciente solo de Cuidadores sale según el servicio que autorizó la EPS.
+        CensoProgramas.Cuidadores => EsAuxiliarEnfermeria(candidato) ? RotuloInformeAuxiliar : "Cuidador",
         _ => CensoProgramas.Nombre(candidato.Programa)
     };
 
     private const string RotuloInformeCronico = "Crónico";
+
+    /// <summary>
+    /// Paciente de Programa Crónicos que además está activo en Cuidadores (jerarquía 3). Si el
+    /// servicio autorizado en Cuidadores es auxiliar de enfermería, sale «Crónico con auxiliar de
+    /// enfermería» (2026-11-18); lo mismo el paciente solo de Cuidadores: «Auxiliar de enfermería».
+    /// </summary>
+    private const string RotuloInformeCronicoConCuidador = "Crónico con cuidador";
+    private const string RotuloInformeCronicoConAuxiliar = "Crónico con auxiliar de enfermería";
+    private const string RotuloInformeAuxiliar = "Auxiliar de enfermería";
+
+    private static bool EsAuxiliarEnfermeria(CandidatoActivo? cuidador) =>
+        cuidador is not null
+        && ServiciosAsistencia.Normalizar(cuidador.ServicioAutorizado) == ServiciosAsistencia.AuxiliarEnfermeria;
 
     /// <summary>
     /// Rótulo con el que el informe reporta a EPS Sura cuando el censo no guarda la
@@ -2834,6 +2868,8 @@ public partial class CensoController : Controller
         public string? Diagnostico { get; init; }
         public string? Asegurador { get; init; }
         public string? Estado { get; init; }
+        /// <summary>Solo Cuidadores: el servicio autorizado (Cuidador o Auxiliar de enfermería).</summary>
+        public string? ServicioAutorizado { get; init; }
     }
 
     [HttpGet]

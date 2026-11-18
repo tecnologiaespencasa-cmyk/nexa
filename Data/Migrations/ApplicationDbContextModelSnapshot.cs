@@ -1238,6 +1238,10 @@ namespace Nexa.Data.Migrations
                     b.Property<int?>("TiempoPrescripcionPanalesMeses")
                         .HasColumnType("integer");
 
+                    b.Property<string>("TipoAsistencia")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<string>("TipoIdentificacion")
                         .IsRequired()
                         .HasMaxLength(3)
@@ -1351,6 +1355,10 @@ namespace Nexa.Data.Migrations
                     b.Property<string>("ParentescoResponsable")
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
+
+                    b.Property<string>("ServicioAutorizado")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
 
                     b.Property<string>("TelefonoResponsable")
                         .HasMaxLength(10)

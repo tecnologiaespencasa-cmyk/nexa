@@ -1,0 +1,242 @@
+@model ReportesDashboardViewModel
+@using System.Globalization
+@{
+    var c = Model.Cuidadores;
+    var activo = Model.Vista == c.Vista;
+    var baseActivos = $"{ReportesFormato.Entero(c.ActivosHoy)} {(c.ActivosHoy == 1 ? "paciente activo" : "pacientes activos")} hoy";
+    var horarios = c.Horario.Where(x => !x.Secundaria).Select(x => $"{ReportesFormato.Entero(x.Valor)} {x.Etiqueta.ToLowerInvariant()}").ToList();
+}
+<section class="rp-panel" role="tabpanel" id="rp-panel-cuidadores" aria-labelledby="rp-tab-cuidadores"
+         data-programa="@c.Programa" hidden="@(!activo)">
+    <header class="rp-panel__cabeza">
+        <div class="rp-panel__titulo">
+            <h2>Cuidadores</h2>
+        </div>
+    </header>
+
+    <div class="rp-cifras">
+        <div class="rp-cifra">
+            <strong data-rp-cifra="cuidadores-activos-panel">@ReportesFormato.Entero(c.ActivosHoy)</strong>
+            <span>@ReportesFormato.Plural(c.ActivosHoy, "activo hoy", "activos hoy")</span>
+            <small>
+                @if (c.ActivosEnCronicos == 0)
+                {
+                    @:ninguno en Programa crónicos
+                }
+                else
+                {
+                    <text><b data-rp-cifra="cuidadores-en-cronicos">@ReportesFormato.Entero(c.ActivosEnCronicos)</b> @(c.ActivosEnCronicos == 1 ? "también está" : "también están") en Programa crónicos</text>
+                }
+            </small>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="cuidadores-ingresos-panel">@ReportesFormato.Entero(c.IngresosPeriodo)</strong>
+            <span>@ReportesFormato.Plural(c.IngresosPeriodo, "inicio de atención", "inicios de atención") en el periodo</span>
+            <small>
+                <b data-rp-cifra="cuidadores-reportes">@ReportesFormato.Entero(c.ReportesEpsPeriodo)</b> @ReportesFormato.Plural(c.ReportesEpsPeriodo, "reporte", "reportes") de la EPS@(c.SinIniciar > 0 ? $" · {ReportesFormato.Entero(c.SinIniciar)} sin iniciar hoy" : null)
+            </small>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="cuidadores-oportunidad">@(c.OportunidadPromedio is { } promedio ? ReportesFormato.Decimal(promedio) : "—")</strong>
+            <span>@(c.OportunidadPromedio == 1 ? "día" : "días") del reporte al inicio, en promedio</span>
+            <small>
+                @if (c.OportunidadMitad is { } mitad)
+                {
+                    @($"la mitad inició en {ReportesFormato.Cantidad(mitad, "día", "días")} o menos")
+                }
+                else
+                {
+                    @:sin inicios en el periodo
+                }
+            </small>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="cuidadores-horas">@ReportesFormato.Entero(c.HorasAlDia)</strong>
+            <span>@ReportesFormato.Plural(c.HorasAlDia, "hora", "horas") de cuidado al día</span>
+            <small><b data-rp-cifra="cuidadores-horas-semana">@ReportesFormato.Entero(c.HorasALaSemana)</b> a la semana</small>
+        </div>
+        <div class="rp-cifra @(c.CertificadosVencidos > 0 ? "rp-cifra--critico" : null)">
+            <strong data-rp-cifra="cuidadores-vencidos">@ReportesFormato.Entero(c.CertificadosVencidos)</strong>
+            <span>@ReportesFormato.Plural(c.CertificadosVencidos, "certificado vencido", "certificados vencidos")</span>
+            <small><b data-rp-cifra="cuidadores-por-vencer">@ReportesFormato.Entero(c.CertificadosPorVencer)</b> @ReportesFormato.Plural(c.CertificadosPorVencer, "vence", "vencen") en 30 días o menos</small>
+        </div>
+        <div class="rp-cifra">
+            <strong data-rp-cifra="cuidadores-egresos">@ReportesFormato.Entero(c.EgresosPeriodo)</strong>
+            <span>@ReportesFormato.Plural(c.EgresosPeriodo, "egreso", "egresos") en el periodo</span>
+        </div>
+    </div>
+
+    <div class="rp-rejilla">
+        <article class="rp-tarjeta rp-c-8">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Reporta la EPS e inicia la atención, por @Model.Granularidad</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(c.ReportesEpsPeriodo, "reporte", "reportes") y @ReportesFormato.Cantidad(c.IngresosPeriodo, "inicio", "inicios") del periodo</p>
+            </header>
+            <partial name="_RpLinea" model="c.Demanda" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Oportunidad de inicio</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(c.IngresosPeriodo, "inicio", "inicios") del periodo</p>
+            </header>
+            <partial name="_RpHistograma" model="c.Oportunidad" />
+            <p class="rp-nota">Días entre el reporte de la EPS y el inicio de la atención.</p>
+        </article>
+
+        <article class="rp-tarjeta rp-c-6">
+            <header class="rp-tarjeta__cabeza">
+                <h3>La semana del cuidado</h3>
+                <p class="rp-base">Base: @baseActivos</p>
+            </header>
+            @if (c.ActivosHoy == 0)
+            {
+                <p class="rp-vacio">Sin pacientes activos.</p>
+            }
+            else
+            {
+                <ol class="rp-semana">
+                    @foreach (var dia in c.Semana)
+                    {
+                        <li class="@(dia.FinDeSemana ? "is-finde" : null)"
+                            data-rp-semana="@dia.Dia|@dia.Pacientes|@dia.Horas"
+                            data-rp-tip="@dia.Dia · @ReportesFormato.Cantidad(dia.Pacientes, "paciente", "pacientes") · @ReportesFormato.Cantidad(dia.Horas, "hora", "horas") de cuidado">
+                            <span class="rp-semana__horas"><strong>@ReportesFormato.Entero(dia.Horas)</strong> h</span>
+                            <span class="rp-semana__pista" aria-hidden="true">
+                                <span class="rp-semana__barra" style="--h:@dia.Altura.ToString("0.##", CultureInfo.InvariantCulture)"></span>
+                            </span>
+                            <span class="rp-semana__dia"><span class="rp-semana__largo">@dia.Dia</span><span class="rp-semana__corto">@dia.Corto</span></span>
+                            <span class="rp-semana__pacientes">@ReportesFormato.Entero(dia.Pacientes)<span class="rp-semana__palabra"> @ReportesFormato.Plural(dia.Pacientes, "paciente", "pacientes")</span></span>
+                        </li>
+                    }
+                </ol>
+                @if (c.ActivosSinDias > 0 || c.ActivosSinHoras > 0)
+                {
+                    <p class="rp-nota">
+                        @string.Join(" y ", new[]
+                        {
+                            c.ActivosSinDias > 0 ? $"{ReportesFormato.Cantidad(c.ActivosSinDias, "paciente", "pacientes")} sin días de atención" : null,
+                            c.ActivosSinHoras > 0 ? $"{ReportesFormato.Cantidad(c.ActivosSinHoras, "paciente", "pacientes")} sin horas al día" : null
+                        }.OfType<string>()) registrados.
+                    </p>
+                }
+            }
+        </article>
+
+        <article class="rp-tarjeta rp-c-3">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Horas de cuidado al día</h3>
+                <p class="rp-base">Base: @baseActivos</p>
+            </header>
+            <partial name="_RpHistograma" model="c.Intensidad" />
+            @if (horarios.Count > 0)
+            {
+                <p class="rp-nota">Horario: @string.Join(", ", horarios).</p>
+            }
+        </article>
+
+        <article class="rp-tarjeta rp-c-3">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Nivel de dependencia</h3>
+                <p class="rp-base">Base: @baseActivos · escala de Barthel</p>
+            </header>
+            <partial name="_RpBarras" model="c.Dependencia" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-8">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Certificado de dependencia funcional</h3>
+                <p class="rp-base">Base: @baseActivos</p>
+            </header>
+            <partial name="_RpApilada" model="c.Certificados" />
+            @if (c.CertificadosParaGestionar.Count > 0)
+            {
+                <div class="rp-tabla-caja rp-certificados">
+                    <table class="rp-tabla">
+                        <thead>
+                            <tr>
+                                <th scope="col">Paciente</th>
+                                <th scope="col">Vence</th>
+                                <th scope="col">Estado</th>
+                                <th scope="col">Auxiliar asignado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var fila in c.CertificadosParaGestionar)
+                            {
+                                <tr>
+                                    <td>
+                                        <a class="rp-paciente" asp-controller="Censo" asp-action="Index"
+                                           asp-route-cedulaPaciente="@fila.NumeroIdentificacion" asp-route-programa="CUIDADORES"
+                                           title="Abrir en el censo">@fila.Paciente</a>
+                                        <span class="rp-dato">@fila.Documento</span>
+                                    </td>
+                                    <td><span class="rp-dato">@fila.Vence.ToString("dd/MM/yyyy")</span></td>
+                                    <td>
+                                        @if (fila.Vencido)
+                                        {
+                                            <b class="rp-etiqueta rp-etiqueta--critico">Venció hace @ReportesFormato.Cantidad(-fila.Dias, "día", "días")</b>
+                                        }
+                                        else if (fila.Dias == 0)
+                                        {
+                                            <b class="rp-etiqueta rp-etiqueta--alerta">Vence hoy</b>
+                                        }
+                                        else
+                                        {
+                                            <b class="rp-etiqueta rp-etiqueta--alerta">Vence en @ReportesFormato.Cantidad(fila.Dias, "día", "días")</b>
+                                        }
+                                    </td>
+                                    <td>@if (fila.Auxiliar is null) { <span class="rp-tenue">Sin asignar</span> } else { @fila.Auxiliar }</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </article>
+
+        <article class="rp-tarjeta rp-c-4">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Motivos de egreso</h3>
+                <p class="rp-base">Base: @ReportesFormato.Cantidad(c.EgresosPeriodo, "egreso", "egresos") del periodo</p>
+            </header>
+            <partial name="_RpBarras" model="c.MotivosEgreso" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-3">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Servicio autorizado</h3>
+                <p class="rp-base">Base: @baseActivos</p>
+            </header>
+            <partial name="_RpBarras" model="c.ServicioAutorizado" />
+            @if (c.HorasAlDia > 0)
+            {
+                <p class="rp-nota">Horas al día: @ReportesFormato.Entero(c.HorasCuidador) de cuidador y @ReportesFormato.Entero(c.HorasAuxiliar) de auxiliar de enfermería.</p>
+            }
+        </article>
+
+        <article class="rp-tarjeta rp-c-3">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Quién es el responsable</h3>
+                <p class="rp-base">Base: @baseActivos · parentesco con el paciente</p>
+            </header>
+            <partial name="_RpBarras" model="c.Parentesco" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-3">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Municipio de residencia</h3>
+                <p class="rp-base">Base: @baseActivos</p>
+            </header>
+            <partial name="_RpBarras" model="c.MunicipiosActivos" />
+        </article>
+
+        <article class="rp-tarjeta rp-c-3">
+            <header class="rp-tarjeta__cabeza">
+                <h3>Pacientes por auxiliar asignado</h3>
+                <p class="rp-base">Base: @baseActivos</p>
+            </header>
+            <partial name="_RpBarras" model="c.ActivosPorAuxiliar" />
+        </article>
+    </div>
+</section>

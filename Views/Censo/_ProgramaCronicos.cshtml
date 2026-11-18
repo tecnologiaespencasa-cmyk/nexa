@@ -18,6 +18,7 @@
     var errorMessage = TempData["ErrorMessage"] as string;
     var sondaVesicalActiva = string.Equals(Model.SondaVesical, "Si", StringComparison.OrdinalIgnoreCase);
     var mipresPanalesActivo = string.Equals(Model.MipresPanales, "Si", StringComparison.OrdinalIgnoreCase);
+    var requiereAsistencia = string.Equals(Model.RequiereCuidador, "Si", StringComparison.OrdinalIgnoreCase);
     var mipresNutricionActivo = string.Equals(Model.MipresNutricion, "Si", StringComparison.OrdinalIgnoreCase);
     var showCurrentPatientBar = Model.EditingRecordId.HasValue
         && !string.IsNullOrWhiteSpace(Model.NumeroIdentificacion);
@@ -259,7 +260,9 @@
                                         </span>
                                         <h3>Programas y servicios</h3>
                                     </div>
-                                    <div class="row g-3 censo-field-section__grid">
+                                    @* censo-mipres-grid: misma rejilla que los campos de Mipres, para que el
+                                       «Tipo de asistencia» que se revela con Sí quede alineado con los demás. *@
+                                    <div class="row g-3 censo-field-section__grid censo-mipres-grid">
                                         <div class="col-lg-3">
                                             <label asp-for="EducacionPlanCuidados" class="form-label"></label>
                                             <select asp-for="EducacionPlanCuidados" asp-items="Model.SiNoOptions" class="form-select">
@@ -268,9 +271,19 @@
                                         </div>
                                         <div class="col-lg-3">
                                             <label asp-for="RequiereCuidador" class="form-label"></label>
-                                            <select asp-for="RequiereCuidador" asp-items="Model.SiNoOptions" class="form-select">
+                                            <select asp-for="RequiereCuidador" asp-items="Model.SiNoOptions" class="form-select" id="requiereAsistenciaSelect">
                                             </select>
                                             <span asp-validation-for="RequiereCuidador" class="text-danger"></span>
+                                        </div>
+                                        @* Con «Requiere asistencia» en Sí se pide cuál: Cuidador o Auxiliar de enfermería. *@
+                                        <div class="censo-inline-toggle @(requiereAsistencia ? null : "d-none")" id="tipoAsistenciaFields">
+                                            <div class="col-lg-3">
+                                                <label asp-for="TipoAsistencia" class="form-label">Tipo de asistencia @RequiredMark()</label>
+                                                <select asp-for="TipoAsistencia" asp-items="Model.TipoAsistenciaOptions" class="form-select" id="tipoAsistenciaSelect">
+                                                    <option value="">Selecciona...</option>
+                                                </select>
+                                                <span asp-validation-for="TipoAsistencia" class="text-danger"></span>
+                                            </div>
                                         </div>
                                     </div>
                                 </section>

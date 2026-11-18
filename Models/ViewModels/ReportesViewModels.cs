@@ -15,9 +15,10 @@ public static class ReportesVistas
     public const string Heridas = "heridas";
     public const string Npt = "npt";
     public const string Terapia = "terapia";
+    public const string Cuidadores = "cuidadores";
     public const string Portal = "portal";
 
-    public static readonly string[] Todas = [Agudos, Cronicos, Heridas, Npt, Terapia, Portal];
+    public static readonly string[] Todas = [Agudos, Cronicos, Heridas, Npt, Terapia, Cuidadores, Portal];
 
     public static string Normalizar(string? vista, string? programaHeredado)
     {
@@ -34,6 +35,7 @@ public static class ReportesVistas
             "cronicos" or "crónicos" => Cronicos,
             "clinica de heridas" or "clínica de heridas" => Heridas,
             "npt" => Npt,
+            "cuidadores" => Cuidadores,
             _ => Agudos
         };
     }
@@ -76,6 +78,8 @@ public class ReportesDashboardViewModel
 
     public ReportesTerapiaViewModel Terapia { get; init; } = new();
 
+    public ReportesCuidadoresViewModel Cuidadores { get; init; } = new();
+
     public ReportesPortalViewModel Portal { get; init; } = new();
 
     public IReadOnlyList<string> ActiveFilterLabels { get; init; } = [];
@@ -93,7 +97,7 @@ public class ReportesDashboardViewModel
     public CensoUnificadoViewModel TabuladoCenso { get; init; } = new();
 
     public IEnumerable<ReportesProgramaViewModel> ProgramasCenso =>
-        [Agudos, Cronicos, Heridas, Npt, Terapia];
+        [Agudos, Cronicos, Heridas, Npt, Terapia, Cuidadores];
 }
 
 /// <summary>
@@ -108,7 +112,7 @@ public sealed class ReportesCensoHoyViewModel
 
     public int PacientesEnVariosProgramas { get; init; }
 
-    /// <summary>Suma de las cinco tarjetas: da más que las personas cuando alguien está en varios programas.</summary>
+    /// <summary>Suma de las tarjetas de los programas: da más que las personas cuando alguien está en varios programas.</summary>
     public int SumaDeTarjetas => Programas.Sum(x => x.Activos);
 
     /// <summary>
@@ -546,6 +550,30 @@ public sealed class ReportesLineaViewModel
         };
     }
 
+    /// <summary>Dos series de conteo del mismo periodo (mismos tramos) sobre una sola escala.</summary>
+    public static ReportesLineaViewModel DeDosSeries(
+        string id,
+        ReportesSerieViewModel principal,
+        string nombrePrincipal,
+        ReportesSerieViewModel secundaria,
+        string nombreSecundaria)
+    {
+        var escala = Escala(Math.Max(principal.Maximo, secundaria.Maximo), entera: true);
+        return new ReportesLineaViewModel
+        {
+            Id = id,
+            Vista = principal.Vista,
+            Tramos = principal.Puntos.Select(p => new ReportesTramoViewModel(p.Etiqueta, p.Dia, p.Rango, p.FinDeSemana)).ToList(),
+            Series =
+            [
+                new ReportesLineaSerieViewModel { Nombre = nombrePrincipal, Valores = principal.Puntos.Select(p => (double?)p.Valor).ToList(), TotalTexto = ReportesFormato.Entero(principal.Total) },
+                new ReportesLineaSerieViewModel { Nombre = nombreSecundaria, Clase = "secundaria", Valores = secundaria.Puntos.Select(p => (double?)p.Valor).ToList(), TotalTexto = ReportesFormato.Entero(secundaria.Total) }
+            ],
+            EscalaMaxima = escala.Maximo,
+            Marcas = escala.Marcas
+        };
+    }
+
     public static ReportesLineaViewModel DeHoras(string id, ReportesSerieHorasViewModel serie, string nombre)
     {
         var maximo = serie.Puntos.Where(p => p.Horas.HasValue).Select(p => p.Horas!.Value).DefaultIfEmpty(0).Max();
@@ -889,6 +917,120 @@ public class ReportesTerapiaViewModel : ReportesProgramaViewModel
     public IReadOnlyList<ReportesCategoriaViewModel> ActivosPorFisioterapeuta { get; init; } = [];
 
     public int ActivosSinFisioterapeuta { get; init; }
+}
+
+/// <summary>
+/// Programa Cuidadores. Su censo no guarda municipio, aseguradora ni diagnóstico: se leen del maestro
+/// del paciente. La atención tiene dos fechas de entrada: el reporte de la EPS (la solicitud) y el inicio
+/// de la atención (el ingreso). El panel las muestra juntas y la diferencia entre ambas es la
+/// oportunidad de inicio.
+/// </summary>
+public class ReportesCuidadoresViewModel : ReportesProgramaViewModel
+{
+    public override string Programa => "CUIDADORES";
+
+    public override string Vista => ReportesVistas.Cuidadores;
+
+    /// <summary>Atenciones con fecha de reporte de la EPS en el periodo.</summary>
+    public int ReportesEpsPeriodo { get; init; }
+
+    /// <summary>Atenciones abiertas hoy que todavía no tienen fecha de inicio (no depende del periodo).</summary>
+    public int SinIniciar { get; init; }
+
+    public int EgresosPeriodo { get; init; }
+
+    /// <summary>Activos hoy que además están activos en Programa crónicos.</summary>
+    public int ActivosEnCronicos { get; init; }
+
+    /// <summary>Promedio de días del reporte de la EPS al inicio, sobre los ingresos del periodo.</summary>
+    public double? OportunidadPromedio { get; init; }
+
+    /// <summary>Al menos la mitad de los ingresos del periodo inició en este número de días o menos.</summary>
+    public int? OportunidadMitad { get; init; }
+
+    public ReportesLineaViewModel Demanda { get; init; } = new();
+
+    public IReadOnlyList<ReportesCategoriaViewModel> Oportunidad { get; init; } = [];
+
+    /// <summary>Lunes a domingo: cuántos activos reciben cuidado ese día y cuántas horas suman.</summary>
+    public IReadOnlyList<ReportesSemanaDiaViewModel> Semana { get; init; } = [];
+
+    /// <summary>Suma de las horas de cuidado al día de los activos.</summary>
+    public int HorasAlDia { get; init; }
+
+    /// <summary>Horas de cuidado de una semana: las horas al día de cada activo por sus días de atención.</summary>
+    public int HorasALaSemana { get; init; }
+
+    public int ActivosSinHoras { get; init; }
+
+    public int ActivosSinDias { get; init; }
+
+    public IReadOnlyList<ReportesCategoriaViewModel> Intensidad { get; init; } = [];
+
+    public IReadOnlyList<ReportesCategoriaViewModel> Horario { get; init; } = [];
+
+    public IReadOnlyList<ReportesCategoriaViewModel> Dependencia { get; init; } = [];
+
+    public IReadOnlyList<ReportesSegmentoViewModel> Certificados { get; init; } = [];
+
+    public int CertificadosVencidos { get; init; }
+
+    public int CertificadosPorVencer { get; init; }
+
+    /// <summary>Vencidos y por vencer, del que venció hace más tiempo al que vence más tarde.</summary>
+    public IReadOnlyList<ReportesCertificadoFilaViewModel> CertificadosParaGestionar { get; init; } = [];
+
+    public IReadOnlyList<ReportesCategoriaViewModel> Parentesco { get; init; } = [];
+
+    /// <summary>Activos hoy por servicio que autorizó la EPS: Cuidador o Auxiliar de enfermería (2026-11-18).</summary>
+    public IReadOnlyList<ReportesCategoriaViewModel> ServicioAutorizado { get; init; } = [];
+
+    /// <summary>Horas de cuidado al día de los activos, por servicio autorizado.</summary>
+    public int HorasCuidador { get; init; }
+
+    public int HorasAuxiliar { get; init; }
+
+    public IReadOnlyList<ReportesCategoriaViewModel> MunicipiosActivos { get; init; } = [];
+
+    public IReadOnlyList<ReportesCategoriaViewModel> ActivosPorAuxiliar { get; init; } = [];
+
+    public int ActivosSinAuxiliar { get; init; }
+
+    public IReadOnlyList<ReportesCategoriaViewModel> MotivosEgreso { get; init; } = [];
+}
+
+public sealed class ReportesSemanaDiaViewModel
+{
+    public string Dia { get; init; } = string.Empty;
+
+    public string Corto { get; init; } = string.Empty;
+
+    public bool FinDeSemana { get; init; }
+
+    public int Pacientes { get; init; }
+
+    public int Horas { get; init; }
+
+    /// <summary>Alto de la columna en porcentaje, relativo al día con más horas.</summary>
+    public double Altura { get; init; }
+}
+
+public sealed class ReportesCertificadoFilaViewModel
+{
+    public string Paciente { get; init; } = string.Empty;
+
+    public string Documento { get; init; } = string.Empty;
+
+    public string NumeroIdentificacion { get; init; } = string.Empty;
+
+    public DateTime Vence { get; init; }
+
+    /// <summary>Días de hoy al vencimiento: negativo si ya venció.</summary>
+    public int Dias { get; init; }
+
+    public string? Auxiliar { get; init; }
+
+    public bool Vencido => Dias < 0;
 }
 
 public class ReportesPortalViewModel
